@@ -21,7 +21,7 @@ system before they can track time.
 
 ## Layout
 
-- Today is the product center: timer first, daily totals second, entries third.
+- Tracker is the product center: activity and timer first, time entries second.
 - Desktop uses a collapsible sidebar and a focused content column.
 - Small screens use a horizontally scrollable navigation strip and full-width
   content with no accidental page overflow.

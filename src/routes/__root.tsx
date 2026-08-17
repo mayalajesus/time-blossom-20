@@ -109,7 +109,7 @@ function RootComponent() {
   useEffect(() => {
     const titles: Record<string, string> = {
       "/": "Time Blossom — Simple time tracking",
-      "/today": "Today — Time Blossom time tracking",
+      "/today": "Tracker — Time Blossom time tracking",
       "/timesheet": "Timesheet — Time Blossom time tracking",
       "/projects": "Projects — Time Blossom time tracking",
       "/clients": "Clients — Time Blossom time tracking",

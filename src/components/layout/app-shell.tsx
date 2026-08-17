@@ -19,7 +19,7 @@ import { LogTimeModal } from "@/components/log-time-modal";
 import { useStore } from "@/lib/store";
 
 const nav = [
-  { to: "/today", label: "Today", icon: Clock },
+  { to: "/today", label: "Tracker", icon: Clock },
   { to: "/timesheet", label: "Timesheet", icon: BarChart3 },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/clients", label: "Clients", icon: Building2 },

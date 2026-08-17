@@ -50,9 +50,9 @@ export function CommandMenu({
   const commands = useMemo<Command[]>(() => {
     const nav: Command[] = [
       {
-        id: "nav-today",
-        label: "Today",
-        hint: "Go to today",
+        id: "nav-tracker",
+        label: "Tracker",
+        hint: "Go to tracker",
         icon: <CalendarDays className="size-4" />,
         group: "Navigation",
         run: () => navigate({ to: "/today" }),
