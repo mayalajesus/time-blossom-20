@@ -1,0 +1,18 @@
+@import "@heroui/styles";
+
+@source "../src";
+@source "../node_modules/@heroui/react/dist";
+@source "../node_modules/@heroui/styles/dist";
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
