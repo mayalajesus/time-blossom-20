@@ -640,6 +640,11 @@ function TrackerEntryRow({
       return commitTime(draft.start, draft.end, true);
     }
     if (activeField === "duration") return commitDuration(draft.duration, true);
+    if (activeField === "project") {
+      const saved = commitField("project", draft.projectId);
+      if (saved) onDeactivate();
+      return saved;
+    }
     if (activeField === "date") {
       const saved = commitField("date", draft.date);
       if (saved) onDeactivate();
