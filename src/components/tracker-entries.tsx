@@ -276,6 +276,7 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
                         key={entry.id}
                         entry={entry}
                         rowId={index === 0 ? `${group.id}-details` : undefined}
+                        isGroupedDetail
                         activeField={activeCell?.entryId === entry.id ? activeCell.field : null}
                         onActivate={(field) => setActiveCell({ entryId: entry.id, field })}
                         onDeactivate={() => setActiveCell(null)}
@@ -306,11 +307,10 @@ function TrackerGroupSummaryRow({
   const clientName = project
     ? (clients.find((client) => client.id === project.clientId)?.name ?? "Unknown client")
     : "No client";
-  const summaryButtonClass =
-    "inline-flex min-w-0 max-w-full items-center !justify-start !rounded-lg !px-1 !py-1 text-left outline-none transition-colors hover:bg-surface-secondary/60 focus-visible:ring-2 focus-visible:ring-accent";
   const summaryCellClass =
-    "border-b border-default bg-surface-secondary/55 px-4 py-3 align-middle overflow-hidden";
-  const toggleLabel = `${isExpanded ? "Collapse" : "Expand"} ${group.entries.length} entries for ${group.task}`;
+    "cursor-pointer border-b border-default bg-surface-secondary/55 px-4 py-3 align-middle overflow-hidden";
+  const summaryTextClass = "block min-w-0 truncate whitespace-nowrap";
+  const toggleLabel = `${isExpanded ? "Collapse" : "Expand"} ${group.entries.length} entries for ${group.task}; ${group.billable ? "billable" : "internal"}`;
 
   const startAgain = () => {
     if (timer.status !== "idle") return;
@@ -318,19 +318,26 @@ function TrackerGroupSummaryRow({
     if (!result.success) toast("Could not start timer", { description: result.error });
   };
 
+  const handleSummaryClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest("[data-tracker-action], [data-tracker-group-toggle]")) return;
+    onToggle();
+  };
+
   return (
     <tr
       data-tracker-group={group.id}
+      onClick={handleSummaryClick}
       className="group/summary bg-surface-secondary/55 transition-colors hover:bg-surface-secondary/75"
     >
       <td className={`${summaryCellClass} min-w-0`}>
         <Button
           size="sm"
           variant="ghost"
-          fullWidth
-          className={`${summaryButtonClass} gap-2`}
+          className="inline-flex min-w-0 max-w-full !h-8 !min-h-8 !justify-start !rounded-md !px-1 !py-1 text-left outline-none transition-colors hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-accent"
           aria-label={toggleLabel}
           aria-expanded={isExpanded}
+          data-tracker-group-toggle
           {...(isExpanded ? { "aria-controls": `${group.id}-details` } : {})}
           onPress={onToggle}
         >
@@ -338,72 +345,41 @@ function TrackerGroupSummaryRow({
             {group.entries.length}
           </span>
           <span className="min-w-0 truncate text-sm font-medium text-foreground">{group.task}</span>
+          <span
+            className={`ml-1 size-2 shrink-0 rounded-full ${group.billable ? "bg-success" : "bg-muted"}`}
+            aria-hidden="true"
+          />
           <ChevronDown
-            className={`ml-auto size-4 shrink-0 text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            className={`ml-1 size-4 shrink-0 text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
             aria-hidden="true"
           />
         </Button>
       </td>
       <td className={summaryCellClass}>
-        <Button
-          size="sm"
-          variant="ghost"
-          fullWidth
-          className={summaryButtonClass}
-          aria-label={`${toggleLabel}; project ${projectName}; client ${clientName}`}
-          onPress={onToggle}
-        >
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="block w-full min-w-0 truncate text-sm text-foreground">
-              {projectName}
-            </span>
-            <span className="block w-full min-w-0 truncate text-xs text-muted">{clientName}</span>
-          </span>
-        </Button>
+        <span className="flex min-w-0 flex-col">
+          <span className={`${summaryTextClass} text-sm text-foreground`}>{projectName}</span>
+          <span className={`${summaryTextClass} text-xs text-muted`}>{clientName}</span>
+        </span>
       </td>
       <td className={`${summaryCellClass} text-center`}>
-        <Button
-          size="sm"
-          variant="ghost"
-          className={`${summaryButtonClass} w-full justify-center tabular-nums text-muted`}
-          aria-label={`${toggleLabel}; starts at ${group.start}`}
-          onPress={onToggle}
-        >
+        <span className={`${summaryTextClass} text-center tabular-nums text-muted`}>
           {group.start}
-        </Button>
+        </span>
       </td>
       <td className={`${summaryCellClass} text-center`}>
-        <Button
-          size="sm"
-          variant="ghost"
-          className={`${summaryButtonClass} w-full justify-center tabular-nums text-muted`}
-          aria-label={`${toggleLabel}; ends at ${group.end}`}
-          onPress={onToggle}
-        >
+        <span className={`${summaryTextClass} text-center tabular-nums text-muted`}>
           {group.end}
-        </Button>
+        </span>
       </td>
       <td className={summaryCellClass}>
-        <Button
-          size="sm"
-          variant="ghost"
-          className={`${summaryButtonClass} tabular-nums text-muted`}
-          aria-label={`${toggleLabel}; date ${formatDate(group.date)}`}
-          onPress={onToggle}
-        >
+        <span className={`${summaryTextClass} tabular-nums text-muted`}>
           {formatDate(group.date)}
-        </Button>
+        </span>
       </td>
       <td className={summaryCellClass}>
-        <Button
-          size="sm"
-          variant="ghost"
-          className={`${summaryButtonClass} font-medium tabular-nums text-foreground`}
-          aria-label={`${toggleLabel}; total ${formatDuration(group.totalSeconds)}`}
-          onPress={onToggle}
-        >
+        <span className={`${summaryTextClass} font-medium tabular-nums text-foreground`}>
           {formatDuration(group.totalSeconds)}
-        </Button>
+        </span>
       </td>
       <td className="tracker-actions-cell border-b border-default bg-surface-secondary/55 px-2 py-2 align-middle whitespace-nowrap">
         <div className="flex shrink-0 items-center justify-end gap-1" data-tracker-action>
@@ -426,12 +402,14 @@ function TrackerGroupSummaryRow({
 function TrackerEntryRow({
   entry,
   rowId,
+  isGroupedDetail = false,
   activeField,
   onActivate,
   onDeactivate,
 }: {
   entry: TimeEntry;
   rowId?: string | undefined;
+  isGroupedDetail?: boolean;
   activeField: TrackerEditableField | null;
   onActivate: (field: TrackerEditableField) => void;
   onDeactivate: () => void;
@@ -775,7 +753,7 @@ function TrackerEntryRow({
       id={rowId}
       ref={rowRef}
       data-tracker-entry="true"
-      className="group bg-surface transition-colors hover:bg-surface-secondary/50"
+      className={`group ${isGroupedDetail ? "bg-surface-secondary/45" : "bg-surface"} transition-colors hover:bg-surface-secondary/70`}
     >
       <td className={`${cellClass} min-w-0`}>
         <div className="flex min-w-0 items-center gap-2">
