@@ -27,11 +27,16 @@ function ReportsPage() {
 
   const total = entries.reduce((s, e) => s + e.seconds, 0);
   const billable = entries.filter((e) => e.billable).reduce((s, e) => s + e.seconds, 0);
-  const perProject = projects
-    .map((p) => ({
+  const perProject = [
+    ...projects.map((p) => ({
       project: p,
       seconds: entries.filter((e) => e.projectId === p.id).reduce((s, e) => s + e.seconds, 0),
-    }))
+    })),
+    {
+      project: null,
+      seconds: entries.filter((e) => e.projectId === null).reduce((s, e) => s + e.seconds, 0),
+    },
+  ]
     .filter((row) => row.seconds > 0)
     .sort((a, b) => b.seconds - a.seconds);
   const max = perProject[0]?.seconds ?? 1;
@@ -66,9 +71,9 @@ function ReportsPage() {
             <p className="text-sm font-medium text-foreground">Hours by project</p>
             <div className="mt-4 space-y-4">
               {perProject.map(({ project, seconds }) => (
-                <div key={project.id} className="space-y-1.5">
+                <div key={project?.id ?? "no-project"} className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-foreground">{project.name}</span>
+                    <span className="text-foreground">{project?.name ?? "No project"}</span>
                     <span className="tabular-nums text-muted">{formatDuration(seconds)}</span>
                   </div>
                   <div className="h-2 rounded-full bg-surface-secondary">

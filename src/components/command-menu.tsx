@@ -122,7 +122,7 @@ export function CommandMenu({
         hint: timer.status === "idle" ? "Begin tracking now" : "Save the running entry",
         icon: <Play className="size-4" />,
         group: "Actions",
-        run: () => (timer.status === "idle" ? startTimer("Quick task", "p1") : stopTimer()),
+        run: () => (timer.status === "idle" ? startTimer("Quick task", null) : stopTimer()),
       },
       {
         id: "action-log",

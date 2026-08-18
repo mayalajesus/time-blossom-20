@@ -37,7 +37,9 @@ function TimesheetPage() {
   const [logOpen, setLogOpen] = useState(false);
 
   const filtered = entries.filter((e) => {
-    const matchesProject = projectId === "all" || e.projectId === projectId;
+    const matchesProject =
+      projectId === "all" ||
+      (projectId === "none" ? e.projectId === null : e.projectId === projectId);
     const matchesQuery = `${e.task} ${e.description ?? ""}`
       .toLowerCase()
       .includes(query.trim().toLowerCase());
@@ -103,6 +105,10 @@ function TimesheetPage() {
               <ListBox>
                 <ListBox.Item id="all" textValue="All projects">
                   <Label>All projects</Label>
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+                <ListBox.Item id="none" textValue="No project">
+                  <Label>No project</Label>
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
                 {projects.map((p) => (

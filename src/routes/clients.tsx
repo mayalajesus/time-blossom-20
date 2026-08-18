@@ -27,7 +27,9 @@ function ClientsPage() {
 
   const secondsFor = (clientId: string) => {
     const ids = projects.filter((p) => p.clientId === clientId).map((p) => p.id);
-    return entries.filter((e) => ids.includes(e.projectId)).reduce((s, e) => s + e.seconds, 0);
+    return entries
+      .filter((e) => e.projectId !== null && ids.includes(e.projectId))
+      .reduce((s, e) => s + e.seconds, 0);
   };
 
   return (

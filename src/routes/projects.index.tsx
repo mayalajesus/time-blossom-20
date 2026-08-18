@@ -38,7 +38,7 @@ function ProjectsPage() {
   const [filter, setFilter] = useState<string>("active");
   const [newOpen, setNewOpen] = useState(false);
   const [name, setName] = useState("");
-  const [clientId, setClientId] = useState("c1");
+  const [clientId, setClientId] = useState("");
 
   const visible = projects.filter((p) => filter === "all" || p.status === filter);
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
@@ -47,7 +47,7 @@ function ProjectsPage() {
 
   const create = () => {
     if (!name.trim()) return;
-    addProject({
+    const result = addProject({
       name: name.trim(),
       clientId,
       status: "active",
@@ -55,6 +55,10 @@ function ProjectsPage() {
       lastActivity: "2026-08-17",
       memberIds: ["u1"],
     });
+    if (!result.success) {
+      toast("Could not create project", { description: result.error });
+      return;
+    }
     toast("Project created", { description: name.trim() });
     setName("");
     setNewOpen(false);
@@ -166,8 +170,11 @@ function ProjectsPage() {
                   <Select
                     aria-label="Client"
                     fullWidth
-                    value={clientId}
-                    onChange={(key) => setClientId(String(key ?? "c1"))}
+                    value={clientId || "none"}
+                    onChange={(key) => {
+                      const value = String(key ?? "none");
+                      setClientId(value === "none" ? "" : value);
+                    }}
                   >
                     <Select.Trigger>
                       <Select.Value />
@@ -175,6 +182,9 @@ function ProjectsPage() {
                     </Select.Trigger>
                     <Select.Popover>
                       <ListBox>
+                        <ListBox.Item id="none" textValue="Select a client" isDisabled>
+                          <Label>Select a client</Label>
+                        </ListBox.Item>
                         {clients.map((c) => (
                           <ListBox.Item key={c.id} id={c.id} textValue={c.name}>
                             <Label>{c.name}</Label>
@@ -190,7 +200,7 @@ function ProjectsPage() {
                 <Button slot="close" variant="secondary">
                   Cancel
                 </Button>
-                <Button isDisabled={!name.trim()} onPress={create}>
+                <Button isDisabled={!name.trim() || !clientId} onPress={create}>
                   Create project
                 </Button>
               </Modal.Footer>

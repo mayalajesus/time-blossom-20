@@ -30,7 +30,13 @@ function SearchPage() {
   const p = projects.filter((x) => match(x.name));
   const c = clients.filter((x) => match(x.name));
   const m = members.filter((x) => match(x.name) || match(x.email));
-  const e = entries.filter((x) => match(x.task));
+  const e = entries.filter((x) => {
+    const projectName =
+      x.projectId === null
+        ? "No project"
+        : (projects.find((p) => p.id === x.projectId)?.name ?? "");
+    return match(`${x.task} ${x.description ?? ""} ${projectName}`);
+  });
   const empty = p.length + c.length + m.length + e.length === 0;
 
   return (

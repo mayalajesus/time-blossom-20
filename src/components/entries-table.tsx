@@ -18,7 +18,8 @@ export function EntriesTable({
   const { projects, members, deleteEntry, updateEntry } = useStore();
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
 
-  const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? "—";
+  const projectName = (id: string | null) =>
+    id === null ? "No project" : (projects.find((p) => p.id === id)?.name ?? "Unknown project");
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "—";
 
   return (

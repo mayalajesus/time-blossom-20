@@ -16,3 +16,23 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* The 1200px CSS viewport is the compact-desktop threshold for the Tracker.
+   Physical screen size varies with OS display scaling, so responsive behavior
+   is based on the effective browser viewport instead of laptop diagonal. */
+@media (min-width: 1200px) {
+  .tracker-table {
+    min-width: 0 !important;
+  }
+
+  .tracker-table th,
+  .tracker-table td {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .tracker-table .tracker-actions-cell {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}

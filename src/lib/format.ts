@@ -1,3 +1,5 @@
+import { addDays, endOfWeek, format as formatDateFns, startOfWeek } from "date-fns";
+
 function nums(value: string, sep: string): number[] {
   return value.split(sep).map((p) => Number(p) || 0);
 }
@@ -25,20 +27,68 @@ export function formatHours(seconds: number): string {
 }
 
 export function formatDate(iso: string): string {
-  const p = nums(iso, "-");
-  return new Date(at(p, 0), at(p, 1) - 1, at(p, 2)).toLocaleDateString("en-US", {
+  return parseDateOnly(iso).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
 }
 
 export function formatLongDate(iso: string): string {
-  const p = nums(iso, "-");
-  return new Date(at(p, 0), at(p, 1) - 1, at(p, 2)).toLocaleDateString("en-US", {
+  return parseDateOnly(iso).toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
+}
+
+export function parseDateOnly(iso: string): Date {
+  const p = nums(iso, "-");
+  return new Date(at(p, 0), at(p, 1) - 1, at(p, 2));
+}
+
+export function isValidDateOnly(iso: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+  const date = parseDateOnly(iso);
+  return !Number.isNaN(date.getTime()) && toIsoDate(date) === iso;
+}
+
+export function toIsoDate(date: Date): string {
+  return formatDateFns(date, "yyyy-MM-dd");
+}
+
+export function getWeekBounds(
+  iso: string,
+  weekStartsOn: 0 | 1 = 1,
+): {
+  start: string;
+  end: string;
+} {
+  const date = parseDateOnly(iso);
+  return {
+    start: toIsoDate(startOfWeek(date, { weekStartsOn })),
+    end: toIsoDate(endOfWeek(date, { weekStartsOn })),
+  };
+}
+
+export function shiftDate(iso: string, days: number): string {
+  return toIsoDate(addDays(parseDateOnly(iso), days));
+}
+
+export function formatWeekRange(start: string, end: string): string {
+  const startDate = parseDateOnly(start);
+  const endDate = parseDateOnly(end);
+  const sameYear = startDate.getFullYear() === endDate.getFullYear();
+  const sameMonth = sameYear && startDate.getMonth() === endDate.getMonth();
+
+  if (sameMonth) {
+    return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "d, yyyy")}`;
+  }
+
+  return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "MMM d, yyyy")}`;
+}
+
+export function formatDayHeading(iso: string): string {
+  return formatDateFns(parseDateOnly(iso), "EEE, MMM d");
 }
 
 export function minutesBetween(start: string, end: string): number {

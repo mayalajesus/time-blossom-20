@@ -35,9 +35,9 @@ export interface TimeEntry {
   end: string; // HH:mm
   seconds: number;
   userId: string;
-  projectId: string;
+  projectId: string | null;
   task: string;
-  description?: string;
+  description?: string | undefined;
   billable: boolean;
 }
 
@@ -197,9 +197,12 @@ export const projects: Project[] = [
   },
 ];
 
-const today = "2026-08-17";
-const yesterday = "2026-08-16";
-const twoDaysAgo = "2026-08-15";
+const today = "2026-08-21";
+const yesterday = "2026-08-20";
+const twoDaysAgo = "2026-08-19";
+const threeDaysAgo = "2026-08-18";
+const fourDaysAgo = "2026-08-17";
+const lastWeekStart = "2026-08-10";
 const lastWeek = "2026-08-11";
 
 export const timeEntries: TimeEntry[] = [
@@ -315,6 +318,75 @@ export const timeEntries: TimeEntry[] = [
     projectId: "p4",
     task: "Content migration",
     billable: true,
+  },
+  {
+    id: "t11",
+    date: threeDaysAgo,
+    start: "09:30",
+    end: "11:10",
+    seconds: 6000,
+    userId: "u1",
+    projectId: "p1",
+    task: "Content structure",
+    description: "Prepared the page sections for handoff",
+    billable: true,
+  },
+  {
+    id: "t12",
+    date: fourDaysAgo,
+    start: "14:00",
+    end: "15:20",
+    seconds: 4800,
+    userId: "u1",
+    projectId: "p2",
+    task: "Checkout notes",
+    billable: true,
+  },
+  {
+    id: "t13",
+    date: lastWeekStart,
+    start: "09:00",
+    end: "10:45",
+    seconds: 6300,
+    userId: "u1",
+    projectId: "p1",
+    task: "Weekly planning",
+    description: "Prioritized the next delivery milestone",
+    billable: false,
+  },
+  {
+    id: "t14",
+    date: "2026-08-07",
+    start: "13:15",
+    end: "16:00",
+    seconds: 9900,
+    userId: "u1",
+    projectId: "p3",
+    task: "Campaign review",
+    billable: true,
+  },
+  {
+    id: "t15",
+    date: yesterday,
+    start: "17:00",
+    end: "17:35",
+    seconds: 2100,
+    userId: "u1",
+    projectId: null,
+    task: "Inbox and planning",
+    description: "Unassigned workspace time",
+    billable: false,
+  },
+  {
+    id: "t16",
+    date: "2026-08-12",
+    start: "08:45",
+    end: "09:30",
+    seconds: 2700,
+    userId: "u1",
+    projectId: null,
+    task: "Weekly admin",
+    billable: false,
   },
 ];
 

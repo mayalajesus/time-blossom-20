@@ -9,14 +9,14 @@ import {
   TODAY,
 } from "./mock-data";
 import type { Client, Member, Project, TimeEntry, TrelloState } from "./mock-data";
-import { addSecondsToTime, nowTime } from "./format";
+import { addSecondsToTime, isValidDateOnly, minutesBetween, nowTime } from "./format";
 
 export type TimerStatus = "idle" | "running" | "paused";
 
 export interface TimerState {
   status: TimerStatus;
   task: string;
-  projectId: string;
+  projectId: string | null;
   billable: boolean;
   startedAt: number | null;
   accumulated: number;
@@ -26,7 +26,7 @@ export interface TimerState {
 const initialTimer: TimerState = {
   status: "idle",
   task: "",
-  projectId: "p1",
+  projectId: null,
   billable: true,
   startedAt: null,
   accumulated: 0,
@@ -53,6 +53,8 @@ export interface WorkspaceSettings {
   idleDetection: boolean;
 }
 
+export type StoreResult = { success: true } | { success: false; error: string };
+
 interface StoreValue {
   entries: TimeEntry[];
   projects: Project[];
@@ -64,15 +66,15 @@ interface StoreValue {
   settings: WorkspaceSettings;
   currentUserId: string;
   today: string;
-  startTimer: (task: string, projectId: string) => void;
+  startTimer: (task: string, projectId: string | null) => StoreResult;
   pauseTimer: () => void;
   resumeTimer: () => void;
   stopTimer: () => void;
-  addEntry: (entry: Omit<TimeEntry, "id">) => void;
-  updateEntry: (id: string, patch: Partial<TimeEntry>) => void;
+  addEntry: (entry: Omit<TimeEntry, "id">) => StoreResult;
+  updateEntry: (id: string, patch: Partial<Omit<TimeEntry, "id">>) => StoreResult;
   deleteEntry: (id: string) => void;
-  addProject: (project: Omit<Project, "id">) => void;
-  updateProject: (id: string, patch: Partial<Project>) => void;
+  addProject: (project: Omit<Project, "id">) => StoreResult;
+  updateProject: (id: string, patch: Partial<Omit<Project, "id">>) => StoreResult;
   addClient: (client: Omit<Client, "id">) => void;
   updateClient: (id: string, patch: Partial<Client>) => void;
   setTrello: (patch: Partial<TrelloState>) => void;
@@ -118,7 +120,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [timer.status, timer.startedAt]);
 
   const value = useMemo<StoreValue>(() => {
-    const startTimer = (task: string, projectId: string) => {
+    const validateProjectId = (projectId: string | null): StoreResult => {
+      if (projectId === null) return { success: true };
+      if (projects.some((project) => project.id === projectId)) return { success: true };
+      return { success: false, error: "Choose an existing project or No project." };
+    };
+
+    const validateEntry = (entry: Omit<TimeEntry, "id">): StoreResult => {
+      const projectValidation = validateProjectId(entry.projectId);
+      if (!projectValidation.success) return projectValidation;
+      if (!entry.task.trim()) return { success: false, error: "A task is required." };
+      if (!isValidDateOnly(entry.date)) return { success: false, error: "Choose a valid date." };
+      const isFullDayEntry = entry.seconds === 24 * 60 * 60 && entry.start === entry.end;
+      if (minutesBetween(entry.start, entry.end) <= 0 && !isFullDayEntry) {
+        return { success: false, error: "End time must be after start time." };
+      }
+      return { success: true };
+    };
+
+    const startTimer = (task: string, projectId: string | null): StoreResult => {
+      const projectValidation = validateProjectId(projectId);
+      if (!projectValidation.success) return projectValidation;
       setElapsed(0);
       setTimer({
         status: "running",
@@ -129,6 +151,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         accumulated: 0,
         startClock: nowTime(),
       });
+      return { success: true };
     };
 
     const pauseTimer = () => {
@@ -169,6 +192,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTimer(initialTimer);
     };
 
+    const addEntry = (entry: Omit<TimeEntry, "id">): StoreResult => {
+      const validation = validateEntry(entry);
+      if (!validation.success) return validation;
+      setEntries((list) => [{ ...entry, id: nextId("t") }, ...list]);
+      return { success: true };
+    };
+
+    const updateEntry = (id: string, patch: Partial<Omit<TimeEntry, "id">>): StoreResult => {
+      const current = entries.find((entry) => entry.id === id);
+      if (!current) return { success: false, error: "This time entry no longer exists." };
+      const next = { ...current, ...patch };
+      const validation = validateEntry(next);
+      if (!validation.success) return validation;
+      setEntries((list) => list.map((entry) => (entry.id === id ? next : entry)));
+      return { success: true };
+    };
+
+    const addProject = (project: Omit<Project, "id">): StoreResult => {
+      if (!project.name.trim()) return { success: false, error: "A project name is required." };
+      if (!clients.some((client) => client.id === project.clientId)) {
+        return { success: false, error: "Choose an existing client for this project." };
+      }
+      setProjects((list) => [{ ...project, name: project.name.trim(), id: nextId("p") }, ...list]);
+      return { success: true };
+    };
+
+    const updateProject = (id: string, patch: Partial<Omit<Project, "id">>): StoreResult => {
+      const current = projects.find((project) => project.id === id);
+      if (!current) return { success: false, error: "This project no longer exists." };
+      const next = { ...current, ...patch, name: (patch.name ?? current.name).trim() };
+      if (!next.name) return { success: false, error: "A project name is required." };
+      if (!clients.some((client) => client.id === next.clientId)) {
+        return { success: false, error: "A project must keep a valid client." };
+      }
+      setProjects((list) => list.map((project) => (project.id === id ? next : project)));
+      return { success: true };
+    };
+
     return {
       entries,
       projects,
@@ -184,13 +245,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       pauseTimer,
       resumeTimer,
       stopTimer,
-      addEntry: (entry) => setEntries((list) => [{ ...entry, id: nextId("t") }, ...list]),
-      updateEntry: (id, patch) =>
-        setEntries((list) => list.map((e) => (e.id === id ? { ...e, ...patch } : e))),
+      addEntry,
+      updateEntry,
       deleteEntry: (id) => setEntries((list) => list.filter((e) => e.id !== id)),
-      addProject: (project) => setProjects((list) => [{ ...project, id: nextId("p") }, ...list]),
-      updateProject: (id, patch) =>
-        setProjects((list) => list.map((p) => (p.id === id ? { ...p, ...patch } : p))),
+      addProject,
+      updateProject,
       addClient: (client) => setClients((list) => [{ ...client, id: nextId("c") }, ...list]),
       updateClient: (id, patch) =>
         setClients((list) => list.map((c) => (c.id === id ? { ...c, ...patch } : c))),
@@ -218,7 +277,8 @@ export function useSimulatedLoad(delay = 450): boolean {
   return loading;
 }
 
-export function useProjectName(): (id: string) => string {
+export function useProjectName(): (id: string | null) => string {
   const { projects } = useStore();
-  return (id: string) => projects.find((p) => p.id === id)?.name ?? "Unknown project";
+  return (id: string | null) =>
+    id === null ? "No project" : (projects.find((p) => p.id === id)?.name ?? "Unknown project");
 }

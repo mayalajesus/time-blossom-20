@@ -10,22 +10,25 @@ import {
   toast,
 } from "@heroui/react";
 import { useEffect, useState } from "react";
-import { useStore } from "@/lib/store";
-import { minutesBetween } from "@/lib/format";
+import { useStore, type StoreResult } from "@/lib/store";
+import { isValidDateOnly, minutesBetween } from "@/lib/format";
 import type { TimeEntry } from "@/lib/mock-data";
 
 export function LogTimeModal({
   isOpen,
   onOpenChange,
   entry = null,
+  initialDate,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   entry?: TimeEntry | null;
+  initialDate?: string;
 }) {
-  const { projects, addEntry, updateEntry, today, currentUserId } = useStore();
+  const { projects, clients, addEntry, updateEntry, today, currentUserId } = useStore();
   const [task, setTask] = useState("");
-  const [projectId, setProjectId] = useState("p1");
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [date, setDate] = useState(today);
   const [start, setStart] = useState("09:00");
   const [end, setEnd] = useState("10:00");
   const [description, setDescription] = useState("");
@@ -34,22 +37,24 @@ export function LogTimeModal({
   useEffect(() => {
     if (!isOpen) return;
     setTask(entry?.task ?? "");
-    setProjectId(entry?.projectId ?? "p1");
+    setProjectId(entry?.projectId ?? null);
+    setDate(entry?.date ?? initialDate ?? today);
     setStart(entry?.start ?? "09:00");
     setEnd(entry?.end ?? "10:00");
     setDescription(entry?.description ?? "");
     setBillable(entry?.billable ?? true);
-  }, [entry, isOpen]);
+  }, [entry, initialDate, isOpen, today]);
 
   const minutes = minutesBetween(start, end);
-  const invalid = task.trim().length === 0 || minutes <= 0;
+  const invalid = task.trim().length === 0 || !isValidDateOnly(date) || minutes <= 0;
 
   const submit = () => {
     if (invalid) return;
     const cleanDescription = description.trim();
+    let result: StoreResult;
     if (entry) {
-      updateEntry(entry.id, {
-        date: today,
+      result = updateEntry(entry.id, {
+        date,
         start,
         end,
         seconds: minutes * 60,
@@ -59,8 +64,8 @@ export function LogTimeModal({
         billable,
       });
     } else {
-      addEntry({
-        date: today,
+      result = addEntry({
+        date,
         start,
         end,
         seconds: minutes * 60,
@@ -71,6 +76,10 @@ export function LogTimeModal({
         billable,
       });
     }
+    if (!result.success) {
+      toast("Could not save entry", { description: result.error });
+      return;
+    }
     toast(entry ? "Time entry updated" : "Time entry added", {
       description: `${task.trim()} · ${minutes} min`,
     });
@@ -78,6 +87,14 @@ export function LogTimeModal({
     setDescription("");
     onOpenChange(false);
   };
+
+  const availableProjects = projects.filter(
+    (project) => project.status !== "archived" || project.id === entry?.projectId,
+  );
+  const selectedProject = projects.find((project) => project.id === projectId);
+  const selectedClient = selectedProject
+    ? clients.find((client) => client.id === selectedProject.clientId)
+    : null;
 
   return (
     <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
@@ -100,30 +117,61 @@ export function LogTimeModal({
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Project</Label>
-                <Select
-                  aria-label="Project"
-                  fullWidth
-                  value={projectId}
-                  onChange={(key) => setProjectId(String(key ?? "p1"))}
-                >
-                  <Select.Trigger>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      {projects.map((p) => (
-                        <ListBox.Item key={p.id} id={p.id} textValue={p.name}>
-                          <Label>{p.name}</Label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Input
+                    fullWidth
+                    aria-label="Date"
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Project</Label>
+                  <Select
+                    aria-label="Project"
+                    fullWidth
+                    value={projectId ?? "none"}
+                    onChange={(key) => {
+                      const value = String(key ?? "none");
+                      setProjectId(value === "none" ? null : value);
+                    }}
+                  >
+                    <Select.Trigger>
+                      <Select.Value />
+                      <Select.Indicator />
+                    </Select.Trigger>
+                    <Select.Popover>
+                      <ListBox>
+                        <ListBox.Item id="none" textValue="No project">
+                          <Label>No project</Label>
                           <ListBox.ItemIndicator />
                         </ListBox.Item>
-                      ))}
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
+                        {availableProjects.map((p) => (
+                          <ListBox.Item key={p.id} id={p.id} textValue={p.name}>
+                            <div className="flex min-w-0 flex-col">
+                              <Label>{p.name}</Label>
+                              <span className="text-xs text-muted">
+                                {clients.find((client) => client.id === p.clientId)?.name ??
+                                  "Unknown client"}
+                              </span>
+                            </div>
+                            <ListBox.ItemIndicator />
+                          </ListBox.Item>
+                        ))}
+                      </ListBox>
+                    </Select.Popover>
+                  </Select>
+                </div>
               </div>
+
+              <p className="-mt-2 text-xs text-muted">
+                {selectedProject
+                  ? `Client: ${selectedClient?.name ?? "Unknown client"}`
+                  : "No project · no client"}
+              </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
@@ -170,6 +218,7 @@ export function LogTimeModal({
 
               <p className="text-xs text-muted">
                 Duration: {minutes > 0 ? `${minutes} minutes` : "invalid range"}
+                {!isValidDateOnly(date) ? " · Choose a valid date" : ""}
               </p>
             </Modal.Body>
             <Modal.Footer>

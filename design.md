@@ -21,8 +21,48 @@ system before they can track time.
 
 ## Layout
 
-- Tracker is the product center: activity and timer first, time entries second.
+- Tracker is the product center: a compact timer composer is the primary
+  action, followed by the selected week of time entries.
+- Follow the familiar time-tracker hierarchy: composer, week total, then one
+  aligned flat table with task, project/client, start, end, date, duration and
+  quick actions. The date belongs in the Date column, not in repeated row
+  headers.
+  Entries with the same task and project stay adjacent across different dates.
+- Use the week as the main navigation unit. Show a quiet week total and quiet
+  day totals in section headers rather than summary cards.
+- Keep one manual Add entry action beside the selected week's total. Avoid
+  duplicate global, page-level and per-day actions when the timer composer and
+  Date column are already visible.
+- Prefer direct cell-level editing for the fields users need to correct most
+  often. Clicking a value replaces only that value with its editor; never
+  expand the row into a card and never add an Edit action.
+- Duration is edited as `H:MM` and recalculates the end time while keeping the
+  start time fixed. On narrow screens, the table owns horizontal scrolling so
+  the page itself does not overflow. At the compact-desktop `1200px` CSS
+  viewport and above, the table fits beside the open sidebar without
+  horizontal scrolling.
+- Use the effective CSS viewport, rather than the physical diagonal of a
+  laptop, as the responsive reference because operating-system display scaling
+  changes the number of CSS pixels available at browser zoom 100%.
+- Keep the table at a stable minimum width below `1200px` so time inputs and
+  action controls remain fully visible. Above that threshold, compact the
+  horizontal cell padding while preserving the same column alignment. Inline
+  editors must preserve the row's column geometry, and compact actions must
+  remain square instead of shrinking into pills.
+- `Start` and `End` are separate table columns with fixed-width controls. Each
+  field is edited independently in place, so the static and editing states keep
+  the same width, height and visual rhythm.
+- Inline cell actions use compact HeroUI `Button` and `Input` components. Do
+  not present static values as large filled fields or add native HTML controls
+  when a HeroUI control already provides the interaction.
+- Save valid inline changes automatically. Keep deletion as the only explicit
+  destructive row action.
+- A time entry may be unassigned (`No project` / `No client`). Every project
+  must have a valid client, and a time entry derives its client from its
+  selected project rather than storing a second client relationship.
 - Desktop uses a collapsible sidebar and a focused content column.
+- The desktop sidebar is fixed to the viewport; only the content column scrolls,
+  while the collapsed state preserves the same fixed rail.
 - Small screens use a horizontally scrollable navigation strip and full-width
   content with no accidental page overflow.
 - Prefer one clear primary action per surface. Secondary actions should remain
@@ -38,7 +78,8 @@ system before they can track time.
   next action; errors offer recovery or a safe return path.
 - Toasts confirm completed local actions. Alerts are reserved for conditions
   that require attention.
-- Motion is limited to menus, dialogs, state changes and short item transitions.
+- Motion is limited to menus, dialogs, timer state changes and short item
+  transitions. Avoid animated panels or decorative movement in the weekly list.
 
 ## Accessibility
 

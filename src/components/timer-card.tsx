@@ -7,37 +7,43 @@ import { formatClock } from "@/lib/format";
 export function TimerCard() {
   const { timer, elapsed, projects, startTimer, pauseTimer, resumeTimer, stopTimer } = useStore();
   const [task, setTask] = useState("");
-  const [projectId, setProjectId] = useState<string>("p1");
+  const [projectId, setProjectId] = useState<string | null>(null);
   const active = timer.status !== "idle";
   const activeProject = projects.find((p) => p.id === timer.projectId);
+  const projectLabel = activeProject?.name ?? "No project";
 
   return (
-    <div className="rounded-2xl border border-default bg-surface p-5 shadow-sm">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-end">
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="timer-task">What are you working on?</Label>
+    <div className="rounded-xl border border-default bg-surface px-3 py-3 sm:px-4">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,14rem)_auto_auto] lg:items-end">
+        <div className="min-w-0">
+          <Label className="sr-only" htmlFor="timer-task">
+            What are you working on?
+          </Label>
           <Input
             fullWidth
             id="timer-task"
-            placeholder="Describe your task"
+            placeholder="What are you working on?"
             value={active ? timer.task : task}
             disabled={active}
             onChange={(e) => setTask(e.target.value)}
           />
         </div>
 
-        <div className="w-full space-y-2 lg:w-56">
-          <Label>Project</Label>
+        <div className="min-w-0">
+          <Label className="sr-only">Project</Label>
           {active ? (
-            <div className="flex h-10 items-center rounded-xl border border-default px-3 text-sm text-foreground">
-              {activeProject?.name ?? "—"}
+            <div
+              aria-label={`Project: ${projectLabel}`}
+              className="flex h-10 min-w-0 items-center truncate rounded-xl border border-default px-3 text-sm text-foreground"
+            >
+              {projectLabel}
             </div>
           ) : (
             <Select
               aria-label="Project"
               fullWidth
-              value={projectId}
-              onChange={(key) => setProjectId(String(key ?? "p1"))}
+              value={projectId ?? "none"}
+              onChange={(key) => setProjectId(key === "none" || key === null ? null : String(key))}
             >
               <Select.Trigger>
                 <Select.Value />
@@ -45,6 +51,10 @@ export function TimerCard() {
               </Select.Trigger>
               <Select.Popover>
                 <ListBox>
+                  <ListBox.Item id="none" textValue="No project">
+                    <Label>No project</Label>
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
                   {projects
                     .filter((p) => p.status !== "archived")
                     .map((p) => (
@@ -59,29 +69,30 @@ export function TimerCard() {
           )}
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
-          <span className="shrink-0 font-mono text-2xl tabular-nums text-foreground sm:text-3xl">
-            {formatClock(elapsed)}
-          </span>
+        <span className="justify-self-start font-mono text-2xl tabular-nums text-foreground lg:justify-self-end">
+          {formatClock(elapsed)}
+        </span>
+        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
           {timer.status === "idle" ? (
-            <Button onPress={() => startTimer(task, projectId)}>
+            <Button className="w-full sm:w-auto" onPress={() => startTimer(task, projectId)}>
               <Play className="size-4" />
               Start
             </Button>
           ) : (
-            <div className="flex items-center gap-2">
+            <>
               {timer.status === "running" ? (
-                <Button variant="secondary" onPress={pauseTimer}>
+                <Button className="w-full sm:w-auto" variant="secondary" onPress={pauseTimer}>
                   <Pause className="size-4" />
                   Pause
                 </Button>
               ) : (
-                <Button variant="secondary" onPress={resumeTimer}>
+                <Button className="w-full sm:w-auto" variant="secondary" onPress={resumeTimer}>
                   <Play className="size-4" />
                   Resume
                 </Button>
               )}
               <Button
+                className="w-full sm:w-auto"
                 onPress={() => {
                   stopTimer();
                   setTask("");
@@ -90,13 +101,13 @@ export function TimerCard() {
                 <Square className="size-4" />
                 Stop
               </Button>
-            </div>
+            </>
           )}
         </div>
       </div>
 
       {active ? (
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-default pt-3">
           <Chip color={timer.status === "running" ? "success" : "warning"} size="sm" variant="soft">
             {timer.status === "running" ? "Recording" : "Paused"}
           </Chip>

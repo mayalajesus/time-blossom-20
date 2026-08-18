@@ -1,5 +1,5 @@
 import { Avatar, Button, Input } from "@heroui/react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   BarChart3,
   Building2,
@@ -33,6 +33,7 @@ type ThemeMode = "system" | "light" | "dark";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { settings } = useStore();
+  const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -40,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
   const [systemDark, setSystemDark] = useState(false);
   const [query, setQuery] = useState("");
+  const isTrackerRoute = location.pathname === "/today";
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -70,10 +72,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-default bg-surface p-3 md:flex ${
-          collapsed ? "w-16" : "w-60"
+        className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-y-auto border-r border-default bg-surface p-3 md:flex ${
+          collapsed ? "w-16" : "w-56"
         }`}
       >
         <div className="flex items-center justify-between gap-2 px-1 py-2">
@@ -115,7 +117,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div
+        className={`min-h-screen min-w-0 transition-[padding] duration-200 ${
+          collapsed ? "md:pl-16" : "md:pl-56"
+        }`}
+      >
         <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-default bg-background/80 px-4 py-3 backdrop-blur">
           <form
             className="max-w-sm flex-1"
@@ -141,10 +147,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
-            <Button onPress={() => setLogOpen(true)}>
-              <Plus className="size-4" />
-              Log time
-            </Button>
+            {!isTrackerRoute ? (
+              <Button onPress={() => setLogOpen(true)}>
+                <Plus className="size-4" />
+                Log time
+              </Button>
+            ) : null}
           </div>
         </header>
 
