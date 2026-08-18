@@ -7,12 +7,14 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyBlock, TableSkeleton } from "@/components/states";
 import { TimerCard } from "@/components/timer-card";
 import { TrackerEntries } from "@/components/tracker-entries";
+import { TrackerPeriodFilter } from "@/components/tracker-period-filter";
 import {
   formatDuration,
   formatLongDate,
-  formatWeekRange,
   getWeekBounds,
-  shiftDate,
+  listDateRange,
+  shiftTrackerPeriod,
+  type TrackerPeriod,
 } from "@/lib/format";
 import { useSimulatedLoad, useStore } from "@/lib/store";
 
@@ -41,13 +43,16 @@ function TodayPage() {
   const [logDate, setLogDate] = useState(today);
   const weekStartsOn = settings.weekStart === "sunday" ? 0 : 1;
   const currentWeek = getWeekBounds(today, weekStartsOn);
-  const [weekStart, setWeekStart] = useState(currentWeek.start);
-  const week = getWeekBounds(weekStart, weekStartsOn);
+  const [period, setPeriod] = useState<TrackerPeriod>({
+    unit: "week",
+    startDate: currentWeek.start,
+    endDate: currentWeek.end,
+  });
 
   const days = useMemo(() => {
-    const daysInWeek = Array.from({ length: 7 }, (_, index) => shiftDate(week.end, -index));
+    const dates = listDateRange(period.startDate, period.endDate).reverse();
 
-    return daysInWeek
+    return dates
       .map((date) => {
         const dayEntries = entries
           .filter((entry) => entry.date === date && entry.userId === currentUserId)
@@ -60,10 +65,16 @@ function TodayPage() {
         };
       })
       .filter((day) => day.entries.length > 0);
-  }, [currentUserId, entries, week.end]);
+  }, [currentUserId, entries, period.endDate, period.startDate]);
 
-  const weekTotal = days.reduce((total, day) => total + day.totalSeconds, 0);
-  const isCurrentWeek = week.start === currentWeek.start;
+  const periodTotal = days.reduce((total, day) => total + day.totalSeconds, 0);
+  const periodContainsToday = period.startDate <= today && today <= period.endDate;
+  const defaultLogDate = periodContainsToday ? today : period.startDate;
+  const navigationUnit = period.unit === "custom" ? "range" : period.unit;
+  const isCurrentWeek =
+    period.unit === "week" &&
+    period.startDate === currentWeek.start &&
+    period.endDate === currentWeek.end;
 
   const openLog = (date: string) => {
     setLogDate(date);
@@ -76,54 +87,63 @@ function TodayPage() {
 
       <TimerCard />
 
-      <section className="space-y-4" aria-labelledby="weekly-entries-heading">
+      <section className="space-y-4" aria-labelledby="tracker-period-heading">
         <div className="flex flex-col gap-3 border-b border-default pb-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-1">
             <Button
               isIconOnly
-              aria-label="Previous week"
+              aria-label={`Previous ${navigationUnit}`}
               size="sm"
               variant="tertiary"
-              onPress={() => setWeekStart(shiftDate(week.start, -7))}
+              onPress={() => setPeriod(shiftTrackerPeriod(period, -1, weekStartsOn))}
             >
               <ChevronLeft className="size-4" />
             </Button>
             <h2
-              id="weekly-entries-heading"
-              className="min-w-0 px-2 text-sm font-medium text-foreground"
+              id="tracker-period-heading"
+              className="min-w-0 px-1 text-sm font-medium text-foreground"
             >
-              <span className="sm:hidden">{formatWeekRange(week.start, week.end)}</span>
-              <span className="hidden sm:inline">
-                Week of {formatWeekRange(week.start, week.end)}
-              </span>
+              <TrackerPeriodFilter
+                period={period}
+                today={today}
+                weekStartsOn={weekStartsOn}
+                onChange={setPeriod}
+              />
             </h2>
             <Button
               isIconOnly
-              aria-label="Next week"
+              aria-label={`Next ${navigationUnit}`}
               size="sm"
               variant="tertiary"
-              onPress={() => setWeekStart(shiftDate(week.start, 7))}
+              onPress={() => setPeriod(shiftTrackerPeriod(period, 1, weekStartsOn))}
             >
               <ChevronRight className="size-4" />
             </Button>
+            {!isCurrentWeek && (
+              <Button
+                size="sm"
+                variant="tertiary"
+                className="shrink-0 px-2 text-xs"
+                onPress={() =>
+                  setPeriod({
+                    unit: "week",
+                    startDate: currentWeek.start,
+                    endDate: currentWeek.end,
+                  })
+                }
+              >
+                This week
+              </Button>
+            )}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
             <span className="text-sm tabular-nums text-muted">
-              {formatDuration(weekTotal)} this week
+              {formatDuration(periodTotal)} tracked
             </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              onPress={() => openLog(isCurrentWeek ? today : week.start)}
-            >
+            <Button size="sm" variant="secondary" onPress={() => openLog(defaultLogDate)}>
               <CalendarPlus className="size-4" />
               Add entry
             </Button>
-            {!isCurrentWeek ? (
-              <Button size="sm" variant="secondary" onPress={() => setWeekStart(currentWeek.start)}>
-                This week
-              </Button>
-            ) : null}
           </div>
         </div>
 
@@ -132,10 +152,10 @@ function TodayPage() {
         ) : days.length === 0 ? (
           <EmptyBlock
             icon={<Clock className="size-5" />}
-            title="No time tracked this week"
-            description="Start the timer above or add an entry for an earlier date in this week."
+            title="No time tracked in this period"
+            description="Start the timer above or add an entry for a date in this period."
             action={
-              <Button size="sm" variant="secondary" onPress={() => openLog(week.start)}>
+              <Button size="sm" variant="secondary" onPress={() => openLog(defaultLogDate)}>
                 <CalendarPlus className="size-4" />
                 Add entry
               </Button>

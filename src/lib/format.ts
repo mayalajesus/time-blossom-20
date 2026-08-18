@@ -1,4 +1,18 @@
-import { addDays, endOfWeek, format as formatDateFns, startOfWeek } from "date-fns";
+import {
+  addDays,
+  differenceInCalendarDays,
+  endOfWeek,
+  format as formatDateFns,
+  startOfWeek,
+} from "date-fns";
+
+export type TrackerPeriodUnit = "day" | "week" | "custom";
+
+export type TrackerPeriod = {
+  unit: TrackerPeriodUnit;
+  startDate: string;
+  endDate: string;
+};
 
 function nums(value: string, sep: string): number[] {
   return value.split(sep).map((p) => Number(p) || 0);
@@ -74,6 +88,35 @@ export function shiftDate(iso: string, days: number): string {
   return toIsoDate(addDays(parseDateOnly(iso), days));
 }
 
+export function listDateRange(start: string, end: string): string[] {
+  const length = differenceInCalendarDays(parseDateOnly(end), parseDateOnly(start));
+  if (length < 0) return [];
+  return Array.from({ length: length + 1 }, (_, index) => shiftDate(start, index));
+}
+
+export function shiftTrackerPeriod(
+  period: TrackerPeriod,
+  amount: number,
+  weekStartsOn: 0 | 1 = 1,
+): TrackerPeriod {
+  if (period.unit === "day") {
+    const date = shiftDate(period.startDate, amount);
+    return { unit: "day", startDate: date, endDate: date };
+  }
+
+  if (period.unit === "week") {
+    const startDate = shiftDate(period.startDate, amount * 7);
+    const week = getWeekBounds(startDate, weekStartsOn);
+    return { unit: "week", startDate: week.start, endDate: week.end };
+  }
+
+  const span =
+    differenceInCalendarDays(parseDateOnly(period.endDate), parseDateOnly(period.startDate)) + 1;
+  const startDate = shiftDate(period.startDate, amount * span);
+  const endDate = shiftDate(period.endDate, amount * span);
+  return { unit: "custom", startDate, endDate };
+}
+
 export function formatWeekRange(start: string, end: string): string {
   const startDate = parseDateOnly(start);
   const endDate = parseDateOnly(end);
@@ -85,6 +128,56 @@ export function formatWeekRange(start: string, end: string): string {
   }
 
   return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "MMM d, yyyy")}`;
+}
+
+export function formatCompactDateRange(start: string, end: string): string {
+  const startDate = parseDateOnly(start);
+  const endDate = parseDateOnly(end);
+  const sameYear = startDate.getFullYear() === endDate.getFullYear();
+  const sameMonth = sameYear && startDate.getMonth() === endDate.getMonth();
+
+  if (sameMonth) {
+    return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "d")}`;
+  }
+
+  if (sameYear) {
+    return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "MMM d")}`;
+  }
+
+  return `${formatDateFns(startDate, "MMM d, yyyy")}–${formatDateFns(endDate, "MMM d, yyyy")}`;
+}
+
+export function formatDateRange(start: string, end: string): string {
+  const startDate = parseDateOnly(start);
+  const endDate = parseDateOnly(end);
+  const sameYear = startDate.getFullYear() === endDate.getFullYear();
+  const sameMonth = sameYear && startDate.getMonth() === endDate.getMonth();
+
+  if (start === end) return formatDateFns(startDate, "MMM d, yyyy");
+  if (sameMonth) return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "d, yyyy")}`;
+  return `${formatDateFns(startDate, "MMM d, yyyy")}–${formatDateFns(endDate, "MMM d, yyyy")}`;
+}
+
+export function formatTrackerPeriodLabel(
+  period: TrackerPeriod,
+  today: string,
+  weekStartsOn: 0 | 1 = 1,
+): string {
+  if (period.unit === "custom") return formatDateRange(period.startDate, period.endDate);
+
+  if (period.unit === "day") {
+    return period.startDate === today
+      ? "Today"
+      : formatDateFns(parseDateOnly(period.startDate), "MMM d, yyyy");
+  }
+
+  if (period.unit === "week") {
+    const currentWeek = getWeekBounds(today, weekStartsOn);
+    if (period.startDate === currentWeek.start) return "This week";
+    return formatWeekRange(period.startDate, period.endDate);
+  }
+
+  return "Custom range";
 }
 
 export function formatDayHeading(iso: string): string {

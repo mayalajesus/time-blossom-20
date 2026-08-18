@@ -41,8 +41,18 @@ system before they can track time.
 - Descriptions stay attached to their individual entries and do not prevent
   grouping. Changing an entry's date, task, project or billability immediately
   recalculates its group membership.
-- Use the week as the main navigation unit. Show a quiet week total and quiet
-  day totals in section headers rather than summary cards.
+- Use the selected period as the main navigation unit. The Tracker opens on
+  `This week`, and clicking the fixed-width period trigger opens the HeroUI
+  range calendar directly; there is no preset menu or calendar icon in the
+  trigger. Keep the label centered in a compact fixed-width control; weekly
+  ranges use a compact visible format while the full year remains available
+  to assistive labels and the calendar. The
+  arrows move by week for aligned week ranges and by the custom range length
+  for arbitrary dates. Custom ranges use the same compact date treatment as
+  weekly ranges and do not show a `Custom range` label inside the trigger.
+  When the selection is not the current week, expose a
+  compact `This week` return action beside the next arrow. A custom selection
+  interval. Show a quiet contextual total rather than summary cards.
 - Keep one manual Add entry action beside the selected week's total. Avoid
   duplicate global, page-level and per-day actions when the timer composer and
   Date column are already visible.

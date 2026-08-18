@@ -198,10 +198,10 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
   return (
     <div
       className="overflow-x-auto rounded-xl border border-default"
-      aria-label="Weekly time entries"
+      aria-label="Time entries for selected period"
     >
       <table className="tracker-table w-full min-w-[1040px] table-fixed border-collapse bg-surface text-left">
-        <caption className="sr-only">Weekly time entries</caption>
+        <caption className="sr-only">Time entries for selected period</caption>
         <colgroup>
           <col className="w-[21%]" />
           <col className="w-[18%]" />
