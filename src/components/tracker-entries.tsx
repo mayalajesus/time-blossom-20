@@ -1,6 +1,6 @@
 import { Button, Dropdown, Input, Label, ListBox, Select, toast } from "@heroui/react";
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { MoreHorizontal, Play, Trash2 } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { ChevronDown, MoreHorizontal, Play, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import {
   addSecondsToTime,
@@ -24,6 +24,18 @@ type ActiveCell = {
   entryId: string;
   field: TrackerEditableField;
 } | null;
+
+type TrackerGroup = {
+  id: string;
+  date: string;
+  task: string;
+  projectId: string | null;
+  billable: boolean;
+  entries: TimeEntry[];
+  totalSeconds: number;
+  start: string;
+  end: string;
+};
 
 type EntryDraft = {
   date: string;
@@ -89,8 +101,52 @@ function toDraft(entry: TimeEntry): EntryDraft {
   };
 }
 
+function groupKeyFor(entry: TimeEntry): string {
+  return [
+    entry.date,
+    entry.task.trim().toLocaleLowerCase(),
+    entry.projectId ?? "none",
+    entry.billable ? "billable" : "internal",
+  ].join("::");
+}
+
+function groupEntries(days: TrackerDay[]): TrackerGroup[] {
+  const groups = new Map<string, TrackerGroup>();
+
+  days.forEach((day) => {
+    [...day.entries]
+      .sort((a, b) => a.start.localeCompare(b.start))
+      .forEach((entry) => {
+        const key = groupKeyFor(entry);
+        const existing = groups.get(key);
+        if (existing) {
+          existing.entries.push(entry);
+          existing.totalSeconds += entry.seconds;
+          existing.start = entry.start < existing.start ? entry.start : existing.start;
+          existing.end = entry.end > existing.end ? entry.end : existing.end;
+          return;
+        }
+
+        groups.set(key, {
+          id: `tracker-group-${encodeURIComponent(key)}`,
+          date: entry.date,
+          task: entry.task,
+          projectId: entry.projectId,
+          billable: entry.billable,
+          entries: [entry],
+          totalSeconds: entry.seconds,
+          start: entry.start,
+          end: entry.end,
+        });
+      });
+  });
+
+  return [...groups.values()];
+}
+
 export function TrackerEntries({ days }: { days: TrackerDay[] }) {
   const [activeCell, setActiveCell] = useState<ActiveCell>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const entries = useMemo(
     () =>
       days
@@ -106,12 +162,30 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
         }),
     [days],
   );
+  const groups = useMemo(() => groupEntries(days), [days]);
 
   useEffect(() => {
     if (activeCell && !entries.some((entry) => entry.id === activeCell.entryId)) {
       setActiveCell(null);
     }
   }, [activeCell, entries]);
+
+  useEffect(() => {
+    const groupIds = new Set(groups.map((group) => group.id));
+    setExpandedGroups((current) => {
+      const next = new Set([...current].filter((id) => groupIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [groups]);
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
 
   return (
     <div
@@ -171,28 +245,193 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
           </tr>
         </thead>
         <tbody>
-          {entries.map((entry) => (
-            <TrackerEntryRow
-              key={entry.id}
-              entry={entry}
-              activeField={activeCell?.entryId === entry.id ? activeCell.field : null}
-              onActivate={(field) => setActiveCell({ entryId: entry.id, field })}
-              onDeactivate={() => setActiveCell(null)}
-            />
-          ))}
+          {groups.map((group) => {
+            const isGrouped = group.entries.length > 1;
+            const isExpanded = expandedGroups.has(group.id);
+
+            if (!isGrouped) {
+              const entry = group.entries[0];
+              if (!entry) return null;
+              return (
+                <TrackerEntryRow
+                  key={entry.id}
+                  entry={entry}
+                  activeField={activeCell?.entryId === entry.id ? activeCell.field : null}
+                  onActivate={(field) => setActiveCell({ entryId: entry.id, field })}
+                  onDeactivate={() => setActiveCell(null)}
+                />
+              );
+            }
+
+            return (
+              <Fragment key={group.id}>
+                <TrackerGroupSummaryRow
+                  group={group}
+                  isExpanded={isExpanded}
+                  onToggle={() => toggleGroup(group.id)}
+                />
+                {isExpanded
+                  ? group.entries.map((entry, index) => (
+                      <TrackerEntryRow
+                        key={entry.id}
+                        entry={entry}
+                        rowId={index === 0 ? `${group.id}-details` : undefined}
+                        activeField={activeCell?.entryId === entry.id ? activeCell.field : null}
+                        onActivate={(field) => setActiveCell({ entryId: entry.id, field })}
+                        onDeactivate={() => setActiveCell(null)}
+                      />
+                    ))
+                  : null}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
+function TrackerGroupSummaryRow({
+  group,
+  isExpanded,
+  onToggle,
+}: {
+  group: TrackerGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const { projects, clients, timer, startTimer } = useStore();
+  const project = projects.find((item) => item.id === group.projectId);
+  const projectName = project?.name ?? "No project";
+  const clientName = project
+    ? (clients.find((client) => client.id === project.clientId)?.name ?? "Unknown client")
+    : "No client";
+  const summaryButtonClass =
+    "inline-flex min-w-0 max-w-full items-center !justify-start !rounded-lg !px-1 !py-1 text-left outline-none transition-colors hover:bg-surface-secondary/60 focus-visible:ring-2 focus-visible:ring-accent";
+  const summaryCellClass =
+    "border-b border-default bg-surface-secondary/55 px-4 py-3 align-middle overflow-hidden";
+  const toggleLabel = `${isExpanded ? "Collapse" : "Expand"} ${group.entries.length} entries for ${group.task}`;
+
+  const startAgain = () => {
+    if (timer.status !== "idle") return;
+    const result = startTimer(group.task, group.projectId);
+    if (!result.success) toast("Could not start timer", { description: result.error });
+  };
+
+  return (
+    <tr
+      data-tracker-group={group.id}
+      className="group/summary bg-surface-secondary/55 transition-colors hover:bg-surface-secondary/75"
+    >
+      <td className={`${summaryCellClass} min-w-0`}>
+        <Button
+          size="sm"
+          variant="ghost"
+          fullWidth
+          className={`${summaryButtonClass} gap-2`}
+          aria-label={toggleLabel}
+          aria-expanded={isExpanded}
+          {...(isExpanded ? { "aria-controls": `${group.id}-details` } : {})}
+          onPress={onToggle}
+        >
+          <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-surface text-xs tabular-nums text-muted">
+            {group.entries.length}
+          </span>
+          <span className="min-w-0 truncate text-sm font-medium text-foreground">{group.task}</span>
+          <ChevronDown
+            className={`ml-auto size-4 shrink-0 text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        </Button>
+      </td>
+      <td className={summaryCellClass}>
+        <Button
+          size="sm"
+          variant="ghost"
+          fullWidth
+          className={summaryButtonClass}
+          aria-label={`${toggleLabel}; project ${projectName}; client ${clientName}`}
+          onPress={onToggle}
+        >
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="block w-full min-w-0 truncate text-sm text-foreground">
+              {projectName}
+            </span>
+            <span className="block w-full min-w-0 truncate text-xs text-muted">{clientName}</span>
+          </span>
+        </Button>
+      </td>
+      <td className={`${summaryCellClass} text-center`}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className={`${summaryButtonClass} w-full justify-center tabular-nums text-muted`}
+          aria-label={`${toggleLabel}; starts at ${group.start}`}
+          onPress={onToggle}
+        >
+          {group.start}
+        </Button>
+      </td>
+      <td className={`${summaryCellClass} text-center`}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className={`${summaryButtonClass} w-full justify-center tabular-nums text-muted`}
+          aria-label={`${toggleLabel}; ends at ${group.end}`}
+          onPress={onToggle}
+        >
+          {group.end}
+        </Button>
+      </td>
+      <td className={summaryCellClass}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className={`${summaryButtonClass} tabular-nums text-muted`}
+          aria-label={`${toggleLabel}; date ${formatDate(group.date)}`}
+          onPress={onToggle}
+        >
+          {formatDate(group.date)}
+        </Button>
+      </td>
+      <td className={summaryCellClass}>
+        <Button
+          size="sm"
+          variant="ghost"
+          className={`${summaryButtonClass} font-medium tabular-nums text-foreground`}
+          aria-label={`${toggleLabel}; total ${formatDuration(group.totalSeconds)}`}
+          onPress={onToggle}
+        >
+          {formatDuration(group.totalSeconds)}
+        </Button>
+      </td>
+      <td className="tracker-actions-cell border-b border-default bg-surface-secondary/55 px-2 py-2 align-middle whitespace-nowrap">
+        <div className="flex shrink-0 items-center justify-end gap-1" data-tracker-action>
+          <Button
+            isIconOnly
+            aria-label={`Start ${group.task} again`}
+            isDisabled={timer.status !== "idle"}
+            className="size-8 min-w-8 shrink-0 !p-0"
+            variant="tertiary"
+            onPress={startAgain}
+          >
+            <Play className="size-4" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 function TrackerEntryRow({
   entry,
+  rowId,
   activeField,
   onActivate,
   onDeactivate,
 }: {
   entry: TimeEntry;
+  rowId?: string | undefined;
   activeField: TrackerEditableField | null;
   onActivate: (field: TrackerEditableField) => void;
   onDeactivate: () => void;
@@ -533,6 +772,7 @@ function TrackerEntryRow({
 
   return (
     <tr
+      id={rowId}
       ref={rowRef}
       data-tracker-entry="true"
       className="group bg-surface transition-colors hover:bg-surface-secondary/50"
