@@ -48,6 +48,13 @@ type EntryDraft = {
   billable: boolean;
 };
 
+const trackerCellClass =
+  "tracker-table-cell border-b border-default px-4 py-3 align-middle overflow-hidden";
+const trackerActionCellClass =
+  "tracker-actions-cell border-b border-default px-2 py-2 align-middle whitespace-nowrap";
+const trackerActionLayoutClass = "grid grid-cols-[2rem_2rem] items-center justify-end gap-1";
+const trackerActionButtonClass = "size-8 min-w-8 shrink-0 !p-0";
+
 function formatDurationInput(seconds: number): string {
   const totalMinutes = Math.max(0, Math.floor(seconds / 60));
   return `${Math.floor(totalMinutes / 60)}:${String(totalMinutes % 60).padStart(2, "0")}`;
@@ -328,32 +335,39 @@ function TrackerGroupSummaryRow({
     <tr
       data-tracker-group={group.id}
       onClick={handleSummaryClick}
-      className="group/summary bg-surface-secondary/55 transition-colors hover:bg-surface-secondary/75"
+      className="tracker-data-row tracker-group-summary-row group/summary bg-surface-secondary/55 transition-colors hover:bg-surface-secondary/75"
     >
       <td className={`${summaryCellClass} min-w-0`}>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="inline-flex min-w-0 max-w-full !h-8 !min-h-8 !justify-start !rounded-md !px-1 !py-1 text-left outline-none transition-colors hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-accent"
-          aria-label={toggleLabel}
-          aria-expanded={isExpanded}
-          data-tracker-group-toggle
-          {...(isExpanded ? { "aria-controls": `${group.id}-details` } : {})}
-          onPress={onToggle}
-        >
-          <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-surface text-xs tabular-nums text-muted">
-            {group.entries.length}
+        <div className="flex min-h-[3.5rem] min-w-0 flex-col justify-center">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="inline-flex min-w-0 max-w-full !h-8 !min-h-8 !justify-start !rounded-md !px-1 !py-1 text-left outline-none transition-colors hover:bg-transparent focus-visible:ring-2 focus-visible:ring-accent"
+            aria-label={toggleLabel}
+            aria-expanded={isExpanded}
+            data-tracker-group-toggle
+            {...(isExpanded ? { "aria-controls": `${group.id}-details` } : {})}
+            onPress={onToggle}
+          >
+            <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-surface text-xs tabular-nums text-muted">
+              {group.entries.length}
+            </span>
+            <span className="min-w-0 truncate text-sm font-medium text-foreground">
+              {group.task}
+            </span>
+            <span
+              className={`ml-1 size-2 shrink-0 rounded-full ${group.billable ? "bg-success" : "bg-muted"}`}
+              aria-hidden="true"
+            />
+            <ChevronDown
+              className={`ml-1 size-4 shrink-0 text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            />
+          </Button>
+          <span className="truncate pl-1 text-xs text-muted">
+            {group.entries.length} {group.entries.length === 1 ? "entry" : "entries"}
           </span>
-          <span className="min-w-0 truncate text-sm font-medium text-foreground">{group.task}</span>
-          <span
-            className={`ml-1 size-2 shrink-0 rounded-full ${group.billable ? "bg-success" : "bg-muted"}`}
-            aria-hidden="true"
-          />
-          <ChevronDown
-            className={`ml-1 size-4 shrink-0 text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`}
-            aria-hidden="true"
-          />
-        </Button>
+        </div>
       </td>
       <td className={summaryCellClass}>
         <span className="flex min-w-0 flex-col">
@@ -381,18 +395,34 @@ function TrackerGroupSummaryRow({
           {formatDuration(group.totalSeconds)}
         </span>
       </td>
-      <td className="tracker-actions-cell border-b border-default bg-surface-secondary/55 px-2 py-2 align-middle whitespace-nowrap">
-        <div className="flex shrink-0 items-center justify-end gap-1" data-tracker-action>
+      <td className={`${trackerActionCellClass} bg-surface-secondary/55`}>
+        <div className={trackerActionLayoutClass} data-tracker-action>
           <Button
             isIconOnly
             aria-label={`Start ${group.task} again`}
             isDisabled={timer.status !== "idle"}
-            className="size-8 min-w-8 shrink-0 !p-0"
+            className={trackerActionButtonClass}
             variant="tertiary"
             onPress={startAgain}
           >
             <Play className="size-4" />
           </Button>
+          <Dropdown>
+            <Dropdown.Trigger
+              aria-label={`Actions for ${group.task} group`}
+              className={trackerActionButtonClass}
+            >
+              <MoreHorizontal className="size-4" />
+            </Dropdown.Trigger>
+            <Dropdown.Popover>
+              <Dropdown.Menu onAction={(key) => key === "toggle" && onToggle()}>
+                <Dropdown.Item id="toggle">
+                  <ChevronDown className={`size-4 ${isExpanded ? "rotate-180" : ""}`} />
+                  <Label>{isExpanded ? "Collapse group" : "Expand group"}</Label>
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
         </div>
       </td>
     </tr>
@@ -658,13 +688,13 @@ function TrackerEntryRow({
   };
 
   const actionCell = (
-    <td className="tracker-actions-cell border-b border-default px-2 py-2 align-middle whitespace-nowrap">
-      <div className="flex shrink-0 items-center justify-end gap-1" data-tracker-action>
+    <td className={trackerActionCellClass}>
+      <div className={trackerActionLayoutClass} data-tracker-action>
         <Button
           isIconOnly
           aria-label={`Start ${entry.task} again`}
           isDisabled={timer.status !== "idle"}
-          className="size-8 min-w-8 shrink-0 !p-0"
+          className={trackerActionButtonClass}
           variant="tertiary"
           onPress={startAgain}
         >
@@ -673,7 +703,7 @@ function TrackerEntryRow({
         <Dropdown>
           <Dropdown.Trigger
             aria-label={`Actions for ${entry.task}`}
-            className="size-8 min-w-8 shrink-0 p-0"
+            className={trackerActionButtonClass}
           >
             <MoreHorizontal className="size-4" />
           </Dropdown.Trigger>
@@ -745,17 +775,14 @@ function TrackerEntryRow({
   const timeInputClass = `${compactInputClass} !w-[5.75rem] !min-w-[5.75rem] shrink-0 text-center tabular-nums`;
   const dateInputClass = `${compactInputClass} !w-[7.25rem] !max-w-full`;
   const durationInputClass = `${compactInputClass} !w-[5.25rem] !min-w-[5.25rem] !max-w-full`;
-  const cellClass =
-    "tracker-table-cell border-b border-default px-4 py-3 align-middle overflow-hidden";
-
   return (
     <tr
       id={rowId}
       ref={rowRef}
       data-tracker-entry="true"
-      className={`group ${isGroupedDetail ? "bg-surface-secondary/45" : "bg-surface"} transition-colors hover:bg-surface-secondary/70`}
+      className={`tracker-data-row tracker-entry-row group ${isGroupedDetail ? "bg-surface-secondary/45" : "bg-surface"} transition-colors hover:bg-surface-secondary/70`}
     >
-      <td className={`${cellClass} min-w-0`}>
+      <td className={`${trackerCellClass} min-w-0`}>
         <div className="flex min-w-0 items-center gap-2">
           {activeField === "task" ? (
             <div className="min-w-0 flex-1">
@@ -846,7 +873,7 @@ function TrackerEntryRow({
         {errorFor("description")}
       </td>
 
-      <td className={cellClass}>
+      <td className={trackerCellClass}>
         {activeField === "project" ? (
           <>
             <Select
@@ -901,7 +928,7 @@ function TrackerEntryRow({
         )}
       </td>
 
-      <td className={`${cellClass} text-center`}>
+      <td className={`${trackerCellClass} text-center`}>
         {activeField === "start" ? (
           <Input
             ref={focusRef}
@@ -934,7 +961,7 @@ function TrackerEntryRow({
         {activeField === "start" && errorFor("start")}
       </td>
 
-      <td className={`${cellClass} text-center`}>
+      <td className={`${trackerCellClass} text-center`}>
         {activeField === "end" ? (
           <Input
             ref={focusRef}
@@ -962,7 +989,7 @@ function TrackerEntryRow({
         {activeField === "end" && errorFor("end")}
       </td>
 
-      <td className={cellClass}>
+      <td className={trackerCellClass}>
         {activeField === "date" ? (
           <>
             <Input
@@ -999,7 +1026,7 @@ function TrackerEntryRow({
         )}
       </td>
 
-      <td className={cellClass}>
+      <td className={trackerCellClass}>
         {activeField === "duration" ? (
           <>
             <Input

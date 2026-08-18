@@ -31,6 +31,12 @@ system before they can track time.
 - Multi-entry groups start collapsed and show their count, first start, last end
   and summed duration. The summary row is read-only and expands to reveal the
   individual entries; inline editing remains available on those detail rows.
+- Group summaries preserve the same vertical rhythm as detail rows: the task
+  line carries the count and expansion control, with a quiet second line such
+  as `3 entries`. Start again and the actions menu occupy fixed, shared slots
+  across summary and detail rows, so grouping never shifts the table's action
+  geometry. The expansion control uses a subtle hover state and a visible
+  focus ring without making the summary look like an input or card.
 - Descriptions stay attached to their individual entries and do not prevent
   grouping. Changing an entry's date, task, project or billability immediately
   recalculates its group membership.

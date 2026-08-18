@@ -17,6 +17,17 @@ body {
   display: none;
 }
 
+/* Keep grouped summaries and their expanded detail rows on one visual rhythm.
+   The inner content can still grow for an accessible validation message, but
+   ordinary rows never become shorter just because a group is collapsed. */
+.tracker-table .tracker-data-row > td {
+  height: 82px;
+}
+
+.tracker-table .tracker-group-summary-row > td {
+  background-clip: padding-box;
+}
+
 /* The 1200px CSS viewport is the compact-desktop threshold for the Tracker.
    Physical screen size varies with OS display scaling, so responsive behavior
    is based on the effective browser viewport instead of laptop diagonal. */
