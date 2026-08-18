@@ -1,4 +1,4 @@
-import { Input, Kbd, Label, ListBox, Modal } from "@heroui/react";
+import { Input, Kbd, Label, ListBox, Modal, TextField } from "@heroui/react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   BarChart3,
@@ -199,15 +199,14 @@ export function CommandMenu({
         <Modal.Container placement="top" size="sm">
           <Modal.Dialog>
             <div className="border-b border-default px-3 py-2">
-              <Input
-                fullWidth
-                aria-label="Command menu search"
-                autoFocus
-                placeholder="Search commands, projects, clients…"
-                value={query}
-                variant="secondary"
-                onChange={(e) => setQuery(e.target.value)}
-              />
+              <TextField fullWidth name="command-search" value={query} onChange={setQuery}>
+                <Label className="sr-only">Command menu search</Label>
+                <Input
+                  autoFocus
+                  placeholder="Search commands, projects, clients…"
+                  variant="secondary"
+                />
+              </TextField>
             </div>
             <div className="max-h-[52vh] overflow-y-auto p-2">
               {filtered.length === 0 ? (

@@ -9,6 +9,75 @@ body {
   overflow-x: hidden;
 }
 
+/* Keep both themes contrast-led: fields are separated by surface and border
+   colors, never by a decorative drop shadow. Components still consume
+   HeroUI's semantic tokens. */
+.light {
+  --background: #f5f6f8;
+  --background-secondary: #eef0f4;
+  --background-tertiary: #e7eaf0;
+  --foreground: #1f2937;
+  --surface: #ffffff;
+  --surface-foreground: #1f2937;
+  --surface-secondary: #f0f2f6;
+  --surface-secondary-foreground: #1f2937;
+  --surface-tertiary: #e5e9ef;
+  --surface-tertiary-foreground: #1f2937;
+  --overlay: #ffffff;
+  --overlay-foreground: #1f2937;
+  --muted: #64748b;
+  --default: #e7eaf0;
+  --default-foreground: #1f2937;
+  --field-background: #eef1f5;
+  --field-foreground: #1f2937;
+  --field-placeholder: #64748b;
+  --field-border-width: 1px;
+  --field-border: #d5dbe5;
+  --field-border-hover: #b7c1d0;
+  --field-border-focus: #0b93f6;
+  --field-hover: #e8edf3;
+  --field-focus: #f6f8fb;
+  --field-shadow: 0 0 0 0 transparent;
+  --accent: #0b93f6;
+  --accent-foreground: #ffffff;
+  --danger: #dc3d4b;
+  --danger-foreground: #ffffff;
+  --border: #d5dbe5;
+  --separator: #e2e6ec;
+  --focus: #0b93f6;
+  --link: #1f2937;
+}
+
+.dark {
+  --background: #050505;
+  --background-secondary: #080809;
+  --background-tertiary: #0d0d0f;
+  --foreground: #f7f8fb;
+  --surface: #111114;
+  --surface-foreground: #f7f8fb;
+  --surface-secondary: #1a1a1f;
+  --surface-secondary-foreground: #f7f8fb;
+  --surface-tertiary: #222229;
+  --surface-tertiary-foreground: #f7f8fb;
+  --overlay: #111114;
+  --overlay-foreground: #f7f8fb;
+  --muted: #9aabc4;
+  --default: #25252b;
+  --default-foreground: #f7f8fb;
+  --field-background: #19191e;
+  --field-foreground: #f7f8fb;
+  --field-placeholder: #9aabc4;
+  --field-shadow: 0 0 0 0 transparent;
+  --accent: #0b93f6;
+  --accent-foreground: #ffffff;
+  --danger: #ef4444;
+  --danger-foreground: #ffffff;
+  --border: #2a2a31;
+  --separator: #24242a;
+  --focus: #0b93f6;
+  --link: #f7f8fb;
+}
+
 .no-scrollbar {
   scrollbar-width: none;
 }

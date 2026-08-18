@@ -14,6 +14,13 @@ system before they can track time.
   custom component framework.
 - Use a restrained neutral surface palette with one accent for primary actions
   and status feedback.
+- In dark mode, follow the HeroUI form-reference contrast hierarchy: a near-black
+  canvas, distinct charcoal field surfaces, bright labels, cool blue-gray support
+  text, vivid blue primary actions and clear red danger states.
+- In light mode, use the same hierarchy through a soft gray canvas, white
+  surfaces, tinted field fills and visible borders. Field controls must not use
+  drop shadows as their primary separation mechanism; focus may use the shared
+  accent ring.
 - Use strong, readable headings and compact supporting text. Keep dense data
   scannable with tabular numerals and aligned values.
 - Use Lucide icons with labels or tooltips. Do not use decorative icon-only
@@ -32,6 +39,10 @@ system before they can track time.
 - Multi-entry groups start collapsed and show their count, first start, last end
   and summed duration. The summary row is read-only and expands to reveal the
   individual entries; inline editing remains available on those detail rows.
+- Collapsed group summaries use the same neutral surface as ordinary entries.
+  Only the individual detail rows receive the subtle secondary-surface tint
+  while a group is expanded. Task descriptions align to the task title's left
+  edge, while billability remains attached to the title line only.
 - Group summaries preserve the same vertical rhythm as detail rows: the task
   line carries the count and expansion control, with a quiet second line such
   as `3 entries`. Start again and the actions menu occupy fixed, shared slots
@@ -103,6 +114,12 @@ system before they can track time.
   from text, color and available actions, not color alone.
 - Forms should show their purpose through labels, preserve entered values and
   disable submission only when the input is invalid.
+- Form controls use HeroUI defaults for size, spacing, radius, focus and color.
+  `TextField` composes labels, inputs, descriptions and field errors; persistent
+  validation uses HeroUI `Alert`, while short confirmations use `Toast`.
+- Input surfaces must remain visibly distinct from their canvas in both themes,
+  and muted text must stay readable without relying on low-contrast gray-on-gray
+  states or field shadows.
 - Loading uses skeletons; empty states explain what is missing and provide the
   next action; errors offer recovery or a safe return path.
 - Toasts confirm completed local actions. Alerts are reserved for conditions

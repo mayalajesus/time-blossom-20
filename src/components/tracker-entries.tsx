@@ -1,4 +1,15 @@
-import { Button, Dropdown, Input, Label, ListBox, Modal, Select, toast } from "@heroui/react";
+import {
+  Button,
+  Dropdown,
+  FieldError,
+  Input,
+  Label,
+  ListBox,
+  Modal,
+  Select,
+  TextField,
+  toast,
+} from "@heroui/react";
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronDown, MoreHorizontal, Play, Trash2 } from "lucide-react";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
@@ -316,7 +327,7 @@ function TrackerGroupSummaryRow({
     ? (clients.find((client) => client.id === project.clientId)?.name ?? "Unknown client")
     : "No client";
   const summaryCellClass =
-    "cursor-pointer border-b border-default bg-surface-secondary/55 px-4 py-3 align-middle overflow-hidden";
+    "cursor-pointer border-b border-default bg-surface px-4 py-3 align-middle overflow-hidden";
   const summaryTextClass = "block min-w-0 truncate whitespace-nowrap";
   const toggleLabel = `${isExpanded ? "Collapse" : "Expand"} ${group.entries.length} entries for ${group.task}; ${group.billable ? "billable" : "internal"}`;
 
@@ -336,7 +347,7 @@ function TrackerGroupSummaryRow({
     <tr
       data-tracker-group={group.id}
       onClick={handleSummaryClick}
-      className="tracker-data-row tracker-group-summary-row group/summary bg-surface-secondary/55 transition-colors hover:bg-surface-secondary/75"
+      className="tracker-data-row tracker-group-summary-row group/summary bg-surface transition-colors hover:bg-surface-secondary/45"
     >
       <td className={`${summaryCellClass} min-w-0`}>
         <div className="flex min-h-[3.5rem] min-w-0 flex-col justify-center">
@@ -396,7 +407,7 @@ function TrackerGroupSummaryRow({
           {formatDuration(group.totalSeconds)}
         </span>
       </td>
-      <td className={`${trackerActionCellClass} bg-surface-secondary/55`}>
+      <td className={`${trackerActionCellClass} bg-surface`}>
         <div className={trackerActionLayoutClass} data-tracker-action>
           <Button
             isIconOnly
@@ -739,9 +750,7 @@ function TrackerEntryRow({
 
   const errorFor = (field: TrackerEditableField) =>
     activeField === field && validationMessage ? (
-      <span className="mt-1 block text-[11px] text-danger" role="alert">
-        {validationMessage}
-      </span>
+      <FieldError className="mt-1 block text-[11px]">{validationMessage}</FieldError>
     ) : null;
 
   const handleTextKeyDown = (
@@ -782,6 +791,8 @@ function TrackerEntryRow({
 
   const cellButtonClass =
     "inline-flex min-w-0 max-w-full truncate whitespace-nowrap !rounded-lg !px-1 !py-1 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent";
+  const descriptionButtonClass =
+    "inline-flex min-w-0 max-w-full truncate whitespace-nowrap !rounded-lg !px-0 !py-1 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent";
   const taskButtonClass =
     "inline-flex min-w-0 max-w-full flex-[0_1_auto] items-center !justify-start !rounded-lg !px-0 !py-1 text-left whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent";
   const projectButtonClass =
@@ -802,25 +813,30 @@ function TrackerEntryRow({
         <td className={`${trackerCellClass} min-w-0`}>
           <div className="flex min-w-0 items-center gap-2">
             {activeField === "task" ? (
-              <div className="min-w-0 flex-1">
+              <TextField
+                className="min-w-0 flex-1"
+                fullWidth
+                name={`task-${entry.id}`}
+                value={draft.task}
+                isInvalid={Boolean(validationMessage)}
+                onChange={(value) =>
+                  setDraft((current) => ({
+                    ...current,
+                    task: value,
+                  }))
+                }
+              >
+                <Label className="sr-only">Task</Label>
                 <Input
                   ref={focusRef}
-                  fullWidth
                   className={compactInputClass}
-                  aria-label="Task"
-                  value={draft.task}
-                  onChange={(event) =>
-                    setDraft((current) => ({
-                      ...current,
-                      task: event.target.value,
-                    }))
-                  }
                   onBlur={() => {
                     if (commitField("task", draft.task)) onDeactivate();
                   }}
                   onKeyDown={(event) => handleTextKeyDown(event, "task")}
                 />
-              </div>
+                <FieldError>{validationMessage}</FieldError>
+              </TextField>
             ) : (
               <div className="min-w-0 flex-[0_1_auto]">
                 <Button
@@ -855,39 +871,44 @@ function TrackerEntryRow({
             </Button>
           </div>
           {activeField === "description" ? (
-            <Input
-              ref={focusRef}
+            <TextField
+              className="min-w-0"
               fullWidth
-              className={compactInputClass}
-              aria-label="Description"
-              placeholder="Add a note"
+              name={`description-${entry.id}`}
               value={draft.description}
-              onChange={(event) =>
+              isInvalid={Boolean(validationMessage)}
+              onChange={(value) =>
                 setDraft((current) => ({
                   ...current,
-                  description: event.target.value,
+                  description: value,
                 }))
               }
-              onBlur={() => {
-                if (commitField("description", draft.description)) onDeactivate();
-              }}
-              onKeyDown={(event) => handleTextKeyDown(event, "description")}
-            />
+            >
+              <Label className="sr-only">Description</Label>
+              <Input
+                ref={focusRef}
+                className={compactInputClass}
+                placeholder="Add a note"
+                onBlur={() => {
+                  if (commitField("description", draft.description)) onDeactivate();
+                }}
+                onKeyDown={(event) => handleTextKeyDown(event, "description")}
+              />
+              <FieldError>{validationMessage}</FieldError>
+            </TextField>
           ) : (
             <Button
               size="sm"
               variant="ghost"
               fullWidth
               aria-label={entry.description ? "Edit description" : "Add description"}
-              className={`${cellButtonClass} mt-0.5 !h-6 !min-h-6 !justify-start text-xs text-muted ${entry.description ? "" : "text-transparent"}`}
+              className={`${descriptionButtonClass} mt-0.5 !h-6 !min-h-6 !justify-start text-xs text-muted ${entry.description ? "" : "text-transparent"}`}
               data-tracker-field="description"
               onPress={() => onActivate("description")}
             >
               {entry.description || "·"}
             </Button>
           )}
-          {errorFor("task")}
-          {errorFor("description")}
         </td>
 
         <td className={trackerCellClass}>
@@ -951,22 +972,24 @@ function TrackerEntryRow({
 
         <td className={`${trackerCellClass} text-center`}>
           {activeField === "start" ? (
-            <Input
-              ref={focusRef}
-              className={timeInputClass}
-              variant="secondary"
-              aria-label="Start time"
-              type="time"
+            <TextField
+              className="inline-flex min-w-0"
+              name={`start-${entry.id}`}
               value={draft.start}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  start: event.target.value,
-                }))
-              }
-              onBlur={() => commitTime(draft.start, draft.end)}
-              onKeyDown={handleTimeKeyDown}
-            />
+              isInvalid={Boolean(validationMessage)}
+              onChange={(value) => setDraft((current) => ({ ...current, start: value }))}
+            >
+              <Label className="sr-only">Start time</Label>
+              <Input
+                ref={focusRef}
+                className={timeInputClass}
+                variant="secondary"
+                type="time"
+                onBlur={() => commitTime(draft.start, draft.end)}
+                onKeyDown={handleTimeKeyDown}
+              />
+              <FieldError>{validationMessage}</FieldError>
+            </TextField>
           ) : (
             <Button
               size="sm"
@@ -979,22 +1002,28 @@ function TrackerEntryRow({
               {entry.start}
             </Button>
           )}
-          {activeField === "start" && errorFor("start")}
         </td>
 
         <td className={`${trackerCellClass} text-center`}>
           {activeField === "end" ? (
-            <Input
-              ref={focusRef}
-              className={timeInputClass}
-              variant="secondary"
-              aria-label="End time"
-              type="time"
+            <TextField
+              className="inline-flex min-w-0"
+              name={`end-${entry.id}`}
               value={draft.end}
-              onChange={(event) => setDraft((current) => ({ ...current, end: event.target.value }))}
-              onBlur={() => commitTime(draft.start, draft.end)}
-              onKeyDown={handleTimeKeyDown}
-            />
+              isInvalid={Boolean(validationMessage)}
+              onChange={(value) => setDraft((current) => ({ ...current, end: value }))}
+            >
+              <Label className="sr-only">End time</Label>
+              <Input
+                ref={focusRef}
+                className={timeInputClass}
+                variant="secondary"
+                type="time"
+                onBlur={() => commitTime(draft.start, draft.end)}
+                onKeyDown={handleTimeKeyDown}
+              />
+              <FieldError>{validationMessage}</FieldError>
+            </TextField>
           ) : (
             <Button
               size="sm"
@@ -1007,7 +1036,6 @@ function TrackerEntryRow({
               {entry.end}
             </Button>
           )}
-          {activeField === "end" && errorFor("end")}
         </td>
 
         <td className={trackerCellClass}>
@@ -1017,6 +1045,7 @@ function TrackerEntryRow({
                 value={draft.date}
                 label="Date"
                 className="!w-[8rem] !min-w-[8rem]"
+                compact
                 autoFocus
                 isInvalid={Boolean(validationMessage)}
                 onChange={(next) => {
@@ -1042,26 +1071,25 @@ function TrackerEntryRow({
 
         <td className={trackerCellClass}>
           {activeField === "duration" ? (
-            <>
+            <TextField
+              className="inline-flex min-w-0"
+              name={`duration-${entry.id}`}
+              value={draft.duration}
+              isInvalid={Boolean(validationMessage)}
+              onChange={(value) => setDraft((current) => ({ ...current, duration: value }))}
+            >
+              <Label className="sr-only">Duration</Label>
               <Input
                 ref={focusRef}
                 className={durationInputClass}
                 variant="secondary"
-                aria-label="Duration"
                 inputMode="decimal"
                 placeholder="H:MM"
-                value={draft.duration}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    duration: event.target.value,
-                  }))
-                }
                 onBlur={() => commitDuration(draft.duration)}
                 onKeyDown={handleDurationKeyDown}
               />
-              {errorFor("duration")}
-            </>
+              <FieldError>{validationMessage}</FieldError>
+            </TextField>
           ) : (
             <Button
               size="sm"

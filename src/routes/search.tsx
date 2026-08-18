@@ -1,4 +1,4 @@
-import { Input } from "@heroui/react";
+import { Input, Label, TextField } from "@heroui/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SearchIcon } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
@@ -43,13 +43,15 @@ function SearchPage() {
     <div className="space-y-6">
       <PageHeader title="Search" description="Look across projects, clients, team and entries." />
 
-      <Input
+      <TextField
         fullWidth
-        aria-label="Search workspace"
-        placeholder="Search…"
+        name="workspace-search"
         value={q}
-        onChange={(ev) => navigate({ to: "/search", search: { q: ev.target.value } })}
-      />
+        onChange={(value) => navigate({ to: "/search", search: { q: value } })}
+      >
+        <Label className="sr-only">Search workspace</Label>
+        <Input placeholder="Search…" />
+      </TextField>
 
       {empty ? (
         <EmptyBlock

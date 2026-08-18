@@ -1,4 +1,4 @@
-import { Button, Input, Label, ListBox, Select } from "@heroui/react";
+import { Button, Label, ListBox, Select, TextField, Input } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, Search, Timer } from "lucide-react";
 import { useState } from "react";
@@ -79,17 +79,17 @@ function TimesheetPage() {
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="ts-search">Search</Label>
-          <Input
-            fullWidth
-            id="ts-search"
-            placeholder="Filter by task or note"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-        <div className="w-full space-y-2 sm:w-56">
+        <TextField
+          className="flex-1"
+          fullWidth
+          name="timesheet-search"
+          value={query}
+          onChange={setQuery}
+        >
+          <Label>Search</Label>
+          <Input placeholder="Filter by task or note" />
+        </TextField>
+        <div className="flex w-full flex-col gap-2 sm:w-56">
           <Label>Project</Label>
           <Select
             aria-label="Filter by project"

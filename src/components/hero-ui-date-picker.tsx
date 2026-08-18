@@ -25,6 +25,7 @@ export function HeroUIDatePicker({
   isInvalid = false,
   onEscape,
   className,
+  compact = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -33,6 +34,7 @@ export function HeroUIDatePicker({
   isInvalid?: boolean;
   onEscape?: () => void;
   className?: string;
+  compact?: boolean;
 }) {
   const calendarValue = toCalendarDate(value);
   const [isOpen, setIsOpen] = useState(false);
@@ -67,18 +69,32 @@ export function HeroUIDatePicker({
         >
           <DateInputGroup
             fullWidth
-            variant="secondary"
-            className="!h-8 !min-h-8 !w-full !max-w-full !overflow-hidden !rounded-lg !px-2 !py-1 text-sm"
+            variant={compact ? "secondary" : "primary"}
+            className={
+              compact
+                ? "!h-8 !min-h-8 !w-full !max-w-full !overflow-hidden !rounded-lg !px-2 !py-1 text-sm"
+                : "w-full max-w-full"
+            }
           >
-            <DateInputGroup.Input className="min-w-0 flex-1 !overflow-hidden !p-0 text-xs tabular-nums whitespace-nowrap">
+            <DateInputGroup.Input
+              className={
+                compact
+                  ? "min-w-0 flex-1 !overflow-hidden !p-0 text-xs tabular-nums whitespace-nowrap"
+                  : "min-w-0 flex-1"
+              }
+            >
               {(segment) => <DateInputGroup.Segment segment={segment} />}
             </DateInputGroup.Input>
             <DateInputGroup.Suffix className="shrink-0">
               <Popover.Trigger
                 aria-label={`Open ${label} calendar`}
-                className="flex size-5 min-w-5 shrink-0 items-center justify-center rounded-md text-muted outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
+                className={
+                  compact
+                    ? "flex size-5 min-w-5 shrink-0 items-center justify-center rounded-md text-muted outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
+                    : "flex size-7 min-w-7 shrink-0 items-center justify-center text-muted outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
+                }
               >
-                <IconCalendar className="size-3.5" />
+                <IconCalendar className={compact ? "size-3.5" : "size-4"} />
               </Popover.Trigger>
             </DateInputGroup.Suffix>
           </DateInputGroup>

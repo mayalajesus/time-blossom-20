@@ -1,12 +1,12 @@
-import { Toast } from "@heroui/react";
+import { Button, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "../components/layout/app-shell";
 import { StoreProvider } from "../lib/store";
 import {
   Outlet,
-  Link,
   createRootRouteWithContext,
   useRouter,
+  useNavigate,
   useRouterState,
 } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -14,6 +14,8 @@ import { useEffect } from "react";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
+  const navigate = useNavigate();
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
@@ -23,12 +25,7 @@ function NotFoundComponent() {
           The page you're looking for doesn't exist or has been moved.
         </p>
         <div className="mt-6">
-          <Link
-            to="/"
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Go home
-          </Link>
+          <Button onPress={() => navigate({ to: "/" })}>Go home</Button>
         </div>
       </div>
     </div>
@@ -49,21 +46,17 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           Something went wrong on our end. You can try refreshing or head back home.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => {
+          <Button
+            onPress={() => {
               router.invalidate();
               reset();
             }}
-            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             Try again
-          </button>
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
+          </Button>
+          <Button variant="secondary" onPress={() => router.navigate({ to: "/" })}>
             Go home
-          </a>
+          </Button>
         </div>
       </div>
     </div>

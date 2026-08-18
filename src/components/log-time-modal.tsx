@@ -1,5 +1,8 @@
 import {
   Button,
+  Description,
+  FieldError,
+  Form,
   Input,
   Label,
   ListBox,
@@ -7,9 +10,11 @@ import {
   Select,
   Switch,
   TextArea,
+  TextField,
   toast,
 } from "@heroui/react";
 import { useEffect, useState } from "react";
+import { FormAlert } from "@/components/form-feedback";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { useStore, type StoreResult } from "@/lib/store";
 import { isValidDateOnly, minutesBetween } from "@/lib/format";
@@ -34,6 +39,7 @@ export function LogTimeModal({
   const [end, setEnd] = useState("10:00");
   const [description, setDescription] = useState("");
   const [billable, setBillable] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -44,10 +50,14 @@ export function LogTimeModal({
     setEnd(entry?.end ?? "10:00");
     setDescription(entry?.description ?? "");
     setBillable(entry?.billable ?? true);
+    setSaveError(null);
   }, [entry, initialDate, isOpen, today]);
 
   const minutes = minutesBetween(start, end);
-  const invalid = task.trim().length === 0 || !isValidDateOnly(date) || minutes <= 0;
+  const taskError = task.trim().length === 0 ? "Task is required" : undefined;
+  const dateError = !isValidDateOnly(date) ? "Choose a valid date" : undefined;
+  const timeError = minutes <= 0 ? "End time must be after start time" : undefined;
+  const invalid = Boolean(taskError || dateError || timeError);
 
   const submit = () => {
     if (invalid) return;
@@ -78,7 +88,7 @@ export function LogTimeModal({
       });
     }
     if (!result.success) {
-      toast("Could not save entry", { description: result.error });
+      setSaveError(result.error);
       return;
     }
     toast(entry ? "Time entry updated" : "Time entry added", {
@@ -106,124 +116,150 @@ export function LogTimeModal({
             <Modal.Header>
               <Modal.Heading>{entry ? "Edit time entry" : "Log time manually"}</Modal.Heading>
             </Modal.Header>
-            <Modal.Body className="flex flex-col gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="log-task">Task</Label>
-                <Input
-                  fullWidth
-                  id="log-task"
-                  placeholder="e.g. Landing page revisions"
-                  value={task}
-                  onChange={(e) => setTask(e.target.value)}
-                />
-              </div>
+            <Form
+              className="flex flex-col"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submit();
+              }}
+            >
+              <Modal.Body className="flex flex-col gap-4">
+                {saveError ? (
+                  <FormAlert title="Could not save entry" description={saveError} />
+                ) : null}
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <HeroUIDatePicker value={date} label="Date" onChange={setDate} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Project</Label>
-                  <Select
-                    aria-label="Project"
-                    fullWidth
-                    value={projectId ?? "none"}
-                    onChange={(key) => {
-                      const value = String(key ?? "none");
-                      setProjectId(value === "none" ? null : value);
-                    }}
-                  >
-                    <Select.Trigger>
-                      <Select.Value />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                    <Select.Popover>
-                      <ListBox>
-                        <ListBox.Item id="none" textValue="No project">
-                          <Label>No project</Label>
-                          <ListBox.ItemIndicator />
-                        </ListBox.Item>
-                        {availableProjects.map((p) => (
-                          <ListBox.Item key={p.id} id={p.id} textValue={p.name}>
-                            <div className="flex min-w-0 flex-col">
-                              <Label>{p.name}</Label>
-                              <span className="text-xs text-muted">
-                                {clients.find((client) => client.id === p.clientId)?.name ??
-                                  "Unknown client"}
-                              </span>
-                            </div>
+                <TextField
+                  isRequired
+                  fullWidth
+                  name="task"
+                  value={task}
+                  validate={(value) => (value.trim() ? null : "Task is required")}
+                  onChange={(value) => {
+                    setTask(value);
+                    setSaveError(null);
+                  }}
+                >
+                  <Label>Task</Label>
+                  <Input placeholder="e.g. Landing page revisions" />
+                  <FieldError />
+                </TextField>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <Label>Date</Label>
+                    <HeroUIDatePicker
+                      value={date}
+                      label="Date"
+                      isInvalid={Boolean(dateError)}
+                      onChange={(next) => {
+                        setDate(next);
+                        setSaveError(null);
+                      }}
+                    />
+                    {dateError ? <FieldError>{dateError}</FieldError> : null}
+                  </div>
+
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <Label>Project</Label>
+                    <Select
+                      aria-label="Project"
+                      fullWidth
+                      value={projectId ?? "none"}
+                      onChange={(key) => {
+                        const value = String(key ?? "none");
+                        setProjectId(value === "none" ? null : value);
+                        setSaveError(null);
+                      }}
+                    >
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          <ListBox.Item id="none" textValue="No project">
+                            <Label>No project</Label>
                             <ListBox.ItemIndicator />
                           </ListBox.Item>
-                        ))}
-                      </ListBox>
-                    </Select.Popover>
-                  </Select>
+                          {availableProjects.map((p) => (
+                            <ListBox.Item key={p.id} id={p.id} textValue={p.name}>
+                              <div className="flex min-w-0 flex-col">
+                                <Label>{p.name}</Label>
+                                <Description>
+                                  {clients.find((client) => client.id === p.clientId)?.name ??
+                                    "Unknown client"}
+                                </Description>
+                              </div>
+                              <ListBox.ItemIndicator />
+                            </ListBox.Item>
+                          ))}
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                  </div>
                 </div>
-              </div>
 
-              <p className="-mt-2 text-xs text-muted">
-                {selectedProject
-                  ? `Client: ${selectedClient?.name ?? "Unknown client"}`
-                  : "No project · no client"}
-              </p>
+                <Description>
+                  {selectedProject
+                    ? `Client: ${selectedClient?.name ?? "Unknown client"}`
+                    : "No project · no client"}
+                </Description>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="log-start">Start</Label>
-                  <Input
+                <div className="grid grid-cols-2 gap-4">
+                  <TextField fullWidth name="start" type="time" value={start} onChange={setStart}>
+                    <Label>Start</Label>
+                    <Input />
+                  </TextField>
+                  <TextField
                     fullWidth
-                    id="log-start"
-                    type="time"
-                    value={start}
-                    onChange={(e) => setStart(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="log-end">End</Label>
-                  <Input
-                    fullWidth
-                    id="log-end"
+                    name="end"
                     type="time"
                     value={end}
-                    onChange={(e) => setEnd(e.target.value)}
-                  />
+                    isInvalid={Boolean(timeError)}
+                    onChange={setEnd}
+                  >
+                    <Label>End</Label>
+                    <Input />
+                    <FieldError>{timeError}</FieldError>
+                  </TextField>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="log-notes">Notes</Label>
-                <TextArea
+                <TextField
                   fullWidth
-                  id="log-notes"
-                  placeholder="Optional details"
+                  name="description"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
+                  onChange={setDescription}
+                >
+                  <Label>Notes</Label>
+                  <TextArea placeholder="Optional details" />
+                  <Description>Keep useful context attached to this entry.</Description>
+                </TextField>
 
-              <Switch isSelected={billable} onChange={(selected: boolean) => setBillable(selected)}>
-                <Switch.Control>
-                  <Switch.Thumb />
-                </Switch.Control>
-                <Switch.Content>
-                  <Label>Billable</Label>
-                </Switch.Content>
-              </Switch>
+                <Switch
+                  isSelected={billable}
+                  onChange={(selected: boolean) => setBillable(selected)}
+                >
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                  <Switch.Content>
+                    <Label>Billable</Label>
+                  </Switch.Content>
+                </Switch>
 
-              <p className="text-xs text-muted">
-                Duration: {minutes > 0 ? `${minutes} minutes` : "invalid range"}
-                {!isValidDateOnly(date) ? " · Choose a valid date" : ""}
-              </p>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button slot="close" variant="secondary">
-                Cancel
-              </Button>
-              <Button isDisabled={invalid} onPress={submit}>
-                Save entry
-              </Button>
-            </Modal.Footer>
+                <Description>
+                  Duration: {minutes > 0 ? `${minutes} minutes` : "invalid range"}
+                </Description>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button slot="close" type="button" variant="secondary">
+                  Cancel
+                </Button>
+                <Button type="submit" isDisabled={invalid}>
+                  Save entry
+                </Button>
+              </Modal.Footer>
+            </Form>
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>

@@ -1,8 +1,22 @@
-import { Button, Chip, Input, Label, ListBox, Modal, Select, toast } from "@heroui/react";
+import {
+  Button,
+  Chip,
+  Description,
+  FieldError,
+  Form,
+  Input,
+  Label,
+  ListBox,
+  Modal,
+  Select,
+  TextField,
+  toast,
+} from "@heroui/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { FolderKanban, Plus } from "lucide-react";
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
+import { FormAlert } from "@/components/form-feedback";
 import { CardsSkeleton, EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
 import { useSimulatedLoad, useStore } from "@/lib/store";
@@ -39,6 +53,7 @@ function ProjectsPage() {
   const [newOpen, setNewOpen] = useState(false);
   const [name, setName] = useState("");
   const [clientId, setClientId] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const visible = projects.filter((p) => filter === "all" || p.status === filter);
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
@@ -46,7 +61,7 @@ function ProjectsPage() {
     entries.filter((e) => e.projectId === id).reduce((sum, e) => sum + e.seconds, 0);
 
   const create = () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !clientId) return;
     const result = addProject({
       name: name.trim(),
       clientId,
@@ -56,11 +71,13 @@ function ProjectsPage() {
       memberIds: ["u1"],
     });
     if (!result.success) {
-      toast("Could not create project", { description: result.error });
+      setCreateError(result.error);
       return;
     }
     toast("Project created", { description: name.trim() });
     setName("");
+    setClientId("");
+    setCreateError(null);
     setNewOpen(false);
   };
 
@@ -154,56 +171,75 @@ function ProjectsPage() {
               <Modal.Header>
                 <Modal.Heading>New project</Modal.Heading>
               </Modal.Header>
-              <Modal.Body className="flex flex-col gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="project-name">Name</Label>
-                  <Input
+              <Form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  create();
+                }}
+              >
+                <Modal.Body className="flex flex-col gap-4">
+                  {createError ? (
+                    <FormAlert title="Could not create project" description={createError} />
+                  ) : null}
+
+                  <TextField
+                    isRequired
                     fullWidth
-                    id="project-name"
-                    placeholder="e.g. Brand refresh"
+                    name="project-name"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Client</Label>
-                  <Select
-                    aria-label="Client"
-                    fullWidth
-                    value={clientId || "none"}
-                    onChange={(key) => {
-                      const value = String(key ?? "none");
-                      setClientId(value === "none" ? "" : value);
+                    validate={(value) => (value.trim() ? null : "Project name is required")}
+                    onChange={(value) => {
+                      setName(value);
+                      setCreateError(null);
                     }}
                   >
-                    <Select.Trigger>
-                      <Select.Value />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                    <Select.Popover>
-                      <ListBox>
-                        <ListBox.Item id="none" textValue="Select a client" isDisabled>
-                          <Label>Select a client</Label>
-                        </ListBox.Item>
-                        {clients.map((c) => (
-                          <ListBox.Item key={c.id} id={c.id} textValue={c.name}>
-                            <Label>{c.name}</Label>
-                            <ListBox.ItemIndicator />
+                    <Label>Name</Label>
+                    <Input placeholder="e.g. Brand refresh" />
+                    <FieldError />
+                  </TextField>
+
+                  <div className="flex flex-col gap-2">
+                    <Label>Client</Label>
+                    <Select
+                      aria-label="Client"
+                      fullWidth
+                      value={clientId || "none"}
+                      onChange={(key) => {
+                        const value = String(key ?? "none");
+                        setClientId(value === "none" ? "" : value);
+                        setCreateError(null);
+                      }}
+                    >
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          <ListBox.Item id="none" textValue="Select a client" isDisabled>
+                            <Label>Select a client</Label>
                           </ListBox.Item>
-                        ))}
-                      </ListBox>
-                    </Select.Popover>
-                  </Select>
-                </div>
-              </Modal.Body>
-              <Modal.Footer>
-                <Button slot="close" variant="secondary">
-                  Cancel
-                </Button>
-                <Button isDisabled={!name.trim() || !clientId} onPress={create}>
-                  Create project
-                </Button>
-              </Modal.Footer>
+                          {clients.map((c) => (
+                            <ListBox.Item key={c.id} id={c.id} textValue={c.name}>
+                              <Label>{c.name}</Label>
+                              <ListBox.ItemIndicator />
+                            </ListBox.Item>
+                          ))}
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                    <Description>Every project is connected to one client.</Description>
+                  </div>
+                </Modal.Body>
+                <Modal.Footer>
+                  <Button slot="close" type="button" variant="secondary">
+                    Cancel
+                  </Button>
+                  <Button type="submit" isDisabled={!name.trim() || !clientId}>
+                    Create project
+                  </Button>
+                </Modal.Footer>
+              </Form>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>

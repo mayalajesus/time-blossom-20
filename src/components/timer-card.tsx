@@ -1,6 +1,7 @@
-import { Button, Chip, Input, Label, ListBox, Select } from "@heroui/react";
+import { Button, Chip, Input, Label, ListBox, Select, TextField } from "@heroui/react";
 import { Pause, Play, Square } from "lucide-react";
 import { useState } from "react";
+import { FormAlert } from "@/components/form-feedback";
 import { useStore } from "@/lib/store";
 import { formatClock } from "@/lib/format";
 
@@ -8,6 +9,7 @@ export function TimerCard() {
   const { timer, elapsed, projects, startTimer, pauseTimer, resumeTimer, stopTimer } = useStore();
   const [task, setTask] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [timerError, setTimerError] = useState<string | null>(null);
   const active = timer.status !== "idle";
   const activeProject = projects.find((p) => p.id === timer.projectId);
   const projectLabel = activeProject?.name ?? "No project";
@@ -15,29 +17,27 @@ export function TimerCard() {
   return (
     <div className="rounded-xl border border-default bg-surface px-3 py-3 sm:px-4">
       <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,14rem)_auto_auto] lg:items-end">
-        <div className="min-w-0">
-          <Label className="sr-only" htmlFor="timer-task">
-            What are you working on?
-          </Label>
-          <Input
-            fullWidth
-            id="timer-task"
-            placeholder="What are you working on?"
-            value={active ? timer.task : task}
-            disabled={active}
-            onChange={(e) => setTask(e.target.value)}
-          />
-        </div>
+        <TextField
+          className="min-w-0"
+          fullWidth
+          name="timer-task"
+          value={active ? timer.task : task}
+          isReadOnly={active}
+          onChange={setTask}
+        >
+          <Label className="sr-only">What are you working on?</Label>
+          <Input placeholder="What are you working on?" />
+        </TextField>
 
         <div className="min-w-0">
           <Label className="sr-only">Project</Label>
           {active ? (
-            <div
+            <Input
+              fullWidth
               aria-label={`Project: ${projectLabel}`}
-              className="flex h-10 min-w-0 items-center truncate rounded-xl border border-default px-3 text-sm text-foreground"
-            >
-              {projectLabel}
-            </div>
+              readOnly
+              value={projectLabel}
+            />
           ) : (
             <Select
               aria-label="Project"
@@ -74,7 +74,13 @@ export function TimerCard() {
         </span>
         <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
           {timer.status === "idle" ? (
-            <Button className="w-full sm:w-auto" onPress={() => startTimer(task, projectId)}>
+            <Button
+              className="w-full sm:w-auto"
+              onPress={() => {
+                const result = startTimer(task, projectId);
+                setTimerError(result.success ? null : result.error);
+              }}
+            >
               <Play className="size-4" />
               Start
             </Button>
@@ -105,6 +111,12 @@ export function TimerCard() {
           )}
         </div>
       </div>
+
+      {timerError ? (
+        <div className="mt-3">
+          <FormAlert title="Timer could not start" description={timerError} />
+        </div>
+      ) : null}
 
       {active ? (
         <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-default pt-3">

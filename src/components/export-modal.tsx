@@ -1,6 +1,18 @@
-import { Button, Label, ListBox, Modal, Radio, RadioGroup, Select, toast } from "@heroui/react";
-import { Check, Download, Loader2 } from "lucide-react";
+import {
+  Button,
+  Description,
+  Form,
+  Label,
+  ListBox,
+  Modal,
+  Radio,
+  RadioGroup,
+  Select,
+  toast,
+} from "@heroui/react";
+import { Download, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { FormAlert } from "@/components/form-feedback";
 
 type Phase = "idle" | "working" | "done";
 
@@ -41,75 +53,84 @@ export function ExportModal({
             <Modal.Header>
               <Modal.Heading>Export {scope}</Modal.Heading>
             </Modal.Header>
-            <Modal.Body className="flex flex-col gap-5">
-              <div className="space-y-2">
-                <Label>Date range</Label>
-                <Select
-                  aria-label="Date range"
-                  fullWidth
-                  value={range}
-                  onChange={(key) => setRange(String(key ?? "this-week"))}
-                >
-                  <Select.Trigger>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      {[
-                        { id: "this-week", label: "This week" },
-                        { id: "last-week", label: "Last week" },
-                        { id: "this-month", label: "This month" },
-                        { id: "all-time", label: "All time" },
-                      ].map((item) => (
-                        <ListBox.Item key={item.id} id={item.id} textValue={item.label}>
-                          <Label>{item.label}</Label>
-                          <ListBox.ItemIndicator />
-                        </ListBox.Item>
-                      ))}
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
-              </div>
-
-              <RadioGroup
-                value={format}
-                onChange={(next: string) => setFormat(next)}
-                orientation="horizontal"
-              >
-                <Label>Format</Label>
-                {["csv", "pdf", "json"].map((f) => (
-                  <Radio key={f} value={f}>
-                    <Radio.Content>
-                      <Radio.Control>
-                        <Radio.Indicator />
-                      </Radio.Control>
-                      {f.toUpperCase()}
-                    </Radio.Content>
-                  </Radio>
-                ))}
-              </RadioGroup>
-
-              {phase === "done" ? (
-                <div className="flex items-center gap-2 rounded-xl bg-success-subtle px-3 py-2 text-sm text-success">
-                  <Check className="size-4" />
-                  File generated — download simulated.
+            <Form
+              onSubmit={(event) => {
+                event.preventDefault();
+                run();
+              }}
+            >
+              <Modal.Body className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2">
+                  <Label>Date range</Label>
+                  <Select
+                    aria-label="Date range"
+                    fullWidth
+                    value={range}
+                    onChange={(key) => setRange(String(key ?? "this-week"))}
+                  >
+                    <Select.Trigger>
+                      <Select.Value />
+                      <Select.Indicator />
+                    </Select.Trigger>
+                    <Select.Popover>
+                      <ListBox>
+                        {[
+                          { id: "this-week", label: "This week" },
+                          { id: "last-week", label: "Last week" },
+                          { id: "this-month", label: "This month" },
+                          { id: "all-time", label: "All time" },
+                        ].map((item) => (
+                          <ListBox.Item key={item.id} id={item.id} textValue={item.label}>
+                            <Label>{item.label}</Label>
+                            <ListBox.ItemIndicator />
+                          </ListBox.Item>
+                        ))}
+                      </ListBox>
+                    </Select.Popover>
+                  </Select>
+                  <Description>Choose the period included in the exported file.</Description>
                 </div>
-              ) : null}
-            </Modal.Body>
-            <Modal.Footer>
-              <Button slot="close" variant="secondary">
-                Close
-              </Button>
-              <Button isDisabled={phase === "working"} onPress={run}>
-                {phase === "working" ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Download className="size-4" />
-                )}
-                {phase === "working" ? "Preparing…" : "Export"}
-              </Button>
-            </Modal.Footer>
+
+                <RadioGroup
+                  value={format}
+                  onChange={(next: string) => setFormat(next)}
+                  orientation="horizontal"
+                >
+                  <Label>Format</Label>
+                  {["csv", "pdf", "json"].map((f) => (
+                    <Radio key={f} value={f}>
+                      <Radio.Content>
+                        <Radio.Control>
+                          <Radio.Indicator />
+                        </Radio.Control>
+                        {f.toUpperCase()}
+                      </Radio.Content>
+                    </Radio>
+                  ))}
+                </RadioGroup>
+
+                {phase === "done" ? (
+                  <FormAlert
+                    status="success"
+                    title="File generated"
+                    description="The download is simulated in this workspace."
+                  />
+                ) : null}
+              </Modal.Body>
+              <Modal.Footer>
+                <Button slot="close" type="button" variant="secondary">
+                  Close
+                </Button>
+                <Button type="submit" isDisabled={phase === "working"}>
+                  {phase === "working" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Download className="size-4" />
+                  )}
+                  {phase === "working" ? "Preparing…" : "Export"}
+                </Button>
+              </Modal.Footer>
+            </Form>
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>

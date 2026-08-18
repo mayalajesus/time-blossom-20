@@ -1,4 +1,4 @@
-import { Avatar, Button, Input } from "@heroui/react";
+import { Avatar, Button, Form, Input, Label, TextField } from "@heroui/react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   BarChart3,
@@ -123,21 +123,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         }`}
       >
         <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-default bg-background/80 px-4 py-3 backdrop-blur">
-          <form
+          <Form
             className="max-w-sm flex-1"
             onSubmit={(e) => {
               e.preventDefault();
               navigate({ to: "/search", search: { q: query } });
             }}
           >
-            <Input
-              fullWidth
-              aria-label="Search"
-              placeholder="Search…  (Ctrl+K)"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </form>
+            <TextField fullWidth name="global-search" value={query} onChange={setQuery}>
+              <Label className="sr-only">Search</Label>
+              <Input placeholder="Search…  (Ctrl+K)" />
+            </TextField>
+          </Form>
           <div className="ml-auto flex items-center gap-2">
             <Button
               aria-label={`Theme: ${themeMode}`}

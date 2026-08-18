@@ -1,4 +1,14 @@
-import { Button, Input, Label, toast } from "@heroui/react";
+import {
+  Button,
+  Description,
+  FieldError,
+  Form,
+  Input,
+  Label,
+  Switch,
+  TextField,
+  toast,
+} from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
@@ -47,47 +57,50 @@ function SettingsPage() {
     <div className="max-w-2xl space-y-6">
       <PageHeader title="Settings" description="Workspace preferences and defaults." />
 
-      <div className="space-y-5 rounded-2xl border border-default bg-surface p-5">
-        <div className="space-y-2">
-          <Label htmlFor="workspace-name">Workspace name</Label>
-          <Input
-            fullWidth
-            id="workspace-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
+      <Form
+        className="space-y-5 rounded-2xl border border-default bg-surface p-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setSettings({ workspaceName: name.trim() });
+          toast("Settings saved");
+        }}
+      >
+        <TextField
+          isRequired
+          fullWidth
+          name="workspace-name"
+          value={name}
+          validate={(value) => (value.trim() ? null : "Workspace name is required")}
+          onChange={setName}
+        >
+          <Label>Workspace name</Label>
+          <Input />
+          <FieldError />
+        </TextField>
 
         {toggles.map((item) => (
-          <div key={item.key} className="flex items-center justify-between gap-4">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">{item.title}</p>
-              <p className="text-sm text-muted">{item.hint}</p>
-            </div>
-            <Button
-              aria-label={item.title}
-              aria-pressed={settings[item.key]}
-              className="h-7 w-12 min-w-12 justify-start rounded-full p-1 data-[pressed=true]:justify-end"
-              isIconOnly
-              variant="tertiary"
-              onPress={() => setSettings({ [item.key]: !settings[item.key] })}
-            >
-              <span className="size-5 rounded-full bg-foreground shadow-sm" />
-            </Button>
-          </div>
+          <Switch
+            key={item.key}
+            aria-label={item.title}
+            isSelected={settings[item.key]}
+            onChange={(selected: boolean) => setSettings({ [item.key]: selected })}
+          >
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            <Switch.Content>
+              <Label>{item.title}</Label>
+              <Description>{item.hint}</Description>
+            </Switch.Content>
+          </Switch>
         ))}
 
         <div className="flex justify-end border-t border-default pt-4">
-          <Button
-            onPress={() => {
-              setSettings({ workspaceName: name });
-              toast("Settings saved");
-            }}
-          >
+          <Button type="submit" isDisabled={!name.trim()}>
             Save changes
           </Button>
         </div>
-      </div>
+      </Form>
     </div>
   );
 }
