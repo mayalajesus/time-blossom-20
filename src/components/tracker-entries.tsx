@@ -1,6 +1,7 @@
 import { Button, Dropdown, Input, Label, ListBox, Modal, Select, toast } from "@heroui/react";
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronDown, MoreHorizontal, Play, Trash2 } from "lucide-react";
+import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { useStore } from "@/lib/store";
 import {
   addSecondsToTime,
@@ -639,6 +640,11 @@ function TrackerEntryRow({
       return commitTime(draft.start, draft.end, true);
     }
     if (activeField === "duration") return commitDuration(draft.duration, true);
+    if (activeField === "date") {
+      const saved = commitField("date", draft.date);
+      if (saved) onDeactivate();
+      return saved;
+    }
     return true;
   };
 
@@ -651,6 +657,11 @@ function TrackerEntryRow({
         ?.closest("[data-tracker-field]")
         ?.getAttribute("data-tracker-field");
       const clickedAction = target?.closest("[data-tracker-action]");
+      const clickedDatePicker = target?.closest(
+        "[data-tracker-date-picker], [data-tracker-date-picker-popover]",
+      );
+
+      if (clickedDatePicker) return;
 
       if (rowRef.current?.contains(target)) {
         if (clickedField && clickedField !== activeField) {
@@ -774,7 +785,6 @@ function TrackerEntryRow({
     "inline-flex !h-8 !w-[5.75rem] !min-w-[5.75rem] shrink-0 items-center justify-center !rounded-lg !px-1 text-sm tabular-nums text-muted whitespace-nowrap outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent";
   const compactInputClass = "!h-8 !min-h-8 !rounded-lg !px-2 !py-1 text-sm";
   const timeInputClass = `${compactInputClass} !w-[5.75rem] !min-w-[5.75rem] shrink-0 text-center tabular-nums`;
-  const dateInputClass = `${compactInputClass} !w-[7.25rem] !max-w-full`;
   const durationInputClass = `${compactInputClass} !w-[5.25rem] !min-w-[5.25rem] !max-w-full`;
   return (
     <Fragment>
@@ -998,24 +1008,17 @@ function TrackerEntryRow({
         <td className={trackerCellClass}>
           {activeField === "date" ? (
             <>
-              <Input
-                ref={focusRef}
-                className={dateInputClass}
-                variant="secondary"
-                aria-label="Date"
-                type="date"
+              <HeroUIDatePicker
                 value={draft.date}
-                onChange={(event) => {
-                  const next = event.target.value;
+                label="Date"
+                className="!w-[8rem] !min-w-[8rem]"
+                autoFocus
+                isInvalid={Boolean(validationMessage)}
+                onChange={(next) => {
                   setDraft((current) => ({ ...current, date: next }));
                   if (isValidDateOnly(next) && commitField("date", next)) onDeactivate();
                 }}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    event.preventDefault();
-                    restoreField();
-                  }
-                }}
+                onEscape={restoreField}
               />
               {errorFor("date")}
             </>

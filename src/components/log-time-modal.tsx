@@ -10,6 +10,7 @@ import {
   toast,
 } from "@heroui/react";
 import { useEffect, useState } from "react";
+import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { useStore, type StoreResult } from "@/lib/store";
 import { isValidDateOnly, minutesBetween } from "@/lib/format";
 import type { TimeEntry } from "@/lib/mock-data";
@@ -120,13 +121,7 @@ export function LogTimeModal({
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Date</Label>
-                  <Input
-                    fullWidth
-                    aria-label="Date"
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                  />
+                  <HeroUIDatePicker value={date} label="Date" onChange={setDate} />
                 </div>
                 <div className="space-y-2">
                   <Label>Project</Label>

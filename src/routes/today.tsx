@@ -60,7 +60,7 @@ function TodayPage() {
         };
       })
       .filter((day) => day.entries.length > 0);
-  }, [currentUserId, entries, week.start]);
+  }, [currentUserId, entries, week.end]);
 
   const weekTotal = days.reduce((total, day) => total + day.totalSeconds, 0);
   const isCurrentWeek = week.start === currentWeek.start;

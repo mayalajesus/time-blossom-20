@@ -68,6 +68,12 @@ system before they can track time.
 - Inline cell actions use compact HeroUI `Button` and `Input` components. Do
   not present static values as large filled fields or add native HTML controls
   when a HeroUI control already provides the interaction.
+- All date selection uses the shared HeroUI DatePicker and Calendar pattern.
+  Native browser date pickers are not used; inline date edits and manual log
+  forms share the same calendar, keyboard navigation and visual language. The
+  inline Date field keeps a compact fixed footprint, reserves space for the
+  calendar trigger, and anchors the popover to that trigger so editing never
+  overlaps adjacent columns.
 - Save valid inline changes automatically. Keep deletion as the only explicit
   destructive row action.
 - A time entry may be unassigned (`No project` / `No client`). Every project
