@@ -45,7 +45,7 @@ function TodayPage() {
   const week = getWeekBounds(weekStart, weekStartsOn);
 
   const days = useMemo(() => {
-    const daysInWeek = Array.from({ length: 7 }, (_, index) => shiftDate(week.start, index));
+    const daysInWeek = Array.from({ length: 7 }, (_, index) => shiftDate(week.end, -index));
 
     return daysInWeek
       .map((date) => {

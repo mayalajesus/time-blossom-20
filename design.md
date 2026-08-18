@@ -26,8 +26,9 @@ system before they can track time.
 - Follow the familiar time-tracker hierarchy: composer, week total, then one
   aligned flat table with task, project/client, start, end, date, duration and
   quick actions. The date belongs in the Date column, not in repeated row
-  headers. Entries from the same date, task, project and billability state are
-  grouped into one compact summary row.
+  headers. Days are shown from most recent to oldest, while entries within a
+  day remain ordered by start time. Entries from the same date, task, project
+  and billability state are grouped into one compact summary row.
 - Multi-entry groups start collapsed and show their count, first start, last end
   and summed duration. The summary row is read-only and expands to reveal the
   individual entries; inline editing remains available on those detail rows.

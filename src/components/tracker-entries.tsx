@@ -1,4 +1,4 @@
-import { Button, Dropdown, Input, Label, ListBox, Select, toast } from "@heroui/react";
+import { Button, Dropdown, Input, Label, ListBox, Modal, Select, toast } from "@heroui/react";
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronDown, MoreHorizontal, Play, Trash2 } from "lucide-react";
 import { useStore } from "@/lib/store";
@@ -450,6 +450,7 @@ function TrackerEntryRow({
   const savedDraftRef = useRef<EntryDraft>(toDraft(entry));
   const [draft, setDraft] = useState<EntryDraft>(() => toDraft(entry));
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (activeField) return;
@@ -674,9 +675,9 @@ function TrackerEntryRow({
     return () => document.removeEventListener("pointerdown", handleOutsidePointer, true);
   });
 
-  const handleDelete = () => {
-    if (!window.confirm(`Delete “${entry.task}”?`)) return;
+  const confirmDelete = () => {
     deleteEntry(entry.id);
+    setDeleteDialogOpen(false);
     onDeactivate();
     toast("Time entry deleted");
   };
@@ -708,7 +709,7 @@ function TrackerEntryRow({
             <MoreHorizontal className="size-4" />
           </Dropdown.Trigger>
           <Dropdown.Popover>
-            <Dropdown.Menu onAction={(key) => key === "delete" && handleDelete()}>
+            <Dropdown.Menu onAction={(key) => key === "delete" && setDeleteDialogOpen(true)}>
               <Dropdown.Item id="delete" className="text-danger">
                 <Trash2 className="size-4" />
                 <Label>Delete entry</Label>
@@ -776,292 +777,323 @@ function TrackerEntryRow({
   const dateInputClass = `${compactInputClass} !w-[7.25rem] !max-w-full`;
   const durationInputClass = `${compactInputClass} !w-[5.25rem] !min-w-[5.25rem] !max-w-full`;
   return (
-    <tr
-      id={rowId}
-      ref={rowRef}
-      data-tracker-entry="true"
-      className={`tracker-data-row tracker-entry-row group ${isGroupedDetail ? "bg-surface-secondary/45" : "bg-surface"} transition-colors hover:bg-surface-secondary/70`}
-    >
-      <td className={`${trackerCellClass} min-w-0`}>
-        <div className="flex min-w-0 items-center gap-2">
-          {activeField === "task" ? (
-            <div className="min-w-0 flex-1">
-              <Input
-                ref={focusRef}
-                fullWidth
-                className={compactInputClass}
-                aria-label="Task"
-                value={draft.task}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    task: event.target.value,
-                  }))
-                }
-                onBlur={() => {
-                  if (commitField("task", draft.task)) onDeactivate();
-                }}
-                onKeyDown={(event) => handleTextKeyDown(event, "task")}
-              />
-            </div>
-          ) : (
-            <div className="min-w-0 flex-[0_1_auto]">
-              <Button
-                size="sm"
-                variant="ghost"
-                fullWidth
-                className={taskButtonClass}
-                data-tracker-field="task"
-                onPress={() => onActivate("task")}
-              >
-                <span className="truncate text-sm font-medium text-foreground">{entry.task}</span>
-              </Button>
-            </div>
-          )}
-          <Button
-            isIconOnly
-            size="sm"
-            variant="ghost"
-            aria-label={`Billable: ${entry.billable ? "yes" : "no"}`}
-            aria-pressed={entry.billable}
-            data-tracker-field="billable"
-            className="size-4 min-w-4 !rounded-full !p-0"
-            onPress={() => {
-              const next = !entry.billable;
-              if (commitField("billable", next)) onDeactivate();
-            }}
-          >
-            <span
-              className={`size-2 rounded-full ${entry.billable ? "bg-success" : "bg-muted"}`}
-              aria-hidden="true"
-            />
-          </Button>
-        </div>
-        {activeField === "description" ? (
-          <Input
-            ref={focusRef}
-            fullWidth
-            className={compactInputClass}
-            aria-label="Description"
-            placeholder="Add a note"
-            value={draft.description}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                description: event.target.value,
-              }))
-            }
-            onBlur={() => {
-              if (commitField("description", draft.description)) onDeactivate();
-            }}
-            onKeyDown={(event) => handleTextKeyDown(event, "description")}
-          />
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            fullWidth
-            aria-label={entry.description ? "Edit description" : "Add description"}
-            className={`${cellButtonClass} mt-0.5 !h-6 !min-h-6 !justify-start text-xs text-muted ${entry.description ? "" : "text-transparent"}`}
-            data-tracker-field="description"
-            onPress={() => onActivate("description")}
-          >
-            {entry.description || "·"}
-          </Button>
-        )}
-        {errorFor("task")}
-        {errorFor("description")}
-      </td>
-
-      <td className={trackerCellClass}>
-        {activeField === "project" ? (
-          <>
-            <Select
-              aria-label="Project"
-              fullWidth
-              value={draft.projectId ?? "none"}
-              onChange={(key) => {
-                const value = String(key ?? "none");
-                const next = value === "none" ? null : value;
-                setDraft((current) => ({ ...current, projectId: next }));
-                if (commitField("project", next)) onDeactivate();
+    <Fragment>
+      <tr
+        id={rowId}
+        ref={rowRef}
+        data-tracker-entry="true"
+        className={`tracker-data-row tracker-entry-row group ${isGroupedDetail ? "bg-surface-secondary/45" : "bg-surface"} transition-colors hover:bg-surface-secondary/70`}
+      >
+        <td className={`${trackerCellClass} min-w-0`}>
+          <div className="flex min-w-0 items-center gap-2">
+            {activeField === "task" ? (
+              <div className="min-w-0 flex-1">
+                <Input
+                  ref={focusRef}
+                  fullWidth
+                  className={compactInputClass}
+                  aria-label="Task"
+                  value={draft.task}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      task: event.target.value,
+                    }))
+                  }
+                  onBlur={() => {
+                    if (commitField("task", draft.task)) onDeactivate();
+                  }}
+                  onKeyDown={(event) => handleTextKeyDown(event, "task")}
+                />
+              </div>
+            ) : (
+              <div className="min-w-0 flex-[0_1_auto]">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  fullWidth
+                  className={taskButtonClass}
+                  data-tracker-field="task"
+                  onPress={() => onActivate("task")}
+                >
+                  <span className="truncate text-sm font-medium text-foreground">{entry.task}</span>
+                </Button>
+              </div>
+            )}
+            <Button
+              isIconOnly
+              size="sm"
+              variant="ghost"
+              aria-label={`Billable: ${entry.billable ? "yes" : "no"}`}
+              aria-pressed={entry.billable}
+              data-tracker-field="billable"
+              className="size-4 min-w-4 !rounded-full !p-0"
+              onPress={() => {
+                const next = !entry.billable;
+                if (commitField("billable", next)) onDeactivate();
               }}
             >
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  <ListBox.Item id="none" textValue="No project">
-                    <Label>No project</Label>
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                  {availableProjects.map((item) => (
-                    <ListBox.Item key={item.id} id={item.id} textValue={item.name}>
-                      <Label>{item.name}</Label>
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-            <span className="mt-1 block truncate text-[11px] text-muted">{selectedClientName}</span>
-            {errorFor("project")}
-          </>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            fullWidth
-            className={projectButtonClass}
-            data-tracker-field="project"
-            onPress={() => onActivate("project")}
-          >
-            <span className="flex min-w-0 flex-1 flex-col">
-              <span className="block w-full min-w-0 truncate text-sm text-foreground">
-                {projectName}
-              </span>
-              <span className="block w-full min-w-0 truncate text-xs text-muted">{clientName}</span>
-            </span>
-          </Button>
-        )}
-      </td>
-
-      <td className={`${trackerCellClass} text-center`}>
-        {activeField === "start" ? (
-          <Input
-            ref={focusRef}
-            className={timeInputClass}
-            variant="secondary"
-            aria-label="Start time"
-            type="time"
-            value={draft.start}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                start: event.target.value,
-              }))
-            }
-            onBlur={() => commitTime(draft.start, draft.end)}
-            onKeyDown={handleTimeKeyDown}
-          />
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            className={timeSlotClass}
-            data-tracker-field="start"
-            aria-label={`Start time: ${entry.start}`}
-            onPress={() => onActivate("start")}
-          >
-            {entry.start}
-          </Button>
-        )}
-        {activeField === "start" && errorFor("start")}
-      </td>
-
-      <td className={`${trackerCellClass} text-center`}>
-        {activeField === "end" ? (
-          <Input
-            ref={focusRef}
-            className={timeInputClass}
-            variant="secondary"
-            aria-label="End time"
-            type="time"
-            value={draft.end}
-            onChange={(event) => setDraft((current) => ({ ...current, end: event.target.value }))}
-            onBlur={() => commitTime(draft.start, draft.end)}
-            onKeyDown={handleTimeKeyDown}
-          />
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            className={timeSlotClass}
-            data-tracker-field="end"
-            aria-label={`End time: ${entry.end}`}
-            onPress={() => onActivate("end")}
-          >
-            {entry.end}
-          </Button>
-        )}
-        {activeField === "end" && errorFor("end")}
-      </td>
-
-      <td className={trackerCellClass}>
-        {activeField === "date" ? (
-          <>
+              <span
+                className={`size-2 rounded-full ${entry.billable ? "bg-success" : "bg-muted"}`}
+                aria-hidden="true"
+              />
+            </Button>
+          </div>
+          {activeField === "description" ? (
             <Input
               ref={focusRef}
-              className={dateInputClass}
-              variant="secondary"
-              aria-label="Date"
-              type="date"
-              value={draft.date}
-              onChange={(event) => {
-                const next = event.target.value;
-                setDraft((current) => ({ ...current, date: next }));
-                if (isValidDateOnly(next) && commitField("date", next)) onDeactivate();
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  restoreField();
-                }
-              }}
-            />
-            {errorFor("date")}
-          </>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            className={`${cellButtonClass} tabular-nums text-muted`}
-            data-tracker-field="date"
-            onPress={() => onActivate("date")}
-          >
-            {formatDate(entry.date)}
-          </Button>
-        )}
-      </td>
-
-      <td className={trackerCellClass}>
-        {activeField === "duration" ? (
-          <>
-            <Input
-              ref={focusRef}
-              className={durationInputClass}
-              variant="secondary"
-              aria-label="Duration"
-              inputMode="decimal"
-              placeholder="H:MM"
-              value={draft.duration}
+              fullWidth
+              className={compactInputClass}
+              aria-label="Description"
+              placeholder="Add a note"
+              value={draft.description}
               onChange={(event) =>
                 setDraft((current) => ({
                   ...current,
-                  duration: event.target.value,
+                  description: event.target.value,
                 }))
               }
-              onBlur={() => commitDuration(draft.duration)}
-              onKeyDown={handleDurationKeyDown}
+              onBlur={() => {
+                if (commitField("description", draft.description)) onDeactivate();
+              }}
+              onKeyDown={(event) => handleTextKeyDown(event, "description")}
             />
-            {errorFor("duration")}
-          </>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            className={`${cellButtonClass} font-medium tabular-nums text-foreground`}
-            data-tracker-field="duration"
-            onPress={() => onActivate("duration")}
-          >
-            {formatDuration(entry.seconds)}
-          </Button>
-        )}
-      </td>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              fullWidth
+              aria-label={entry.description ? "Edit description" : "Add description"}
+              className={`${cellButtonClass} mt-0.5 !h-6 !min-h-6 !justify-start text-xs text-muted ${entry.description ? "" : "text-transparent"}`}
+              data-tracker-field="description"
+              onPress={() => onActivate("description")}
+            >
+              {entry.description || "·"}
+            </Button>
+          )}
+          {errorFor("task")}
+          {errorFor("description")}
+        </td>
 
-      {actionCell}
-    </tr>
+        <td className={trackerCellClass}>
+          {activeField === "project" ? (
+            <>
+              <Select
+                aria-label="Project"
+                fullWidth
+                value={draft.projectId ?? "none"}
+                onChange={(key) => {
+                  const value = String(key ?? "none");
+                  const next = value === "none" ? null : value;
+                  setDraft((current) => ({ ...current, projectId: next }));
+                  if (commitField("project", next)) onDeactivate();
+                }}
+              >
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="none" textValue="No project">
+                      <Label>No project</Label>
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                    {availableProjects.map((item) => (
+                      <ListBox.Item key={item.id} id={item.id} textValue={item.name}>
+                        <Label>{item.name}</Label>
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+              <span className="mt-1 block truncate text-[11px] text-muted">
+                {selectedClientName}
+              </span>
+              {errorFor("project")}
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              fullWidth
+              className={projectButtonClass}
+              data-tracker-field="project"
+              onPress={() => onActivate("project")}
+            >
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="block w-full min-w-0 truncate text-sm text-foreground">
+                  {projectName}
+                </span>
+                <span className="block w-full min-w-0 truncate text-xs text-muted">
+                  {clientName}
+                </span>
+              </span>
+            </Button>
+          )}
+        </td>
+
+        <td className={`${trackerCellClass} text-center`}>
+          {activeField === "start" ? (
+            <Input
+              ref={focusRef}
+              className={timeInputClass}
+              variant="secondary"
+              aria-label="Start time"
+              type="time"
+              value={draft.start}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  start: event.target.value,
+                }))
+              }
+              onBlur={() => commitTime(draft.start, draft.end)}
+              onKeyDown={handleTimeKeyDown}
+            />
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={timeSlotClass}
+              data-tracker-field="start"
+              aria-label={`Start time: ${entry.start}`}
+              onPress={() => onActivate("start")}
+            >
+              {entry.start}
+            </Button>
+          )}
+          {activeField === "start" && errorFor("start")}
+        </td>
+
+        <td className={`${trackerCellClass} text-center`}>
+          {activeField === "end" ? (
+            <Input
+              ref={focusRef}
+              className={timeInputClass}
+              variant="secondary"
+              aria-label="End time"
+              type="time"
+              value={draft.end}
+              onChange={(event) => setDraft((current) => ({ ...current, end: event.target.value }))}
+              onBlur={() => commitTime(draft.start, draft.end)}
+              onKeyDown={handleTimeKeyDown}
+            />
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={timeSlotClass}
+              data-tracker-field="end"
+              aria-label={`End time: ${entry.end}`}
+              onPress={() => onActivate("end")}
+            >
+              {entry.end}
+            </Button>
+          )}
+          {activeField === "end" && errorFor("end")}
+        </td>
+
+        <td className={trackerCellClass}>
+          {activeField === "date" ? (
+            <>
+              <Input
+                ref={focusRef}
+                className={dateInputClass}
+                variant="secondary"
+                aria-label="Date"
+                type="date"
+                value={draft.date}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setDraft((current) => ({ ...current, date: next }));
+                  if (isValidDateOnly(next) && commitField("date", next)) onDeactivate();
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    restoreField();
+                  }
+                }}
+              />
+              {errorFor("date")}
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={`${cellButtonClass} tabular-nums text-muted`}
+              data-tracker-field="date"
+              onPress={() => onActivate("date")}
+            >
+              {formatDate(entry.date)}
+            </Button>
+          )}
+        </td>
+
+        <td className={trackerCellClass}>
+          {activeField === "duration" ? (
+            <>
+              <Input
+                ref={focusRef}
+                className={durationInputClass}
+                variant="secondary"
+                aria-label="Duration"
+                inputMode="decimal"
+                placeholder="H:MM"
+                value={draft.duration}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    duration: event.target.value,
+                  }))
+                }
+                onBlur={() => commitDuration(draft.duration)}
+                onKeyDown={handleDurationKeyDown}
+              />
+              {errorFor("duration")}
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={`${cellButtonClass} font-medium tabular-nums text-foreground`}
+              data-tracker-field="duration"
+              onPress={() => onActivate("duration")}
+            >
+              {formatDuration(entry.seconds)}
+            </Button>
+          )}
+        </td>
+
+        {actionCell}
+      </tr>
+      <Modal isOpen={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <Modal.Backdrop>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.CloseTrigger />
+              <Modal.Header>
+                <Modal.Heading>Delete time entry?</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                <p className="text-sm text-muted">
+                  Delete “{entry.task}”? This action cannot be undone.
+                </p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button slot="close" variant="secondary">
+                  Keep entry
+                </Button>
+                <Button variant="secondary" className="text-danger" onPress={confirmDelete}>
+                  Delete entry
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+    </Fragment>
   );
 }
