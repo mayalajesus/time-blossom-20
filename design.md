@@ -94,7 +94,9 @@ system before they can track time.
   forms share the same calendar, keyboard navigation and visual language. The
   inline Date field keeps a compact fixed footprint, reserves space for the
   calendar trigger, and anchors the popover to that trigger so editing never
-  overlaps adjacent columns.
+  overlaps adjacent columns. Selecting a date closes the calendar once, keeps
+  the selected value in the field, and the popover flips or constrains itself
+  to the available visual viewport on small screens.
 - Save valid inline changes automatically. Keep deletion as the only explicit
   destructive row action.
 - A time entry may be unassigned (`No project` / `No client`). Every project
