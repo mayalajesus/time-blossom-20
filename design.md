@@ -139,6 +139,14 @@ system before they can track time.
 - A time entry may be unassigned (`No project` / `No client`). Every project
   must have a valid client, and a time entry derives its client from its
   selected project rather than storing a second client relationship.
+- Projects remain compact cards for quick scanning. Their reversible status
+  control is a HeroUI switch: `active` is on, `on-hold` is shown as Inactive,
+  and `archived` remains a separate read-only state. Keep the project name and
+  tracked-time summary linked to project details without nesting the switch
+  inside that link.
+- Archive and restore are explicit actions in the project card menu. Archiving
+  requires a HeroUI confirmation modal, keeps existing entries intact, and
+  moves the project out of Active and Inactive until it is restored.
 - Desktop uses a collapsible sidebar and a focused content column.
 - The desktop sidebar is fixed to the viewport; only the content column scrolls,
   while the collapsed state preserves the same fixed rail.
