@@ -63,16 +63,18 @@ system before they can track time.
   weekly ranges and do not show a `Custom range` label inside the trigger.
   When the selection is not the current week, expose a
   compact `This week` return action beside the next arrow. A custom selection
-  interval. Show a quiet contextual total rather than summary cards.
+  displays the selected interval using the same compact date treatment. Show a
+  quiet contextual total rather than summary cards.
 - Keep one manual Add entry action beside the selected week's total. Avoid
   duplicate global, page-level and per-day actions when the timer composer and
   Date column are already visible.
 - Prefer direct cell-level editing for the fields users need to correct most
   often. Clicking a value replaces only that value with its editor; never
   expand the row into a card and never add an Edit action.
-- Duration is edited as `H:MM` and recalculates the end time while keeping the
-  start time fixed. On narrow screens, the table owns horizontal scrolling so
-  the page itself does not overflow. At the compact-desktop `1200px` CSS
+- Duration is edited as `H:MM` and accepts compact Clockify-style values such as
+  `2400`, `825`, `2h`, `2:45` and `45s`; it recalculates the end time while
+  keeping the start time fixed. On narrow screens, the table owns horizontal
+  scrolling so the page itself does not overflow. At the compact-desktop `1200px` CSS
   viewport and above, the table fits beside the open sidebar without
   horizontal scrolling.
 - Use the effective CSS viewport, rather than the physical diagonal of a
@@ -104,7 +106,15 @@ system before they can track time.
   browser restarts through local storage, and is cleared only after an explicit
   stop action. A stopped timer uses its start date and stores an optional end
   date when the session crosses midnight; `seconds` remains authoritative for
-  totals, including sessions that span more than one day.
+  totals, including sessions that span more than one day. Task, project and
+  billability remain editable while the timer is active and are persisted with
+  the timer. Only one active timer is allowed, and manual creation is blocked
+  while a timer is running or paused. Timers shorter than one minute preserve
+  their real seconds instead of being silently rounded up.
+- Entries, projects, clients and workspace settings use a versioned local
+  storage snapshot in the mock application. Invalid snapshots fall back to
+  seeds without replacing a valid active timer. This is local continuity, not
+  cross-device synchronization.
 - All date selection uses the shared HeroUI DatePicker and Calendar pattern.
   Native browser date pickers are not used; inline date edits and manual log
   forms share the same calendar, keyboard navigation and visual language. The
@@ -114,7 +124,8 @@ system before they can track time.
   the selected value in the field, and the popover flips or constrains itself
   to the available visual viewport on small screens.
 - Save valid inline changes automatically. Keep deletion as the only explicit
-  destructive row action.
+  destructive row action. Confirm deletion with HeroUI and offer a short
+  HeroUI Toast `Undo` action that restores the complete entry.
 - A time entry may be unassigned (`No project` / `No client`). Every project
   must have a valid client, and a time entry derives its client from its
   selected project rather than storing a second client relationship.
@@ -132,6 +143,9 @@ system before they can track time.
   from text, color and available actions, not color alone.
 - Forms should show their purpose through labels, preserve entered values and
   disable submission only when the input is invalid.
+- Long forms keep the HeroUI modal header and footer available while the body
+  scrolls inside the viewport; the scrollbar stays visually hidden without
+  removing wheel, touch or keyboard scrolling.
 - Form controls use HeroUI defaults for size, spacing, radius, focus and color.
   `TextField` composes labels, inputs, descriptions and field errors; persistent
   validation uses HeroUI `Alert`, while short confirmations use `Toast`.

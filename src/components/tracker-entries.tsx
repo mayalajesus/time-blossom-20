@@ -5,15 +5,18 @@ import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { ProjectSelect } from "@/components/project-select";
 import { useStore } from "@/lib/store";
 import {
-  addMinutesToDateTime,
+  addSecondsToDateTime,
+  dateTimeToTimestamp,
   formatDate,
   formatDuration,
+  formatDurationInput,
   getDayOffset,
   getElapsedMinutes,
   getEndDateForClockRange,
   getEndDateForEntry,
   getEntryEndDayOffset,
   isValidDateOnly,
+  parseDurationInput,
   shiftDate,
 } from "@/lib/format";
 import type { TimeEntry } from "@/lib/mock-data";
@@ -64,37 +67,6 @@ const trackerActionCellClass =
 const trackerActionLayoutClass = "grid grid-cols-[2rem_2rem] items-center justify-end gap-1";
 const trackerActionButtonClass = "size-8 min-w-8 shrink-0 !p-0";
 
-function formatDurationInput(seconds: number): string {
-  const totalMinutes = Math.max(0, Math.floor(seconds / 60));
-  return `${Math.floor(totalMinutes / 60)}:${String(totalMinutes % 60).padStart(2, "0")}`;
-}
-
-function parseDurationInput(value: string): number | null {
-  const normalized = value.trim();
-  let hours: number;
-  let minutes: number;
-
-  const clockValue = normalized.match(/^(\d{1,4}):(\d{2})$/);
-  if (clockValue) {
-    hours = Number(clockValue[1]);
-    minutes = Number(clockValue[2]);
-  } else if (/^\d{1,6}$/.test(normalized)) {
-    if (normalized.length <= 2) {
-      hours = 0;
-      minutes = Number(normalized);
-    } else {
-      hours = Number(normalized.slice(0, -2));
-      minutes = Number(normalized.slice(-2));
-    }
-  } else {
-    return null;
-  }
-
-  if (hours > 999 || minutes > 59) return null;
-  const total = hours * 60 + minutes;
-  return total > 0 ? total : null;
-}
-
 function toDraft(entry: TimeEntry): EntryDraft {
   return {
     date: entry.date,
@@ -139,72 +111,91 @@ function groupKeyFor(entry: TimeEntry): string {
   ].join("::");
 }
 
+function compareEntryRecency(a: TimeEntry, b: TimeEntry): number {
+  const startOrder = `${b.date}T${b.start}`.localeCompare(`${a.date}T${a.start}`);
+  if (startOrder !== 0) return startOrder;
+
+  const endA = `${getEndDateForEntry(a)}T${a.end}`;
+  const endB = `${getEndDateForEntry(b)}T${b.end}`;
+  const endOrder = endB.localeCompare(endA);
+  if (endOrder !== 0) return endOrder;
+
+  const taskOrder = a.task.trim().localeCompare(b.task.trim(), undefined, {
+    sensitivity: "base",
+  });
+  if (taskOrder !== 0) return taskOrder;
+
+  const projectOrder = (a.projectId ?? "none").localeCompare(b.projectId ?? "none");
+  if (projectOrder !== 0) return projectOrder;
+
+  return a.id.localeCompare(b.id);
+}
+
+function compareGroupRecency(a: TrackerGroup, b: TrackerGroup): number {
+  const latestA = a.entries[0];
+  const latestB = b.entries[0];
+  if (!latestA || !latestB) return 0;
+  return compareEntryRecency(latestA, latestB);
+}
+
 function groupEntries(days: TrackerDay[]): TrackerGroup[] {
   const groups = new Map<string, TrackerGroup>();
 
   days.forEach((day) => {
-    [...day.entries]
-      .sort((a, b) => a.start.localeCompare(b.start))
-      .forEach((entry) => {
-        const key = groupKeyFor(entry);
-        const existing = groups.get(key);
-        if (existing) {
-          existing.entries.push(entry);
-          existing.totalSeconds += entry.seconds;
-          existing.start = entry.start < existing.start ? entry.start : existing.start;
-          const entryEndDate = getEndDateForEntry(entry);
-          const existingEndKey = `${existing.endDate}T${existing.end}`;
-          const entryEndKey = `${entryEndDate}T${entry.end}`;
-          if (entryEndKey > existingEndKey) {
-            existing.end = entry.end;
-            existing.endDate = entryEndDate;
-          }
-          return;
+    [...day.entries].sort(compareEntryRecency).forEach((entry) => {
+      const key = groupKeyFor(entry);
+      const existing = groups.get(key);
+      if (existing) {
+        existing.entries.push(entry);
+        existing.totalSeconds += entry.seconds;
+        existing.start = entry.start < existing.start ? entry.start : existing.start;
+        const entryEndDate = getEndDateForEntry(entry);
+        const existingEndKey = `${existing.endDate}T${existing.end}`;
+        const entryEndKey = `${entryEndDate}T${entry.end}`;
+        if (entryEndKey > existingEndKey) {
+          existing.end = entry.end;
+          existing.endDate = entryEndDate;
         }
+        return;
+      }
 
-        groups.set(key, {
-          id: `tracker-group-${encodeURIComponent(key)}`,
-          date: entry.date,
-          task: entry.task,
-          projectId: entry.projectId,
-          billable: entry.billable,
-          entries: [entry],
-          totalSeconds: entry.seconds,
-          start: entry.start,
-          end: entry.end,
-          endDate: getEndDateForEntry(entry),
-        });
+      groups.set(key, {
+        id: `tracker-group-${encodeURIComponent(key)}`,
+        date: entry.date,
+        task: entry.task,
+        projectId: entry.projectId,
+        billable: entry.billable,
+        entries: [entry],
+        totalSeconds: entry.seconds,
+        start: entry.start,
+        end: entry.end,
+        endDate: getEndDateForEntry(entry),
       });
+    });
   });
 
-  return [...groups.values()];
+  return [...groups.values()]
+    .map((group) => ({
+      ...group,
+      entries: [...group.entries].sort(compareEntryRecency),
+    }))
+    .sort(compareGroupRecency);
 }
 
 export function TrackerEntries({ days }: { days: TrackerDay[] }) {
   const [activeCell, setActiveCell] = useState<ActiveCell>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
-  const entries = useMemo(
-    () =>
-      days
-        .flatMap((day) => day.entries)
-        .sort((a, b) => {
-          const activityA = `${a.task.trim().toLocaleLowerCase()}::${a.projectId ?? "none"}`;
-          const activityB = `${b.task.trim().toLocaleLowerCase()}::${b.projectId ?? "none"}`;
-          return (
-            activityA.localeCompare(activityB) ||
-            a.date.localeCompare(b.date) ||
-            a.start.localeCompare(b.start)
-          );
-        }),
+  const entryIds = useMemo(
+    () => new Set(days.flatMap((day) => day.entries.map((entry) => entry.id))),
     [days],
   );
   const groups = useMemo(() => groupEntries(days), [days]);
 
   useEffect(() => {
-    if (activeCell && !entries.some((entry) => entry.id === activeCell.entryId)) {
+    if (activeCell && !entryIds.has(activeCell.entryId)) {
       setActiveCell(null);
     }
-  }, [activeCell, entries]);
+  }, [activeCell, entryIds]);
 
   useEffect(() => {
     const groupIds = new Set(groups.map((group) => group.id));
@@ -350,7 +341,7 @@ function TrackerGroupSummaryRow({
 
   const startAgain = () => {
     if (timer.status !== "idle") return;
-    const result = startTimer(group.task, group.projectId);
+    const result = startTimer(group.task, group.projectId, group.billable);
     if (!result.success) toast("Could not start timer", { description: result.error });
   };
 
@@ -375,7 +366,7 @@ function TrackerGroupSummaryRow({
             aria-label={toggleLabel}
             aria-expanded={isExpanded}
             data-tracker-group-toggle
-            {...(isExpanded ? { "aria-controls": `${group.id}-details` } : {})}
+            aria-controls={`${group.id}-details`}
             onPress={onToggle}
           >
             <span className="min-w-0 truncate text-sm font-medium text-foreground">
@@ -470,7 +461,8 @@ function TrackerEntryRow({
   onActivate: (field: TrackerEditableField) => void;
   onDeactivate: () => void;
 }) {
-  const { projects, clients, timer, startTimer, updateEntry, deleteEntry } = useStore();
+  const { projects, clients, timer, startTimer, updateEntry, deleteEntry, restoreEntry } =
+    useStore();
   const rowRef = useRef<HTMLTableRowElement | null>(null);
   const focusRef = useRef<HTMLInputElement | null>(null);
   const savedDraftRef = useRef<EntryDraft>(toDraft(entry));
@@ -519,7 +511,8 @@ function TrackerEntryRow({
       candidate.endDate,
       candidate.end,
     );
-    if (elapsedMinutes <= 0 && !allowFullDayDuration) {
+    const preciseDuration = parseDurationInput(candidate.duration);
+    if (elapsedMinutes <= 0 && !allowFullDayDuration && !(preciseDuration && preciseDuration > 0)) {
       return "End time must be after start time.";
     }
     if (candidate.projectId !== null && !projects.some((item) => item.id === candidate.projectId)) {
@@ -532,9 +525,9 @@ function TrackerEntryRow({
     savedDraftRef.current = candidate;
     setDraft(candidate);
     setValidationMessage(null);
-    const durationMinutes = parseDurationInput(candidate.duration);
+    const durationSeconds = parseDurationInput(candidate.duration);
     toast("Entry updated", {
-      description: `${candidate.task} · ${durationMinutes === null ? candidate.duration : formatDuration(durationMinutes * 60)}`,
+      description: `${candidate.task} · ${durationSeconds === null ? candidate.duration : formatDuration(durationSeconds)}`,
     });
   };
 
@@ -584,12 +577,13 @@ function TrackerEntryRow({
   const commitTime = (start: string, end: string, close = false): boolean => {
     const endDate = getEndDateForClockRange(draft.date, start, end, draft.endDate);
     const elapsedMinutes = getElapsedMinutes(draft.date, start, endDate, end);
+    const elapsedSeconds = elapsedMinutes * 60;
     const candidate = {
       ...draft,
       start,
       end,
       endDate,
-      duration: formatDurationInput(elapsedMinutes * 60),
+      duration: formatDurationInput(elapsedSeconds),
     };
     const message = validateDraft(candidate);
     if (message) {
@@ -610,7 +604,9 @@ function TrackerEntryRow({
       start,
       end,
       endDate: endDate !== draft.date ? endDate : undefined,
-      seconds: elapsedMinutes * 60,
+      seconds: elapsedSeconds,
+      startTimestamp: dateTimeToTimestamp(draft.date, start) ?? undefined,
+      endTimestamp: dateTimeToTimestamp(endDate, end) ?? undefined,
     });
     if (!result.success) {
       setValidationMessage(result.error);
@@ -623,20 +619,20 @@ function TrackerEntryRow({
   };
 
   const commitDuration = (value: string, close = false): boolean => {
-    const totalMinutes = parseDurationInput(value);
-    if (totalMinutes === null) {
-      setValidationMessage("Use H:MM, HHMM or HMM (for example, 1:20, 120 or 825).");
+    const totalSeconds = parseDurationInput(value);
+    if (totalSeconds === null) {
+      setValidationMessage("Use H:MM, HHMM, HMM, 2h or Ns (for example, 1:20, 120, 825 or 45s).");
       return false;
     }
 
-    const finish = addMinutesToDateTime(draft.date, draft.start, totalMinutes);
+    const finish = addSecondsToDateTime(draft.date, draft.start, totalSeconds);
     const candidate = {
       ...draft,
       end: finish.end,
       endDate: finish.endDate,
-      duration: formatDurationInput(totalMinutes * 60),
+      duration: formatDurationInput(totalSeconds),
     };
-    const message = validateDraft(candidate, totalMinutes === 24 * 60);
+    const message = validateDraft(candidate, totalSeconds === 24 * 60 * 60);
     if (message) {
       setValidationMessage(message);
       return false;
@@ -644,7 +640,8 @@ function TrackerEntryRow({
 
     if (
       savedDraftRef.current.end === finish.end &&
-      savedDraftRef.current.endDate === finish.endDate
+      savedDraftRef.current.endDate === finish.endDate &&
+      savedDraftRef.current.duration === candidate.duration
     ) {
       if (close) onDeactivate();
       return true;
@@ -653,7 +650,9 @@ function TrackerEntryRow({
     const result = updateEntry(entry.id, {
       end: finish.end,
       endDate: finish.endDate !== draft.date ? finish.endDate : undefined,
-      seconds: totalMinutes * 60,
+      seconds: totalSeconds,
+      startTimestamp: dateTimeToTimestamp(draft.date, draft.start) ?? undefined,
+      endTimestamp: dateTimeToTimestamp(finish.endDate, finish.end) ?? undefined,
     });
     if (!result.success) {
       setValidationMessage(result.error);
@@ -755,15 +754,25 @@ function TrackerEntryRow({
   });
 
   const confirmDelete = () => {
+    const deletedEntry = entry;
     deleteEntry(entry.id);
     setDeleteDialogOpen(false);
     onDeactivate();
-    toast("Time entry deleted");
+    toast("Time entry deleted", {
+      actionProps: {
+        children: "Undo",
+        onPress: () => {
+          const result = restoreEntry(deletedEntry);
+          if (!result.success) toast("Could not restore entry", { description: result.error });
+        },
+      },
+      timeout: 20_000,
+    });
   };
 
   const startAgain = () => {
     if (timer.status !== "idle") return;
-    const result = startTimer(entry.task, entry.projectId);
+    const result = startTimer(entry.task, entry.projectId, entry.billable);
     if (!result.success) toast("Could not start timer", { description: result.error });
   };
 

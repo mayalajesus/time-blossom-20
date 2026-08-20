@@ -30,7 +30,7 @@ export const Route = createFileRoute("/timesheet")({
 });
 
 function TimesheetPage() {
-  const { entries, projects } = useStore();
+  const { entries, projects, timer } = useStore();
   const loading = useSimulatedLoad(600);
   const [query, setQuery] = useState("");
   const [projectId, setProjectId] = useState("all");
@@ -57,7 +57,11 @@ function TimesheetPage() {
         description="Every entry tracked in this workspace."
         actions={
           <>
-            <Button variant="secondary" onPress={() => setLogOpen(true)}>
+            <Button
+              variant="secondary"
+              isDisabled={timer.status !== "idle"}
+              onPress={() => setLogOpen(true)}
+            >
               Log time
             </Button>
             <Button onPress={() => setExportOpen(true)}>

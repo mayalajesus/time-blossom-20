@@ -23,6 +23,7 @@ function at(list: number[], index: number): number {
 }
 
 export function formatDuration(seconds: number): string {
+  if (seconds > 0 && seconds < 60) return `${Math.floor(seconds)}s`;
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   if (h === 0) return `${m}m`;
@@ -98,6 +99,53 @@ export function timeToMinutes(value: string): number | null {
   return hours * 60 + minutes;
 }
 
+export function parseDurationInput(value: string): number | null {
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, "");
+  if (!normalized) return null;
+
+  const secondsWithUnit = normalized.match(/^(\d+)s$/);
+  if (secondsWithUnit) {
+    const seconds = Number(secondsWithUnit[1]);
+    return seconds > 0 ? seconds : null;
+  }
+
+  const hoursWithUnit = normalized.match(/^(\d+(?:[.,]\d+)?)h$/);
+  if (hoursWithUnit) {
+    const hours = hoursWithUnit[1];
+    if (!hours) return null;
+    const seconds = Math.round(Number(hours.replace(",", ".")) * 3600);
+    return seconds > 0 ? seconds : null;
+  }
+
+  const clockValue = normalized.match(/^(\d{1,5}):(\d{2})$/);
+  if (clockValue) {
+    const hours = Number(clockValue[1]);
+    const minutes = Number(clockValue[2]);
+    if (minutes > 59) return null;
+    const total = (hours * 60 + minutes) * 60;
+    return total > 0 ? total : null;
+  }
+
+  const decimalHours = normalized.match(/^(\d+)[.,](\d{1,2})$/);
+  if (decimalHours) {
+    const total = Math.round(Number(normalized.replace(",", ".")) * 3600);
+    return total > 0 ? total : null;
+  }
+
+  if (!/^\d{1,6}$/.test(normalized)) return null;
+  const hours = normalized.length <= 2 ? 0 : Number(normalized.slice(0, -2));
+  const minutes = normalized.length <= 2 ? Number(normalized) : Number(normalized.slice(-2));
+  if (minutes > 59) return null;
+  const total = (hours * 60 + minutes) * 60;
+  return total > 0 ? total : null;
+}
+
+export function formatDurationInput(seconds: number): string {
+  if (seconds > 0 && seconds % 60 !== 0) return `${Math.floor(seconds)}s`;
+  const totalMinutes = Math.max(0, Math.floor(seconds / 60));
+  return `${Math.floor(totalMinutes / 60)}:${String(totalMinutes % 60).padStart(2, "0")}`;
+}
+
 export function getDayOffset(startDate: string, endDate: string): number {
   if (!isValidDateOnly(startDate) || !isValidDateOnly(endDate)) return 0;
   return Math.max(0, differenceInCalendarDays(parseDateOnly(endDate), parseDateOnly(startDate)));
@@ -108,8 +156,25 @@ type TimeEntryDateShape = {
   start: string;
   end: string;
   endDate?: string | undefined;
+  startTimestamp?: number | undefined;
+  endTimestamp?: number | undefined;
   seconds?: number | undefined;
 };
+
+export function dateTimeToTimestamp(date: string, time: string, seconds = 0): number | null {
+  const minutes = timeToMinutes(time);
+  if (minutes === null || !isValidDateOnly(date) || !Number.isFinite(seconds)) return null;
+  const parsed = parseDateOnly(date);
+  return new Date(
+    parsed.getFullYear(),
+    parsed.getMonth(),
+    parsed.getDate(),
+    Math.floor(minutes / 60),
+    minutes % 60,
+    Math.max(0, Math.floor(seconds)),
+    0,
+  ).getTime();
+}
 
 export function getEndDateForEntry(entry: TimeEntryDateShape): string {
   if (entry.endDate && isValidDateOnly(entry.endDate)) return entry.endDate;
@@ -174,6 +239,21 @@ export function getElapsedMinutes(
   return Math.max(0, getDayOffset(startDate, endDate) * 24 * 60 + endMinutes - startMinutes);
 }
 
+export function getElapsedSeconds(entry: TimeEntryDateShape): number {
+  if (
+    typeof entry.startTimestamp === "number" &&
+    typeof entry.endTimestamp === "number" &&
+    Number.isFinite(entry.startTimestamp) &&
+    Number.isFinite(entry.endTimestamp) &&
+    entry.endTimestamp >= entry.startTimestamp
+  ) {
+    return Math.max(0, Math.round((entry.endTimestamp - entry.startTimestamp) / 1000));
+  }
+
+  const endDate = getEndDateForEntry(entry);
+  return getElapsedMinutes(entry.date, entry.start, endDate, entry.end) * 60;
+}
+
 export function addMinutesToDateTime(
   startDate: string,
   start: string,
@@ -196,7 +276,7 @@ export function addSecondsToDateTime(
   start: string,
   seconds: number,
 ): { endDate: string; end: string } {
-  return addMinutesToDateTime(startDate, start, seconds / 60);
+  return addMinutesToDateTime(startDate, start, Math.floor(seconds / 60));
 }
 
 export function listDateRange(start: string, end: string): string[] {
@@ -310,6 +390,25 @@ export function addSecondsToTime(start: string, seconds: number): string {
 }
 
 export function nowTime(): string {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return formatLocalTime(new Date());
+}
+
+function formatLocalTime(date: Date): string {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+export function getManualEntryDefaults(reference = new Date()): {
+  date: string;
+  start: string;
+  end: string;
+  endDate: string;
+} {
+  const startReference = new Date(reference.getTime() - 60 * 60 * 1000);
+
+  return {
+    date: toIsoDate(reference),
+    start: formatLocalTime(startReference),
+    end: formatLocalTime(reference),
+    endDate: toIsoDate(reference),
+  };
 }

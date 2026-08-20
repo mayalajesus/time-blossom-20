@@ -1,4 +1,4 @@
-import { Button, Chip, Dropdown, Label, Table } from "@heroui/react";
+import { Button, Chip, Dropdown, Label, Modal, Table, toast } from "@heroui/react";
 import { MoreHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { LogTimeModal } from "@/components/log-time-modal";
@@ -15,8 +15,27 @@ export function EntriesTable({
   showDate?: boolean;
   showMember?: boolean;
 }) {
-  const { projects, members, deleteEntry, updateEntry } = useStore();
+  const { projects, members, deleteEntry, restoreEntry, updateEntry } = useStore();
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<TimeEntry | null>(null);
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    const deletedEntry = pendingDelete;
+    deleteEntry(deletedEntry.id);
+    setPendingDelete(null);
+    toast("Time entry deleted", {
+      description: `${deletedEntry.task} · ${formatDuration(deletedEntry.seconds)}`,
+      timeout: 20_000,
+      actionProps: {
+        children: "Undo",
+        onPress: () => {
+          const result = restoreEntry(deletedEntry);
+          if (!result.success) toast("Could not restore entry", { description: result.error });
+        },
+      },
+    });
+  };
 
   const projectName = (id: string | null) =>
     id === null ? "No project" : (projects.find((p) => p.id === id)?.name ?? "Unknown project");
@@ -81,7 +100,7 @@ export function EntriesTable({
                                 updateEntry(entry.id, { billable: !entry.billable });
                               }
                               if (key === "edit") setEditingEntry(entry);
-                              if (key === "delete") deleteEntry(entry.id);
+                              if (key === "delete") setPendingDelete(entry);
                             }}
                           >
                             <Dropdown.Item id="edit">
@@ -103,7 +122,7 @@ export function EntriesTable({
                         aria-label="Delete entry"
                         size="sm"
                         variant="tertiary"
-                        onPress={() => deleteEntry(entry.id)}
+                        onPress={() => setPendingDelete(entry)}
                       >
                         <Trash2 className="size-4" />
                       </Button>
@@ -122,6 +141,37 @@ export function EntriesTable({
           if (!open) setEditingEntry(null);
         }}
       />
+      <Modal
+        isOpen={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.CloseTrigger />
+              <Modal.Header>
+                <Modal.Heading>Delete time entry?</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                <p className="text-sm text-muted">
+                  This removes {pendingDelete?.task ?? "this entry"}. You can undo it from the
+                  confirmation toast for 20 seconds.
+                </p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button slot="close" variant="secondary">
+                  Cancel
+                </Button>
+                <Button variant="danger" onPress={confirmDelete}>
+                  Delete entry
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
     </>
   );
 }

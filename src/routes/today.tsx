@@ -37,10 +37,9 @@ export const Route = createFileRoute("/today")({
 });
 
 function TodayPage() {
-  const { entries, today, currentUserId, settings } = useStore();
+  const { entries, today, currentUserId, settings, timer } = useStore();
   const loading = useSimulatedLoad();
   const [logOpen, setLogOpen] = useState(false);
-  const [logDate, setLogDate] = useState(today);
   const weekStartsOn = settings.weekStart === "sunday" ? 0 : 1;
   const currentWeek = getWeekBounds(today, weekStartsOn);
   const [period, setPeriod] = useState<TrackerPeriod>({
@@ -68,18 +67,13 @@ function TodayPage() {
   }, [currentUserId, entries, period.endDate, period.startDate]);
 
   const periodTotal = days.reduce((total, day) => total + day.totalSeconds, 0);
-  const periodContainsToday = period.startDate <= today && today <= period.endDate;
-  const defaultLogDate = periodContainsToday ? today : period.startDate;
   const navigationUnit = period.unit === "custom" ? "range" : period.unit;
   const isCurrentWeek =
     period.unit === "week" &&
     period.startDate === currentWeek.start &&
     period.endDate === currentWeek.end;
 
-  const openLog = (date: string) => {
-    setLogDate(date);
-    setLogOpen(true);
-  };
+  const openLog = () => setLogOpen(true);
 
   return (
     <div className="space-y-7">
@@ -140,7 +134,12 @@ function TodayPage() {
             <span className="text-sm tabular-nums text-muted">
               {formatDuration(periodTotal)} tracked
             </span>
-            <Button size="sm" variant="secondary" onPress={() => openLog(defaultLogDate)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              isDisabled={timer.status !== "idle"}
+              onPress={openLog}
+            >
               <CalendarPlus className="size-4" />
               Add entry
             </Button>
@@ -155,7 +154,12 @@ function TodayPage() {
             title="No time tracked in this period"
             description="Start the timer above or add an entry for a date in this period."
             action={
-              <Button size="sm" variant="secondary" onPress={() => openLog(defaultLogDate)}>
+              <Button
+                size="sm"
+                variant="secondary"
+                isDisabled={timer.status !== "idle"}
+                onPress={openLog}
+              >
                 <CalendarPlus className="size-4" />
                 Add entry
               </Button>
@@ -166,7 +170,7 @@ function TodayPage() {
         )}
       </section>
 
-      <LogTimeModal isOpen={logOpen} initialDate={logDate} onOpenChange={setLogOpen} />
+      <LogTimeModal isOpen={logOpen} onOpenChange={setLogOpen} />
     </div>
   );
 }

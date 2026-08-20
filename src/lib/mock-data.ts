@@ -35,6 +35,9 @@ export interface TimeEntry {
   end: string; // HH:mm
   /** Calendar date on which the entry ends. Omitted for same-day entries. */
   endDate?: string | undefined;
+  /** Optional logical timestamps preserve sub-minute timer precision. */
+  startTimestamp?: number | undefined;
+  endTimestamp?: number | undefined;
   seconds: number;
   userId: string;
   projectId: string | null;
