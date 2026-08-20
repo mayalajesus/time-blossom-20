@@ -14,7 +14,7 @@ import {
   toast,
 } from "@heroui/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, CircleDollarSign, FolderKanban, Plus } from "lucide-react";
+import { Archive, ArchiveRestore, CircleDollarSign, FolderKanban, Plus, Power } from "lucide-react";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { PageHeader } from "@/components/page-header";
@@ -139,10 +139,12 @@ function ProjectsPage() {
           <>
             <Select
               aria-label="Filter projects"
+              className="w-28 shrink-0"
               value={filter}
+              variant="secondary"
               onChange={(key) => setFilter(String(key ?? "all"))}
             >
-              <Select.Trigger>
+              <Select.Trigger className="h-9 w-full rounded-3xl px-3">
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
@@ -202,55 +204,49 @@ function ProjectsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((project) => (
-            <div
+            <article
               key={project.id}
-              className="rounded-2xl border border-default bg-surface p-5 transition-colors hover:bg-surface-secondary"
+              className="flex min-h-[160px] min-w-0 flex-col rounded-2xl border border-default bg-surface p-4 transition-colors hover:bg-surface-secondary"
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-start justify-between gap-3">
                 <Link
                   to="/projects/$projectId"
                   params={{ projectId: project.id }}
                   className="min-w-0 flex-1"
                 >
-                  <div className="space-y-1">
-                    <p className="font-medium text-foreground">{project.name}</p>
-                    <p className="text-sm text-muted">{clientName(project.clientId)}</p>
-                  </div>
-                  <div className="mt-6 flex items-center justify-between text-sm">
-                    <span className="tabular-nums font-medium text-foreground">
-                      {formatDuration(projectSeconds(project.id))}
-                    </span>
-                    <span className="text-muted">Updated {formatDate(project.lastActivity)}</span>
-                  </div>
+                  <p className="truncate font-medium text-foreground">{project.name}</p>
+                  <p className="mt-0.5 truncate text-sm text-muted">
+                    {clientName(project.clientId)}
+                  </p>
                 </Link>
-                <div className="flex shrink-0 items-start gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <Chip color={project.billable ? "success" : "default"} size="sm" variant="soft">
                     {project.billable ? "Billable" : "Internal"}
                   </Chip>
-                  {project.status === "archived" ? (
-                    <Chip size="sm" variant="soft">
-                      Archived
-                    </Chip>
-                  ) : (
-                    <Switch
-                      aria-label={`${project.status === "active" ? "Deactivate" : "Activate"} ${project.name}`}
-                      className="shrink-0"
-                      isSelected={project.status === "active"}
-                      onChange={(selected) =>
-                        toggleProjectStatus(project.id, selected, project.name)
-                      }
-                    >
-                      <Switch.Control>
-                        <Switch.Thumb />
-                      </Switch.Control>
-                      <Switch.Content>
-                        <Label>{project.status === "active" ? "Active" : "Inactive"}</Label>
-                      </Switch.Content>
-                    </Switch>
-                  )}
                   <ActionDropdown
                     ariaLabel={`${project.status === "archived" ? "Archived" : "Project"} actions for ${project.name}`}
                     items={[
+                      ...(project.status === "archived"
+                        ? []
+                        : [
+                            {
+                              id: "status",
+                              label: project.status === "active" ? "Active" : "Inactive",
+                              icon: <Power className="size-4" />,
+                              trailing: (
+                                <Switch
+                                  aria-hidden="true"
+                                  className="pointer-events-none"
+                                  isReadOnly
+                                  isSelected={project.status === "active"}
+                                >
+                                  <Switch.Control>
+                                    <Switch.Thumb />
+                                  </Switch.Control>
+                                </Switch>
+                              ),
+                            },
+                          ]),
                       {
                         id: "billable",
                         label: project.billable ? "Make internal" : "Make billable",
@@ -270,6 +266,9 @@ function ProjectsPage() {
                           },
                     ]}
                     onAction={(key) => {
+                      if (key === "status") {
+                        toggleProjectStatus(project.id, project.status !== "active", project.name);
+                      }
                       if (key === "billable") toggleProjectBillable(project);
                       if (key === "archive") setPendingArchive(project);
                       if (key === "restore") restoreProject(project);
@@ -277,7 +276,20 @@ function ProjectsPage() {
                   />
                 </div>
               </div>
-            </div>
+
+              <div className="mt-auto flex items-end justify-between gap-4 pt-4 text-sm">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted">Tracked</p>
+                  <p className="truncate tabular-nums font-medium text-foreground">
+                    {formatDuration(projectSeconds(project.id))}
+                  </p>
+                </div>
+                <div className="min-w-0 text-right">
+                  <p className="text-xs text-muted">Last activity</p>
+                  <p className="truncate text-foreground">{formatDate(project.lastActivity)}</p>
+                </div>
+              </div>
+            </article>
           ))}
         </div>
       )}

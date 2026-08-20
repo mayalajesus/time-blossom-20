@@ -103,6 +103,10 @@ system before they can track time.
 - Inline cell actions use compact HeroUI `Button` and `Input` components. Do
   not present static values as large filled fields or add native HTML controls
   when a HeroUI control already provides the interaction.
+- Compact page filters and action-level selectors use the same HeroUI pill
+  radius as primary action buttons, keeping their height, focus ring and
+  horizontal rhythm consistent across the system. Form fields retain the
+  standard HeroUI field radius so action controls remain distinct from inputs.
 - Project selectors use one shared searchable HeroUI pattern. The popover
   always opens with a focused `Search projects` field, matches project and
   client names without case or accent sensitivity, preserves `No project` (and
@@ -139,11 +143,14 @@ system before they can track time.
 - A time entry may be unassigned (`No project` / `No client`). Every project
   must have a valid client, and a time entry derives its client from its
   selected project rather than storing a second client relationship.
-- Projects remain compact cards for quick scanning. Their reversible status
-  control is a HeroUI switch: `active` is on, `on-hold` is shown as Inactive,
-  and `archived` remains a separate read-only state. Keep the project name and
-  tracked-time summary linked to project details without nesting the switch
-  inside that link.
+- Projects remain compact cards for quick scanning, with a stable hierarchy:
+  identity in the header, the billability chip beside the three-dot action
+  menu, and tracked time plus last activity anchored in a compact two-column
+  footer without an internal divider.
+  The reversible `active`/`on-hold` switch
+  lives inside the action menu, while `archived` remains a separate read-only
+  state. Long names and client names truncate without changing card geometry;
+  the project link does not contain switches or action menus.
 - Clients are managed in the existing responsive table. They have no billable
   status; billability belongs to the project default and can be overridden on
   each task/time entry. Client creation uses a HeroUI form, while deletion is

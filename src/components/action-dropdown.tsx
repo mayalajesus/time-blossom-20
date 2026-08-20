@@ -6,6 +6,7 @@ export type ActionDropdownItem = {
   id: string;
   label: string;
   icon?: ReactNode;
+  trailing?: ReactNode;
   tone?: "default" | "danger";
   isDisabled?: boolean;
 };
@@ -38,6 +39,9 @@ export function ActionDropdown({
             >
               {item.icon}
               <Label>{item.label}</Label>
+              {item.trailing ? (
+                <span className="ml-auto flex shrink-0 items-center">{item.trailing}</span>
+              ) : null}
             </Dropdown.Item>
           ))}
         </Dropdown.Menu>
