@@ -2,6 +2,7 @@ import { Button, Chip } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Trello } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { formatLocalDateTime } from "@/lib/format";
 import { trelloBoards, trelloCards, trelloLists, trelloWorkspaces } from "@/lib/mock-data";
 import { useStore } from "@/lib/store";
 
@@ -49,7 +50,7 @@ function IntegrationsPage() {
         setTrello({
           status: "synced",
           cards: trelloCards,
-          lastSync: new Date().toISOString().slice(0, 16).replace("T", " "),
+          lastSync: formatLocalDateTime(),
         }),
       900,
     );

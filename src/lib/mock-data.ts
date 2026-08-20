@@ -1,3 +1,5 @@
+import { getLocalToday, getWeekBounds, shiftDate } from "./format";
+
 export type Role = "Owner" | "Admin" | "Member";
 export type ProjectStatus = "active" | "on-hold" | "archived";
 
@@ -202,13 +204,15 @@ export const projects: Project[] = [
   },
 ];
 
-const today = "2026-08-21";
-const yesterday = "2026-08-20";
-const twoDaysAgo = "2026-08-19";
-const threeDaysAgo = "2026-08-18";
-const fourDaysAgo = "2026-08-17";
-const lastWeekStart = "2026-08-10";
-const lastWeek = "2026-08-11";
+const today = getLocalToday();
+const yesterday = shiftDate(today, -1);
+const twoDaysAgo = shiftDate(today, -2);
+const threeDaysAgo = shiftDate(today, -3);
+const fourDaysAgo = shiftDate(today, -4);
+const lastWeekStart = getWeekBounds(shiftDate(today, -7), 1).start;
+const lastWeek = shiftDate(lastWeekStart, 1);
+const twoWeeksAgo = shiftDate(today, -14);
+const nineDaysAgo = shiftDate(today, -9);
 
 export const timeEntries: TimeEntry[] = [
   {
@@ -385,7 +389,7 @@ export const timeEntries: TimeEntry[] = [
   },
   {
     id: "t14",
-    date: "2026-08-07",
+    date: twoWeeksAgo,
     start: "13:15",
     end: "16:00",
     seconds: 9900,
@@ -408,7 +412,7 @@ export const timeEntries: TimeEntry[] = [
   },
   {
     id: "t16",
-    date: "2026-08-12",
+    date: nineDaysAgo,
     start: "08:45",
     end: "09:30",
     seconds: 2700,

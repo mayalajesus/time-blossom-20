@@ -393,6 +393,14 @@ export function nowTime(): string {
   return formatLocalTime(new Date());
 }
 
+export function getLocalToday(reference = new Date()): string {
+  return toIsoDate(reference);
+}
+
+export function formatLocalDateTime(reference = new Date()): string {
+  return `${getLocalToday(reference)} ${formatLocalTime(reference)}`;
+}
+
 function formatLocalTime(date: Date): string {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }

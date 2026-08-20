@@ -6,7 +6,6 @@ import {
   members as seedMembers,
   projects as seedProjects,
   timeEntries as seedEntries,
-  TODAY,
 } from "./mock-data";
 import type { Client, Member, Project, TimeEntry, TrelloState } from "./mock-data";
 import {
@@ -14,6 +13,7 @@ import {
   dateTimeToTimestamp,
   getElapsedSeconds,
   getEndDateForEntry,
+  getLocalToday,
   isValidDateOnly,
   nowTime,
 } from "./format";
@@ -304,6 +304,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [trello, setTrelloState] = useState<TrelloState>(initialTrello);
   const [elapsed, setElapsed] = useState(() => elapsedForTimer(timer));
   const [settings, setSettingsState] = useState<WorkspaceSettings>(workspaceSnapshot.settings);
+  const [today, setToday] = useState(() => getLocalToday());
 
   const timerRef = useRef(timer);
   timerRef.current = timer;
@@ -330,6 +331,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // The workspace remains usable when browser storage is unavailable.
     }
   }, [clients, entries, projects, settings]);
+
+  useEffect(() => {
+    const refreshToday = () => setToday(getLocalToday());
+    const refreshWhenActive = () => {
+      if (document.visibilityState === "visible") refreshToday();
+    };
+
+    refreshToday();
+    const id = window.setInterval(refreshToday, 60_000);
+    window.addEventListener("focus", refreshToday);
+    document.addEventListener("visibilitychange", refreshWhenActive);
+
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", refreshToday);
+      document.removeEventListener("visibilitychange", refreshWhenActive);
+    };
+  }, []);
 
   useEffect(() => {
     const refreshElapsed = () => setElapsed(elapsedForTimer(timerRef.current));
@@ -402,7 +421,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         projectId,
         billable,
         startedAt: Date.now(),
-        startedDate: TODAY,
+        startedDate: getLocalToday(),
         accumulated: 0,
         startClock: nowTime(),
       } satisfies TimerState;
@@ -459,7 +478,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const t = timerRef.current;
       if (t.status === "idle") return;
       const total = elapsedForTimer(t);
-      const startedDate = t.startedDate ?? TODAY;
+      const startedDate = t.startedDate ?? getLocalToday();
       const finish = addSecondsToDateTime(startedDate, t.startClock, total);
       if (total > 0) {
         const startTimestamp = dateTimeToTimestamp(startedDate, t.startClock);
@@ -567,7 +586,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       trello,
       settings,
       currentUserId,
-      today: TODAY,
+      today,
       startTimer,
       updateTimer,
       pauseTimer,
@@ -585,7 +604,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTrello: (patch) => setTrelloState((s) => ({ ...s, ...patch })),
       setSettings: (patch) => setSettingsState((s) => ({ ...s, ...patch })),
     };
-  }, [entries, projects, clients, members, timer, elapsed, trello, settings]);
+  }, [entries, projects, clients, members, timer, elapsed, trello, settings, today]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
