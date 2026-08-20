@@ -85,10 +85,26 @@ system before they can track time.
   remain square instead of shrinking into pills.
 - `Start` and `End` are separate table columns with fixed-width controls. Each
   field is edited independently in place, so the static and editing states keep
-  the same width, height and visual rhythm.
+  the same width, height and visual rhythm. Overnight entries remain grouped by
+  their start date; the End value shows a quiet `+1`, `+2` or equivalent day
+  offset instead of splitting the entry into another row.
 - Inline cell actions use compact HeroUI `Button` and `Input` components. Do
   not present static values as large filled fields or add native HTML controls
   when a HeroUI control already provides the interaction.
+- Project selectors use one shared searchable HeroUI pattern. The popover
+  always opens with a focused `Search projects` field, matches project and
+  client names without case or accent sensitivity, preserves `No project` (and
+  `All projects` in filters), and reports `No projects found` when needed.
+  Archived projects stay hidden for new assignments but remain available when
+  editing a historical entry; the popover remains viewport-constrained and
+  never changes the Tracker table geometry.
+- The live timer is a persistent state, not a page-local counter. A timestamp
+  is the source of truth for running time, while paused time is stored as
+  accumulated seconds. The active timer survives reloads, route changes and
+  browser restarts through local storage, and is cleared only after an explicit
+  stop action. A stopped timer uses its start date and stores an optional end
+  date when the session crosses midnight; `seconds` remains authoritative for
+  totals, including sessions that span more than one day.
 - All date selection uses the shared HeroUI DatePicker and Calendar pattern.
   Native browser date pickers are not used; inline date edits and manual log
   forms share the same calendar, keyboard navigation and visual language. The

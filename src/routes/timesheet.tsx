@@ -1,10 +1,11 @@
-import { Button, Label, ListBox, Select, TextField, Input } from "@heroui/react";
+import { Button, Label, TextField, Input } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, Search, Timer } from "lucide-react";
 import { useState } from "react";
 import { EntriesTable } from "@/components/entries-table";
 import { ExportModal } from "@/components/export-modal";
 import { LogTimeModal } from "@/components/log-time-modal";
+import { ProjectSelect } from "@/components/project-select";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { EmptyBlock, TableSkeleton } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
@@ -91,35 +92,12 @@ function TimesheetPage() {
         </TextField>
         <div className="flex w-full flex-col gap-2 sm:w-56">
           <Label>Project</Label>
-          <Select
-            aria-label="Filter by project"
-            fullWidth
+          <ProjectSelect
+            ariaLabel="Filter by project"
             value={projectId}
-            onChange={(key) => setProjectId(String(key ?? "all"))}
-          >
-            <Select.Trigger>
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                <ListBox.Item id="all" textValue="All projects">
-                  <Label>All projects</Label>
-                  <ListBox.ItemIndicator />
-                </ListBox.Item>
-                <ListBox.Item id="none" textValue="No project">
-                  <Label>No project</Label>
-                  <ListBox.ItemIndicator />
-                </ListBox.Item>
-                {projects.map((p) => (
-                  <ListBox.Item key={p.id} id={p.id} textValue={p.name}>
-                    <Label>{p.name}</Label>
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
+            includeAll
+            onChange={(value) => setProjectId(String(value))}
+          />
         </div>
       </div>
 

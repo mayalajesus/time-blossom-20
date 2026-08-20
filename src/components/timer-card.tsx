@@ -1,7 +1,8 @@
-import { Button, Chip, Input, Label, ListBox, Select, TextField } from "@heroui/react";
+import { Button, Chip, Input, Label, TextField } from "@heroui/react";
 import { Pause, Play, Square } from "lucide-react";
 import { useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
+import { ProjectSelect } from "@/components/project-select";
 import { useStore } from "@/lib/store";
 import { formatClock } from "@/lib/format";
 
@@ -39,33 +40,11 @@ export function TimerCard() {
               value={projectLabel}
             />
           ) : (
-            <Select
-              aria-label="Project"
-              fullWidth
+            <ProjectSelect
+              ariaLabel="Project"
               value={projectId ?? "none"}
-              onChange={(key) => setProjectId(key === "none" || key === null ? null : String(key))}
-            >
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  <ListBox.Item id="none" textValue="No project">
-                    <Label>No project</Label>
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                  {projects
-                    .filter((p) => p.status !== "archived")
-                    .map((p) => (
-                      <ListBox.Item key={p.id} id={p.id} textValue={p.name}>
-                        <Label>{p.name}</Label>
-                        <ListBox.ItemIndicator />
-                      </ListBox.Item>
-                    ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
+              onChange={(value) => setProjectId(value === "none" || value === "all" ? null : value)}
+            />
           )}
         </div>
 

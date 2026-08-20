@@ -9,7 +9,13 @@ import {
   TODAY,
 } from "./mock-data";
 import type { Client, Member, Project, TimeEntry, TrelloState } from "./mock-data";
-import { addSecondsToTime, isValidDateOnly, minutesBetween, nowTime } from "./format";
+import {
+  addSecondsToDateTime,
+  getElapsedMinutes,
+  getEndDateForEntry,
+  isValidDateOnly,
+  nowTime,
+} from "./format";
 
 export type TimerStatus = "idle" | "running" | "paused";
 
@@ -19,6 +25,7 @@ export interface TimerState {
   projectId: string | null;
   billable: boolean;
   startedAt: number | null;
+  startedDate: string | null;
   accumulated: number;
   startClock: string;
 }
@@ -29,9 +36,77 @@ const initialTimer: TimerState = {
   projectId: null,
   billable: true,
   startedAt: null,
+  startedDate: null,
   accumulated: 0,
   startClock: "09:00",
 };
+
+const TIMER_STORAGE_KEY = `time-blossom:active-timer:v1:${currentUserId}`;
+
+function isValidClock(value: unknown): value is string {
+  return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function isValidTimerSnapshot(value: unknown): value is TimerState {
+  if (!value || typeof value !== "object") return false;
+  const snapshot = value as Partial<TimerState>;
+  if (snapshot.status !== "running" && snapshot.status !== "paused") return false;
+  if (typeof snapshot.task !== "string" || !snapshot.task.trim()) return false;
+  if (snapshot.projectId !== null && typeof snapshot.projectId !== "string") return false;
+  if (
+    snapshot.projectId !== null &&
+    !seedProjects.some((project) => project.id === snapshot.projectId)
+  ) {
+    return false;
+  }
+  if (typeof snapshot.billable !== "boolean") return false;
+  if (!isValidClock(snapshot.startClock)) return false;
+  if (typeof snapshot.startedDate !== "string" || !isValidDateOnly(snapshot.startedDate)) {
+    return false;
+  }
+  if (typeof snapshot.accumulated !== "number" || !Number.isFinite(snapshot.accumulated)) {
+    return false;
+  }
+  if (snapshot.accumulated < 0) return false;
+  if (snapshot.status === "running") {
+    if (typeof snapshot.startedAt !== "number" || !Number.isFinite(snapshot.startedAt)) {
+      return false;
+    }
+    if (snapshot.startedAt > Date.now() + 60_000) return false;
+  } else if (snapshot.startedAt !== null) {
+    return false;
+  }
+  return true;
+}
+
+function readPersistedTimer(): TimerState {
+  if (typeof window === "undefined") return initialTimer;
+
+  try {
+    const raw = window.localStorage.getItem(TIMER_STORAGE_KEY);
+    if (!raw) return initialTimer;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isValidTimerSnapshot(parsed)) {
+      window.localStorage.removeItem(TIMER_STORAGE_KEY);
+      return initialTimer;
+    }
+    return parsed;
+  } catch {
+    try {
+      window.localStorage.removeItem(TIMER_STORAGE_KEY);
+    } catch {
+      // Storage can be unavailable in private or restricted browsing contexts.
+    }
+    return initialTimer;
+  }
+}
+
+function elapsedForTimer(timer: TimerState, now = Date.now()): number {
+  if (timer.status !== "running" || timer.startedAt === null) {
+    return timer.accumulated;
+  }
+  return Math.max(0, timer.accumulated + Math.floor((now - timer.startedAt) / 1000));
+}
 
 const initialTrello: TrelloState = {
   status: "disconnected",
@@ -91,9 +166,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>(seedProjects);
   const [clients, setClients] = useState<Client[]>(seedClients);
   const [members] = useState<Member[]>(seedMembers);
-  const [timer, setTimer] = useState<TimerState>(initialTimer);
+  const [timer, setTimer] = useState<TimerState>(() => readPersistedTimer());
   const [trello, setTrelloState] = useState<TrelloState>(initialTrello);
-  const [elapsed, setElapsed] = useState(0);
+  const [elapsed, setElapsed] = useState(() => elapsedForTimer(timer));
   const [settings, setSettingsState] = useState<WorkspaceSettings>({
     workspaceName: "Studio Co.",
     defaultBillable: true,
@@ -108,16 +183,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   timerRef.current = timer;
 
   useEffect(() => {
-    if (timer.status !== "running") return;
-    const tick = () => {
-      const t = timerRef.current;
-      const base = t.startedAt ? Math.floor((Date.now() - t.startedAt) / 1000) : 0;
-      setElapsed(t.accumulated + base);
+    try {
+      if (timer.status === "idle") {
+        window.localStorage.removeItem(TIMER_STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timer));
+      }
+    } catch {
+      // The timer remains usable when browser storage is unavailable.
+    }
+  }, [timer]);
+
+  useEffect(() => {
+    const refreshElapsed = () => setElapsed(elapsedForTimer(timerRef.current));
+    const refreshWhenActive = () => {
+      if (document.visibilityState === "visible") refreshElapsed();
     };
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [timer.status, timer.startedAt]);
+
+    refreshElapsed();
+    window.addEventListener("focus", refreshElapsed);
+    document.addEventListener("visibilitychange", refreshWhenActive);
+
+    if (timer.status !== "running") {
+      return () => {
+        window.removeEventListener("focus", refreshElapsed);
+        document.removeEventListener("visibilitychange", refreshWhenActive);
+      };
+    }
+
+    const id = window.setInterval(refreshElapsed, 1000);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", refreshElapsed);
+      document.removeEventListener("visibilitychange", refreshWhenActive);
+    };
+  }, [timer.status, timer.startedAt, timer.accumulated]);
 
   const value = useMemo<StoreValue>(() => {
     const validateProjectId = (projectId: string | null): StoreResult => {
@@ -131,8 +231,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!projectValidation.success) return projectValidation;
       if (!entry.task.trim()) return { success: false, error: "A task is required." };
       if (!isValidDateOnly(entry.date)) return { success: false, error: "Choose a valid date." };
-      const isFullDayEntry = entry.seconds === 24 * 60 * 60 && entry.start === entry.end;
-      if (minutesBetween(entry.start, entry.end) <= 0 && !isFullDayEntry) {
+      if (entry.endDate && !isValidDateOnly(entry.endDate)) {
+        return { success: false, error: "Choose a valid end date." };
+      }
+      if (entry.endDate && entry.endDate < entry.date) {
+        return { success: false, error: "End date cannot be before the start date." };
+      }
+      const endDate = getEndDateForEntry(entry);
+      const elapsedMinutes = getElapsedMinutes(entry.date, entry.start, endDate, entry.end);
+      if (elapsedMinutes <= 0 || entry.seconds <= 0) {
         return { success: false, error: "End time must be after start time." };
       }
       return { success: true };
@@ -148,6 +255,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         projectId,
         billable: true,
         startedAt: Date.now(),
+        startedDate: TODAY,
         accumulated: 0,
         startClock: nowTime(),
       });
@@ -157,8 +265,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const pauseTimer = () => {
       const t = timerRef.current;
       if (t.status !== "running") return;
-      const base = t.startedAt ? Math.floor((Date.now() - t.startedAt) / 1000) : 0;
-      const total = t.accumulated + base;
+      const total = elapsedForTimer(t);
       setElapsed(total);
       setTimer({ ...t, status: "paused", accumulated: total, startedAt: null });
     };
@@ -172,14 +279,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const stopTimer = () => {
       const t = timerRef.current;
       if (t.status === "idle") return;
-      const base = t.startedAt ? Math.floor((Date.now() - t.startedAt) / 1000) : 0;
-      const total = Math.max(60, t.accumulated + base);
+      const total = Math.max(60, elapsedForTimer(t));
+      const startedDate = t.startedDate ?? TODAY;
+      const finish = addSecondsToDateTime(startedDate, t.startClock, total);
       setEntries((list) => [
         {
           id: nextId("t"),
-          date: TODAY,
+          date: startedDate,
           start: t.startClock,
-          end: addSecondsToTime(t.startClock, total),
+          end: finish.end,
+          ...(finish.endDate !== startedDate ? { endDate: finish.endDate } : {}),
           seconds: total,
           userId: currentUserId,
           projectId: t.projectId,

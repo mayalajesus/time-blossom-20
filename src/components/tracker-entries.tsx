@@ -1,25 +1,20 @@
-import {
-  Button,
-  Dropdown,
-  FieldError,
-  Input,
-  Label,
-  ListBox,
-  Modal,
-  Select,
-  TextField,
-  toast,
-} from "@heroui/react";
+import { Button, Dropdown, FieldError, Input, Label, Modal, TextField, toast } from "@heroui/react";
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronDown, MoreHorizontal, Play, Trash2 } from "lucide-react";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
+import { ProjectSelect } from "@/components/project-select";
 import { useStore } from "@/lib/store";
 import {
-  addSecondsToTime,
+  addMinutesToDateTime,
   formatDate,
   formatDuration,
+  getDayOffset,
+  getElapsedMinutes,
+  getEndDateForClockRange,
+  getEndDateForEntry,
+  getEntryEndDayOffset,
   isValidDateOnly,
-  minutesBetween,
+  shiftDate,
 } from "@/lib/format";
 import type { TimeEntry } from "@/lib/mock-data";
 
@@ -47,6 +42,7 @@ type TrackerGroup = {
   totalSeconds: number;
   start: string;
   end: string;
+  endDate: string;
 };
 
 type EntryDraft = {
@@ -55,6 +51,7 @@ type EntryDraft = {
   projectId: string | null;
   start: string;
   end: string;
+  endDate: string;
   duration: string;
   description: string;
   billable: boolean;
@@ -77,11 +74,11 @@ function parseDurationInput(value: string): number | null {
   let hours: number;
   let minutes: number;
 
-  const clockValue = normalized.match(/^(\d{1,3}):(\d{2})$/);
+  const clockValue = normalized.match(/^(\d{1,4}):(\d{2})$/);
   if (clockValue) {
     hours = Number(clockValue[1]);
     minutes = Number(clockValue[2]);
-  } else if (/^\d{1,4}$/.test(normalized)) {
+  } else if (/^\d{1,6}$/.test(normalized)) {
     if (normalized.length <= 2) {
       hours = 0;
       minutes = Number(normalized);
@@ -93,18 +90,9 @@ function parseDurationInput(value: string): number | null {
     return null;
   }
 
-  if (hours > 24 || minutes > 59 || (hours === 24 && minutes > 0)) return null;
+  if (hours > 999 || minutes > 59) return null;
   const total = hours * 60 + minutes;
   return total > 0 ? total : null;
-}
-
-function timeToMinutes(value: string): number | null {
-  const match = value.match(/^(\d{2}):(\d{2})$/);
-  if (!match) return null;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (hours > 23 || minutes > 59) return null;
-  return hours * 60 + minutes;
 }
 
 function toDraft(entry: TimeEntry): EntryDraft {
@@ -114,10 +102,32 @@ function toDraft(entry: TimeEntry): EntryDraft {
     projectId: entry.projectId,
     start: entry.start,
     end: entry.end,
+    endDate: getEndDateForEntry(entry),
     duration: formatDurationInput(entry.seconds),
     description: entry.description ?? "",
     billable: entry.billable,
   };
+}
+
+function EndTimeValue({
+  startDate,
+  end,
+  endDate,
+}: {
+  startDate: string;
+  end: string;
+  endDate: string;
+}) {
+  const dayOffset = getDayOffset(startDate, endDate);
+
+  return (
+    <span className="inline-flex items-baseline gap-1 tabular-nums">
+      <span>{end}</span>
+      {dayOffset > 0 ? (
+        <sup className="text-[10px] font-medium leading-none text-muted">+{dayOffset}</sup>
+      ) : null}
+    </span>
+  );
 }
 
 function groupKeyFor(entry: TimeEntry): string {
@@ -142,7 +152,13 @@ function groupEntries(days: TrackerDay[]): TrackerGroup[] {
           existing.entries.push(entry);
           existing.totalSeconds += entry.seconds;
           existing.start = entry.start < existing.start ? entry.start : existing.start;
-          existing.end = entry.end > existing.end ? entry.end : existing.end;
+          const entryEndDate = getEndDateForEntry(entry);
+          const existingEndKey = `${existing.endDate}T${existing.end}`;
+          const entryEndKey = `${entryEndDate}T${entry.end}`;
+          if (entryEndKey > existingEndKey) {
+            existing.end = entry.end;
+            existing.endDate = entryEndDate;
+          }
           return;
         }
 
@@ -156,6 +172,7 @@ function groupEntries(days: TrackerDay[]): TrackerGroup[] {
           totalSeconds: entry.seconds,
           start: entry.start,
           end: entry.end,
+          endDate: getEndDateForEntry(entry),
         });
       });
   });
@@ -361,9 +378,6 @@ function TrackerGroupSummaryRow({
             {...(isExpanded ? { "aria-controls": `${group.id}-details` } : {})}
             onPress={onToggle}
           >
-            <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-surface text-xs tabular-nums text-muted">
-              {group.entries.length}
-            </span>
             <span className="min-w-0 truncate text-sm font-medium text-foreground">
               {group.task}
             </span>
@@ -394,7 +408,7 @@ function TrackerGroupSummaryRow({
       </td>
       <td className={`${summaryCellClass} text-center`}>
         <span className={`${summaryTextClass} text-center tabular-nums text-muted`}>
-          {group.end}
+          <EndTimeValue startDate={group.date} end={group.end} endDate={group.endDate} />
         </span>
       </td>
       <td className={summaryCellClass}>
@@ -489,14 +503,23 @@ function TrackerEntryRow({
   const selectedClientName = selectedProject
     ? (clients.find((client) => client.id === selectedProject.clientId)?.name ?? "Unknown client")
     : "No client";
-  const availableProjects = projects.filter(
-    (item) => item.status !== "archived" || item.id === entry.projectId,
-  );
-
+  const entryEndDate = getEndDateForEntry(entry);
+  const entryEndDayOffset = getEntryEndDayOffset(entry);
+  const endTimeLabel = `End time: ${entry.end}${
+    entryEndDayOffset > 0
+      ? `, ${entryEndDayOffset === 1 ? "next day" : `${entryEndDayOffset} days later`}`
+      : ""
+  }`;
   const validateDraft = (candidate: EntryDraft, allowFullDayDuration = false): string | null => {
     if (!candidate.task.trim()) return "Task is required.";
     if (!isValidDateOnly(candidate.date)) return "Choose a valid date.";
-    if (minutesBetween(candidate.start, candidate.end) <= 0 && !allowFullDayDuration) {
+    const elapsedMinutes = getElapsedMinutes(
+      candidate.date,
+      candidate.start,
+      candidate.endDate,
+      candidate.end,
+    );
+    if (elapsedMinutes <= 0 && !allowFullDayDuration) {
       return "End time must be after start time.";
     }
     if (candidate.projectId !== null && !projects.some((item) => item.id === candidate.projectId)) {
@@ -522,7 +545,15 @@ function TrackerEntryRow({
     const draftField = field === "project" ? "projectId" : field;
     const normalizedValue =
       field === "task" || field === "description" ? String(value).trim() : value;
-    const candidate = { ...draft, [draftField]: normalizedValue } as EntryDraft;
+    const nextEndDate =
+      field === "date" && typeof normalizedValue === "string" && isValidDateOnly(normalizedValue)
+        ? shiftDate(normalizedValue, getDayOffset(draft.date, draft.endDate))
+        : draft.endDate;
+    const candidate = {
+      ...draft,
+      [draftField]: normalizedValue,
+      ...(field === "date" ? { endDate: nextEndDate } : {}),
+    } as EntryDraft;
     const message = validateDraft(candidate);
     if (message) {
       setValidationMessage(message);
@@ -532,7 +563,14 @@ function TrackerEntryRow({
     if (savedDraftRef.current[draftField] === candidate[draftField]) return true;
 
     const patch =
-      field === "project" ? { projectId: candidate.projectId } : { [field]: normalizedValue };
+      field === "project"
+        ? { projectId: candidate.projectId }
+        : field === "date"
+          ? {
+              date: candidate.date,
+              endDate: candidate.endDate !== candidate.date ? candidate.endDate : undefined,
+            }
+          : { [field]: normalizedValue };
     const result = updateEntry(entry.id, patch);
     if (!result.success) {
       setValidationMessage(result.error);
@@ -544,11 +582,14 @@ function TrackerEntryRow({
   };
 
   const commitTime = (start: string, end: string, close = false): boolean => {
+    const endDate = getEndDateForClockRange(draft.date, start, end, draft.endDate);
+    const elapsedMinutes = getElapsedMinutes(draft.date, start, endDate, end);
     const candidate = {
       ...draft,
       start,
       end,
-      duration: formatDurationInput(minutesBetween(start, end) * 60),
+      endDate,
+      duration: formatDurationInput(elapsedMinutes * 60),
     };
     const message = validateDraft(candidate);
     if (message) {
@@ -556,7 +597,11 @@ function TrackerEntryRow({
       return false;
     }
 
-    if (savedDraftRef.current.start === start && savedDraftRef.current.end === end) {
+    if (
+      savedDraftRef.current.start === start &&
+      savedDraftRef.current.end === end &&
+      savedDraftRef.current.endDate === endDate
+    ) {
       if (close) onDeactivate();
       return true;
     }
@@ -564,7 +609,8 @@ function TrackerEntryRow({
     const result = updateEntry(entry.id, {
       start,
       end,
-      seconds: minutesBetween(start, end) * 60,
+      endDate: endDate !== draft.date ? endDate : undefined,
+      seconds: elapsedMinutes * 60,
     });
     if (!result.success) {
       setValidationMessage(result.error);
@@ -578,21 +624,16 @@ function TrackerEntryRow({
 
   const commitDuration = (value: string, close = false): boolean => {
     const totalMinutes = parseDurationInput(value);
-    const startMinutes = timeToMinutes(draft.start);
-    if (
-      totalMinutes === null ||
-      startMinutes === null ||
-      totalMinutes > 24 * 60 ||
-      (totalMinutes < 24 * 60 && startMinutes + totalMinutes >= 24 * 60)
-    ) {
+    if (totalMinutes === null) {
       setValidationMessage("Use H:MM, HHMM or HMM (for example, 1:20, 120 or 825).");
       return false;
     }
 
-    const end = addSecondsToTime(draft.start, totalMinutes * 60);
+    const finish = addMinutesToDateTime(draft.date, draft.start, totalMinutes);
     const candidate = {
       ...draft,
-      end,
+      end: finish.end,
+      endDate: finish.endDate,
       duration: formatDurationInput(totalMinutes * 60),
     };
     const message = validateDraft(candidate, totalMinutes === 24 * 60);
@@ -601,12 +642,19 @@ function TrackerEntryRow({
       return false;
     }
 
-    if (savedDraftRef.current.end === end) {
+    if (
+      savedDraftRef.current.end === finish.end &&
+      savedDraftRef.current.endDate === finish.endDate
+    ) {
       if (close) onDeactivate();
       return true;
     }
 
-    const result = updateEntry(entry.id, { end, seconds: totalMinutes * 60 });
+    const result = updateEntry(entry.id, {
+      end: finish.end,
+      endDate: finish.endDate !== draft.date ? finish.endDate : undefined,
+      seconds: totalMinutes * 60,
+    });
     if (!result.success) {
       setValidationMessage(result.error);
       return false;
@@ -627,6 +675,7 @@ function TrackerEntryRow({
       setDraft((current) => ({
         ...current,
         end: savedDraftRef.current.end,
+        endDate: savedDraftRef.current.endDate,
         duration: savedDraftRef.current.duration,
       }));
     } else {
@@ -676,8 +725,11 @@ function TrackerEntryRow({
       const clickedDatePicker = target?.closest(
         "[data-tracker-date-picker], [data-tracker-date-picker-popover]",
       );
+      const clickedProjectSelect = target?.closest(
+        "[data-project-select], [data-project-select-popover]",
+      );
 
-      if (clickedDatePicker) return;
+      if (clickedDatePicker || clickedProjectSelect) return;
 
       if (rowRef.current?.contains(target)) {
         if (clickedField && clickedField !== activeField) {
@@ -914,36 +966,16 @@ function TrackerEntryRow({
         <td className={trackerCellClass}>
           {activeField === "project" ? (
             <>
-              <Select
-                aria-label="Project"
-                fullWidth
+              <ProjectSelect
+                ariaLabel="Project"
                 value={draft.projectId ?? "none"}
-                onChange={(key) => {
-                  const value = String(key ?? "none");
-                  const next = value === "none" ? null : value;
+                allowArchivedId={entry.projectId}
+                onChange={(value) => {
+                  const next = value === "none" || value === "all" ? null : value;
                   setDraft((current) => ({ ...current, projectId: next }));
                   if (commitField("project", next)) onDeactivate();
                 }}
-              >
-                <Select.Trigger>
-                  <Select.Value />
-                  <Select.Indicator />
-                </Select.Trigger>
-                <Select.Popover>
-                  <ListBox>
-                    <ListBox.Item id="none" textValue="No project">
-                      <Label>No project</Label>
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                    {availableProjects.map((item) => (
-                      <ListBox.Item key={item.id} id={item.id} textValue={item.name}>
-                        <Label>{item.name}</Label>
-                        <ListBox.ItemIndicator />
-                      </ListBox.Item>
-                    ))}
-                  </ListBox>
-                </Select.Popover>
-              </Select>
+              />
               <span className="mt-1 block truncate text-[11px] text-muted">
                 {selectedClientName}
               </span>
@@ -1013,7 +1045,10 @@ function TrackerEntryRow({
               isInvalid={Boolean(validationMessage)}
               onChange={(value) => setDraft((current) => ({ ...current, end: value }))}
             >
-              <Label className="sr-only">End time</Label>
+              <Label className="sr-only">
+                End time
+                {getDayOffset(draft.date, draft.endDate) > 0 ? ", next day" : ""}
+              </Label>
               <Input
                 ref={focusRef}
                 className={timeInputClass}
@@ -1030,10 +1065,10 @@ function TrackerEntryRow({
               variant="ghost"
               className={timeSlotClass}
               data-tracker-field="end"
-              aria-label={`End time: ${entry.end}`}
+              aria-label={endTimeLabel}
               onPress={() => onActivate("end")}
             >
-              {entry.end}
+              <EndTimeValue startDate={entry.date} end={entry.end} endDate={entryEndDate} />
             </Button>
           )}
         </td>

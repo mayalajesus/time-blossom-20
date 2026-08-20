@@ -33,6 +33,8 @@ export interface TimeEntry {
   date: string; // yyyy-mm-dd
   start: string; // HH:mm
   end: string; // HH:mm
+  /** Calendar date on which the entry ends. Omitted for same-day entries. */
+  endDate?: string | undefined;
   seconds: number;
   userId: string;
   projectId: string | null;

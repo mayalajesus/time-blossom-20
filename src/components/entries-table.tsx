@@ -3,7 +3,7 @@ import { MoreHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { LogTimeModal } from "@/components/log-time-modal";
 import { useStore } from "@/lib/store";
-import { formatDate, formatDuration } from "@/lib/format";
+import { formatDate, formatDuration, getEntryEndDayOffset } from "@/lib/format";
 import type { TimeEntry } from "@/lib/mock-data";
 
 export function EntriesTable({
@@ -53,6 +53,9 @@ export function EntriesTable({
                   {showDate ? <Table.Cell>{formatDate(entry.date)}</Table.Cell> : null}
                   <Table.Cell className="tabular-nums text-muted">
                     {entry.start} – {entry.end}
+                    {getEntryEndDayOffset(entry) > 0 ? (
+                      <sup className="ml-1 text-[10px]">+{getEntryEndDayOffset(entry)}</sup>
+                    ) : null}
                   </Table.Cell>
                   <Table.Cell className="tabular-nums font-medium">
                     {formatDuration(entry.seconds)}

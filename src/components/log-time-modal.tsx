@@ -5,9 +5,7 @@ import {
   Form,
   Input,
   Label,
-  ListBox,
   Modal,
-  Select,
   Switch,
   TextArea,
   TextField,
@@ -16,8 +14,16 @@ import {
 import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
+import { ProjectSelect } from "@/components/project-select";
 import { useStore, type StoreResult } from "@/lib/store";
-import { isValidDateOnly, minutesBetween } from "@/lib/format";
+import {
+  getDayOffset,
+  getElapsedMinutes,
+  getEndDateForClockRange,
+  getEndDateForEntry,
+  isValidDateOnly,
+  shiftDate,
+} from "@/lib/format";
 import type { TimeEntry } from "@/lib/mock-data";
 
 export function LogTimeModal({
@@ -53,7 +59,13 @@ export function LogTimeModal({
     setSaveError(null);
   }, [entry, initialDate, isOpen, today]);
 
-  const minutes = minutesBetween(start, end);
+  const originalEndDate = entry ? getEndDateForEntry(entry) : undefined;
+  const preserveOriginalRange = Boolean(entry && start === entry.start && end === entry.end);
+  const endDate =
+    entry && preserveOriginalRange && originalEndDate
+      ? shiftDate(date, getDayOffset(entry.date, originalEndDate))
+      : getEndDateForClockRange(date, start, end, originalEndDate);
+  const minutes = getElapsedMinutes(date, start, endDate, end);
   const taskError = task.trim().length === 0 ? "Task is required" : undefined;
   const dateError = !isValidDateOnly(date) ? "Choose a valid date" : undefined;
   const timeError = minutes <= 0 ? "End time must be after start time" : undefined;
@@ -68,6 +80,7 @@ export function LogTimeModal({
         date,
         start,
         end,
+        endDate: endDate !== date ? endDate : undefined,
         seconds: minutes * 60,
         projectId,
         task: task.trim(),
@@ -79,6 +92,7 @@ export function LogTimeModal({
         date,
         start,
         end,
+        endDate: endDate !== date ? endDate : undefined,
         seconds: minutes * 60,
         userId: currentUserId,
         projectId,
@@ -99,9 +113,6 @@ export function LogTimeModal({
     onOpenChange(false);
   };
 
-  const availableProjects = projects.filter(
-    (project) => project.status !== "archived" || project.id === entry?.projectId,
-  );
   const selectedProject = projects.find((project) => project.id === projectId);
   const selectedClient = selectedProject
     ? clients.find((client) => client.id === selectedProject.clientId)
@@ -161,41 +172,15 @@ export function LogTimeModal({
 
                   <div className="flex min-w-0 flex-col gap-2">
                     <Label>Project</Label>
-                    <Select
-                      aria-label="Project"
-                      fullWidth
+                    <ProjectSelect
+                      ariaLabel="Project"
                       value={projectId ?? "none"}
-                      onChange={(key) => {
-                        const value = String(key ?? "none");
-                        setProjectId(value === "none" ? null : value);
+                      allowArchivedId={entry?.projectId ?? null}
+                      onChange={(value) => {
+                        setProjectId(value === "none" || value === "all" ? null : value);
                         setSaveError(null);
                       }}
-                    >
-                      <Select.Trigger>
-                        <Select.Value />
-                        <Select.Indicator />
-                      </Select.Trigger>
-                      <Select.Popover>
-                        <ListBox>
-                          <ListBox.Item id="none" textValue="No project">
-                            <Label>No project</Label>
-                            <ListBox.ItemIndicator />
-                          </ListBox.Item>
-                          {availableProjects.map((p) => (
-                            <ListBox.Item key={p.id} id={p.id} textValue={p.name}>
-                              <div className="flex min-w-0 flex-col">
-                                <Label>{p.name}</Label>
-                                <Description>
-                                  {clients.find((client) => client.id === p.clientId)?.name ??
-                                    "Unknown client"}
-                                </Description>
-                              </div>
-                              <ListBox.ItemIndicator />
-                            </ListBox.Item>
-                          ))}
-                        </ListBox>
-                      </Select.Popover>
-                    </Select>
+                    />
                   </div>
                 </div>
 

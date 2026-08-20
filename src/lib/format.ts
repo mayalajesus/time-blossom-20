@@ -88,6 +88,117 @@ export function shiftDate(iso: string, days: number): string {
   return toIsoDate(addDays(parseDateOnly(iso), days));
 }
 
+export function timeToMinutes(value: string): number | null {
+  const match = value.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+export function getDayOffset(startDate: string, endDate: string): number {
+  if (!isValidDateOnly(startDate) || !isValidDateOnly(endDate)) return 0;
+  return Math.max(0, differenceInCalendarDays(parseDateOnly(endDate), parseDateOnly(startDate)));
+}
+
+type TimeEntryDateShape = {
+  date: string;
+  start: string;
+  end: string;
+  endDate?: string | undefined;
+  seconds?: number | undefined;
+};
+
+export function getEndDateForEntry(entry: TimeEntryDateShape): string {
+  if (entry.endDate && isValidDateOnly(entry.endDate)) return entry.endDate;
+
+  if (typeof entry.seconds === "number" && entry.seconds >= 24 * 60 * 60) {
+    const startMinutes = timeToMinutes(entry.start) ?? 0;
+    const durationMinutes = Math.max(0, Math.round(entry.seconds / 60));
+    return shiftDate(entry.date, Math.floor((startMinutes + durationMinutes) / (24 * 60)));
+  }
+
+  const startMinutes = timeToMinutes(entry.start);
+  const endMinutes = timeToMinutes(entry.end);
+  return startMinutes !== null && endMinutes !== null && endMinutes < startMinutes
+    ? shiftDate(entry.date, 1)
+    : entry.date;
+}
+
+export function getEntryEndDayOffset(entry: TimeEntryDateShape): number {
+  return getDayOffset(entry.date, getEndDateForEntry(entry));
+}
+
+export function getEndDateForClockRange(
+  startDate: string,
+  start: string,
+  end: string,
+  existingEndDate?: string | undefined,
+): string {
+  if (
+    start === end &&
+    existingEndDate &&
+    isValidDateOnly(existingEndDate) &&
+    existingEndDate > startDate
+  ) {
+    return existingEndDate;
+  }
+
+  const startMinutes = timeToMinutes(start);
+  const endMinutes = timeToMinutes(end);
+  return startMinutes !== null && endMinutes !== null && endMinutes < startMinutes
+    ? shiftDate(startDate, 1)
+    : startDate;
+}
+
+export function getElapsedMinutes(
+  startDate: string,
+  start: string,
+  endDate: string,
+  end: string,
+): number {
+  const startMinutes = timeToMinutes(start);
+  const endMinutes = timeToMinutes(end);
+  if (
+    startMinutes === null ||
+    endMinutes === null ||
+    !isValidDateOnly(startDate) ||
+    !isValidDateOnly(endDate) ||
+    endDate < startDate
+  ) {
+    return 0;
+  }
+
+  return Math.max(0, getDayOffset(startDate, endDate) * 24 * 60 + endMinutes - startMinutes);
+}
+
+export function addMinutesToDateTime(
+  startDate: string,
+  start: string,
+  minutes: number,
+): { endDate: string; end: string } {
+  const startMinutes = timeToMinutes(start) ?? 0;
+  const totalMinutes = Math.max(0, startMinutes + Math.round(minutes));
+  const endDate = shiftDate(startDate, Math.floor(totalMinutes / (24 * 60)));
+  const endMinutes = totalMinutes % (24 * 60);
+  return {
+    endDate,
+    end: `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(
+      endMinutes % 60,
+    ).padStart(2, "0")}`,
+  };
+}
+
+export function addSecondsToDateTime(
+  startDate: string,
+  start: string,
+  seconds: number,
+): { endDate: string; end: string } {
+  return addMinutesToDateTime(startDate, start, seconds / 60);
+}
+
 export function listDateRange(start: string, end: string): string[] {
   const length = differenceInCalendarDays(parseDateOnly(end), parseDateOnly(start));
   if (length < 0) return [];
@@ -185,17 +296,17 @@ export function formatDayHeading(iso: string): string {
 }
 
 export function minutesBetween(start: string, end: string): number {
-  const s = nums(start, ":");
-  const e = nums(end, ":");
-  return Math.max(0, at(e, 0) * 60 + at(e, 1) - (at(s, 0) * 60 + at(s, 1)));
+  const startMinutes = timeToMinutes(start);
+  const endMinutes = timeToMinutes(end);
+  if (startMinutes === null || endMinutes === null) return 0;
+  if (endMinutes === startMinutes) return 0;
+  return endMinutes > startMinutes
+    ? endMinutes - startMinutes
+    : 24 * 60 - startMinutes + endMinutes;
 }
 
 export function addSecondsToTime(start: string, seconds: number): string {
-  const s = nums(start, ":");
-  const total = at(s, 0) * 60 + at(s, 1) + Math.round(seconds / 60);
-  const h = Math.floor(total / 60) % 24;
-  const m = total % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  return addSecondsToDateTime("2000-01-01", start, seconds).end;
 }
 
 export function nowTime(): string {
