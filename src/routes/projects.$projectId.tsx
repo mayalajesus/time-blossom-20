@@ -63,9 +63,14 @@ function ProjectDetail() {
         title={project.name}
         description={`${client?.name ?? "No client"} · updated ${formatDate(project.lastActivity)}`}
         actions={
-          <Chip size="sm" variant="soft">
-            {project.status}
-          </Chip>
+          <div className="flex items-center gap-2">
+            <Chip size="sm" variant="soft">
+              {project.status}
+            </Chip>
+            <Chip color={project.billable ? "success" : "default"} size="sm" variant="soft">
+              {project.billable ? "Billable" : "Internal"}
+            </Chip>
+          </div>
         }
       />
 

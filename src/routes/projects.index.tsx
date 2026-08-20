@@ -2,7 +2,6 @@ import {
   Button,
   Chip,
   Description,
-  Dropdown,
   FieldError,
   Form,
   Input,
@@ -15,8 +14,9 @@ import {
   toast,
 } from "@heroui/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, FolderKanban, MoreHorizontal, Plus } from "lucide-react";
+import { Archive, ArchiveRestore, CircleDollarSign, FolderKanban, Plus } from "lucide-react";
 import { useState } from "react";
+import { ActionDropdown } from "@/components/action-dropdown";
 import { PageHeader } from "@/components/page-header";
 import { FormAlert } from "@/components/form-feedback";
 import { CardsSkeleton, EmptyBlock } from "@/components/states";
@@ -43,12 +43,13 @@ export const Route = createFileRoute("/projects/")({
 });
 
 function ProjectsPage() {
-  const { projects, clients, entries, addProject, updateProject } = useStore();
+  const { projects, clients, entries, settings, addProject, updateProject } = useStore();
   const loading = useSimulatedLoad(500);
   const [filter, setFilter] = useState<string>("active");
   const [newOpen, setNewOpen] = useState(false);
   const [name, setName] = useState("");
   const [clientId, setClientId] = useState("");
+  const [projectBillable, setProjectBillable] = useState(settings.defaultBillable);
   const [createError, setCreateError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [pendingArchive, setPendingArchive] = useState<Project | null>(null);
@@ -67,6 +68,7 @@ function ProjectsPage() {
     const result = addProject({
       name: name.trim(),
       clientId,
+      billable: projectBillable,
       status: "active",
       color: "bg-accent",
       lastActivity: getLocalToday(),
@@ -79,6 +81,7 @@ function ProjectsPage() {
     toast("Project created", { description: name.trim() });
     setName("");
     setClientId("");
+    setProjectBillable(settings.defaultBillable);
     setCreateError(null);
     setNewOpen(false);
   };
@@ -101,6 +104,18 @@ function ProjectsPage() {
     }
     setStatusError(null);
     toast("Project restored", { description: project.name });
+  };
+
+  const toggleProjectBillable = (project: Project) => {
+    const result = updateProject(project.id, { billable: !project.billable });
+    if (!result.success) {
+      setStatusError(result.error);
+      return;
+    }
+    setStatusError(null);
+    toast(project.billable ? "Project marked internal" : "Project marked billable", {
+      description: project.name,
+    });
   };
 
   const archiveProject = () => {
@@ -147,7 +162,12 @@ function ProjectsPage() {
                 </ListBox>
               </Select.Popover>
             </Select>
-            <Button onPress={() => setNewOpen(true)}>
+            <Button
+              onPress={() => {
+                setProjectBillable(settings.defaultBillable);
+                setNewOpen(true);
+              }}
+            >
               <Plus className="size-4" />
               New project
             </Button>
@@ -167,7 +187,14 @@ function ProjectsPage() {
           title="No projects here"
           description="Change the status filter or create a new project to get started."
           action={
-            <Button size="sm" variant="secondary" onPress={() => setNewOpen(true)}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onPress={() => {
+                setProjectBillable(settings.defaultBillable);
+                setNewOpen(true);
+              }}
+            >
               New project
             </Button>
           }
@@ -197,6 +224,9 @@ function ProjectsPage() {
                   </div>
                 </Link>
                 <div className="flex shrink-0 items-start gap-2">
+                  <Chip color={project.billable ? "success" : "default"} size="sm" variant="soft">
+                    {project.billable ? "Billable" : "Internal"}
+                  </Chip>
                   {project.status === "archived" ? (
                     <Chip size="sm" variant="soft">
                       Archived
@@ -218,34 +248,33 @@ function ProjectsPage() {
                       </Switch.Content>
                     </Switch>
                   )}
-                  <Dropdown>
-                    <Dropdown.Trigger
-                      aria-label={`${project.status === "archived" ? "Archived" : "Project"} actions for ${project.name}`}
-                      className="h-8 w-8 min-w-8 p-0"
-                    >
-                      <MoreHorizontal className="size-4" />
-                    </Dropdown.Trigger>
-                    <Dropdown.Popover>
-                      <Dropdown.Menu
-                        onAction={(key) => {
-                          if (key === "archive") setPendingArchive(project);
-                          if (key === "restore") restoreProject(project);
-                        }}
-                      >
-                        {project.status === "archived" ? (
-                          <Dropdown.Item id="restore">
-                            <ArchiveRestore className="size-4" />
-                            <Label>Restore project</Label>
-                          </Dropdown.Item>
-                        ) : (
-                          <Dropdown.Item id="archive" className="text-danger">
-                            <Archive className="size-4" />
-                            <Label>Archive project</Label>
-                          </Dropdown.Item>
-                        )}
-                      </Dropdown.Menu>
-                    </Dropdown.Popover>
-                  </Dropdown>
+                  <ActionDropdown
+                    ariaLabel={`${project.status === "archived" ? "Archived" : "Project"} actions for ${project.name}`}
+                    items={[
+                      {
+                        id: "billable",
+                        label: project.billable ? "Make internal" : "Make billable",
+                        icon: <CircleDollarSign className="size-4" />,
+                      },
+                      project.status === "archived"
+                        ? {
+                            id: "restore",
+                            label: "Restore project",
+                            icon: <ArchiveRestore className="size-4" />,
+                          }
+                        : {
+                            id: "archive",
+                            label: "Archive project",
+                            icon: <Archive className="size-4" />,
+                            tone: "danger" as const,
+                          },
+                    ]}
+                    onAction={(key) => {
+                      if (key === "billable") toggleProjectBillable(project);
+                      if (key === "archive") setPendingArchive(project);
+                      if (key === "restore") restoreProject(project);
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -358,6 +387,19 @@ function ProjectsPage() {
                     </Select>
                     <Description>Every project is connected to one client.</Description>
                   </div>
+
+                  <Switch
+                    isSelected={projectBillable}
+                    onChange={(selected) => setProjectBillable(selected)}
+                  >
+                    <Switch.Control>
+                      <Switch.Thumb />
+                    </Switch.Control>
+                    <Switch.Content>
+                      <Label>Billable</Label>
+                      <Description>New entries use this as their default.</Description>
+                    </Switch.Content>
+                  </Switch>
                 </Modal.Body>
                 <Modal.Footer>
                   <Button slot="close" type="button" variant="secondary">

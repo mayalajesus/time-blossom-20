@@ -7,14 +7,13 @@ export interface Client {
   id: string;
   name: string;
   contact: string;
-  billable: boolean;
-  archived: boolean;
 }
 
 export interface Project {
   id: string;
   name: string;
   clientId: string;
+  billable: boolean;
   status: ProjectStatus;
   color: string;
   lastActivity: string; // ISO date
@@ -127,24 +126,18 @@ export const clients: Client[] = [
     id: "c1",
     name: "Northwind Coffee",
     contact: "ana@northwind.co",
-    billable: true,
-    archived: false,
   },
   {
     id: "c2",
     name: "Basalt Studio",
     contact: "leo@basalt.design",
-    billable: true,
-    archived: false,
   },
   {
     id: "c3",
     name: "Vela Health",
     contact: "dr.reis@velahealth.com",
-    billable: true,
-    archived: false,
   },
-  { id: "c4", name: "Internal", contact: "ops@studio.co", billable: false, archived: false },
+  { id: "c4", name: "Internal", contact: "ops@studio.co" },
 ];
 
 export const projects: Project[] = [
@@ -152,6 +145,7 @@ export const projects: Project[] = [
     id: "p1",
     name: "Landing Page",
     clientId: "c1",
+    billable: true,
     status: "active",
     color: "bg-accent",
     lastActivity: "2026-08-17",
@@ -161,6 +155,7 @@ export const projects: Project[] = [
     id: "p2",
     name: "Checkout Redesign",
     clientId: "c1",
+    billable: true,
     status: "active",
     color: "bg-success",
     lastActivity: "2026-08-16",
@@ -170,6 +165,7 @@ export const projects: Project[] = [
     id: "p3",
     name: "Marketing Campaign",
     clientId: "c2",
+    billable: true,
     status: "active",
     color: "bg-warning",
     lastActivity: "2026-08-15",
@@ -179,6 +175,7 @@ export const projects: Project[] = [
     id: "p4",
     name: "Website Redesign",
     clientId: "c3",
+    billable: true,
     status: "on-hold",
     color: "bg-danger",
     lastActivity: "2026-08-11",
@@ -188,6 +185,7 @@ export const projects: Project[] = [
     id: "p5",
     name: "Client Onboarding",
     clientId: "c3",
+    billable: true,
     status: "active",
     color: "bg-accent",
     lastActivity: "2026-08-14",
@@ -197,6 +195,7 @@ export const projects: Project[] = [
     id: "p6",
     name: "Internal Product",
     clientId: "c4",
+    billable: false,
     status: "archived",
     color: "bg-foreground",
     lastActivity: "2026-07-30",

@@ -43,7 +43,8 @@ const initialTimer: TimerState = {
 };
 
 const TIMER_STORAGE_KEY = `time-blossom:active-timer:v1:${currentUserId}`;
-const WORKSPACE_STORAGE_KEY = `time-blossom:workspace:v2:${currentUserId}`;
+const WORKSPACE_STORAGE_KEY = `time-blossom:workspace:v3:${currentUserId}`;
+const LEGACY_WORKSPACE_STORAGE_KEY = `time-blossom:workspace:v2:${currentUserId}`;
 
 function isValidClock(value: unknown): value is string {
   return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -144,7 +145,7 @@ const initialSettings: WorkspaceSettings = {
 };
 
 type PersistedWorkspace = {
-  version: 2;
+  version: 3;
   entries: TimeEntry[];
   projects: Project[];
   clients: Client[];
@@ -198,30 +199,39 @@ function isValidTimeEntrySnapshot(
   return true;
 }
 
-function isValidWorkspaceSnapshot(value: unknown): value is PersistedWorkspace {
+function isValidClientSnapshot(value: unknown): value is Client {
   if (!value || typeof value !== "object") return false;
-  const snapshot = value as Partial<PersistedWorkspace>;
-  if (snapshot.version !== 2) return false;
-  if (!Array.isArray(snapshot.projects) || !Array.isArray(snapshot.clients)) return false;
-  if (!Array.isArray(snapshot.entries) || !snapshot.settings) return false;
-  if (
-    snapshot.projects.some(
-      (project) =>
-        !project ||
-        typeof project !== "object" ||
-        typeof project.id !== "string" ||
-        typeof project.name !== "string" ||
-        !project.name.trim() ||
-        typeof project.clientId !== "string" ||
-        !snapshot.clients?.some((client) => client.id === project.clientId),
-    )
-  ) {
-    return false;
-  }
-  if (snapshot.entries.some((entry) => !isValidTimeEntrySnapshot(entry, snapshot.projects ?? []))) {
-    return false;
-  }
-  const settings = snapshot.settings as Partial<WorkspaceSettings>;
+  const client = value as Partial<Client>;
+  return (
+    typeof client.id === "string" &&
+    typeof client.name === "string" &&
+    Boolean(client.name.trim()) &&
+    typeof client.contact === "string"
+  );
+}
+
+function isValidProjectSnapshot(value: unknown): value is Project {
+  if (!value || typeof value !== "object") return false;
+  const project = value as Partial<Project>;
+  return (
+    typeof project.id === "string" &&
+    typeof project.name === "string" &&
+    Boolean(project.name.trim()) &&
+    typeof project.clientId === "string" &&
+    typeof project.billable === "boolean" &&
+    (project.status === "active" ||
+      project.status === "on-hold" ||
+      project.status === "archived") &&
+    typeof project.color === "string" &&
+    typeof project.lastActivity === "string" &&
+    Array.isArray(project.memberIds) &&
+    project.memberIds.every((memberId) => typeof memberId === "string")
+  );
+}
+
+function isValidSettingsSnapshot(value: unknown): value is WorkspaceSettings {
+  if (!value || typeof value !== "object") return false;
+  const settings = value as Partial<WorkspaceSettings>;
   return (
     typeof settings.workspaceName === "string" &&
     typeof settings.defaultBillable === "boolean" &&
@@ -233,9 +243,98 @@ function isValidWorkspaceSnapshot(value: unknown): value is PersistedWorkspace {
   );
 }
 
+function isValidWorkspaceSnapshot(value: unknown): value is PersistedWorkspace {
+  if (!value || typeof value !== "object") return false;
+  const snapshot = value as Partial<PersistedWorkspace>;
+  if (snapshot.version !== 3) return false;
+  if (!Array.isArray(snapshot.projects) || !Array.isArray(snapshot.clients)) return false;
+  if (!Array.isArray(snapshot.entries) || !isValidSettingsSnapshot(snapshot.settings)) return false;
+  if (!snapshot.clients.every(isValidClientSnapshot)) return false;
+  if (
+    !snapshot.projects.every(
+      (project) =>
+        isValidProjectSnapshot(project) &&
+        snapshot.clients?.some((client) => client.id === project.clientId),
+    )
+  ) {
+    return false;
+  }
+  return snapshot.entries.every((entry) =>
+    isValidTimeEntrySnapshot(entry, snapshot.projects ?? []),
+  );
+}
+
+function migrateLegacyWorkspace(value: unknown): PersistedWorkspace | null {
+  if (!value || typeof value !== "object") return null;
+  const legacy = value as {
+    version?: unknown;
+    entries?: unknown;
+    projects?: unknown;
+    clients?: unknown;
+    settings?: unknown;
+  };
+  const legacySettings = legacy.settings;
+  if (
+    legacy.version !== 2 ||
+    !Array.isArray(legacy.entries) ||
+    !Array.isArray(legacy.projects) ||
+    !Array.isArray(legacy.clients) ||
+    !isValidSettingsSnapshot(legacySettings)
+  ) {
+    return null;
+  }
+
+  const legacyClients = legacy.clients as Array<Record<string, unknown>>;
+  const clients = legacyClients.map((client) => ({
+    id: client["id"],
+    name: client["name"],
+    contact: typeof client["contact"] === "string" ? client["contact"].trim() : "",
+  })) as unknown[];
+  if (!clients.every(isValidClientSnapshot)) return null;
+
+  const legacyBillability = new Map(
+    legacyClients.map((client) => [
+      String(client["id"]),
+      typeof client["billable"] === "boolean" ? client["billable"] : legacySettings.defaultBillable,
+    ]),
+  );
+  const projects = legacy.projects.map((rawProject) => {
+    if (!rawProject || typeof rawProject !== "object") return null;
+    const project = rawProject as Record<string, unknown>;
+    const billable =
+      typeof project["billable"] === "boolean"
+        ? project["billable"]
+        : (legacyBillability.get(String(project["clientId"])) ?? legacySettings.defaultBillable);
+    const normalized = { ...project, billable };
+    return isValidProjectSnapshot(normalized) ? normalized : null;
+  });
+  if (!projects.every(isValidProjectSnapshot)) return null;
+
+  const normalizedClients = clients as Client[];
+  const normalizedProjects = projects as Project[];
+  if (
+    !normalizedProjects.every((project) =>
+      normalizedClients.some((client) => client.id === project.clientId),
+    )
+  ) {
+    return null;
+  }
+  if (!legacy.entries.every((entry) => isValidTimeEntrySnapshot(entry, normalizedProjects))) {
+    return null;
+  }
+
+  return {
+    version: 3,
+    entries: legacy.entries,
+    projects: normalizedProjects,
+    clients: normalizedClients,
+    settings: legacySettings,
+  };
+}
+
 function readPersistedWorkspace(): PersistedWorkspace {
   const fallback: PersistedWorkspace = {
-    version: 2,
+    version: 3,
     entries: seedEntries,
     projects: seedProjects,
     clients: seedClients,
@@ -244,10 +343,21 @@ function readPersistedWorkspace(): PersistedWorkspace {
   if (typeof window === "undefined") return fallback;
 
   try {
-    const raw = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
-    if (!raw) return fallback;
-    const parsed: unknown = JSON.parse(raw);
-    return isValidWorkspaceSnapshot(parsed) ? parsed : fallback;
+    for (const key of [WORKSPACE_STORAGE_KEY, LEGACY_WORKSPACE_STORAGE_KEY]) {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed: unknown = JSON.parse(raw);
+      if (isValidWorkspaceSnapshot(parsed)) return parsed;
+      const migrated = migrateLegacyWorkspace(parsed);
+      if (migrated) {
+        window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(migrated));
+        if (key === LEGACY_WORKSPACE_STORAGE_KEY) {
+          window.localStorage.removeItem(LEGACY_WORKSPACE_STORAGE_KEY);
+        }
+        return migrated;
+      }
+    }
+    return fallback;
   } catch {
     return fallback;
   }
@@ -281,8 +391,9 @@ interface StoreValue {
   restoreEntry: (entry: TimeEntry) => StoreResult;
   addProject: (project: Omit<Project, "id">) => StoreResult;
   updateProject: (id: string, patch: Partial<Omit<Project, "id">>) => StoreResult;
-  addClient: (client: Omit<Client, "id">) => void;
-  updateClient: (id: string, patch: Partial<Client>) => void;
+  addClient: (client: Omit<Client, "id">) => StoreResult;
+  updateClient: (id: string, patch: Partial<Client>) => StoreResult;
+  deleteClient: (id: string) => StoreResult;
   setTrello: (patch: Partial<TrelloState>) => void;
   setSettings: (patch: Partial<WorkspaceSettings>) => void;
 }
@@ -325,7 +436,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       window.localStorage.setItem(
         WORKSPACE_STORAGE_KEY,
-        JSON.stringify({ version: 2, entries, projects, clients, settings }),
+        JSON.stringify({ version: 3, entries, projects, clients, settings }),
       );
     } catch {
       // The workspace remains usable when browser storage is unavailable.
@@ -407,19 +518,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const startTimer = (
       task: string,
       projectId: string | null,
-      billable = settings.defaultBillable,
+      billable?: boolean,
     ): StoreResult => {
       if (timerRef.current.status !== "idle") {
         return { success: false, error: "Stop the active timer before starting another one." };
       }
       const projectValidation = validateProjectId(projectId);
       if (!projectValidation.success) return projectValidation;
+      const projectDefault =
+        projectId === null
+          ? settings.defaultBillable
+          : (projects.find((project) => project.id === projectId)?.billable ??
+            settings.defaultBillable);
       setElapsed(0);
       const next = {
         status: "running",
         task: task.trim() || "Untitled task",
         projectId,
-        billable,
+        billable: billable ?? projectDefault,
         startedAt: Date.now(),
         startedDate: getLocalToday(),
         accumulated: 0,
@@ -560,6 +676,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!clients.some((client) => client.id === project.clientId)) {
         return { success: false, error: "Choose an existing client for this project." };
       }
+      if (typeof project.billable !== "boolean") {
+        return { success: false, error: "Choose whether this project is billable." };
+      }
       setProjects((list) => [{ ...project, name: project.name.trim(), id: nextId("p") }, ...list]);
       return { success: true };
     };
@@ -572,7 +691,54 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!clients.some((client) => client.id === next.clientId)) {
         return { success: false, error: "A project must keep a valid client." };
       }
+      if (typeof next.billable !== "boolean") {
+        return { success: false, error: "Choose whether this project is billable." };
+      }
       setProjects((list) => list.map((project) => (project.id === id ? next : project)));
+      return { success: true };
+    };
+
+    const validateClient = (client: Omit<Client, "id">): StoreResult => {
+      if (!client.name.trim()) return { success: false, error: "A client name is required." };
+      return { success: true };
+    };
+
+    const addClient = (client: Omit<Client, "id">): StoreResult => {
+      const validation = validateClient(client);
+      if (!validation.success) return validation;
+      setClients((list) => [
+        { id: nextId("c"), name: client.name.trim(), contact: client.contact.trim() },
+        ...list,
+      ]);
+      return { success: true };
+    };
+
+    const updateClient = (id: string, patch: Partial<Client>): StoreResult => {
+      const current = clients.find((client) => client.id === id);
+      if (!current) return { success: false, error: "This client no longer exists." };
+      const next = {
+        ...current,
+        ...patch,
+        name: (patch.name ?? current.name).trim(),
+        contact: (patch.contact ?? current.contact).trim(),
+      };
+      const validation = validateClient(next);
+      if (!validation.success) return validation;
+      setClients((list) => list.map((client) => (client.id === id ? next : client)));
+      return { success: true };
+    };
+
+    const deleteClient = (id: string): StoreResult => {
+      const current = clients.find((client) => client.id === id);
+      if (!current) return { success: false, error: "This client no longer exists." };
+      const linkedProjects = projects.filter((project) => project.clientId === id);
+      if (linkedProjects.length > 0) {
+        return {
+          success: false,
+          error: `This client is used by ${linkedProjects.length} project${linkedProjects.length === 1 ? "" : "s"}. Remove or reassign those projects first.`,
+        };
+      }
+      setClients((list) => list.filter((client) => client.id !== id));
       return { success: true };
     };
 
@@ -598,9 +764,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       restoreEntry,
       addProject,
       updateProject,
-      addClient: (client) => setClients((list) => [{ ...client, id: nextId("c") }, ...list]),
-      updateClient: (id, patch) =>
-        setClients((list) => list.map((c) => (c.id === id ? { ...c, ...patch } : c))),
+      addClient,
+      updateClient,
+      deleteClient,
       setTrello: (patch) => setTrelloState((s) => ({ ...s, ...patch })),
       setSettings: (patch) => setSettingsState((s) => ({ ...s, ...patch })),
     };

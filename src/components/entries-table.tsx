@@ -1,6 +1,7 @@
-import { Button, Chip, Dropdown, Label, Modal, Table, toast } from "@heroui/react";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { Button, Chip, Modal, Table, toast } from "@heroui/react";
+import { CircleDollarSign, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { ActionDropdown } from "@/components/action-dropdown";
 import { LogTimeModal } from "@/components/log-time-modal";
 import { useStore } from "@/lib/store";
 import { formatDate, formatDuration, getEntryEndDayOffset } from "@/lib/format";
@@ -86,37 +87,30 @@ export function EntriesTable({
                   </Table.Cell>
                   <Table.Cell>
                     <div className="flex justify-end gap-1">
-                      <Dropdown>
-                        <Dropdown.Trigger
-                          aria-label="Entry actions"
-                          className="h-8 w-8 min-w-8 p-0"
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </Dropdown.Trigger>
-                        <Dropdown.Popover>
-                          <Dropdown.Menu
-                            onAction={(key) => {
-                              if (key === "billable") {
-                                updateEntry(entry.id, { billable: !entry.billable });
-                              }
-                              if (key === "edit") setEditingEntry(entry);
-                              if (key === "delete") setPendingDelete(entry);
-                            }}
-                          >
-                            <Dropdown.Item id="edit">
-                              <Label>Edit entry</Label>
-                            </Dropdown.Item>
-                            <Dropdown.Item id="billable">
-                              <Label>
-                                {entry.billable ? "Mark as internal" : "Mark as billable"}
-                              </Label>
-                            </Dropdown.Item>
-                            <Dropdown.Item id="delete">
-                              <Label>Delete entry</Label>
-                            </Dropdown.Item>
-                          </Dropdown.Menu>
-                        </Dropdown.Popover>
-                      </Dropdown>
+                      <ActionDropdown
+                        ariaLabel="Entry actions"
+                        items={[
+                          { id: "edit", label: "Edit entry", icon: <Pencil className="size-4" /> },
+                          {
+                            id: "billable",
+                            label: entry.billable ? "Mark as internal" : "Mark as billable",
+                            icon: <CircleDollarSign className="size-4" />,
+                          },
+                          {
+                            id: "delete",
+                            label: "Delete entry",
+                            icon: <Trash2 className="size-4" />,
+                            tone: "danger",
+                          },
+                        ]}
+                        onAction={(key) => {
+                          if (key === "billable") {
+                            updateEntry(entry.id, { billable: !entry.billable });
+                          }
+                          if (key === "edit") setEditingEntry(entry);
+                          if (key === "delete") setPendingDelete(entry);
+                        }}
+                      />
                       <Button
                         isIconOnly
                         aria-label="Delete entry"

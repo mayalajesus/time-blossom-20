@@ -7,8 +7,17 @@ import { formatClock } from "@/lib/format";
 import { useStore } from "@/lib/store";
 
 export function TimerCard() {
-  const { timer, elapsed, settings, startTimer, updateTimer, pauseTimer, resumeTimer, stopTimer } =
-    useStore();
+  const {
+    timer,
+    elapsed,
+    projects,
+    settings,
+    startTimer,
+    updateTimer,
+    pauseTimer,
+    resumeTimer,
+    stopTimer,
+  } = useStore();
   const [task, setTask] = useState("");
   const [activeTask, setActiveTask] = useState(timer.task);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -68,8 +77,17 @@ export function TimerCard() {
             allowArchivedId={active ? timer.projectId : null}
             onChange={(value) => {
               const nextProjectId = value === "none" || value === "all" ? null : value;
-              if (active) updateActiveTimer({ projectId: nextProjectId });
-              else setProjectId(nextProjectId);
+              if (active) {
+                updateActiveTimer({ projectId: nextProjectId });
+              } else {
+                setProjectId(nextProjectId);
+                setBillable(
+                  nextProjectId === null
+                    ? settings.defaultBillable
+                    : (projects.find((project) => project.id === nextProjectId)?.billable ??
+                        settings.defaultBillable),
+                );
+              }
             }}
           />
         </div>

@@ -144,6 +144,10 @@ system before they can track time.
   and `archived` remains a separate read-only state. Keep the project name and
   tracked-time summary linked to project details without nesting the switch
   inside that link.
+- Clients are managed in the existing responsive table. They have no billable
+  status; billability belongs to the project default and can be overridden on
+  each task/time entry. Client creation uses a HeroUI form, while deletion is
+  confirmed in a HeroUI modal and blocked when projects still reference it.
 - Archive and restore are explicit actions in the project card menu. Archiving
   requires a HeroUI confirmation modal, keeps existing entries intact, and
   moves the project out of Active and Inactive until it is restored.
@@ -154,6 +158,14 @@ system before they can track time.
   content with no accidental page overflow.
 - Prefer one clear primary action per surface. Secondary actions should remain
   contextual and visually quiet.
+- Menus opened by three-dot action triggers use the shared HeroUI
+  `ActionDropdown` pattern: compact rows, aligned icons, rounded hover and
+  focus states, and responsive viewport-constrained popovers.
+- Action dropdowns do not display keyboard shortcut badges. HeroUI keeps the
+  interaction keyboard-accessible through focus management, arrow navigation,
+  `Enter`, `Space`, `Escape`, and click-away dismissal.
+- Destructive actions such as deleting or archiving use the HeroUI danger
+  treatment; reversible and informational actions retain the default tone.
 
 ## Interaction and states
 

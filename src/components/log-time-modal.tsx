@@ -41,7 +41,7 @@ export function LogTimeModal({
   onOpenChange: (open: boolean) => void;
   entry?: TimeEntry | null;
 }) {
-  const { projects, clients, addEntry, updateEntry, currentUserId, timer } = useStore();
+  const { projects, clients, settings, addEntry, updateEntry, currentUserId, timer } = useStore();
   const [timeMode, setTimeMode] = useState<"range" | "duration">("range");
   const [task, setTask] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -64,9 +64,15 @@ export function LogTimeModal({
     setDuration(formatDurationInput(entry?.seconds ?? 3600));
     setTimeMode(entry && entry.seconds % 60 !== 0 ? "duration" : "range");
     setDescription(entry?.description ?? "");
-    setBillable(entry?.billable ?? true);
+    setBillable(
+      entry?.billable ??
+        (entry?.projectId
+          ? (projects.find((project) => project.id === entry.projectId)?.billable ??
+            settings.defaultBillable)
+          : settings.defaultBillable),
+    );
     setSaveError(null);
-  }, [entry, isOpen]);
+  }, [entry, isOpen, projects, settings.defaultBillable]);
 
   const originalEndDate = entry ? getEndDateForEntry(entry) : undefined;
   const preserveOriginalRange = Boolean(entry && start === entry.start && end === entry.end);
@@ -221,7 +227,16 @@ export function LogTimeModal({
                       value={projectId ?? "none"}
                       allowArchivedId={entry?.projectId ?? null}
                       onChange={(value) => {
-                        setProjectId(value === "none" || value === "all" ? null : value);
+                        const nextProjectId = value === "none" || value === "all" ? null : value;
+                        setProjectId(nextProjectId);
+                        if (!entry) {
+                          setBillable(
+                            nextProjectId === null
+                              ? settings.defaultBillable
+                              : (projects.find((project) => project.id === nextProjectId)
+                                  ?.billable ?? settings.defaultBillable),
+                          );
+                        }
                         setSaveError(null);
                       }}
                     />

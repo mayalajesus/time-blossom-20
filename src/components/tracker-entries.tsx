@@ -1,6 +1,7 @@
-import { Button, Dropdown, FieldError, Input, Label, Modal, TextField, toast } from "@heroui/react";
+import { Button, FieldError, Input, Label, Modal, TextField, toast } from "@heroui/react";
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { ChevronDown, MoreHorizontal, Play, Trash2 } from "lucide-react";
+import { ChevronDown, Play, Trash2 } from "lucide-react";
+import { ActionDropdown } from "@/components/action-dropdown";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { ProjectSelect } from "@/components/project-select";
 import { useStore } from "@/lib/store";
@@ -424,22 +425,17 @@ function TrackerGroupSummaryRow({
           >
             <Play className="size-4" />
           </Button>
-          <Dropdown>
-            <Dropdown.Trigger
-              aria-label={`Actions for ${group.task} group`}
-              className={trackerActionButtonClass}
-            >
-              <MoreHorizontal className="size-4" />
-            </Dropdown.Trigger>
-            <Dropdown.Popover>
-              <Dropdown.Menu onAction={(key) => key === "toggle" && onToggle()}>
-                <Dropdown.Item id="toggle">
-                  <ChevronDown className={`size-4 ${isExpanded ? "rotate-180" : ""}`} />
-                  <Label>{isExpanded ? "Collapse group" : "Expand group"}</Label>
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown.Popover>
-          </Dropdown>
+          <ActionDropdown
+            ariaLabel={`Actions for ${group.task} group`}
+            items={[
+              {
+                id: "toggle",
+                label: isExpanded ? "Collapse group" : "Expand group",
+                icon: <ChevronDown className={`size-4 ${isExpanded ? "rotate-180" : ""}`} />,
+              },
+            ]}
+            onAction={(key) => key === "toggle" && onToggle()}
+          />
         </div>
       </td>
     </tr>
@@ -789,22 +785,18 @@ function TrackerEntryRow({
         >
           <Play className="size-4" />
         </Button>
-        <Dropdown>
-          <Dropdown.Trigger
-            aria-label={`Actions for ${entry.task}`}
-            className={trackerActionButtonClass}
-          >
-            <MoreHorizontal className="size-4" />
-          </Dropdown.Trigger>
-          <Dropdown.Popover>
-            <Dropdown.Menu onAction={(key) => key === "delete" && setDeleteDialogOpen(true)}>
-              <Dropdown.Item id="delete" className="text-danger">
-                <Trash2 className="size-4" />
-                <Label>Delete entry</Label>
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown.Popover>
-        </Dropdown>
+        <ActionDropdown
+          ariaLabel={`Actions for ${entry.task}`}
+          items={[
+            {
+              id: "delete",
+              label: "Delete entry",
+              icon: <Trash2 className="size-4" />,
+              tone: "danger",
+            },
+          ]}
+          onAction={(key) => key === "delete" && setDeleteDialogOpen(true)}
+        />
       </div>
     </td>
   );
