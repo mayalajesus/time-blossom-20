@@ -1,5 +1,5 @@
 import { Avatar, Button, Form, Input, Label, TextField } from "@heroui/react";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
   BarChart3,
   Building2,
@@ -7,7 +7,6 @@ import {
   FolderKanban,
   Moon,
   PanelLeft,
-  Plus,
   Puzzle,
   Settings,
   Sun,
@@ -32,7 +31,6 @@ type ThemeMode = "system" | "light" | "dark";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { settings } = useStore();
-  const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -40,7 +38,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
   const [systemDark, setSystemDark] = useState(false);
   const [query, setQuery] = useState("");
-  const isTrackerRoute = location.pathname === "/tracker" || location.pathname === "/today";
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -143,12 +140,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
-            {!isTrackerRoute ? (
-              <Button onPress={() => setLogOpen(true)}>
-                <Plus className="size-4" />
-                Log time
-              </Button>
-            ) : null}
           </div>
         </header>
 
