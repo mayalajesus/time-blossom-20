@@ -16,8 +16,8 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TeamRouteImport } from './routes/team'
-import { Route as TimesheetRouteImport } from './routes/timesheet'
 import { Route as TodayRouteImport } from './routes/today'
+import { Route as TrackerRouteImport } from './routes/tracker'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 
@@ -56,14 +56,14 @@ const TeamRoute = TeamRouteImport.update({
   path: '/team',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TimesheetRoute = TimesheetRouteImport.update({
-  id: '/timesheet',
-  path: '/timesheet',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TodayRoute = TodayRouteImport.update({
   id: '/today',
   path: '/today',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrackerRoute = TrackerRouteImport.update({
+  id: '/tracker',
+  path: '/tracker',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
@@ -85,8 +85,8 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRoute
-  '/timesheet': typeof TimesheetRoute
   '/today': typeof TodayRoute
+  '/tracker': typeof TrackerRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/': typeof ProjectsIndexRoute
 }
@@ -98,8 +98,8 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRoute
-  '/timesheet': typeof TimesheetRoute
   '/today': typeof TodayRoute
+  '/tracker': typeof TrackerRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects': typeof ProjectsIndexRoute
 }
@@ -112,8 +112,8 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/team': typeof TeamRoute
-  '/timesheet': typeof TimesheetRoute
   '/today': typeof TodayRoute
+  '/tracker': typeof TrackerRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/': typeof ProjectsIndexRoute
 }
@@ -127,8 +127,8 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/team'
-    | '/timesheet'
     | '/today'
+    | '/tracker'
     | '/projects/$projectId'
     | '/projects/'
   fileRoutesByTo: FileRoutesByTo
@@ -140,8 +140,8 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/team'
-    | '/timesheet'
     | '/today'
+    | '/tracker'
     | '/projects/$projectId'
     | '/projects'
   id:
@@ -153,8 +153,8 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/team'
-    | '/timesheet'
     | '/today'
+    | '/tracker'
     | '/projects/$projectId'
     | '/projects/'
   fileRoutesById: FileRoutesById
@@ -167,8 +167,8 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   TeamRoute: typeof TeamRoute
-  TimesheetRoute: typeof TimesheetRoute
   TodayRoute: typeof TodayRoute
+  TrackerRoute: typeof TrackerRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
 }
@@ -224,18 +224,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeamRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/timesheet': {
-      id: '/timesheet'
-      path: '/timesheet'
-      fullPath: '/timesheet'
-      preLoaderRoute: typeof TimesheetRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/today': {
       id: '/today'
       path: '/today'
       fullPath: '/today'
       preLoaderRoute: typeof TodayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tracker': {
+      id: '/tracker'
+      path: '/tracker'
+      fullPath: '/tracker'
+      preLoaderRoute: typeof TrackerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects/': {
@@ -263,8 +263,8 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   TeamRoute: TeamRoute,
-  TimesheetRoute: TimesheetRoute,
   TodayRoute: TodayRoute,
+  TrackerRoute: TrackerRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
 }

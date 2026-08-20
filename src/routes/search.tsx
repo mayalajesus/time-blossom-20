@@ -108,7 +108,7 @@ function SearchPage() {
               {e.slice(0, 10).map((item) => (
                 <Link
                   key={item.id}
-                  to="/timesheet"
+                  to="/tracker"
                   className="block px-4 py-3 text-sm hover:bg-surface-secondary"
                 >
                   {item.task}

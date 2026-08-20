@@ -19,8 +19,7 @@ import { LogTimeModal } from "@/components/log-time-modal";
 import { useStore } from "@/lib/store";
 
 const nav = [
-  { to: "/today", label: "Tracker", icon: Clock },
-  { to: "/timesheet", label: "Timesheet", icon: BarChart3 },
+  { to: "/tracker", label: "Tracker", icon: Clock },
   { to: "/projects", label: "Projects", icon: FolderKanban },
   { to: "/clients", label: "Clients", icon: Building2 },
   { to: "/team", label: "Team", icon: Users },
@@ -41,7 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
   const [systemDark, setSystemDark] = useState(false);
   const [query, setQuery] = useState("");
-  const isTrackerRoute = location.pathname === "/today";
+  const isTrackerRoute = location.pathname === "/tracker" || location.pathname === "/today";
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");

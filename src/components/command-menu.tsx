@@ -11,7 +11,6 @@ import {
   Search,
   Settings,
   Sun,
-  Timer,
   Users,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -55,15 +54,7 @@ export function CommandMenu({
         hint: "Go to tracker",
         icon: <CalendarDays className="size-4" />,
         group: "Navigation",
-        run: () => navigate({ to: "/today" }),
-      },
-      {
-        id: "nav-timesheet",
-        label: "Timesheet",
-        hint: "All time entries",
-        icon: <Timer className="size-4" />,
-        group: "Navigation",
-        run: () => navigate({ to: "/timesheet" }),
+        run: () => navigate({ to: "/tracker" }),
       },
       {
         id: "nav-projects",

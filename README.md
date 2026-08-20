@@ -6,8 +6,8 @@ by project and client, and inspect lightweight reports.
 
 ## What is included
 
-- Today dashboard with a live mock timer and manual time entry.
-- Timesheet, projects, clients, team and reports views.
+- Tracker dashboard with a live mock timer and manual time entry.
+- Tracker, projects, clients, team and reports views.
 - Mock Trello connection and sync states.
 - Search and command menu interactions.
 - Light, dark and system theme behavior.
