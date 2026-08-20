@@ -30,6 +30,16 @@ system before they can track time.
 
 - Tracker is the product center: a compact timer composer is the primary
   action, followed by the selected week of time entries.
+- Treat the timer composer as one responsive toolbar: at desktop widths it
+  stays on one line with a flexible task field, controlled project width and
+  non-shrinking time/actions/billability controls. At tablet and mobile sizes,
+  wrapping is intentional and follows priority (task, project/time, actions,
+  then compact billability), never accidental or page-wide.
+- Keep the composer quiet and unified: Billable belongs to the primary
+  control row, and the active state is communicated by the timer controls and
+  live clock without adding a secondary status strip. Use min-width
+  constraints and shrink-safe controls to preserve the toolbar's geometry
+  across viewport sizes.
 - Follow the familiar time-tracker hierarchy: composer, week total, then one
   aligned flat table with task, project/client, start, end, date, duration and
   quick actions. The date belongs in the Date column, not in repeated row

@@ -1,4 +1,4 @@
-import { Button, Chip, Input, Label, Switch, TextField } from "@heroui/react";
+import { Button, Input, Label, Switch, TextField } from "@heroui/react";
 import { Pause, Play, Square } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
@@ -26,10 +26,10 @@ export function TimerCard() {
   };
 
   return (
-    <div className="rounded-xl border border-default bg-surface px-3 py-3 sm:px-4">
-      <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,14rem)_auto_auto] lg:items-end">
+    <div className="rounded-xl border border-default bg-surface p-3 sm:p-4">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(10rem,13rem)_auto_auto_auto] lg:items-center">
         <TextField
-          className="min-w-0"
+          className="min-w-0 sm:col-span-2 lg:col-span-1"
           fullWidth
           name="timer-task"
           value={active ? activeTask : task}
@@ -60,7 +60,7 @@ export function TimerCard() {
           />
         </TextField>
 
-        <div className="min-w-0">
+        <div className="min-w-0 sm:col-span-1 lg:col-span-1">
           <Label className="sr-only">Project</Label>
           <ProjectSelect
             ariaLabel="Project"
@@ -74,13 +74,14 @@ export function TimerCard() {
           />
         </div>
 
-        <span className="justify-self-start font-mono text-2xl tabular-nums text-foreground lg:justify-self-end">
+        <span className="min-w-0 whitespace-nowrap font-mono text-2xl tabular-nums text-foreground sm:justify-self-end lg:col-span-1 lg:justify-self-end">
           {formatClock(elapsed)}
         </span>
-        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:col-span-2 sm:justify-end lg:col-span-1 lg:flex-nowrap lg:justify-end">
           {timer.status === "idle" ? (
             <Button
-              className="w-full sm:w-auto"
+              className="min-w-0 flex-1 sm:flex-none lg:shrink-0"
+              size="sm"
               onPress={() => {
                 const result = startTimer(task, projectId, billable);
                 setTimerError(result.success ? null : result.error);
@@ -92,18 +93,29 @@ export function TimerCard() {
           ) : (
             <>
               {timer.status === "running" ? (
-                <Button className="w-full sm:w-auto" variant="secondary" onPress={pauseTimer}>
+                <Button
+                  className="min-w-0 flex-1 sm:flex-none lg:shrink-0"
+                  size="sm"
+                  variant="secondary"
+                  onPress={pauseTimer}
+                >
                   <Pause className="size-4" />
                   Pause
                 </Button>
               ) : (
-                <Button className="w-full sm:w-auto" variant="secondary" onPress={resumeTimer}>
+                <Button
+                  className="min-w-0 flex-1 sm:flex-none lg:shrink-0"
+                  size="sm"
+                  variant="secondary"
+                  onPress={resumeTimer}
+                >
                   <Play className="size-4" />
                   Resume
                 </Button>
               )}
               <Button
-                className="w-full sm:w-auto"
+                className="min-w-0 flex-1 sm:flex-none lg:shrink-0"
+                size="sm"
                 onPress={() => {
                   stopTimer();
                   setTask("");
@@ -117,10 +129,9 @@ export function TimerCard() {
             </>
           )}
         </div>
-      </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-default pt-3">
         <Switch
+          className="min-w-0 shrink-0 sm:col-span-2 lg:col-span-1 lg:justify-self-end"
           isSelected={active ? timer.billable : billable}
           onChange={(selected: boolean) => {
             if (active) updateActiveTimer({ billable: selected });
@@ -134,19 +145,6 @@ export function TimerCard() {
             <Label>Billable</Label>
           </Switch.Content>
         </Switch>
-
-        {active ? (
-          <>
-            <Chip
-              color={timer.status === "running" ? "success" : "warning"}
-              size="sm"
-              variant="soft"
-            >
-              {timer.status === "running" ? "Recording" : "Paused"}
-            </Chip>
-            <span className="text-xs text-muted">Started at {timer.startClock}</span>
-          </>
-        ) : null}
       </div>
 
       {timerError ? (
