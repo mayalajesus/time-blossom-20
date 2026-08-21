@@ -22,7 +22,8 @@ export const Route = createFileRoute("/integrations")({
 });
 
 function IntegrationsPage() {
-  const { trello, setTrello } = useStore();
+  const { trello, can, setTrello } = useStore();
+  const canManageIntegrations = can("manage-integrations");
   const connected = trello.status === "connected" || trello.status === "synced";
   const toggleSelected = connected || trello.status === "connecting";
 
@@ -76,16 +77,18 @@ function IntegrationsPage() {
               </Chip>
             </div>
           </div>
-          <Button
-            aria-label="Connect Trello"
-            aria-pressed={toggleSelected}
-            className="h-7 w-12 min-w-12 justify-start rounded-full p-1 data-[pressed=true]:justify-end"
-            isIconOnly
-            variant="tertiary"
-            onPress={() => connect(!toggleSelected)}
-          >
-            <span className="size-5 rounded-full bg-foreground shadow-sm" />
-          </Button>
+          {canManageIntegrations ? (
+            <Button
+              aria-label="Connect Trello"
+              aria-pressed={toggleSelected}
+              className="h-7 w-12 min-w-12 justify-start rounded-full p-1 data-[pressed=true]:justify-end"
+              isIconOnly
+              variant="tertiary"
+              onPress={() => connect(!toggleSelected)}
+            >
+              <span className="size-5 rounded-full bg-foreground shadow-sm" />
+            </Button>
+          ) : null}
         </div>
 
         {connected ? (
@@ -94,14 +97,16 @@ function IntegrationsPage() {
               <span className="text-muted">
                 {trello.workspace} · {trello.board} · last sync {trello.lastSync ?? "never"}
               </span>
-              <Button
-                size="sm"
-                variant="secondary"
-                isPending={trello.status === "syncing"}
-                onPress={sync}
-              >
-                Sync now
-              </Button>
+              {canManageIntegrations ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  isPending={trello.status === "syncing"}
+                  onPress={sync}
+                >
+                  Sync now
+                </Button>
+              ) : null}
             </div>
             <ul className="divide-y divide-default rounded-xl border border-default">
               {trello.cards.map((card) => (

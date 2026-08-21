@@ -1,77 +1,498 @@
-import { Avatar, Chip, Table } from "@heroui/react";
+import {
+  Avatar,
+  Button,
+  Chip,
+  Description,
+  FieldError,
+  Form,
+  Input,
+  Label,
+  ListBox,
+  Modal,
+  Select,
+  Table,
+  TextField,
+  toast,
+} from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { Mail, Send, Trash2, UserRoundCheck } from "lucide-react";
+import { useState } from "react";
+import { ActionDropdown } from "@/components/action-dropdown";
+import { FormAlert } from "@/components/form-feedback";
 import { PageHeader } from "@/components/page-header";
 import { TableSkeleton } from "@/components/states";
 import { formatDuration } from "@/lib/format";
+import type { Member, Role } from "@/lib/mock-data";
 import { useSimulatedLoad, useStore } from "@/lib/store";
+
+type InviteRole = Exclude<Role, "Owner">;
 
 export const Route = createFileRoute("/team")({
   head: () => ({
     meta: [
       { title: "Team — Time Blossom" },
-      { name: "description", content: "Members, roles and hours tracked by each teammate." },
+      { name: "description", content: "Invite teammates, manage roles and track team hours." },
       { property: "og:title", content: "Team — Time Blossom" },
-      { property: "og:description", content: "See who tracked what across the workspace." },
+      { property: "og:description", content: "Invite teammates and see tracked hours by member." },
     ],
   }),
   component: TeamPage,
 });
 
 function TeamPage() {
-  const { members, entries } = useStore();
+  const {
+    members,
+    entries,
+    can,
+    currentMember,
+    inviteMember,
+    resendInvite,
+    cancelInvite,
+    removeMember,
+    restoreMember,
+    updateMemberRole,
+  } = useStore();
   const loading = useSimulatedLoad(400);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<InviteRole>("Member");
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<Member | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<Member | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const inviteRoles: InviteRole[] = can("manage-admins") ? ["Member", "Admin"] : ["Member"];
+
+  const orderedMembers = [...members].sort((a, b) => {
+    const rank = { invited: 0, active: 1, removed: 2 } as const;
+    return rank[a.status] - rank[b.status] || a.name.localeCompare(b.name);
+  });
+
   const secondsFor = (id: string) =>
-    entries.filter((e) => e.userId === id).reduce((s, e) => s + e.seconds, 0);
+    entries.filter((entry) => entry.userId === id).reduce((sum, entry) => sum + entry.seconds, 0);
+
+  const resetInviteForm = () => {
+    setEmail("");
+    setRole("Member");
+    setInviteError(null);
+  };
+
+  const openInvite = () => {
+    resetInviteForm();
+    setInviteOpen(true);
+  };
+
+  const submitInvite = () => {
+    const result = inviteMember(email, role);
+    if (!result.success) {
+      setInviteError(result.error);
+      return;
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    toast("Invitation prepared", {
+      description: `${normalizedEmail} · ${role}`,
+    });
+    resetInviteForm();
+    setInviteOpen(false);
+  };
+
+  const handleResend = (member: Member) => {
+    const result = resendInvite(member.id);
+    if (!result.success) {
+      toast("Could not refresh invitation", { description: result.error });
+      return;
+    }
+    toast("Invitation refreshed", { description: member.email });
+  };
+
+  const confirmCancel = () => {
+    if (!pendingCancel) return;
+    const result = cancelInvite(pendingCancel.id);
+    if (!result.success) {
+      setCancelError(result.error);
+      return;
+    }
+    toast("Invitation canceled", { description: pendingCancel.email });
+    setPendingCancel(null);
+    setCancelError(null);
+  };
+
+  const handleRestore = (member: Member) => {
+    const result = restoreMember(member.id);
+    if (!result.success) {
+      toast("Could not restore access", { description: result.error });
+      return;
+    }
+    toast("Access restored", { description: member.email });
+  };
+
+  const confirmRemove = () => {
+    if (!pendingRemove) return;
+    const result = removeMember(pendingRemove.id);
+    if (!result.success) {
+      setRemoveError(result.error);
+      return;
+    }
+    toast("Member removed", {
+      description: `${pendingRemove.email} no longer has access to the workspace.`,
+    });
+    setPendingRemove(null);
+    setRemoveError(null);
+  };
+
+  const manageRole = (member: Member) => {
+    const nextRole: InviteRole = member.role === "Admin" ? "Member" : "Admin";
+    const result = updateMemberRole(member.id, nextRole);
+    if (!result.success) {
+      toast("Could not change role", { description: result.error });
+      return;
+    }
+    toast("Role updated", { description: `${member.name} · ${nextRole}` });
+  };
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Team" description="Roles, access and tracked hours." />
+      <PageHeader
+        title="Team"
+        description="Invite teammates, manage roles and tracked hours."
+        actions={
+          can("manage-members") ? (
+            <Button onPress={openInvite}>
+              <Send className="size-4" />
+              Invite member
+            </Button>
+          ) : null
+        }
+      />
+
       {loading ? (
         <TableSkeleton rows={4} />
       ) : (
         <Table>
           <Table.ScrollContainer>
-            <Table.Content aria-label="Team members" className="min-w-[600px]">
+            <Table.Content aria-label="Team members" className="min-w-[680px]">
               <Table.Header>
                 <Table.Column isRowHeader>Member</Table.Column>
                 <Table.Column>Role</Table.Column>
                 <Table.Column>Status</Table.Column>
                 <Table.Column>Tracked</Table.Column>
+                <Table.Column aria-label="Actions">{""}</Table.Column>
               </Table.Header>
               <Table.Body>
-                {members.map((member) => (
-                  <Table.Row key={member.id}>
-                    <Table.Cell>
-                      <div className="flex items-center gap-3">
-                        <Avatar size="sm">
-                          <Avatar.Fallback>{member.initials}</Avatar.Fallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-foreground">{member.name}</span>
-                          <span className="text-xs text-muted">{member.email}</span>
+                {orderedMembers.map((member) => {
+                  const invited = member.status === "invited";
+                  const removed = member.status === "removed";
+                  const isCurrentMember = member.id === currentMember?.id;
+                  const canManageTarget =
+                    !isCurrentMember &&
+                    can("manage-members") &&
+                    (currentMember?.role === "Owner" || member.role === "Member");
+                  const canChangeRole =
+                    canManageTarget &&
+                    (currentMember?.role === "Owner" ||
+                      (currentMember?.role === "Admin" && member.status === "active"));
+                  return (
+                    <Table.Row key={member.id}>
+                      <Table.Cell>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar size="sm">
+                            <Avatar.Fallback>{member.initials}</Avatar.Fallback>
+                          </Avatar>
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate font-medium text-foreground">
+                              {invited ? member.email : member.name}
+                            </span>
+                            <span className="truncate text-xs text-muted">
+                              {invited
+                                ? "Invitation pending"
+                                : removed
+                                  ? "Access removed"
+                                  : member.email}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </Table.Cell>
-                    <Table.Cell>{member.role}</Table.Cell>
-                    <Table.Cell>
-                      <Chip
-                        color={member.status === "active" ? "success" : "warning"}
-                        size="sm"
-                        variant="soft"
-                      >
-                        {member.status}
-                      </Chip>
-                    </Table.Cell>
-                    <Table.Cell className="tabular-nums">
-                      {formatDuration(secondsFor(member.id))}
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
+                      </Table.Cell>
+                      <Table.Cell>{member.role}</Table.Cell>
+                      <Table.Cell>
+                        <Chip
+                          color={invited ? "warning" : removed ? "default" : "success"}
+                          size="sm"
+                          variant="soft"
+                        >
+                          {invited ? "Invited" : removed ? "Removed" : "Active"}
+                        </Chip>
+                      </Table.Cell>
+                      <Table.Cell className="tabular-nums">
+                        {invited ? "—" : formatDuration(secondsFor(member.id))}
+                      </Table.Cell>
+                      <Table.Cell>
+                        {invited && canManageTarget ? (
+                          <div className="flex justify-end">
+                            <ActionDropdown
+                              ariaLabel={`Actions for invitation to ${member.email}`}
+                              items={[
+                                ...(canChangeRole
+                                  ? [
+                                      {
+                                        id: "role",
+                                        label:
+                                          member.role === "Admin" ? "Make member" : "Make admin",
+                                        icon: <UserRoundCheck className="size-4" />,
+                                      },
+                                    ]
+                                  : []),
+                                {
+                                  id: "resend",
+                                  label: "Resend invite",
+                                  icon: <Mail className="size-4" />,
+                                },
+                                {
+                                  id: "cancel",
+                                  label: "Cancel invite",
+                                  icon: <Trash2 className="size-4" />,
+                                  tone: "danger",
+                                },
+                              ]}
+                              onAction={(key) => {
+                                if (key === "role") manageRole(member);
+                                if (key === "resend") handleResend(member);
+                                if (key === "cancel") {
+                                  setCancelError(null);
+                                  setPendingCancel(member);
+                                }
+                              }}
+                            />
+                          </div>
+                        ) : removed && canManageTarget ? (
+                          <div className="flex justify-end">
+                            <ActionDropdown
+                              ariaLabel={`Actions for ${member.name}`}
+                              items={[
+                                {
+                                  id: "restore",
+                                  label: "Restore access",
+                                  icon: <UserRoundCheck className="size-4" />,
+                                },
+                              ]}
+                              onAction={(key) => {
+                                if (key === "restore") handleRestore(member);
+                              }}
+                            />
+                          </div>
+                        ) : member.status === "active" && canManageTarget ? (
+                          <div className="flex justify-end">
+                            <ActionDropdown
+                              ariaLabel={`Actions for ${member.name}`}
+                              items={[
+                                ...(canChangeRole
+                                  ? [
+                                      {
+                                        id: "role",
+                                        label:
+                                          member.role === "Admin" ? "Make member" : "Make admin",
+                                        icon: <UserRoundCheck className="size-4" />,
+                                      },
+                                    ]
+                                  : []),
+                                {
+                                  id: "remove",
+                                  label: "Remove from team",
+                                  icon: <Trash2 className="size-4" />,
+                                  tone: "danger",
+                                },
+                              ]}
+                              onAction={(key) => {
+                                if (key === "role") manageRole(member);
+                                if (key === "remove") {
+                                  setRemoveError(null);
+                                  setPendingRemove(member);
+                                }
+                              }}
+                            />
+                          </div>
+                        ) : isCurrentMember ? (
+                          <span className="sr-only">No actions available for your account</span>
+                        ) : null}
+                      </Table.Cell>
+                    </Table.Row>
+                  );
+                })}
               </Table.Body>
             </Table.Content>
           </Table.ScrollContainer>
         </Table>
       )}
+
+      <Modal
+        isOpen={inviteOpen}
+        onOpenChange={(open) => {
+          setInviteOpen(open);
+          if (!open) resetInviteForm();
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.CloseTrigger />
+              <Modal.Header>
+                <Modal.Heading>Invite member</Modal.Heading>
+              </Modal.Header>
+              <Form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  submitInvite();
+                }}
+              >
+                <Modal.Body className="flex flex-col gap-4">
+                  {inviteError ? (
+                    <FormAlert title="Could not prepare invitation" description={inviteError} />
+                  ) : null}
+
+                  <TextField
+                    isRequired
+                    fullWidth
+                    name="invite-email"
+                    type="email"
+                    value={email}
+                    validate={(value) => {
+                      const normalized = value.trim().toLowerCase();
+                      if (!normalized) return "Email is required";
+                      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+                        return "Enter a valid email address";
+                      }
+                      if (members.some((member) => member.email.toLowerCase() === normalized)) {
+                        return "This email is already part of the team";
+                      }
+                      return null;
+                    }}
+                    onChange={(value) => {
+                      setEmail(value);
+                      setInviteError(null);
+                    }}
+                  >
+                    <Label>Email</Label>
+                    <Input placeholder="name@company.com" />
+                    <Description>The invitation will be prepared for future delivery.</Description>
+                    <FieldError />
+                  </TextField>
+
+                  <div className="flex flex-col gap-2">
+                    <Label>Role</Label>
+                    <Select
+                      aria-label="Invitation role"
+                      fullWidth
+                      value={role}
+                      onChange={(key) => setRole(String(key ?? "Member") as InviteRole)}
+                    >
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          {inviteRoles.map((option) => (
+                            <ListBox.Item key={option} id={option} textValue={option}>
+                              <Label>{option}</Label>
+                              <ListBox.ItemIndicator />
+                            </ListBox.Item>
+                          ))}
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                    <Description>Owner access is reserved for the workspace owner.</Description>
+                  </div>
+                </Modal.Body>
+                <Modal.Footer>
+                  <Button slot="close" type="button" variant="secondary">
+                    Cancel
+                  </Button>
+                  <Button type="submit" isDisabled={!email.trim()}>
+                    Prepare invite
+                  </Button>
+                </Modal.Footer>
+              </Form>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+
+      <Modal
+        isOpen={pendingCancel !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingCancel(null);
+            setCancelError(null);
+          }
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.CloseTrigger />
+              <Modal.Header>
+                <Modal.Heading>Cancel invitation?</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body className="flex flex-col gap-4">
+                {cancelError ? (
+                  <FormAlert title="Could not cancel invitation" description={cancelError} />
+                ) : null}
+                <p className="text-sm text-muted">
+                  The pending invitation for {pendingCancel?.email ?? "this member"} will be removed
+                  from the team list.
+                </p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button slot="close" variant="secondary">
+                  Keep invitation
+                </Button>
+                <Button variant="danger" onPress={confirmCancel}>
+                  Cancel invitation
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+
+      <Modal
+        isOpen={pendingRemove !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingRemove(null);
+            setRemoveError(null);
+          }
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.CloseTrigger />
+              <Modal.Header>
+                <Modal.Heading>Remove member from team?</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body className="flex flex-col gap-4">
+                {removeError ? (
+                  <FormAlert title="Could not remove member" description={removeError} />
+                ) : null}
+                <p className="text-sm text-muted">
+                  Removing {pendingRemove?.name ?? "this member"} revokes workspace access and
+                  removes them from current project assignments. Their tracked time and reports
+                  remain available. Restoring access later will not reassign projects automatically.
+                </p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button slot="close" variant="secondary">
+                  Keep member
+                </Button>
+                <Button variant="danger" onPress={confirmRemove}>
+                  Remove from team
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
     </div>
   );
 }

@@ -27,7 +27,7 @@ export function ProjectSelect({
   allowArchivedId = null,
   ariaLabel,
 }: ProjectSelectProps) {
-  const { projects, clients } = useStore();
+  const { projects, clients, canTrackProject } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -35,9 +35,11 @@ export function ProjectSelect({
   const availableProjects = useMemo(
     () =>
       projects.filter(
-        (project) => includeAll || project.status !== "archived" || project.id === allowArchivedId,
+        (project) =>
+          (includeAll || canTrackProject(project.id) || project.id === value) &&
+          (project.status !== "archived" || includeAll || project.id === allowArchivedId),
       ),
-    [allowArchivedId, includeAll, projects],
+    [allowArchivedId, canTrackProject, includeAll, projects, value],
   );
 
   const filteredProjects = useMemo(() => {

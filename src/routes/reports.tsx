@@ -21,20 +21,29 @@ export const Route = createFileRoute("/reports")({
 });
 
 function ReportsPage() {
-  const { entries, projects } = useStore();
+  const { entries, projects, currentUserId, can } = useStore();
   const loading = useSimulatedLoad(600);
   const [exportOpen, setExportOpen] = useState(false);
 
-  const total = entries.reduce((s, e) => s + e.seconds, 0);
-  const billable = entries.filter((e) => e.billable).reduce((s, e) => s + e.seconds, 0);
+  const visibleEntries = can("view-all-reports")
+    ? entries
+    : entries.filter((entry) => entry.userId === currentUserId);
+  const reportScope = can("export-all-reports") ? "All time entries" : "Your time entries";
+
+  const total = visibleEntries.reduce((s, e) => s + e.seconds, 0);
+  const billable = visibleEntries.filter((e) => e.billable).reduce((s, e) => s + e.seconds, 0);
   const perProject = [
     ...projects.map((p) => ({
       project: p,
-      seconds: entries.filter((e) => e.projectId === p.id).reduce((s, e) => s + e.seconds, 0),
+      seconds: visibleEntries
+        .filter((e) => e.projectId === p.id)
+        .reduce((s, e) => s + e.seconds, 0),
     })),
     {
       project: null,
-      seconds: entries.filter((e) => e.projectId === null).reduce((s, e) => s + e.seconds, 0),
+      seconds: visibleEntries
+        .filter((e) => e.projectId === null)
+        .reduce((s, e) => s + e.seconds, 0),
     },
   ]
     .filter((row) => row.seconds > 0)
@@ -89,7 +98,7 @@ function ReportsPage() {
         </>
       )}
 
-      <ExportModal isOpen={exportOpen} onOpenChange={setExportOpen} scope="All time entries" />
+      <ExportModal isOpen={exportOpen} onOpenChange={setExportOpen} scope={reportScope} />
     </div>
   );
 }

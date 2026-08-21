@@ -115,14 +115,18 @@ export function CommandMenu({
         group: "Actions",
         run: () => (timer.status === "idle" ? startTimer("Quick task", null) : stopTimer()),
       },
-      {
-        id: "action-log",
-        label: "Log time manually",
-        hint: "Add a past entry",
-        icon: <Plus className="size-4" />,
-        group: "Actions",
-        run: onLogTime,
-      },
+      ...(timer.status === "idle"
+        ? [
+            {
+              id: "action-log",
+              label: "Log time manually",
+              hint: "Add a past entry",
+              icon: <Plus className="size-4" />,
+              group: "Actions" as const,
+              run: onLogTime,
+            },
+          ]
+        : []),
       {
         id: "action-theme",
         label: "Toggle theme",

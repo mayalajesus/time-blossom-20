@@ -25,8 +25,9 @@ export interface Member {
   name: string;
   email: string;
   role: Role;
-  status: "active" | "invited";
+  status: "active" | "invited" | "removed";
   initials: string;
+  invitedAt?: string;
 }
 
 export interface TimeEntry {

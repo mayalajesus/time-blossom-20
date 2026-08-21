@@ -14,7 +14,15 @@ import {
   toast,
 } from "@heroui/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, CircleDollarSign, FolderKanban, Plus, Power } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  CircleDollarSign,
+  FolderKanban,
+  Plus,
+  Power,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { PageHeader } from "@/components/page-header";
@@ -43,7 +51,17 @@ export const Route = createFileRoute("/projects/")({
 });
 
 function ProjectsPage() {
-  const { projects, clients, entries, settings, addProject, updateProject } = useStore();
+  const {
+    projects,
+    clients,
+    entries,
+    members,
+    settings,
+    currentUserId,
+    can,
+    addProject,
+    updateProject,
+  } = useStore();
   const loading = useSimulatedLoad(500);
   const [filter, setFilter] = useState<string>("active");
   const [newOpen, setNewOpen] = useState(false);
@@ -53,6 +71,9 @@ function ProjectsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [pendingArchive, setPendingArchive] = useState<Project | null>(null);
+  const [assignedMemberIds, setAssignedMemberIds] = useState<string[]>([currentUserId]);
+  const [pendingMembers, setPendingMembers] = useState<Project | null>(null);
+  const [memberError, setMemberError] = useState<string | null>(null);
 
   const visible = projects.filter((p) => {
     if (filter === "all") return true;
@@ -72,7 +93,7 @@ function ProjectsPage() {
       status: "active",
       color: "bg-accent",
       lastActivity: getLocalToday(),
-      memberIds: ["u1"],
+      memberIds: assignedMemberIds,
     });
     if (!result.success) {
       setCreateError(result.error);
@@ -82,6 +103,7 @@ function ProjectsPage() {
     setName("");
     setClientId("");
     setProjectBillable(settings.defaultBillable);
+    setAssignedMemberIds([currentUserId]);
     setCreateError(null);
     setNewOpen(false);
   };
@@ -130,6 +152,26 @@ function ProjectsPage() {
     setPendingArchive(null);
   };
 
+  const openMemberManager = (project: Project) => {
+    setMemberError(null);
+    setAssignedMemberIds(project.memberIds);
+    setPendingMembers(project);
+  };
+
+  const saveMembers = () => {
+    if (!pendingMembers) return;
+    const result = updateProject(pendingMembers.id, { memberIds: assignedMemberIds });
+    if (!result.success) {
+      setMemberError(result.error);
+      return;
+    }
+    toast("Project members updated", { description: pendingMembers.name });
+    setPendingMembers(null);
+    setMemberError(null);
+  };
+
+  const activeMembers = members.filter((member) => member.status === "active");
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -164,15 +206,18 @@ function ProjectsPage() {
                 </ListBox>
               </Select.Popover>
             </Select>
-            <Button
-              onPress={() => {
-                setProjectBillable(settings.defaultBillable);
-                setNewOpen(true);
-              }}
-            >
-              <Plus className="size-4" />
-              New project
-            </Button>
+            {can("manage-projects") ? (
+              <Button
+                onPress={() => {
+                  setProjectBillable(settings.defaultBillable);
+                  setAssignedMemberIds([currentUserId]);
+                  setNewOpen(true);
+                }}
+              >
+                <Plus className="size-4" />
+                New project
+              </Button>
+            ) : null}
           </>
         }
       />
@@ -189,16 +234,19 @@ function ProjectsPage() {
           title="No projects here"
           description="Change the status filter or create a new project to get started."
           action={
-            <Button
-              size="sm"
-              variant="secondary"
-              onPress={() => {
-                setProjectBillable(settings.defaultBillable);
-                setNewOpen(true);
-              }}
-            >
-              New project
-            </Button>
+            can("manage-projects") ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onPress={() => {
+                  setProjectBillable(settings.defaultBillable);
+                  setAssignedMemberIds([currentUserId]);
+                  setNewOpen(true);
+                }}
+              >
+                New project
+              </Button>
+            ) : null
           }
         />
       ) : (
@@ -223,57 +271,69 @@ function ProjectsPage() {
                   <Chip color={project.billable ? "success" : "default"} size="sm" variant="soft">
                     {project.billable ? "Billable" : "Internal"}
                   </Chip>
-                  <ActionDropdown
-                    ariaLabel={`${project.status === "archived" ? "Archived" : "Project"} actions for ${project.name}`}
-                    items={[
-                      ...(project.status === "archived"
-                        ? []
-                        : [
-                            {
-                              id: "status",
-                              label: project.status === "active" ? "Active" : "Inactive",
-                              icon: <Power className="size-4" />,
-                              trailing: (
-                                <Switch
-                                  aria-hidden="true"
-                                  className="pointer-events-none"
-                                  isReadOnly
-                                  isSelected={project.status === "active"}
-                                >
-                                  <Switch.Control>
-                                    <Switch.Thumb />
-                                  </Switch.Control>
-                                </Switch>
-                              ),
+                  {can("manage-projects") ? (
+                    <ActionDropdown
+                      ariaLabel={`${project.status === "archived" ? "Archived" : "Project"} actions for ${project.name}`}
+                      items={[
+                        {
+                          id: "members",
+                          label: "Manage members",
+                          icon: <Users className="size-4" />,
+                        },
+                        ...(project.status === "archived"
+                          ? []
+                          : [
+                              {
+                                id: "status",
+                                label: project.status === "active" ? "Active" : "Inactive",
+                                icon: <Power className="size-4" />,
+                                trailing: (
+                                  <Switch
+                                    aria-hidden="true"
+                                    className="pointer-events-none"
+                                    isReadOnly
+                                    isSelected={project.status === "active"}
+                                  >
+                                    <Switch.Control>
+                                      <Switch.Thumb />
+                                    </Switch.Control>
+                                  </Switch>
+                                ),
+                              },
+                            ]),
+                        {
+                          id: "billable",
+                          label: project.billable ? "Make internal" : "Make billable",
+                          icon: <CircleDollarSign className="size-4" />,
+                        },
+                        project.status === "archived"
+                          ? {
+                              id: "restore",
+                              label: "Restore project",
+                              icon: <ArchiveRestore className="size-4" />,
+                            }
+                          : {
+                              id: "archive",
+                              label: "Archive project",
+                              icon: <Archive className="size-4" />,
+                              tone: "danger" as const,
                             },
-                          ]),
-                      {
-                        id: "billable",
-                        label: project.billable ? "Make internal" : "Make billable",
-                        icon: <CircleDollarSign className="size-4" />,
-                      },
-                      project.status === "archived"
-                        ? {
-                            id: "restore",
-                            label: "Restore project",
-                            icon: <ArchiveRestore className="size-4" />,
-                          }
-                        : {
-                            id: "archive",
-                            label: "Archive project",
-                            icon: <Archive className="size-4" />,
-                            tone: "danger" as const,
-                          },
-                    ]}
-                    onAction={(key) => {
-                      if (key === "status") {
-                        toggleProjectStatus(project.id, project.status !== "active", project.name);
-                      }
-                      if (key === "billable") toggleProjectBillable(project);
-                      if (key === "archive") setPendingArchive(project);
-                      if (key === "restore") restoreProject(project);
-                    }}
-                  />
+                      ]}
+                      onAction={(key) => {
+                        if (key === "members") openMemberManager(project);
+                        if (key === "status") {
+                          toggleProjectStatus(
+                            project.id,
+                            project.status !== "active",
+                            project.name,
+                          );
+                        }
+                        if (key === "billable") toggleProjectBillable(project);
+                        if (key === "archive") setPendingArchive(project);
+                        if (key === "restore") restoreProject(project);
+                      }}
+                    />
+                  ) : null}
                 </div>
               </div>
 
@@ -412,6 +472,37 @@ function ProjectsPage() {
                       <Description>New entries use this as their default.</Description>
                     </Switch.Content>
                   </Switch>
+
+                  <div className="space-y-3">
+                    <div>
+                      <Label>Project members</Label>
+                      <Description>
+                        Only assigned members can track time on this project.
+                      </Description>
+                    </div>
+                    {activeMembers.map((member) => (
+                      <Switch
+                        key={member.id}
+                        aria-label={`Assign ${member.name}`}
+                        isSelected={assignedMemberIds.includes(member.id)}
+                        onChange={(selected) =>
+                          setAssignedMemberIds((current) =>
+                            selected
+                              ? [...new Set([...current, member.id])]
+                              : current.filter((id) => id !== member.id),
+                          )
+                        }
+                      >
+                        <Switch.Control>
+                          <Switch.Thumb />
+                        </Switch.Control>
+                        <Switch.Content>
+                          <Label>{member.name}</Label>
+                          <Description>{member.role}</Description>
+                        </Switch.Content>
+                      </Switch>
+                    ))}
+                  </div>
                 </Modal.Body>
                 <Modal.Footer>
                   <Button slot="close" type="button" variant="secondary">
@@ -422,6 +513,64 @@ function ProjectsPage() {
                   </Button>
                 </Modal.Footer>
               </Form>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+
+      <Modal
+        isOpen={pendingMembers !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingMembers(null);
+            setMemberError(null);
+          }
+        }}
+      >
+        <Modal.Backdrop>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.CloseTrigger />
+              <Modal.Header>
+                <Modal.Heading>Manage project members</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body className="space-y-4">
+                {memberError ? (
+                  <FormAlert title="Could not update members" description={memberError} />
+                ) : null}
+                <p className="text-sm text-muted">
+                  Select the active members who can track time on{" "}
+                  {pendingMembers?.name ?? "this project"}.
+                </p>
+                {activeMembers.map((member) => (
+                  <Switch
+                    key={member.id}
+                    aria-label={`Assign ${member.name}`}
+                    isSelected={assignedMemberIds.includes(member.id)}
+                    onChange={(selected) =>
+                      setAssignedMemberIds((current) =>
+                        selected
+                          ? [...new Set([...current, member.id])]
+                          : current.filter((id) => id !== member.id),
+                      )
+                    }
+                  >
+                    <Switch.Control>
+                      <Switch.Thumb />
+                    </Switch.Control>
+                    <Switch.Content>
+                      <Label>{member.name}</Label>
+                      <Description>{member.role}</Description>
+                    </Switch.Content>
+                  </Switch>
+                ))}
+              </Modal.Body>
+              <Modal.Footer>
+                <Button slot="close" variant="secondary">
+                  Cancel
+                </Button>
+                <Button onPress={saveMembers}>Save members</Button>
+              </Modal.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>

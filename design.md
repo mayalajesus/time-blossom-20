@@ -155,6 +155,17 @@ system before they can track time.
   status; billability belongs to the project default and can be overridden on
   each task/time entry. Client creation uses a HeroUI form, while deletion is
   confirmed in a HeroUI modal and blocked when projects still reference it.
+- Team is an access-management surface. Invite members with email and a
+  `Member` or `Admin` role; `Owner` access remains reserved. Pending invitations
+  stay in the same table with an `Invited` status, show `Resend invite` and
+  `Cancel invite` in the shared action menu, and use HeroUI Toast/Modal
+  feedback. The local mock prepares and persists invitation state, while real
+  email delivery remains an integration boundary. Removing an active member
+  is an explicit, confirmed access-revocation action: it removes current
+  project assignments but preserves tracked history and reports. The Owner and
+  the last Admin are protected. Removed members remain visible as `Removed`
+  for auditability and can be restored; restoration does not automatically
+  reassign projects. Invitation cancellation remains a separate action.
 - Archive and restore are explicit actions in the project card menu. Archiving
   requires a HeroUI confirmation modal, keeps existing entries intact, and
   moves the project out of Active and Inactive until it is restored.
@@ -203,3 +214,62 @@ system before they can track time.
 - Use semantic headings and table headers.
 - Keep important status text available to assistive technology.
 - Validate responsive behavior at desktop, tablet and mobile widths.
+
+## Permissions and preview identity
+
+- The product permission matrix is:
+
+  | Capability                              |    Member     |     Admin      |     Owner      |
+  | --------------------------------------- | :-----------: | :------------: | :------------: |
+  | Start, pause and stop own timer         |      Yes      |      Yes       |      Yes       |
+  | Create, edit and delete own entries     |      Yes      |      Yes       |      Yes       |
+  | Edit or delete another person's entries |      No       |       No       |       No       |
+  | View projects, clients and team         |      Yes      |      Yes       |      Yes       |
+  | Change own role or remove own account   |      No       |       No       |       No       |
+  | Use projects in tracking                | Assigned only |      All       |      All       |
+  | Create, edit or archive projects        |      No       |      Yes       |      Yes       |
+  | Change project billability              |      No       |      Yes       |      Yes       |
+  | Assign members to projects              |      No       |      Yes       |      Yes       |
+  | Create clients                          |      No       |      Yes       |      Yes       |
+  | Delete clients without projects         |      No       |      Yes       |      Yes       |
+  | View Reports                            |  Own records  | Full workspace | Full workspace |
+  | Export Reports                          |  Own records  | Full workspace | Full workspace |
+  | Invite Members                          |      No       |      Yes       |      Yes       |
+  | Invite Admins                           |      No       |       No       |      Yes       |
+  | Remove or restore Members               |      No       |      Yes       |      Yes       |
+  | Remove or restore Admins                |      No       |       No       |      Yes       |
+  | Promote Member to Admin                 |      No       |      Yes       |      Yes       |
+  | Demote Admin                            |      No       |       No       |      Yes       |
+  | Alter or remove Owner                   |      No       |       No       |       No       |
+  | Workspace settings                      |      No       |      Yes       |      Yes       |
+  | Personal preferences                    |      Yes      |      Yes       |      Yes       |
+  | Connect or sync integrations            |      No       |      Yes       |      Yes       |
+
+- Roles are enforced as capabilities in the store, not treated as display-only labels.
+- The Owner's own row in Team is read-only. It keeps the `Owner` role, `Active`
+  status and tracked time visible but has no action menu. The Owner cannot change
+  its own role, remove its own account, or edit its name/email; personal
+  preferences remain available in Settings.
+  Members can track and manage only their own entries, see shared workspace records,
+  and use only projects assigned to them. Admins can manage projects, clients,
+  project assignments, Members, workspace settings and integrations. Owners can
+  also manage Admins, while the Owner account itself remains protected.
+- Reports and exports are scoped to the active identity for Members and to the
+  complete workspace for Admins and the Owner. Entries created by another person
+  remain read-only for every role.
+- Project visibility is shared, but project selectors for Members show only assigned
+  active projects plus `No project`. Removing a member removes current assignments
+  without changing historical entries; restoring access does not reassign projects.
+- Team management protects Owner and the last active Admin. Admins can invite,
+  remove, restore and promote Members, but cannot change existing Admins or invite
+  Admins. Only the Owner can manage Admin roles.
+- Settings separate workspace defaults from personal preferences. Workspace name,
+  default billability and week start are global and require Admin or Owner access;
+  reminders, weekly digest and idle detection belong to the active identity.
+- `Preview identity` in Settings is a local-only mock control for Marina (Owner),
+  Caio (Admin) and Helena (Member). It is not authentication. Switching requires
+  an idle timer and reloads the application; active timers are stored under the
+  selected identity so one preview user cannot affect another.
+- Workspace data, members, settings and per-member preferences use a versioned
+  local snapshot with safe seed fallback and migration from the previous shape.
+  Store guards remain authoritative even if a hidden UI action is called directly.

@@ -2,12 +2,12 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { ReactNode } from "react";
 import {
   clients as seedClients,
-  currentUserId,
+  currentUserId as defaultCurrentUserId,
   members as seedMembers,
   projects as seedProjects,
   timeEntries as seedEntries,
 } from "./mock-data";
-import type { Client, Member, Project, TimeEntry, TrelloState } from "./mock-data";
+import type { Client, Member, Project, Role, TimeEntry, TrelloState } from "./mock-data";
 import {
   addSecondsToDateTime,
   dateTimeToTimestamp,
@@ -42,9 +42,14 @@ const initialTimer: TimerState = {
   startClock: "09:00",
 };
 
-const TIMER_STORAGE_KEY = `time-blossom:active-timer:v1:${currentUserId}`;
-const WORKSPACE_STORAGE_KEY = `time-blossom:workspace:v3:${currentUserId}`;
-const LEGACY_WORKSPACE_STORAGE_KEY = `time-blossom:workspace:v2:${currentUserId}`;
+const ACTIVE_MEMBER_STORAGE_KEY = "time-blossom:active-member:v1";
+const TIMER_STORAGE_KEY = (memberId: string) => `time-blossom:active-timer:v2:${memberId}`;
+const WORKSPACE_STORAGE_KEY = "time-blossom:workspace:v5";
+const LEGACY_WORKSPACE_STORAGE_KEYS = [
+  `time-blossom:workspace:v4:${defaultCurrentUserId}`,
+  `time-blossom:workspace:v3:${defaultCurrentUserId}`,
+  `time-blossom:workspace:v2:${defaultCurrentUserId}`,
+];
 
 function isValidClock(value: unknown): value is string {
   return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -85,21 +90,22 @@ function isValidTimerSnapshot(
   return true;
 }
 
-function readPersistedTimer(availableProjects = seedProjects): TimerState {
+function readPersistedTimer(memberId: string, availableProjects = seedProjects): TimerState {
   if (typeof window === "undefined") return initialTimer;
 
   try {
-    const raw = window.localStorage.getItem(TIMER_STORAGE_KEY);
+    const key = TIMER_STORAGE_KEY(memberId);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return initialTimer;
     const parsed: unknown = JSON.parse(raw);
     if (!isValidTimerSnapshot(parsed, availableProjects)) {
-      window.localStorage.removeItem(TIMER_STORAGE_KEY);
+      window.localStorage.removeItem(key);
       return initialTimer;
     }
     return parsed;
   } catch {
     try {
-      window.localStorage.removeItem(TIMER_STORAGE_KEY);
+      window.localStorage.removeItem(TIMER_STORAGE_KEY(memberId));
     } catch {
       // Storage can be unavailable in private or restricted browsing contexts.
     }
@@ -129,27 +135,48 @@ export interface WorkspaceSettings {
   defaultBillable: boolean;
   roundingMinutes: string;
   weekStart: string;
+}
+
+export interface UserPreferences {
   reminders: boolean;
   weeklyDigest: boolean;
   idleDetection: boolean;
 }
+
+export type Permission =
+  | "track-own-time"
+  | "manage-own-entries"
+  | "manage-projects"
+  | "manage-clients"
+  | "manage-project-members"
+  | "manage-members"
+  | "manage-admins"
+  | "view-all-reports"
+  | "export-all-reports"
+  | "manage-workspace-settings"
+  | "manage-integrations";
 
 const initialSettings: WorkspaceSettings = {
   workspaceName: "Studio Co.",
   defaultBillable: true,
   roundingMinutes: "none",
   weekStart: "monday",
+};
+
+const initialPreferences: UserPreferences = {
   reminders: true,
   weeklyDigest: false,
   idleDetection: true,
 };
 
 type PersistedWorkspace = {
-  version: 3;
+  version: 5;
   entries: TimeEntry[];
   projects: Project[];
   clients: Client[];
+  members: Member[];
   settings: WorkspaceSettings;
+  preferencesByMemberId: Record<string, UserPreferences>;
 };
 
 const isFiniteNumber = (value: unknown): value is number =>
@@ -229,6 +256,22 @@ function isValidProjectSnapshot(value: unknown): value is Project {
   );
 }
 
+function isValidMemberSnapshot(value: unknown): value is Member {
+  if (!value || typeof value !== "object") return false;
+  const member = value as Partial<Member>;
+  return (
+    typeof member.id === "string" &&
+    typeof member.name === "string" &&
+    Boolean(member.name.trim()) &&
+    typeof member.email === "string" &&
+    Boolean(member.email.trim()) &&
+    (member.role === "Owner" || member.role === "Admin" || member.role === "Member") &&
+    (member.status === "active" || member.status === "invited" || member.status === "removed") &&
+    typeof member.initials === "string" &&
+    (!member.invitedAt || typeof member.invitedAt === "string")
+  );
+}
+
 function isValidSettingsSnapshot(value: unknown): value is WorkspaceSettings {
   if (!value || typeof value !== "object") return false;
   const settings = value as Partial<WorkspaceSettings>;
@@ -236,20 +279,40 @@ function isValidSettingsSnapshot(value: unknown): value is WorkspaceSettings {
     typeof settings.workspaceName === "string" &&
     typeof settings.defaultBillable === "boolean" &&
     typeof settings.roundingMinutes === "string" &&
-    (settings.weekStart === "monday" || settings.weekStart === "sunday") &&
-    typeof settings.reminders === "boolean" &&
-    typeof settings.weeklyDigest === "boolean" &&
-    typeof settings.idleDetection === "boolean"
+    (settings.weekStart === "monday" || settings.weekStart === "sunday")
   );
+}
+
+function isValidPreferencesSnapshot(value: unknown): value is UserPreferences {
+  if (!value || typeof value !== "object") return false;
+  const preferences = value as Partial<UserPreferences>;
+  return (
+    typeof preferences.reminders === "boolean" &&
+    typeof preferences.weeklyDigest === "boolean" &&
+    typeof preferences.idleDetection === "boolean"
+  );
+}
+
+function isValidPreferencesMap(value: unknown): value is Record<string, UserPreferences> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.values(value).every(isValidPreferencesSnapshot);
 }
 
 function isValidWorkspaceSnapshot(value: unknown): value is PersistedWorkspace {
   if (!value || typeof value !== "object") return false;
   const snapshot = value as Partial<PersistedWorkspace>;
-  if (snapshot.version !== 3) return false;
+  if (snapshot.version !== 5) return false;
   if (!Array.isArray(snapshot.projects) || !Array.isArray(snapshot.clients)) return false;
-  if (!Array.isArray(snapshot.entries) || !isValidSettingsSnapshot(snapshot.settings)) return false;
+  if (!Array.isArray(snapshot.members)) return false;
+  if (
+    !Array.isArray(snapshot.entries) ||
+    !isValidSettingsSnapshot(snapshot.settings) ||
+    !isValidPreferencesMap(snapshot.preferencesByMemberId)
+  ) {
+    return false;
+  }
   if (!snapshot.clients.every(isValidClientSnapshot)) return false;
+  if (!snapshot.members.every(isValidMemberSnapshot)) return false;
   if (
     !snapshot.projects.every(
       (project) =>
@@ -271,11 +334,13 @@ function migrateLegacyWorkspace(value: unknown): PersistedWorkspace | null {
     entries?: unknown;
     projects?: unknown;
     clients?: unknown;
+    members?: unknown;
     settings?: unknown;
+    preferencesByMemberId?: unknown;
   };
   const legacySettings = legacy.settings;
   if (
-    legacy.version !== 2 ||
+    (legacy.version !== 2 && legacy.version !== 3 && legacy.version !== 4) ||
     !Array.isArray(legacy.entries) ||
     !Array.isArray(legacy.projects) ||
     !Array.isArray(legacy.clients) ||
@@ -312,6 +377,13 @@ function migrateLegacyWorkspace(value: unknown): PersistedWorkspace | null {
 
   const normalizedClients = clients as Client[];
   const normalizedProjects = projects as Project[];
+  const normalizedMembers =
+    legacy.members === undefined
+      ? seedMembers
+      : Array.isArray(legacy.members) && legacy.members.every(isValidMemberSnapshot)
+        ? (legacy.members as Member[])
+        : null;
+  if (!normalizedMembers) return null;
   if (
     !normalizedProjects.every((project) =>
       normalizedClients.some((client) => client.id === project.clientId),
@@ -323,27 +395,59 @@ function migrateLegacyWorkspace(value: unknown): PersistedWorkspace | null {
     return null;
   }
 
+  const legacySettingsWithPreferences = legacySettings as WorkspaceSettings &
+    Partial<UserPreferences>;
+  const preferencesByMemberId: Record<string, UserPreferences> = {};
+  for (const member of normalizedMembers) {
+    const stored =
+      legacy.preferencesByMemberId &&
+      typeof legacy.preferencesByMemberId === "object" &&
+      !Array.isArray(legacy.preferencesByMemberId)
+        ? (legacy.preferencesByMemberId as Record<string, unknown>)[member.id]
+        : undefined;
+    preferencesByMemberId[member.id] = isValidPreferencesSnapshot(stored)
+      ? stored
+      : {
+          reminders: legacySettingsWithPreferences.reminders ?? initialPreferences.reminders,
+          weeklyDigest:
+            legacySettingsWithPreferences.weeklyDigest ?? initialPreferences.weeklyDigest,
+          idleDetection:
+            legacySettingsWithPreferences.idleDetection ?? initialPreferences.idleDetection,
+        };
+  }
+
   return {
-    version: 3,
+    version: 5,
     entries: legacy.entries,
     projects: normalizedProjects,
     clients: normalizedClients,
-    settings: legacySettings,
+    members: normalizedMembers,
+    settings: {
+      workspaceName: legacySettings.workspaceName,
+      defaultBillable: legacySettings.defaultBillable,
+      roundingMinutes: legacySettings.roundingMinutes,
+      weekStart: legacySettings.weekStart,
+    },
+    preferencesByMemberId,
   };
 }
 
 function readPersistedWorkspace(): PersistedWorkspace {
   const fallback: PersistedWorkspace = {
-    version: 3,
+    version: 5,
     entries: seedEntries,
     projects: seedProjects,
     clients: seedClients,
+    members: seedMembers,
     settings: initialSettings,
+    preferencesByMemberId: Object.fromEntries(
+      seedMembers.map((member) => [member.id, { ...initialPreferences }]),
+    ),
   };
   if (typeof window === "undefined") return fallback;
 
   try {
-    for (const key of [WORKSPACE_STORAGE_KEY, LEGACY_WORKSPACE_STORAGE_KEY]) {
+    for (const key of [WORKSPACE_STORAGE_KEY, ...LEGACY_WORKSPACE_STORAGE_KEYS]) {
       const raw = window.localStorage.getItem(key);
       if (!raw) continue;
       const parsed: unknown = JSON.parse(raw);
@@ -351,8 +455,8 @@ function readPersistedWorkspace(): PersistedWorkspace {
       const migrated = migrateLegacyWorkspace(parsed);
       if (migrated) {
         window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(migrated));
-        if (key === LEGACY_WORKSPACE_STORAGE_KEY) {
-          window.localStorage.removeItem(LEGACY_WORKSPACE_STORAGE_KEY);
+        if (LEGACY_WORKSPACE_STORAGE_KEYS.includes(key)) {
+          window.localStorage.removeItem(key);
         }
         return migrated;
       }
@@ -361,6 +465,27 @@ function readPersistedWorkspace(): PersistedWorkspace {
   } catch {
     return fallback;
   }
+}
+
+function readActiveMemberId(availableMembers: Member[]): string {
+  if (typeof window === "undefined") return defaultCurrentUserId;
+  try {
+    const stored = window.localStorage.getItem(ACTIVE_MEMBER_STORAGE_KEY);
+    if (
+      stored &&
+      availableMembers.some((member) => member.id === stored && member.status === "active")
+    ) {
+      return stored;
+    }
+    window.localStorage.removeItem(ACTIVE_MEMBER_STORAGE_KEY);
+  } catch {
+    // Fall back to the seeded owner when local storage is unavailable.
+  }
+  return availableMembers.some(
+    (member) => member.id === defaultCurrentUserId && member.status === "active",
+  )
+    ? defaultCurrentUserId
+    : (availableMembers.find((member) => member.status === "active")?.id ?? defaultCurrentUserId);
 }
 
 export type StoreResult = { success: true } | { success: false; error: string };
@@ -374,6 +499,11 @@ interface StoreValue {
   elapsed: number;
   trello: TrelloState;
   settings: WorkspaceSettings;
+  preferences: UserPreferences;
+  currentMember: Member | null;
+  can: (permission: Permission) => boolean;
+  canTrackProject: (projectId: string) => boolean;
+  setActiveMember: (memberId: string) => StoreResult;
   currentUserId: string;
   today: string;
   startTimer: (task: string, projectId: string | null, billable?: boolean) => StoreResult;
@@ -387,15 +517,22 @@ interface StoreValue {
   stopTimer: () => void;
   addEntry: (entry: Omit<TimeEntry, "id">) => StoreResult;
   updateEntry: (id: string, patch: Partial<Omit<TimeEntry, "id">>) => StoreResult;
-  deleteEntry: (id: string) => void;
+  deleteEntry: (id: string) => StoreResult;
   restoreEntry: (entry: TimeEntry) => StoreResult;
   addProject: (project: Omit<Project, "id">) => StoreResult;
   updateProject: (id: string, patch: Partial<Omit<Project, "id">>) => StoreResult;
   addClient: (client: Omit<Client, "id">) => StoreResult;
   updateClient: (id: string, patch: Partial<Client>) => StoreResult;
   deleteClient: (id: string) => StoreResult;
-  setTrello: (patch: Partial<TrelloState>) => void;
-  setSettings: (patch: Partial<WorkspaceSettings>) => void;
+  inviteMember: (email: string, role: Exclude<Role, "Owner">) => StoreResult;
+  resendInvite: (memberId: string) => StoreResult;
+  cancelInvite: (memberId: string) => StoreResult;
+  removeMember: (memberId: string) => StoreResult;
+  restoreMember: (memberId: string) => StoreResult;
+  updateMemberRole: (memberId: string, role: Exclude<Role, "Owner">) => StoreResult;
+  setTrello: (patch: Partial<TrelloState>) => StoreResult;
+  setWorkspaceSettings: (patch: Partial<WorkspaceSettings>) => StoreResult;
+  setUserPreferences: (patch: Partial<UserPreferences>) => StoreResult;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -403,19 +540,49 @@ const StoreContext = createContext<StoreValue | null>(null);
 let idCounter = 100;
 const nextId = (prefix: string) => `${prefix}${++idCounter}`;
 
+const inviteEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function displayNameFromInviteEmail(email: string): string {
+  const localPart = email
+    .split("@")[0]
+    ?.replace(/[._-]+/g, " ")
+    .trim();
+  if (!localPart) return email;
+  return localPart.replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function initialsFromName(name: string): string {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+  return initials || "?";
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [workspaceSnapshot] = useState<PersistedWorkspace>(() => readPersistedWorkspace());
+  const [activeMemberId, setActiveMemberId] = useState(() =>
+    readActiveMemberId(workspaceSnapshot.members),
+  );
   const [entries, setEntries] = useState<TimeEntry[]>(workspaceSnapshot.entries);
   const [projects, setProjects] = useState<Project[]>(workspaceSnapshot.projects);
   const [clients, setClients] = useState<Client[]>(workspaceSnapshot.clients);
-  const [members] = useState<Member[]>(seedMembers);
+  const [members, setMembers] = useState<Member[]>(workspaceSnapshot.members);
   const [timer, setTimer] = useState<TimerState>(() =>
-    readPersistedTimer(workspaceSnapshot.projects),
+    readPersistedTimer(activeMemberId, workspaceSnapshot.projects),
   );
   const [trello, setTrelloState] = useState<TrelloState>(initialTrello);
   const [elapsed, setElapsed] = useState(() => elapsedForTimer(timer));
   const [settings, setSettingsState] = useState<WorkspaceSettings>(workspaceSnapshot.settings);
+  const [preferencesByMemberId, setPreferencesByMemberId] = useState(
+    workspaceSnapshot.preferencesByMemberId,
+  );
   const [today, setToday] = useState(() => getLocalToday());
+
+  const currentMember = members.find((member) => member.id === activeMemberId) ?? null;
+  const preferences = preferencesByMemberId[activeMemberId] ?? initialPreferences;
 
   const timerRef = useRef(timer);
   timerRef.current = timer;
@@ -423,25 +590,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       if (timer.status === "idle") {
-        window.localStorage.removeItem(TIMER_STORAGE_KEY);
+        window.localStorage.removeItem(TIMER_STORAGE_KEY(activeMemberId));
       } else {
-        window.localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timer));
+        window.localStorage.setItem(TIMER_STORAGE_KEY(activeMemberId), JSON.stringify(timer));
       }
     } catch {
       // The timer remains usable when browser storage is unavailable.
     }
-  }, [timer]);
+  }, [activeMemberId, timer]);
 
   useEffect(() => {
     try {
       window.localStorage.setItem(
         WORKSPACE_STORAGE_KEY,
-        JSON.stringify({ version: 3, entries, projects, clients, settings }),
+        JSON.stringify({
+          version: 5,
+          entries,
+          projects,
+          clients,
+          members,
+          settings,
+          preferencesByMemberId,
+        }),
       );
     } catch {
       // The workspace remains usable when browser storage is unavailable.
     }
-  }, [clients, entries, projects, settings]);
+  }, [clients, entries, members, preferencesByMemberId, projects, settings]);
 
   useEffect(() => {
     const refreshToday = () => setToday(getLocalToday());
@@ -487,15 +662,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [timer.status, timer.startedAt, timer.accumulated]);
 
   const value = useMemo<StoreValue>(() => {
+    const can = (permission: Permission): boolean => {
+      if (!currentMember || currentMember.status !== "active") return false;
+      if (currentMember.role === "Owner") return true;
+      if (currentMember.role === "Admin") {
+        return permission !== "manage-admins";
+      }
+      return permission === "track-own-time" || permission === "manage-own-entries";
+    };
+
+    const canTrackProject = (projectId: string): boolean => {
+      if (!currentMember || currentMember.status !== "active") return false;
+      const project = projects.find((candidate) => candidate.id === projectId);
+      if (!project) return false;
+      return currentMember?.role !== "Member" || project.memberIds.includes(activeMemberId);
+    };
+
     const validateProjectId = (projectId: string | null): StoreResult => {
       if (projectId === null) return { success: true };
-      if (projects.some((project) => project.id === projectId)) return { success: true };
+      if (projects.some((project) => project.id === projectId) && canTrackProject(projectId)) {
+        return { success: true };
+      }
+      if (projects.some((project) => project.id === projectId)) {
+        return { success: false, error: "This project is not assigned to your team member." };
+      }
       return { success: false, error: "Choose an existing project or No project." };
     };
 
-    const validateEntry = (entry: Omit<TimeEntry, "id">): StoreResult => {
+    const validateEntry = (
+      entry: Omit<TimeEntry, "id">,
+      options: { allowExistingProjectId?: string | null } = {},
+    ): StoreResult => {
       const projectValidation = validateProjectId(entry.projectId);
-      if (!projectValidation.success) return projectValidation;
+      if (
+        !projectValidation.success &&
+        (entry.projectId !== options.allowExistingProjectId ||
+          !projects.some((project) => project.id === entry.projectId))
+      ) {
+        return projectValidation;
+      }
       if (!entry.task.trim()) return { success: false, error: "A task is required." };
       if (!isValidDateOnly(entry.date)) return { success: false, error: "Choose a valid date." };
       if (entry.endDate && !isValidDateOnly(entry.endDate)) {
@@ -520,6 +725,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       projectId: string | null,
       billable?: boolean,
     ): StoreResult => {
+      if (!can("track-own-time")) {
+        return { success: false, error: "Your account cannot track time." };
+      }
       if (timerRef.current.status !== "idle") {
         return { success: false, error: "Stop the active timer before starting another one." };
       }
@@ -551,6 +759,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       projectId?: string | null;
       billable?: boolean;
     }): StoreResult => {
+      if (!can("track-own-time")) {
+        return { success: false, error: "Your account cannot update the active timer." };
+      }
       const current = timerRef.current;
       if (current.status === "idle") {
         return { success: false, error: "There is no active timer to update." };
@@ -609,7 +820,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...(startTimestamp !== null ? { startTimestamp } : {}),
             ...(endTimestamp !== null ? { endTimestamp } : {}),
             seconds: total,
-            userId: currentUserId,
+            userId: activeMemberId,
             projectId: t.projectId,
             task: t.task,
             billable: t.billable,
@@ -623,6 +834,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const addEntry = (entry: Omit<TimeEntry, "id">): StoreResult => {
+      if (!can("manage-own-entries") || entry.userId !== activeMemberId) {
+        return { success: false, error: "You can only create your own time entries." };
+      }
       if (timerRef.current.status !== "idle") {
         return { success: false, error: "Stop the active timer before adding time manually." };
       }
@@ -635,6 +849,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const updateEntry = (id: string, patch: Partial<Omit<TimeEntry, "id">>): StoreResult => {
       const current = entries.find((entry) => entry.id === id);
       if (!current) return { success: false, error: "This time entry no longer exists." };
+      if (!can("manage-own-entries") || current.userId !== activeMemberId) {
+        return { success: false, error: "You can only edit your own time entries." };
+      }
+      if (patch.userId !== undefined && patch.userId !== current.userId) {
+        return { success: false, error: "A time entry owner cannot be changed." };
+      }
       const next = { ...current, ...patch };
       const timeChanged = ["date", "start", "end", "endDate", "seconds"].some(
         (field) => field in patch,
@@ -655,13 +875,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           delete next.endTimestamp;
         }
       }
-      const validation = validateEntry(next);
+      const validation = validateEntry(next, { allowExistingProjectId: current.projectId });
       if (!validation.success) return validation;
       setEntries((list) => list.map((entry) => (entry.id === id ? next : entry)));
       return { success: true };
     };
 
     const restoreEntry = (entry: TimeEntry): StoreResult => {
+      if (!can("manage-own-entries") || entry.userId !== activeMemberId) {
+        return { success: false, error: "You can only restore your own time entries." };
+      }
       if (entries.some((current) => current.id === entry.id)) {
         return { success: false, error: "This time entry already exists." };
       }
@@ -672,6 +895,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const addProject = (project: Omit<Project, "id">): StoreResult => {
+      if (!can("manage-projects")) {
+        return { success: false, error: "Only Admins and the Owner can manage projects." };
+      }
       if (!project.name.trim()) return { success: false, error: "A project name is required." };
       if (!clients.some((client) => client.id === project.clientId)) {
         return { success: false, error: "Choose an existing client for this project." };
@@ -679,11 +905,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (typeof project.billable !== "boolean") {
         return { success: false, error: "Choose whether this project is billable." };
       }
-      setProjects((list) => [{ ...project, name: project.name.trim(), id: nextId("p") }, ...list]);
+      if (!can("manage-project-members")) {
+        return { success: false, error: "You cannot assign members to projects." };
+      }
+      if (
+        project.memberIds.some(
+          (memberId) =>
+            !members.some((member) => member.id === memberId && member.status === "active"),
+        )
+      ) {
+        return { success: false, error: "Only active members can be assigned to a project." };
+      }
+      setProjects((list) => [
+        {
+          ...project,
+          name: project.name.trim(),
+          memberIds: [...new Set([...project.memberIds, activeMemberId])],
+          id: nextId("p"),
+        },
+        ...list,
+      ]);
       return { success: true };
     };
 
     const updateProject = (id: string, patch: Partial<Omit<Project, "id">>): StoreResult => {
+      if (!can("manage-projects")) {
+        return { success: false, error: "Only Admins and the Owner can manage projects." };
+      }
       const current = projects.find((project) => project.id === id);
       if (!current) return { success: false, error: "This project no longer exists." };
       const next = { ...current, ...patch, name: (patch.name ?? current.name).trim() };
@@ -693,6 +941,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       if (typeof next.billable !== "boolean") {
         return { success: false, error: "Choose whether this project is billable." };
+      }
+      if ("memberIds" in patch && !can("manage-project-members")) {
+        return { success: false, error: "You cannot assign members to projects." };
+      }
+      if (
+        next.memberIds.some(
+          (memberId) =>
+            !members.some((member) => member.id === memberId && member.status === "active"),
+        )
+      ) {
+        return { success: false, error: "Only active members can be assigned to a project." };
       }
       setProjects((list) => list.map((project) => (project.id === id ? next : project)));
       return { success: true };
@@ -704,6 +963,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const addClient = (client: Omit<Client, "id">): StoreResult => {
+      if (!can("manage-clients")) {
+        return { success: false, error: "Only Admins and the Owner can manage clients." };
+      }
       const validation = validateClient(client);
       if (!validation.success) return validation;
       setClients((list) => [
@@ -714,6 +976,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const updateClient = (id: string, patch: Partial<Client>): StoreResult => {
+      if (!can("manage-clients")) {
+        return { success: false, error: "Only Admins and the Owner can manage clients." };
+      }
       const current = clients.find((client) => client.id === id);
       if (!current) return { success: false, error: "This client no longer exists." };
       const next = {
@@ -729,6 +994,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const deleteClient = (id: string): StoreResult => {
+      if (!can("manage-clients")) {
+        return { success: false, error: "Only Admins and the Owner can manage clients." };
+      }
       const current = clients.find((client) => client.id === id);
       if (!current) return { success: false, error: "This client no longer exists." };
       const linkedProjects = projects.filter((project) => project.clientId === id);
@@ -742,6 +1010,238 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { success: true };
     };
 
+    const inviteMember = (email: string, role: Exclude<Role, "Owner">): StoreResult => {
+      if (!can("manage-members")) {
+        return { success: false, error: "Only Admins and the Owner can invite members." };
+      }
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!inviteEmailPattern.test(normalizedEmail)) {
+        return { success: false, error: "Enter a valid email address." };
+      }
+      if (role !== "Admin" && role !== "Member") {
+        return { success: false, error: "Choose a valid role for this invitation." };
+      }
+      if (role === "Admin" && !can("manage-admins")) {
+        return { success: false, error: "Only the Owner can invite Admins." };
+      }
+      if (members.some((member) => member.email.trim().toLowerCase() === normalizedEmail)) {
+        return {
+          success: false,
+          error: "This email is already part of the team or has a pending invitation.",
+        };
+      }
+
+      const name = displayNameFromInviteEmail(normalizedEmail);
+      const invitation: Member = {
+        id: nextId("u"),
+        name,
+        email: normalizedEmail,
+        role,
+        status: "invited",
+        initials: initialsFromName(name),
+        invitedAt: new Date().toISOString(),
+      };
+      setMembers((list) => [invitation, ...list]);
+      return { success: true };
+    };
+
+    const resendInvite = (memberId: string): StoreResult => {
+      if (!can("manage-members")) {
+        return { success: false, error: "Only Admins and the Owner can manage invitations." };
+      }
+      const member = members.find((candidate) => candidate.id === memberId);
+      if (!member) return { success: false, error: "This invitation no longer exists." };
+      if (member.status !== "invited") {
+        return { success: false, error: "Only pending invitations can be resent." };
+      }
+      if (member.role === "Admin" && !can("manage-admins")) {
+        return { success: false, error: "Only the Owner can manage Admin invitations." };
+      }
+      setMembers((list) =>
+        list.map((candidate) =>
+          candidate.id === memberId
+            ? { ...candidate, invitedAt: new Date().toISOString() }
+            : candidate,
+        ),
+      );
+      return { success: true };
+    };
+
+    const cancelInvite = (memberId: string): StoreResult => {
+      if (!can("manage-members")) {
+        return { success: false, error: "Only Admins and the Owner can manage invitations." };
+      }
+      const member = members.find((candidate) => candidate.id === memberId);
+      if (!member) return { success: false, error: "This invitation no longer exists." };
+      if (member.status !== "invited") {
+        return { success: false, error: "Only pending invitations can be canceled." };
+      }
+      if (member.role === "Admin" && !can("manage-admins")) {
+        return { success: false, error: "Only the Owner can manage Admin invitations." };
+      }
+      setMembers((list) => list.filter((candidate) => candidate.id !== memberId));
+      return { success: true };
+    };
+
+    const removeMember = (memberId: string): StoreResult => {
+      if (!can("manage-members")) {
+        return { success: false, error: "Only Admins and the Owner can remove members." };
+      }
+      const member = members.find((candidate) => candidate.id === memberId);
+      if (!member) return { success: false, error: "This team member no longer exists." };
+      if (memberId === activeMemberId && currentMember?.role === "Owner") {
+        return { success: false, error: "The Owner cannot remove their own account." };
+      }
+      if (member.status !== "active") {
+        return { success: false, error: "Only active members can be removed." };
+      }
+      if (member.role === "Owner") {
+        return { success: false, error: "The workspace owner cannot be removed." };
+      }
+      if (member.role === "Admin" && !can("manage-admins")) {
+        return { success: false, error: "Only the Owner can remove Admins." };
+      }
+
+      const activeAdmins = members.filter(
+        (candidate) => candidate.status === "active" && candidate.role === "Admin",
+      );
+      if (member.role === "Admin" && activeAdmins.length <= 1) {
+        return { success: false, error: "The last admin cannot be removed." };
+      }
+
+      setMembers((list) =>
+        list.map((candidate) =>
+          candidate.id === memberId ? { ...candidate, status: "removed" as const } : candidate,
+        ),
+      );
+      setProjects((list) =>
+        list.map((project) => ({
+          ...project,
+          memberIds: project.memberIds.filter((id) => id !== memberId),
+        })),
+      );
+      return { success: true };
+    };
+
+    const restoreMember = (memberId: string): StoreResult => {
+      if (!can("manage-members")) {
+        return { success: false, error: "Only Admins and the Owner can restore members." };
+      }
+      const member = members.find((candidate) => candidate.id === memberId);
+      if (!member) return { success: false, error: "This team member no longer exists." };
+      if (member.status !== "removed") {
+        return { success: false, error: "Only removed members can be restored." };
+      }
+      if (member.role === "Admin" && !can("manage-admins")) {
+        return { success: false, error: "Only the Owner can restore Admins." };
+      }
+
+      setMembers((list) =>
+        list.map((candidate) =>
+          candidate.id === memberId ? { ...candidate, status: "active" as const } : candidate,
+        ),
+      );
+      return { success: true };
+    };
+
+    const updateMemberRole = (memberId: string, role: Exclude<Role, "Owner">): StoreResult => {
+      const member = members.find((candidate) => candidate.id === memberId);
+      if (!member) return { success: false, error: "This team member no longer exists." };
+      if (memberId === activeMemberId && currentMember?.role === "Owner") {
+        return { success: false, error: "The Owner cannot change their own role." };
+      }
+      if (member.role === "Owner") {
+        return { success: false, error: "The workspace owner role cannot be changed." };
+      }
+      if (role !== "Admin" && role !== "Member") {
+        return { success: false, error: "Choose a valid team role." };
+      }
+      if (currentMember?.role === "Admin" && member.role !== "Member") {
+        return { success: false, error: "Admins can only manage Members." };
+      }
+      if (!can("manage-members")) {
+        return { success: false, error: "Only Admins and the Owner can change roles." };
+      }
+      if (member.status !== "active" && currentMember?.role === "Admin") {
+        return { success: false, error: "Admins can only promote active Members." };
+      }
+      if (member.role === "Admin" && role === "Member") {
+        if (!can("manage-admins")) {
+          return { success: false, error: "Only the Owner can reassign Admin roles." };
+        }
+        const activeAdmins = members.filter(
+          (candidate) => candidate.status === "active" && candidate.role === "Admin",
+        );
+        if (member.status === "active" && activeAdmins.length <= 1) {
+          return { success: false, error: "The last admin cannot be reassigned." };
+        }
+      }
+      setMembers((list) =>
+        list.map((candidate) => (candidate.id === memberId ? { ...candidate, role } : candidate)),
+      );
+      return { success: true };
+    };
+
+    const setActiveMember = (memberId: string): StoreResult => {
+      const member = members.find(
+        (candidate) => candidate.id === memberId && candidate.status === "active",
+      );
+      if (!member) return { success: false, error: "Choose an active preview identity." };
+      if (timerRef.current.status !== "idle") {
+        return { success: false, error: "Stop the active timer before changing preview identity." };
+      }
+      try {
+        window.localStorage.setItem(ACTIVE_MEMBER_STORAGE_KEY, memberId);
+      } catch {
+        return { success: false, error: "Preview identity could not be saved locally." };
+      }
+      timerRef.current = initialTimer;
+      setTimer(initialTimer);
+      setElapsed(0);
+      setActiveMemberId(memberId);
+      return { success: true };
+    };
+
+    const setWorkspaceSettings = (patch: Partial<WorkspaceSettings>): StoreResult => {
+      if (!can("manage-workspace-settings")) {
+        return {
+          success: false,
+          error: "Only Admins and the Owner can change workspace settings.",
+        };
+      }
+      const next = { ...settings, ...patch };
+      if (!next.workspaceName.trim()) {
+        return { success: false, error: "Workspace name is required." };
+      }
+      if (typeof next.defaultBillable !== "boolean") {
+        return { success: false, error: "Choose a valid default billability setting." };
+      }
+      if (typeof next.roundingMinutes !== "string") {
+        return { success: false, error: "Choose a valid rounding setting." };
+      }
+      if (next.weekStart !== "monday" && next.weekStart !== "sunday") {
+        return { success: false, error: "Choose a valid week start." };
+      }
+      setSettingsState({ ...next, workspaceName: next.workspaceName.trim() });
+      return { success: true };
+    };
+
+    const setUserPreferences = (patch: Partial<UserPreferences>): StoreResult => {
+      if (!currentMember || currentMember.status !== "active") {
+        return { success: false, error: "Choose an active preview identity." };
+      }
+      const next = { ...preferences, ...patch };
+      if (
+        typeof next.reminders !== "boolean" ||
+        typeof next.weeklyDigest !== "boolean" ||
+        typeof next.idleDetection !== "boolean"
+      ) {
+        return { success: false, error: "Choose valid personal preferences." };
+      }
+      setPreferencesByMemberId((map) => ({ ...map, [activeMemberId]: next }));
+      return { success: true };
+    };
+
     return {
       entries,
       projects,
@@ -751,7 +1251,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       elapsed,
       trello,
       settings,
-      currentUserId,
+      preferences,
+      currentMember,
+      can,
+      canTrackProject,
+      setActiveMember,
+      currentUserId: activeMemberId,
       today,
       startTimer,
       updateTimer,
@@ -760,17 +1265,51 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       stopTimer,
       addEntry,
       updateEntry,
-      deleteEntry: (id) => setEntries((list) => list.filter((e) => e.id !== id)),
+      deleteEntry: (id) => {
+        const entry = entries.find((candidate) => candidate.id === id);
+        if (!entry) return { success: false, error: "This time entry no longer exists." };
+        if (!can("manage-own-entries") || entry.userId !== activeMemberId) {
+          return { success: false, error: "You can only delete your own time entries." };
+        }
+        setEntries((list) => list.filter((e) => e.id !== id));
+        return { success: true };
+      },
       restoreEntry,
       addProject,
       updateProject,
       addClient,
       updateClient,
       deleteClient,
-      setTrello: (patch) => setTrelloState((s) => ({ ...s, ...patch })),
-      setSettings: (patch) => setSettingsState((s) => ({ ...s, ...patch })),
+      inviteMember,
+      resendInvite,
+      cancelInvite,
+      removeMember,
+      restoreMember,
+      updateMemberRole,
+      setTrello: (patch) => {
+        if (!can("manage-integrations")) {
+          return { success: false, error: "Only Admins and the Owner can manage integrations." };
+        }
+        setTrelloState((s) => ({ ...s, ...patch }));
+        return { success: true };
+      },
+      setWorkspaceSettings,
+      setUserPreferences,
     };
-  }, [entries, projects, clients, members, timer, elapsed, trello, settings, today]);
+  }, [
+    activeMemberId,
+    clients,
+    currentMember,
+    elapsed,
+    entries,
+    members,
+    preferences,
+    projects,
+    settings,
+    timer,
+    today,
+    trello,
+  ]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

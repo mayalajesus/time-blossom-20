@@ -37,7 +37,7 @@ export const Route = createFileRoute("/clients")({
 });
 
 function ClientsPage() {
-  const { clients, projects, entries, addClient, deleteClient } = useStore();
+  const { clients, projects, entries, can, addClient, deleteClient } = useStore();
   const loading = useSimulatedLoad(400);
   const [newOpen, setNewOpen] = useState(false);
   const [name, setName] = useState("");
@@ -96,15 +96,17 @@ function ClientsPage() {
         title="Clients"
         description="Manage the people and companies connected to your projects."
         actions={
-          <Button
-            onPress={() => {
-              resetCreateForm();
-              setNewOpen(true);
-            }}
-          >
-            <Plus className="size-4" />
-            New client
-          </Button>
+          can("manage-clients") ? (
+            <Button
+              onPress={() => {
+                resetCreateForm();
+                setNewOpen(true);
+              }}
+            >
+              <Plus className="size-4" />
+              New client
+            </Button>
+          ) : null
         }
       />
 
@@ -116,9 +118,11 @@ function ClientsPage() {
           title="No clients yet"
           description="Add a client to connect projects and organize tracked time."
           action={
-            <Button size="sm" variant="secondary" onPress={() => setNewOpen(true)}>
-              New client
-            </Button>
+            can("manage-clients") ? (
+              <Button size="sm" variant="secondary" onPress={() => setNewOpen(true)}>
+                New client
+              </Button>
+            ) : null
           }
         />
       ) : (
@@ -142,25 +146,27 @@ function ClientsPage() {
                       {formatDuration(secondsFor(client.id))}
                     </Table.Cell>
                     <Table.Cell>
-                      <div className="flex justify-end">
-                        <ActionDropdown
-                          ariaLabel={`Actions for ${client.name}`}
-                          items={[
-                            {
-                              id: "delete",
-                              label: "Delete client",
-                              icon: <Trash2 className="size-4" />,
-                              tone: "danger",
-                            },
-                          ]}
-                          onAction={(key) => {
-                            if (key === "delete") {
-                              setDeleteError(null);
-                              setPendingDelete(client);
-                            }
-                          }}
-                        />
-                      </div>
+                      {can("manage-clients") ? (
+                        <div className="flex justify-end">
+                          <ActionDropdown
+                            ariaLabel={`Actions for ${client.name}`}
+                            items={[
+                              {
+                                id: "delete",
+                                label: "Delete client",
+                                icon: <Trash2 className="size-4" />,
+                                tone: "danger",
+                              },
+                            ]}
+                            onAction={(key) => {
+                              if (key === "delete") {
+                                setDeleteError(null);
+                                setPendingDelete(client);
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : null}
                     </Table.Cell>
                   </Table.Row>
                 ))}
