@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { CommandMenu } from "@/components/command-menu";
+import { HeaderTimerControl } from "@/components/header-timer-control";
 import { LogTimeModal } from "@/components/log-time-modal";
 import { useStore } from "@/lib/store";
 
@@ -250,6 +251,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </TextField>
           </Form>
           <div className="ml-auto flex items-center gap-2">
+            <HeaderTimerControl />
             <Button
               aria-label={`Theme: ${themeMode}`}
               isIconOnly
