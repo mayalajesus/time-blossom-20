@@ -27,8 +27,6 @@ const ptBR: Record<string, string> = {
   "Workspace settings": "Configurações do workspace",
   Navigation: "Navegação",
   Actions: "Ações",
-  Projects: "Projetos",
-  Clients: "Clientes",
   "Start timer": "Iniciar cronômetro",
   "Stop timer": "Parar cronômetro",
   "Begin tracking now": "Começar a registrar agora",
@@ -68,7 +66,6 @@ const ptBR: Record<string, string> = {
   "Custom range": "Período personalizado",
   "Start / End": "Início / fim",
   Duration: "Duração",
-  Start: "Início",
   End: "Fim",
   Notes: "Observações",
   Billable: "Faturável",
@@ -90,7 +87,6 @@ const ptBR: Record<string, string> = {
   Cancel: "Cancelar",
   "Save entry": "Salvar registro",
   "Edit time entry": "Editar registro de horas",
-  "Log time manually": "Registrar horas manualmente",
   Task: "Tarefa",
   Date: "Data",
   Project: "Projeto",
@@ -138,7 +134,6 @@ const ptBR: Record<string, string> = {
   "Existing time entries will remain available in reports and history.":
     "Os registros de horas existentes continuarão disponíveis nos relatórios e no histórico.",
   "Project members updated": "Membros do projeto atualizados",
-  "New project": "Novo projeto",
   "Project name is required": "O nome do projeto é obrigatório",
   "e.g. Brand refresh": "ex.: Atualização da marca",
   "Choose a client": "Escolha um cliente",
@@ -150,7 +145,6 @@ const ptBR: Record<string, string> = {
   "Project marked billable": "Projeto marcado como faturável",
   "Project archived": "Projeto arquivado",
   "Could not update project": "Não foi possível atualizar o projeto",
-  Clients: "Clientes",
   "Manage the people and companies connected to your projects.":
     "Gerencie as pessoas e empresas ligadas aos seus projetos.",
   "New client": "Novo cliente",
@@ -180,10 +174,8 @@ const ptBR: Record<string, string> = {
   Member: "Membro",
   Admin: "Administrador",
   Owner: "Proprietário",
-  Active: "Ativo",
   Invited: "Convidado",
   Removed: "Removido",
-  "Invite member": "Convidar membro",
   Email: "E-mail",
   Role: "Função",
   Invite: "Convidar",
@@ -200,13 +192,10 @@ const ptBR: Record<string, string> = {
     "Isto remove {name} do acesso ativo ao workspace. O histórico de horas continua disponível.",
   "This restores {name}'s workspace access. Project assignments will need to be added again.":
     "Isto restaura o acesso de {name} ao workspace. As atribuições de projetos precisarão ser adicionadas novamente.",
-  "Remove member": "Remover membro",
-  "Restore member": "Restaurar membro",
   "Could not update team member": "Não foi possível atualizar o membro da equipe",
   "Team member updated": "Membro da equipe atualizado",
   "Member removed": "Membro removido",
   "Member restored": "Membro restaurado",
-  Reports: "Relatórios",
   "Inspect every entry with its project, client, person and billability.":
     "Consulte cada registro com projeto, cliente, pessoa e faturamento.",
   "Compare totals with flexible project, client, member, task or date groups.":
@@ -240,7 +229,6 @@ const ptBR: Record<string, string> = {
   "The file uses the same filtered dataset shown in this report.":
     "O arquivo usa o mesmo conjunto de dados filtrado exibido neste relatório.",
   "Export unavailable": "Exportação indisponível",
-  Integrations: "Integrações",
   "Bring tasks from the tools you already use.": "Traga tarefas das ferramentas que você já usa.",
   "Import cards from your boards and start timers straight from a card.":
     "Importe cartões dos seus quadros e inicie cronômetros diretamente de um cartão.",
@@ -262,10 +250,11 @@ const ptBR: Record<string, string> = {
   "Start typing": "Comece a digitar",
   "Try another keyword or check the spelling.": "Tente outra palavra-chave ou confira a grafia.",
   "Results appear as you type.": "Os resultados aparecem enquanto você digita.",
-  Settings: "Configurações",
   "Workspace preferences and defaults.": "Preferências e padrões do workspace.",
   "Manage your account, personal preferences and workspace defaults.":
     "Gerencie sua conta, preferências pessoais e padrões do workspace.",
+  "Manage your account and personal preferences.":
+    "Gerencie sua conta e suas preferências pessoais.",
   Account: "Conta",
   "Manage your profile and account details.": "Gerencie seu perfil e os dados da sua conta.",
   "Save account": "Salvar conta",
@@ -319,9 +308,8 @@ const ptBR: Record<string, string> = {
   "Page not found": "Página não encontrada",
   "The page you're looking for doesn't exist or has been moved.":
     "A página que você procura não existe ou foi movida.",
-  "The page you're looking for doesn't exist or has been moved.":
-    "A página que você procura não existe ou foi movida.",
   "Loading Time Blossom…": "Carregando o Time Blossom…",
+  "Loading data": "Carregando dados",
   "Preparing your workspace…": "Preparando seu workspace…",
   "Time Blossom could not load: {error}": "O Time Blossom não pôde carregar: {error}",
   "Only Admins and the Owner can change workspace settings.":
@@ -455,7 +443,6 @@ const ptBR: Record<string, string> = {
   More: "Mais",
   "Previous slide": "Slide anterior",
   "Next slide": "Próximo slide",
-  Close: "Fechar",
   pagination: "paginação",
   "Go to previous page": "Ir para a página anterior",
   "Go to next page": "Ir para a próxima página",
@@ -464,7 +451,6 @@ const ptBR: Record<string, string> = {
   "Displays the mobile sidebar.": "Exibe a barra lateral móvel.",
   "Toggle Sidebar": "Alternar barra lateral",
   "Time entries for selected period": "Registros de horas do período selecionado",
-  "Project / client": "Projeto / cliente",
   "Open period calendar: {label}": "Abrir calendário do período: {label}",
   week: "semana",
   day: "dia",
@@ -569,13 +555,10 @@ const ptBR: Record<string, string> = {
     "Este projeto pode ter sido arquivado ou removido.",
   "Back to projects": "Voltar aos projetos",
   "{client} · updated {date}": "{client} · atualizado em {date}",
-  "Total tracked": "Total registrado",
   Members: "Membros",
   "No time tracked": "Nenhuma hora registrada",
   "Entries logged against this project will appear here.":
     "Os registros deste projeto aparecerão aqui.",
-  "Open project": "Abrir projeto",
-  "Open clients": "Abrir clientes",
   'Search for "{query}"': 'Buscar por "{query}"',
   "Command menu search": "Busca do menu de comandos",
   "Date range: {range}": "Período: {range}",
@@ -615,36 +598,26 @@ const ptBR: Record<string, string> = {
   "Average/day": "Média/dia",
   User: "Usuário",
   "Start date": "Data inicial",
-  "Start time": "Hora inicial",
   "End date": "Data final",
-  "End time": "Hora final",
   report: "relatório",
   "Workspace report": "Relatório do workspace",
   "Your report": "Seu relatório",
   "{count} team members": "{count} membros da equipe",
   "{count} clients": "{count} clientes",
   "{count} projects": "{count} projetos",
-  Time: "Tempo",
   "The CSV export could not be prepared.": "Não foi possível preparar a exportação CSV.",
   "The Excel export could not be prepared.": "Não foi possível preparar a exportação Excel.",
   "Time Blossom · filtered report": "Time Blossom · relatório filtrado",
   Generated: "Gerado em",
   "Time Blossom · report export": "Time Blossom · exportação do relatório",
-  records: "registros",
   "No records match the selected report.": "Nenhum registro corresponde ao relatório selecionado.",
   "The PDF print preview could not be prepared.":
     "Não foi possível preparar a visualização de impressão do PDF.",
   "The PDF print preview could not be opened.":
     "Não foi possível abrir a visualização de impressão do PDF.",
   "Export {scope}": "Exportar {scope}",
-  "The filtered {format} report is downloading.":
-    "O relatório filtrado em {format} está sendo baixado.",
   "Project details — Time Blossom": "Detalhes do projeto — Time Blossom",
-  "This removes {task}. You can undo it from the confirmation toast for 20 seconds.":
-    "Isto remove {task}. Você pode desfazer pela notificação durante 20 segundos.",
   "Could not create client": "Não foi possível criar o cliente",
-  "Invitation prepared": "Convite preparado",
-  "Could not save personal preferences": "Não foi possível salvar as preferências pessoais",
   "Choose valid personal preferences.": "Escolha preferências pessoais válidas.",
   "Time Blossom — Simple time tracking": "Time Blossom — Controle de tempo simples",
   "Time Blossom — Time tracking for small teams":
@@ -682,6 +655,63 @@ const ptBR: Record<string, string> = {
   "Search projects, clients, teammates and time entries.":
     "Busque projetos, clientes, colegas e registros de horas.",
   "Find anything in your workspace.": "Encontre qualquer coisa no seu workspace.",
+  Workspaces: "Workspaces",
+  "Switch workspace": "Alternar workspace",
+  "Your workspaces": "Seus workspaces",
+  "Shared with you": "Compartilhados com você",
+  "Owned by you": "De sua propriedade",
+  "Owned by {name}": "De {name}",
+  Current: "Atual",
+  Open: "Abrir",
+  "New workspace": "Novo workspace",
+  "Edit workspace": "Editar workspace",
+  Archive: "Arquivar",
+  Restore: "Restaurar",
+  Leave: "Sair",
+  "Create workspace": "Criar workspace",
+  "Save changes": "Salvar alterações",
+  Workspace: "Workspace",
+  "Workspace logo": "Logo do workspace",
+  "Upload logo": "Enviar logo",
+  Remove: "Remover",
+  "PNG, JPG or WebP up to 500 KB. Used in report PDFs.":
+    "PNG, JPG ou WebP de até 500 KB. Usado nos PDFs dos relatórios.",
+  "Could not save workspace": "Não foi possível salvar o workspace",
+  "Workspace created": "Workspace criado",
+  "Workspace updated": "Workspace atualizado",
+  "Workspace archived": "Workspace arquivado",
+  "Workspace restored": "Workspace restaurado",
+  "Left workspace": "Você saiu do workspace",
+  "Archive workspace?": "Arquivar workspace?",
+  "Restore workspace?": "Restaurar workspace?",
+  "Leave workspace?": "Sair do workspace?",
+  "Archived workspaces become read-only until the Owner restores them.":
+    "Workspaces arquivados ficam somente leitura até que o Owner os restaure.",
+  "This workspace will become available for tracking again.":
+    "Este workspace ficará disponível para registrar horas novamente.",
+  "You will lose access to this workspace. Your tracked history stays intact.":
+    "Você perderá acesso a este workspace. Seu histórico de horas permanecerá intacto.",
+  "Workspace action unavailable": "Ação do workspace indisponível",
+  "Create a workspace to keep your projects, clients and time separate.":
+    "Crie um workspace para manter seus projetos, clientes e horas separados.",
+  "Up to 5 workspaces created by you, including archived ones.":
+    "Até 5 workspaces criados por você, incluindo os arquivados.",
+  "Workspaces where you collaborate with another owner.":
+    "Workspaces onde você colabora com outro proprietário.",
+  "No workspaces yet": "Nenhum workspace ainda",
+  "Create focused spaces for your work or open one shared with you.":
+    "Crie espaços focados para seu trabalho ou abra um compartilhado com você.",
+  "Pause timer before switching?": "Pausar cronômetro antes de alternar?",
+  "Your active timer is running in {workspace}. Pause it before opening another workspace.":
+    "Seu cronômetro ativo está rodando em {workspace}. Pause-o antes de abrir outro workspace.",
+  "The timer will remain paused in its original workspace.":
+    "O cronômetro permanecerá pausado no workspace original.",
+  "Pause and switch": "Pausar e alternar",
+  "Pause the active timer before opening another workspace. It will remain paused in its original workspace.":
+    "Pause o cronômetro ativo antes de abrir outro workspace. Ele permanecerá pausado no workspace original.",
+  "Only the workspace Owner can edit it.": "Somente o Owner do workspace pode editá-lo.",
+  "The workspace owner must archive it instead of leaving it.":
+    "O Owner deve arquivá-lo em vez de sair.",
 };
 
 type MessageValue = string | number;

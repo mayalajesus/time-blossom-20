@@ -18,6 +18,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TodayRouteImport } from './routes/today'
 import { Route as TrackerRouteImport } from './routes/tracker'
+import { Route as WorkspacesRouteImport } from './routes/workspaces'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 
@@ -66,6 +67,11 @@ const TrackerRoute = TrackerRouteImport.update({
   path: '/tracker',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspacesRoute = WorkspacesRouteImport.update({
+  id: '/workspaces',
+  path: '/workspaces',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/team': typeof TeamRoute
   '/today': typeof TodayRoute
   '/tracker': typeof TrackerRoute
+  '/workspaces': typeof WorkspacesRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/': typeof ProjectsIndexRoute
 }
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/team': typeof TeamRoute
   '/today': typeof TodayRoute
   '/tracker': typeof TrackerRoute
+  '/workspaces': typeof WorkspacesRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects': typeof ProjectsIndexRoute
 }
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/team': typeof TeamRoute
   '/today': typeof TodayRoute
   '/tracker': typeof TrackerRoute
+  '/workspaces': typeof WorkspacesRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/': typeof ProjectsIndexRoute
 }
@@ -129,6 +138,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/today'
     | '/tracker'
+    | '/workspaces'
     | '/projects/$projectId'
     | '/projects/'
   fileRoutesByTo: FileRoutesByTo
@@ -142,6 +152,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/today'
     | '/tracker'
+    | '/workspaces'
     | '/projects/$projectId'
     | '/projects'
   id:
@@ -155,6 +166,7 @@ export interface FileRouteTypes {
     | '/team'
     | '/today'
     | '/tracker'
+    | '/workspaces'
     | '/projects/$projectId'
     | '/projects/'
   fileRoutesById: FileRoutesById
@@ -169,6 +181,7 @@ export interface RootRouteChildren {
   TeamRoute: typeof TeamRoute
   TodayRoute: typeof TodayRoute
   TrackerRoute: typeof TrackerRoute
+  WorkspacesRoute: typeof WorkspacesRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
 }
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrackerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workspaces': {
+      id: '/workspaces'
+      path: '/workspaces'
+      fullPath: '/workspaces'
+      preLoaderRoute: typeof WorkspacesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/': {
       id: '/projects/'
       path: '/projects'
@@ -265,16 +285,10 @@ const rootRouteChildren: RootRouteChildren = {
   TeamRoute: TeamRoute,
   TodayRoute: TodayRoute,
   TrackerRoute: TrackerRoute,
+  WorkspacesRoute: WorkspacesRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-declare module '@tanstack/react-router' {
-  interface Register {
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

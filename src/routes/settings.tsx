@@ -1,9 +1,6 @@
 import {
   Button,
   Description,
-  FieldError,
-  Form,
-  Input,
   Label,
   ListBox,
   Select,
@@ -25,7 +22,7 @@ export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Time Blossom" },
-      { name: "description", content: "Workspace settings and personal preferences." },
+      { name: "description", content: "Account and personal preferences." },
       { property: "og:title", content: "Settings — Time Blossom" },
       { property: "og:description", content: "Configure your Time Blossom workspace." },
     ],
@@ -35,21 +32,14 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const {
-    settings,
     preferences,
     members,
     currentMember,
-    can,
-    setWorkspaceSettings,
     setUserPreferences,
     setActiveMember,
     updateCurrentMemberEmail,
   } = useStore();
   const { t, error } = useI18n();
-  const [name, setName] = useState(settings.workspaceName);
-  const [defaultBillable, setDefaultBillable] = useState(settings.defaultBillable);
-  const [weekStart, setWeekStart] = useState<"monday" | "sunday">(settings.weekStart);
-  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
   const [identityError, setIdentityError] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState(currentMember?.email ?? "");
@@ -57,12 +47,6 @@ function SettingsPage() {
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [accountError, setAccountError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setName(settings.workspaceName);
-    setDefaultBillable(settings.defaultBillable);
-    setWeekStart(settings.weekStart);
-  }, [settings]);
 
   useEffect(() => {
     setAccountEmail(currentMember?.email ?? "");
@@ -99,30 +83,14 @@ function SettingsPage() {
     { id: "dark", label: "Dark", hint: "Always use the dark theme." },
   ];
 
-  const saveWorkspace = () => {
-    const result = setWorkspaceSettings({
-      workspaceName: name.trim(),
-      defaultBillable,
-      weekStart,
-    });
-    if (!result.success) {
-      setWorkspaceError(result.error);
-      return;
-    }
-    setWorkspaceError(null);
-    toast(t("Workspace settings saved"));
-  };
-
-  const savePreference = <K extends keyof typeof preferences>(
-    patch: Pick<typeof preferences, K>,
-  ) => {
+  const savePreference = (patch: Partial<typeof preferences>) => {
     const result = setUserPreferences(patch);
     if (!result.success) {
       setPreferenceError(result.error);
       return;
     }
     setPreferenceError(null);
-    const locale = "language" in patch ? patch.language : preferences.language;
+    const locale = patch.language ?? preferences.language;
     toast(translate("Preferences saved", locale));
   };
 
@@ -193,7 +161,7 @@ function SettingsPage() {
       <div className="max-w-2xl space-y-6">
         <PageHeader
           title={t("Settings")}
-          description={t("Manage your account, personal preferences and workspace defaults.")}
+          description={t("Manage your account and personal preferences.")}
         />
         <FormAlert
           title={t("Account")}
@@ -207,7 +175,7 @@ function SettingsPage() {
     <div className="max-w-2xl space-y-6">
       <PageHeader
         title={t("Settings")}
-        description={t("Manage your account, personal preferences and workspace defaults.")}
+        description={t("Manage your account and personal preferences.")}
       />
 
       <section
@@ -395,7 +363,9 @@ function SettingsPage() {
             key={item.key}
             aria-label={t(item.title)}
             isSelected={preferences[item.key]}
-            onChange={(selected: boolean) => savePreference({ [item.key]: selected })}
+            onChange={(selected: boolean) =>
+              savePreference({ [item.key]: selected } as Partial<typeof preferences>)
+            }
           >
             <Switch.Control>
               <Switch.Thumb />
@@ -407,105 +377,6 @@ function SettingsPage() {
           </Switch>
         ))}
       </div>
-
-      {can("manage-workspace-settings") ? (
-        <Form
-          className="space-y-5 rounded-2xl border border-default bg-surface p-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            saveWorkspace();
-          }}
-        >
-          <div>
-            <h2 className="font-medium text-foreground">{t("Workspace settings")}</h2>
-            <p className="mt-1 text-sm text-muted">
-              {t("Defaults shared by everyone in the workspace.")}
-            </p>
-          </div>
-
-          {workspaceError ? (
-            <FormAlert
-              title={t("Could not save workspace settings")}
-              description={error(workspaceError)}
-            />
-          ) : null}
-
-          <TextField
-            isRequired
-            fullWidth
-            name="workspace-name"
-            value={name}
-            validate={(value) => (value.trim() ? null : t("Workspace name is required"))}
-            onChange={(value) => {
-              setName(value);
-              setWorkspaceError(null);
-            }}
-          >
-            <Label>{t("Workspace name")}</Label>
-            <Input />
-            <FieldError />
-          </TextField>
-
-          <Switch
-            aria-label={t("Billable by default")}
-            isSelected={defaultBillable}
-            onChange={(selected: boolean) => {
-              setDefaultBillable(selected);
-              setWorkspaceError(null);
-            }}
-          >
-            <Switch.Control>
-              <Switch.Thumb />
-            </Switch.Control>
-            <Switch.Content>
-              <Label>{t("Billable by default")}</Label>
-              <Description>{t("New entries start marked as billable.")}</Description>
-            </Switch.Content>
-          </Switch>
-
-          <div className="flex flex-col gap-2">
-            <Label>{t("Week starts on")}</Label>
-            <Select
-              aria-label={t("Week starts on")}
-              value={weekStart}
-              onChange={(key) => setWeekStart(String(key ?? "monday") as "monday" | "sunday")}
-            >
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  {(["monday", "sunday"] as const).map((day) => (
-                    <ListBox.Item
-                      key={day}
-                      id={day}
-                      textValue={t(day === "monday" ? "Monday" : "Sunday")}
-                    >
-                      <Label>{t(day === "monday" ? "Monday" : "Sunday")}</Label>
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-          </div>
-
-          <div className="flex justify-end border-t border-default pt-4">
-            <Button type="submit" isDisabled={!name.trim()}>
-              {t("Save workspace settings")}
-            </Button>
-          </div>
-        </Form>
-      ) : (
-        <div className="rounded-2xl border border-default bg-surface p-5">
-          <FormAlert
-            status="default"
-            title={t("Workspace settings")}
-            description={t("Workspace settings are managed by Admins and the Owner.")}
-          />
-        </div>
-      )}
 
       <div className="space-y-3 rounded-2xl border border-default bg-surface p-5">
         <div>

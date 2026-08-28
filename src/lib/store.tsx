@@ -23,6 +23,7 @@ export type TimerStatus = "idle" | "running" | "paused";
 
 export interface TimerState {
   status: TimerStatus;
+  workspaceId: string | null;
   task: string;
   projectId: string | null;
   billable: boolean;
@@ -32,111 +33,42 @@ export interface TimerState {
   startClock: string;
 }
 
-const initialTimer: TimerState = {
-  status: "idle",
-  task: "",
-  projectId: null,
-  billable: true,
-  startedAt: null,
-  startedDate: null,
-  accumulated: 0,
-  startClock: "09:00",
-};
+export type WorkspaceStatus = "active" | "archived";
 
-const ACTIVE_MEMBER_STORAGE_KEY = "time-blossom:active-member:v1";
-const SESSION_STORAGE_KEY = "time-blossom:session:v1";
-const TIMER_STORAGE_KEY = (memberId: string) => `time-blossom:active-timer:v2:${memberId}`;
-const WORKSPACE_STORAGE_KEY = "time-blossom:workspace:v8";
-const LEGACY_WORKSPACE_STORAGE_KEYS = [
-  `time-blossom:workspace:v7`,
-  `time-blossom:workspace:v6`,
-  `time-blossom:workspace:v5`,
-  `time-blossom:workspace:v4:${defaultCurrentUserId}`,
-  `time-blossom:workspace:v3:${defaultCurrentUserId}`,
-  `time-blossom:workspace:v2:${defaultCurrentUserId}`,
-];
-
-function isValidClock(value: unknown): value is string {
-  return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+export interface UserIdentity {
+  id: string;
+  name: string;
+  email: string;
+  initials: string;
 }
 
-function isValidTimerSnapshot(
-  value: unknown,
-  availableProjects = seedProjects,
-): value is TimerState {
-  if (!value || typeof value !== "object") return false;
-  const snapshot = value as Partial<TimerState>;
-  if (snapshot.status !== "running" && snapshot.status !== "paused") return false;
-  if (typeof snapshot.task !== "string" || !snapshot.task.trim()) return false;
-  if (snapshot.projectId !== null && typeof snapshot.projectId !== "string") return false;
-  if (
-    snapshot.projectId !== null &&
-    !availableProjects.some((project) => project.id === snapshot.projectId)
-  ) {
-    return false;
-  }
-  if (typeof snapshot.billable !== "boolean") return false;
-  if (!isValidClock(snapshot.startClock)) return false;
-  if (typeof snapshot.startedDate !== "string" || !isValidDateOnly(snapshot.startedDate)) {
-    return false;
-  }
-  if (typeof snapshot.accumulated !== "number" || !Number.isFinite(snapshot.accumulated)) {
-    return false;
-  }
-  if (snapshot.accumulated < 0) return false;
-  if (snapshot.status === "running") {
-    if (typeof snapshot.startedAt !== "number" || !Number.isFinite(snapshot.startedAt)) {
-      return false;
-    }
-    if (snapshot.startedAt > Date.now() + 60_000) return false;
-  } else if (snapshot.startedAt !== null) {
-    return false;
-  }
-  return true;
+export interface Workspace {
+  id: string;
+  name: string;
+  ownerId: string;
+  logoDataUrl: string | null;
+  status: WorkspaceStatus;
+  createdAt: string;
+  archivedAt?: string;
 }
 
-function readPersistedTimer(memberId: string, availableProjects = seedProjects): TimerState {
-  if (typeof window === "undefined") return initialTimer;
-
-  try {
-    const key = TIMER_STORAGE_KEY(memberId);
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return initialTimer;
-    const parsed: unknown = JSON.parse(raw);
-    if (!isValidTimerSnapshot(parsed, availableProjects)) {
-      window.localStorage.removeItem(key);
-      return initialTimer;
-    }
-    return parsed;
-  } catch {
-    try {
-      window.localStorage.removeItem(TIMER_STORAGE_KEY(memberId));
-    } catch {
-      // Storage can be unavailable in private or restricted browsing contexts.
-    }
-    return initialTimer;
-  }
+export interface WorkspaceMembership {
+  workspaceId: string;
+  userId: string;
+  role: Role;
+  status: Member["status"];
+  invitedAt?: string;
+  joinedAt?: string;
 }
 
-function elapsedForTimer(timer: TimerState, now = Date.now()): number {
-  if (timer.status !== "running" || timer.startedAt === null) {
-    return timer.accumulated;
-  }
-  return Math.max(0, timer.accumulated + Math.floor((now - timer.startedAt) / 1000));
+export interface WorkspaceSummary extends Workspace {
+  ownerName: string;
+  role: Role;
+  membershipStatus: Member["status"];
+  isOwned: boolean;
 }
-
-const initialTrello: TrelloState = {
-  status: "disconnected",
-  workspace: null,
-  board: null,
-  lists: [],
-  cards: [],
-  rule: "lists",
-  lastSync: null,
-};
 
 export interface WorkspaceSettings {
-  workspaceName: string;
   defaultBillable: boolean;
   weekStart: "monday" | "sunday";
 }
@@ -166,8 +98,38 @@ export type Permission =
   | "manage-workspace-settings"
   | "manage-integrations";
 
+export type StoreResult = { success: true; id?: string } | { success: false; error: string };
+
+export interface WorkspaceData {
+  workspace: Workspace;
+  memberships: WorkspaceMembership[];
+  entries: TimeEntry[];
+  projects: Project[];
+  clients: Client[];
+  settings: WorkspaceSettings;
+  trello: TrelloState;
+}
+
+type PersistedAccount = {
+  version: 9;
+  identities: UserIdentity[];
+  workspaces: WorkspaceData[];
+  preferencesByUserId: Record<string, UserPreferences>;
+};
+
+const initialTimer: TimerState = {
+  status: "idle",
+  workspaceId: null,
+  task: "",
+  projectId: null,
+  billable: true,
+  startedAt: null,
+  startedDate: null,
+  accumulated: 0,
+  startClock: "09:00",
+};
+
 const initialSettings: WorkspaceSettings = {
-  workspaceName: "Studio Co.",
   defaultBillable: true,
   weekStart: "monday",
 };
@@ -181,15 +143,40 @@ const initialPreferences: UserPreferences = {
   avatarUrl: null,
 };
 
-type PersistedWorkspace = {
-  version: 8;
-  entries: TimeEntry[];
-  projects: Project[];
-  clients: Client[];
-  members: Member[];
-  settings: WorkspaceSettings;
-  preferencesByMemberId: Record<string, UserPreferences>;
+const initialTrello: TrelloState = {
+  status: "disconnected",
+  workspace: null,
+  board: null,
+  lists: [],
+  cards: [],
+  rule: "lists",
+  lastSync: null,
 };
+
+const ACTIVE_MEMBER_STORAGE_KEY = "time-blossom:active-member:v1";
+const ACTIVE_WORKSPACE_STORAGE_KEY = "time-blossom:active-workspace:v1";
+const SESSION_STORAGE_KEY = "time-blossom:session:v1";
+const ACCOUNT_STORAGE_KEY = "time-blossom:account:v9";
+const LEGACY_ACCOUNT_KEYS = [
+  "time-blossom:workspace:v8",
+  "time-blossom:workspace:v7",
+  "time-blossom:workspace:v6",
+  "time-blossom:workspace:v5",
+  `time-blossom:workspace:v4:${defaultCurrentUserId}`,
+  `time-blossom:workspace:v3:${defaultCurrentUserId}`,
+  `time-blossom:workspace:v2:${defaultCurrentUserId}`,
+];
+const TIMER_STORAGE_KEY = (memberId: string, workspaceId: string) =>
+  `time-blossom:active-timer:v3:${memberId}:${workspaceId}`;
+const LEGACY_TIMER_STORAGE_KEY = (memberId: string) => `time-blossom:active-timer:v2:${memberId}`;
+
+function isValidClock(value: unknown): value is string {
+  return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
 
 function isThemeMode(value: unknown): value is ThemeMode {
   return value === "system" || value === "light" || value === "dark";
@@ -204,13 +191,84 @@ function isValidAvatarUrl(value: unknown): value is string | null {
   );
 }
 
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value);
+function isValidLogoUrl(value: unknown): value is string | null {
+  return (
+    value === null ||
+    (typeof value === "string" &&
+      /^data:image\/(?:png|jpeg|webp);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
+      value.length <= 900_000)
+  );
+}
 
-function isValidTimeEntrySnapshot(
-  value: unknown,
-  availableProjects: Project[],
-): value is TimeEntry {
+function isValidPreferences(value: unknown): value is UserPreferences {
+  if (!value || typeof value !== "object") return false;
+  const prefs = value as Partial<UserPreferences>;
+  return (
+    typeof prefs.reminders === "boolean" &&
+    typeof prefs.weeklyDigest === "boolean" &&
+    typeof prefs.idleDetection === "boolean" &&
+    isLocale(prefs.language) &&
+    isThemeMode(prefs.theme) &&
+    isValidAvatarUrl(prefs.avatarUrl)
+  );
+}
+
+function isValidSettings(value: unknown): value is WorkspaceSettings {
+  if (!value || typeof value !== "object") return false;
+  const settings = value as Partial<WorkspaceSettings>;
+  return (
+    typeof settings.defaultBillable === "boolean" &&
+    (settings.weekStart === "monday" || settings.weekStart === "sunday")
+  );
+}
+
+function isValidClient(value: unknown): value is Client {
+  if (!value || typeof value !== "object") return false;
+  const client = value as Partial<Client>;
+  return (
+    typeof client.id === "string" &&
+    typeof client.name === "string" &&
+    Boolean(client.name.trim()) &&
+    typeof client.contact === "string"
+  );
+}
+
+function isValidMember(value: unknown): value is Member {
+  if (!value || typeof value !== "object") return false;
+  const member = value as Partial<Member>;
+  return (
+    typeof member.id === "string" &&
+    typeof member.name === "string" &&
+    Boolean(member.name.trim()) &&
+    typeof member.email === "string" &&
+    Boolean(member.email.trim()) &&
+    (member.role === "Owner" || member.role === "Admin" || member.role === "Member") &&
+    (member.status === "active" || member.status === "invited" || member.status === "removed") &&
+    typeof member.initials === "string"
+  );
+}
+
+function isValidProject(value: unknown, clients: Client[]): value is Project {
+  if (!value || typeof value !== "object") return false;
+  const project = value as Partial<Project>;
+  return (
+    typeof project.id === "string" &&
+    typeof project.name === "string" &&
+    Boolean(project.name.trim()) &&
+    typeof project.clientId === "string" &&
+    clients.some((client) => client.id === project.clientId) &&
+    typeof project.billable === "boolean" &&
+    (project.status === "active" ||
+      project.status === "on-hold" ||
+      project.status === "archived") &&
+    typeof project.color === "string" &&
+    typeof project.lastActivity === "string" &&
+    Array.isArray(project.memberIds) &&
+    project.memberIds.every((id) => typeof id === "string")
+  );
+}
+
+function isValidEntry(value: unknown, projects: Project[]): value is TimeEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Partial<TimeEntry>;
   if (
@@ -222,327 +280,351 @@ function isValidTimeEntrySnapshot(
     typeof entry.userId !== "string" ||
     typeof entry.task !== "string" ||
     typeof entry.billable !== "boolean"
-  ) {
+  )
     return false;
-  }
   if (!isValidDateOnly(entry.date) || !isValidDateOnly(entry.endDate ?? entry.date)) return false;
   if (entry.endDate && entry.endDate < entry.date) return false;
   if (!isValidClock(entry.start) || !isValidClock(entry.end)) return false;
   if (entry.projectId !== null && typeof entry.projectId !== "string") return false;
-  if (
-    entry.projectId !== null &&
-    !availableProjects.some((project) => project.id === entry.projectId)
-  ) {
+  if (entry.projectId !== null && !projects.some((project) => project.id === entry.projectId))
     return false;
-  }
   if (!entry.task.trim() || !isFiniteNumber(entry.seconds) || entry.seconds <= 0) return false;
   if (entry.startTimestamp !== undefined && !isFiniteNumber(entry.startTimestamp)) return false;
   if (entry.endTimestamp !== undefined && !isFiniteNumber(entry.endTimestamp)) return false;
   if ((entry.startTimestamp === undefined) !== (entry.endTimestamp === undefined)) return false;
-  if (
-    entry.startTimestamp !== undefined &&
-    entry.endTimestamp !== undefined &&
-    entry.endTimestamp < entry.startTimestamp
-  ) {
+  if (entry.startTimestamp !== undefined && entry.endTimestamp! < entry.startTimestamp)
     return false;
-  }
-  const elapsedSeconds = getElapsedSeconds(entry as TimeEntry);
-  if (elapsedSeconds <= 0 || Math.abs(elapsedSeconds - entry.seconds) > 1) return false;
-  return true;
+  const calculated = getElapsedSeconds(entry as TimeEntry);
+  return calculated > 0 && Math.abs(calculated - entry.seconds) <= 1;
 }
 
-function isValidClientSnapshot(value: unknown): value is Client {
-  if (!value || typeof value !== "object") return false;
-  const client = value as Partial<Client>;
-  return (
-    typeof client.id === "string" &&
-    typeof client.name === "string" &&
-    Boolean(client.name.trim()) &&
-    typeof client.contact === "string"
-  );
-}
-
-function isValidProjectSnapshot(value: unknown): value is Project {
-  if (!value || typeof value !== "object") return false;
-  const project = value as Partial<Project>;
-  return (
-    typeof project.id === "string" &&
-    typeof project.name === "string" &&
-    Boolean(project.name.trim()) &&
-    typeof project.clientId === "string" &&
-    typeof project.billable === "boolean" &&
-    (project.status === "active" ||
-      project.status === "on-hold" ||
-      project.status === "archived") &&
-    typeof project.color === "string" &&
-    typeof project.lastActivity === "string" &&
-    Array.isArray(project.memberIds) &&
-    project.memberIds.every((memberId) => typeof memberId === "string")
-  );
-}
-
-function isValidMemberSnapshot(value: unknown): value is Member {
-  if (!value || typeof value !== "object") return false;
-  const member = value as Partial<Member>;
-  return (
-    typeof member.id === "string" &&
-    typeof member.name === "string" &&
-    Boolean(member.name.trim()) &&
-    typeof member.email === "string" &&
-    Boolean(member.email.trim()) &&
-    (member.role === "Owner" || member.role === "Admin" || member.role === "Member") &&
-    (member.status === "active" || member.status === "invited" || member.status === "removed") &&
-    typeof member.initials === "string" &&
-    (!member.invitedAt || typeof member.invitedAt === "string")
-  );
-}
-
-function isValidSettingsSnapshot(value: unknown): value is WorkspaceSettings {
-  if (!value || typeof value !== "object") return false;
-  const settings = value as Partial<WorkspaceSettings>;
-  return (
-    typeof settings.workspaceName === "string" &&
-    typeof settings.defaultBillable === "boolean" &&
-    (settings.weekStart === "monday" || settings.weekStart === "sunday")
-  );
-}
-
-function isValidLegacySettingsSnapshot(value: unknown): value is {
-  workspaceName: string;
-  defaultBillable: boolean;
-  weekStart: "monday" | "sunday";
-} {
-  if (!value || typeof value !== "object") return false;
-  const settings = value as Partial<WorkspaceSettings>;
-  return (
-    typeof settings.workspaceName === "string" &&
-    typeof settings.defaultBillable === "boolean" &&
-    (settings.weekStart === "monday" || settings.weekStart === "sunday")
-  );
-}
-
-function isValidPreferencesSnapshot(value: unknown): value is UserPreferences {
-  if (!value || typeof value !== "object") return false;
-  const preferences = value as Partial<UserPreferences>;
-  return (
-    typeof preferences.reminders === "boolean" &&
-    typeof preferences.weeklyDigest === "boolean" &&
-    typeof preferences.idleDetection === "boolean" &&
-    isLocale(preferences.language) &&
-    isThemeMode(preferences.theme) &&
-    isValidAvatarUrl(preferences.avatarUrl)
-  );
-}
-
-function isValidPreferencesMap(value: unknown): value is Record<string, UserPreferences> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  return Object.values(value).every(isValidPreferencesSnapshot);
-}
-
-function isValidWorkspaceSnapshot(value: unknown): value is PersistedWorkspace {
-  if (!value || typeof value !== "object") return false;
-  const snapshot = value as Partial<PersistedWorkspace>;
-  if (snapshot.version !== 8) return false;
-  if (!Array.isArray(snapshot.projects) || !Array.isArray(snapshot.clients)) return false;
-  if (!Array.isArray(snapshot.members)) return false;
-  if (
-    !Array.isArray(snapshot.entries) ||
-    !isValidSettingsSnapshot(snapshot.settings) ||
-    !isValidPreferencesMap(snapshot.preferencesByMemberId)
-  ) {
-    return false;
-  }
-  if (!snapshot.clients.every(isValidClientSnapshot)) return false;
-  if (!snapshot.members.every(isValidMemberSnapshot)) return false;
-  if (
-    !snapshot.projects.every(
-      (project) =>
-        isValidProjectSnapshot(project) &&
-        snapshot.clients?.some((client) => client.id === project.clientId),
-    )
-  ) {
-    return false;
-  }
-  return snapshot.entries.every((entry) =>
-    isValidTimeEntrySnapshot(entry, snapshot.projects ?? []),
-  );
-}
-
-function migrateLegacyWorkspace(value: unknown): PersistedWorkspace | null {
-  if (!value || typeof value !== "object") return null;
-  const legacy = value as {
-    version?: unknown;
-    entries?: unknown;
-    projects?: unknown;
-    clients?: unknown;
-    members?: unknown;
-    settings?: unknown;
-    preferencesByMemberId?: unknown;
-  };
-  const legacySettings = legacy.settings;
-  if (
-    (legacy.version !== 2 &&
-      legacy.version !== 3 &&
-      legacy.version !== 4 &&
-      legacy.version !== 5 &&
-      legacy.version !== 6 &&
-      legacy.version !== 7) ||
-    !Array.isArray(legacy.entries) ||
-    !Array.isArray(legacy.projects) ||
-    !Array.isArray(legacy.clients) ||
-    !isValidLegacySettingsSnapshot(legacySettings)
-  ) {
-    return null;
-  }
-
-  const legacyClients = legacy.clients as Array<Record<string, unknown>>;
-  const clients = legacyClients.map((client) => ({
-    id: client["id"],
-    name: client["name"],
-    contact: typeof client["contact"] === "string" ? client["contact"].trim() : "",
-  })) as unknown[];
-  if (!clients.every(isValidClientSnapshot)) return null;
-
-  const legacyBillability = new Map(
-    legacyClients.map((client) => [
-      String(client["id"]),
-      typeof client["billable"] === "boolean" ? client["billable"] : legacySettings.defaultBillable,
-    ]),
-  );
-  const projects = legacy.projects.map((rawProject) => {
-    if (!rawProject || typeof rawProject !== "object") return null;
-    const project = rawProject as Record<string, unknown>;
-    const billable =
-      typeof project["billable"] === "boolean"
-        ? project["billable"]
-        : (legacyBillability.get(String(project["clientId"])) ?? legacySettings.defaultBillable);
-    const normalized = { ...project, billable };
-    return isValidProjectSnapshot(normalized) ? normalized : null;
-  });
-  if (!projects.every(isValidProjectSnapshot)) return null;
-
-  const normalizedClients = clients as Client[];
-  const normalizedProjects = projects as Project[];
-  const normalizedMembers =
-    legacy.members === undefined
-      ? seedMembers
-      : Array.isArray(legacy.members) && legacy.members.every(isValidMemberSnapshot)
-        ? (legacy.members as Member[])
-        : null;
-  if (!normalizedMembers) return null;
-  if (
-    !normalizedProjects.every((project) =>
-      normalizedClients.some((client) => client.id === project.clientId),
-    )
-  ) {
-    return null;
-  }
-  if (!legacy.entries.every((entry) => isValidTimeEntrySnapshot(entry, normalizedProjects))) {
-    return null;
-  }
-
-  const legacySettingsWithPreferences = legacySettings as WorkspaceSettings &
-    Partial<UserPreferences>;
-  const preferencesByMemberId: Record<string, UserPreferences> = {};
-  for (const member of normalizedMembers) {
-    const stored =
-      legacy.preferencesByMemberId &&
-      typeof legacy.preferencesByMemberId === "object" &&
-      !Array.isArray(legacy.preferencesByMemberId)
-        ? (legacy.preferencesByMemberId as Record<string, unknown>)[member.id]
-        : undefined;
-    const candidate =
-      stored && typeof stored === "object" && !Array.isArray(stored)
-        ? (stored as Record<string, unknown>)
-        : {};
-    preferencesByMemberId[member.id] = {
-      reminders:
-        typeof candidate.reminders === "boolean"
-          ? candidate.reminders
-          : (legacySettingsWithPreferences.reminders ?? initialPreferences.reminders),
-      weeklyDigest:
-        typeof candidate.weeklyDigest === "boolean"
-          ? candidate.weeklyDigest
-          : (legacySettingsWithPreferences.weeklyDigest ?? initialPreferences.weeklyDigest),
-      idleDetection:
-        typeof candidate.idleDetection === "boolean"
-          ? candidate.idleDetection
-          : (legacySettingsWithPreferences.idleDetection ?? initialPreferences.idleDetection),
-      language: isLocale(candidate.language) ? candidate.language : defaultLocale,
-      theme: isThemeMode(candidate.theme) ? candidate.theme : initialPreferences.theme,
-      avatarUrl: isValidAvatarUrl(candidate.avatarUrl) ? candidate.avatarUrl : null,
-    };
-  }
-
+function membershipToMember(
+  membership: WorkspaceMembership,
+  identities: UserIdentity[],
+): Member | null {
+  const identity = identities.find((candidate) => candidate.id === membership.userId);
+  if (!identity) return null;
   return {
-    version: 8,
-    entries: legacy.entries,
-    projects: normalizedProjects,
-    clients: normalizedClients,
-    members: normalizedMembers,
-    settings: {
-      workspaceName: legacySettings.workspaceName,
-      defaultBillable: legacySettings.defaultBillable,
-      weekStart: legacySettings.weekStart,
-    },
-    preferencesByMemberId,
+    ...identity,
+    role: membership.role,
+    status: membership.status,
+    ...(membership.invitedAt ? { invitedAt: membership.invitedAt } : {}),
   };
 }
 
-function readPersistedWorkspace(): PersistedWorkspace {
-  const fallback: PersistedWorkspace = {
-    version: 8,
+function membersToMemberships(workspaceId: string, members: Member[]): WorkspaceMembership[] {
+  return members.map((member) => ({
+    workspaceId,
+    userId: member.id,
+    role: member.role,
+    status: member.status,
+    ...(member.invitedAt ? { invitedAt: member.invitedAt } : {}),
+  }));
+}
+
+function createIdentity(member: Member): UserIdentity {
+  return { id: member.id, name: member.name, email: member.email, initials: member.initials };
+}
+
+function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  if (
+    !Array.isArray(raw["entries"]) ||
+    !Array.isArray(raw["projects"]) ||
+    !Array.isArray(raw["clients"])
+  )
+    return null;
+  const legacySettings = raw["settings"] as Record<string, unknown> | undefined;
+  if (
+    !legacySettings ||
+    typeof legacySettings["defaultBillable"] !== "boolean" ||
+    (legacySettings["weekStart"] !== "monday" && legacySettings["weekStart"] !== "sunday")
+  )
+    return null;
+  const clients = raw["clients"].filter(isValidClient) as Client[];
+  if (clients.length !== raw["clients"].length) return null;
+  const projects = raw["projects"]
+    .map((candidate) => {
+      if (!candidate || typeof candidate !== "object") return null;
+      const project = candidate as Record<string, unknown>;
+      const normalized = {
+        ...project,
+        billable:
+          typeof project["billable"] === "boolean"
+            ? project["billable"]
+            : legacySettings["defaultBillable"],
+      };
+      return isValidProject(normalized, clients) ? (normalized as Project) : null;
+    })
+    .filter((project): project is Project => project !== null);
+  if (projects.length !== raw["projects"].length) return null;
+  const entries = raw["entries"].filter((entry) => isValidEntry(entry, projects)) as TimeEntry[];
+  if (entries.length !== raw["entries"].length) return null;
+  const legacyMembers = raw["members"];
+  const members =
+    Array.isArray(legacyMembers) && legacyMembers.every(isValidMember)
+      ? (legacyMembers as Member[])
+      : seedMembers;
+  const workspaceId = "w1";
+  const owner = members.find((member) => member.role === "Owner") ?? members[0];
+  const workspaceName =
+    typeof legacySettings["workspaceName"] === "string" && legacySettings["workspaceName"].trim()
+      ? legacySettings["workspaceName"].trim()
+      : "Studio Co.";
+  const identities = members.map(createIdentity);
+  const preferencesByUserId: Record<string, UserPreferences> = {};
+  const legacyPreferences = raw["preferencesByMemberId"];
+  for (const member of members) {
+    const candidate =
+      legacyPreferences && typeof legacyPreferences === "object"
+        ? (legacyPreferences as Record<string, unknown>)[member.id]
+        : null;
+    preferencesByUserId[member.id] = isValidPreferences(candidate)
+      ? candidate
+      : { ...initialPreferences };
+  }
+  return {
+    version: 9,
+    identities,
+    workspaces: [
+      {
+        workspace: {
+          id: workspaceId,
+          name: workspaceName,
+          ownerId: owner?.id ?? defaultCurrentUserId,
+          logoDataUrl: null,
+          status: "active",
+          createdAt: new Date().toISOString(),
+        },
+        memberships: membersToMemberships(workspaceId, members),
+        entries,
+        projects,
+        clients,
+        settings: {
+          defaultBillable: legacySettings["defaultBillable"],
+          weekStart: legacySettings["weekStart"],
+        },
+        trello: initialTrello,
+      },
+    ],
+    preferencesByUserId,
+  };
+}
+
+function makeSeedAccount(): PersistedAccount {
+  const identities = seedMembers.map(createIdentity);
+  const defaultWorkspaceId = "w1";
+  const sharedWorkspaceId = "w2";
+  const defaultWorkspace: WorkspaceData = {
+    workspace: {
+      id: defaultWorkspaceId,
+      name: "Studio Co.",
+      ownerId: "u1",
+      logoDataUrl: null,
+      status: "active",
+      createdAt: "2026-08-01T09:00:00.000Z",
+    },
+    memberships: membersToMemberships(defaultWorkspaceId, seedMembers),
     entries: seedEntries,
     projects: seedProjects,
     clients: seedClients,
-    members: seedMembers,
-    settings: initialSettings,
-    preferencesByMemberId: Object.fromEntries(
-      seedMembers.map((member) => [member.id, { ...initialPreferences }]),
+    settings: { ...initialSettings },
+    trello: initialTrello,
+  };
+  const sharedMembers: Member[] = [
+    { ...seedMembers[1]!, role: "Owner" },
+    { ...seedMembers[0]!, role: "Member" },
+    { ...seedMembers[2]!, role: "Member" },
+  ];
+  const sharedWorkspace: WorkspaceData = {
+    workspace: {
+      id: sharedWorkspaceId,
+      name: "Product Lab",
+      ownerId: "u2",
+      logoDataUrl: null,
+      status: "active",
+      createdAt: "2026-08-05T09:00:00.000Z",
+    },
+    memberships: membersToMemberships(sharedWorkspaceId, sharedMembers),
+    entries: seedEntries.filter((entry) => entry.projectId === "p1"),
+    projects: seedProjects.filter((project) => project.id === "p1"),
+    clients: seedClients.filter((client) => client.id === "c1"),
+    settings: { ...initialSettings },
+    trello: initialTrello,
+  };
+  return {
+    version: 9,
+    identities,
+    workspaces: [defaultWorkspace, sharedWorkspace],
+    preferencesByUserId: Object.fromEntries(
+      identities.map((identity) => [identity.id, { ...initialPreferences }]),
     ),
   };
-  if (typeof window === "undefined") return fallback;
+}
 
+function isValidAccount(value: unknown): value is PersistedAccount {
+  if (!value || typeof value !== "object") return false;
+  const account = value as Partial<PersistedAccount>;
+  if (
+    account.version !== 9 ||
+    !Array.isArray(account.identities) ||
+    !Array.isArray(account.workspaces) ||
+    !account.preferencesByUserId ||
+    typeof account.preferencesByUserId !== "object"
+  )
+    return false;
+  const identities = account.identities;
+  const workspaces = account.workspaces;
+  const preferencesByUserId = account.preferencesByUserId;
+  const identityIds = new Set(identities.map((identity) => identity.id));
+  const workspaceIds = new Set(workspaces.map((data) => data.workspace.id));
+  if (
+    identities.length === 0 ||
+    identityIds.size !== identities.length ||
+    !identities.every(
+      (identity) =>
+        identity &&
+        typeof identity.id === "string" &&
+        Boolean(identity.id.trim()) &&
+        typeof identity.name === "string" &&
+        Boolean(identity.name.trim()) &&
+        typeof identity.email === "string" &&
+        Boolean(identity.email.trim()) &&
+        typeof identity.initials === "string" &&
+        Boolean(identity.initials.trim()),
+    ) ||
+    !Object.values(preferencesByUserId).every(isValidPreferences)
+  )
+    return false;
+  if (workspaceIds.size !== workspaces.length) return false;
+  return workspaces.every((data) => {
+    if (!data || typeof data !== "object") return false;
+    const workspace = data.workspace;
+    if (
+      !workspace ||
+      typeof workspace.id !== "string" ||
+      typeof workspace.name !== "string" ||
+      !workspace.name.trim() ||
+      typeof workspace.ownerId !== "string" ||
+      !isValidLogoUrl(workspace.logoDataUrl) ||
+      (workspace.status !== "active" && workspace.status !== "archived") ||
+      typeof workspace.createdAt !== "string" ||
+      Number.isNaN(Date.parse(workspace.createdAt)) ||
+      (workspace.archivedAt !== undefined &&
+        (typeof workspace.archivedAt !== "string" ||
+          Number.isNaN(Date.parse(workspace.archivedAt)))) ||
+      !identityIds.has(workspace.ownerId) ||
+      !Array.isArray(data.memberships) ||
+      !Array.isArray(data.clients) ||
+      !Array.isArray(data.projects) ||
+      !Array.isArray(data.entries) ||
+      !isValidSettings(data.settings)
+    )
+      return false;
+    if (!data.clients.every(isValidClient)) return false;
+    const membershipIds = new Set(data.memberships.map((membership) => membership.userId));
+    if (membershipIds.size !== data.memberships.length) return false;
+    if (
+      !data.memberships.every(
+        (membership) =>
+          membership &&
+          membership.workspaceId === workspace.id &&
+          typeof membership.userId === "string" &&
+          identityIds.has(membership.userId) &&
+          (membership.role === "Owner" ||
+            membership.role === "Admin" ||
+            membership.role === "Member") &&
+          (membership.status === "active" ||
+            membership.status === "invited" ||
+            membership.status === "removed") &&
+          (membership.invitedAt === undefined ||
+            (typeof membership.invitedAt === "string" &&
+              !Number.isNaN(Date.parse(membership.invitedAt)))) &&
+          (membership.joinedAt === undefined ||
+            (typeof membership.joinedAt === "string" &&
+              !Number.isNaN(Date.parse(membership.joinedAt)))),
+      )
+    )
+      return false;
+    const ownerMemberships = data.memberships.filter(
+      (membership) => membership.role === "Owner" && membership.userId === workspace.ownerId,
+    );
+    if (ownerMemberships.length !== 1) return false;
+    if (
+      data.memberships.some(
+        (membership) => membership.role === "Owner" && membership.userId !== workspace.ownerId,
+      )
+    )
+      return false;
+    if (!data.projects.every((project) => isValidProject(project, data.clients))) return false;
+    if (
+      data.projects.some((project) =>
+        project.memberIds.some((memberId) => !membershipIds.has(memberId)),
+      )
+    )
+      return false;
+    return data.entries.every(
+      (entry) =>
+        identityIds.has(entry.userId) &&
+        membershipIds.has(entry.userId) &&
+        isValidEntry(entry, data.projects),
+    );
+  });
+}
+
+function readPersistedAccount(): PersistedAccount {
+  if (typeof window === "undefined") return makeSeedAccount();
   try {
-    for (const key of [WORKSPACE_STORAGE_KEY, ...LEGACY_WORKSPACE_STORAGE_KEYS]) {
+    for (const key of [ACCOUNT_STORAGE_KEY, ...LEGACY_ACCOUNT_KEYS]) {
       const raw = window.localStorage.getItem(key);
       if (!raw) continue;
       const parsed: unknown = JSON.parse(raw);
-      if (isValidWorkspaceSnapshot(parsed)) return parsed;
-      const migrated = migrateLegacyWorkspace(parsed);
+      if (isValidAccount(parsed)) return parsed;
+      const migrated = normalizeLegacyAccount(parsed);
       if (migrated) {
-        window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(migrated));
-        if (LEGACY_WORKSPACE_STORAGE_KEYS.includes(key)) {
-          window.localStorage.removeItem(key);
-        }
+        window.localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(migrated));
+        if (key !== ACCOUNT_STORAGE_KEY) window.localStorage.removeItem(key);
         return migrated;
       }
     }
-    return fallback;
   } catch {
-    return fallback;
+    // Seed fallback keeps the local prototype usable after malformed storage.
   }
+  return makeSeedAccount();
 }
 
-function readActiveMemberId(availableMembers: Member[]): string {
-  if (typeof window === "undefined") return defaultCurrentUserId;
-  try {
-    const stored = window.localStorage.getItem(ACTIVE_MEMBER_STORAGE_KEY);
-    if (
-      stored &&
-      availableMembers.some((member) => member.id === stored && member.status === "active")
-    ) {
-      return stored;
+function readActiveMemberId(identities: UserIdentity[]): string {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = window.localStorage.getItem(ACTIVE_MEMBER_STORAGE_KEY);
+      if (stored && identities.some((identity) => identity.id === stored)) return stored;
+      window.localStorage.removeItem(ACTIVE_MEMBER_STORAGE_KEY);
+    } catch {
+      // Seed fallback.
     }
-    window.localStorage.removeItem(ACTIVE_MEMBER_STORAGE_KEY);
-  } catch {
-    // Fall back to the seeded owner when local storage is unavailable.
   }
-  return availableMembers.some(
-    (member) => member.id === defaultCurrentUserId && member.status === "active",
-  )
+  return identities.some((identity) => identity.id === defaultCurrentUserId)
     ? defaultCurrentUserId
-    : (availableMembers.find((member) => member.status === "active")?.id ?? defaultCurrentUserId);
+    : (identities[0]?.id ?? defaultCurrentUserId);
+}
+
+function readActiveWorkspaceId(account: PersistedAccount, memberId: string): string {
+  const accessible = account.workspaces.filter((data) =>
+    data.memberships.some(
+      (membership) => membership.userId === memberId && membership.status === "active",
+    ),
+  );
+  if (typeof window !== "undefined") {
+    try {
+      const stored = window.localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+      if (stored && accessible.some((data) => data.workspace.id === stored)) return stored;
+      window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
+    } catch {
+      // First accessible workspace fallback.
+    }
+  }
+  return accessible[0]?.workspace.id ?? account.workspaces[0]?.workspace.id ?? "w1";
 }
 
 function readSessionStatus(): SessionStatus {
@@ -556,7 +638,101 @@ function readSessionStatus(): SessionStatus {
   }
 }
 
-export type StoreResult = { success: true } | { success: false; error: string };
+function isValidTimerSnapshot(
+  value: unknown,
+  workspaceId: string,
+  projects: Project[],
+): value is TimerState {
+  if (!value || typeof value !== "object") return false;
+  const timer = value as Partial<TimerState>;
+  if (timer.status !== "running" && timer.status !== "paused") return false;
+  if (timer.workspaceId !== workspaceId || typeof timer.task !== "string" || !timer.task.trim())
+    return false;
+  if (
+    timer.projectId !== null &&
+    (typeof timer.projectId !== "string" ||
+      !projects.some((project) => project.id === timer.projectId))
+  )
+    return false;
+  if (
+    typeof timer.billable !== "boolean" ||
+    !isValidClock(timer.startClock) ||
+    typeof timer.startedDate !== "string" ||
+    !isValidDateOnly(timer.startedDate) ||
+    !isFiniteNumber(timer.accumulated) ||
+    timer.accumulated < 0
+  )
+    return false;
+  if (timer.status === "running") {
+    if (!isFiniteNumber(timer.startedAt) || timer.startedAt > Date.now() + 60_000) return false;
+  } else if (timer.startedAt !== null) return false;
+  return true;
+}
+
+function readPersistedTimer(
+  memberId: string,
+  workspaceId: string,
+  projects: Project[],
+): TimerState {
+  if (typeof window === "undefined") return initialTimer;
+  try {
+    const key = TIMER_STORAGE_KEY(memberId, workspaceId);
+    const raw = window.localStorage.getItem(key);
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (isValidTimerSnapshot(parsed, workspaceId, projects)) return parsed;
+      window.localStorage.removeItem(key);
+    }
+    const legacyRaw = window.localStorage.getItem(LEGACY_TIMER_STORAGE_KEY(memberId));
+    if (legacyRaw) {
+      const migrated = { ...(JSON.parse(legacyRaw) as Partial<TimerState>), workspaceId };
+      if (isValidTimerSnapshot(migrated, workspaceId, projects)) {
+        window.localStorage.setItem(key, JSON.stringify(migrated));
+        window.localStorage.removeItem(LEGACY_TIMER_STORAGE_KEY(memberId));
+        return migrated;
+      }
+    }
+  } catch {
+    try {
+      window.localStorage.removeItem(TIMER_STORAGE_KEY(memberId, workspaceId));
+    } catch {
+      /* no-op */
+    }
+  }
+  return initialTimer;
+}
+
+function elapsedForTimer(timer: TimerState, now = Date.now()): number {
+  if (timer.status !== "running" || timer.startedAt === null) return timer.accumulated;
+  return Math.max(0, timer.accumulated + Math.floor((now - timer.startedAt) / 1000));
+}
+
+function cloneTrello(trello: TrelloState): TrelloState {
+  return { ...trello, lists: [...trello.lists], cards: [...trello.cards] };
+}
+
+function displayNameFromInviteEmail(email: string): string {
+  const localPart = email
+    .split("@")[0]
+    ?.replace(/[._-]+/g, " ")
+    .trim();
+  if (!localPart) return email;
+  return localPart.replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function initialsFromName(name: string): string {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+  return initials || "?";
+}
+
+let idCounter = 100;
+const nextId = (prefix: string) => `${prefix}${++idCounter}`;
+const inviteEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface StoreValue {
   entries: TimeEntry[];
@@ -569,6 +745,10 @@ interface StoreValue {
   settings: WorkspaceSettings;
   preferences: UserPreferences;
   currentMember: Member | null;
+  currentWorkspace: Workspace | null;
+  currentWorkspaceMembership: WorkspaceMembership | null;
+  workspaces: WorkspaceSummary[];
+  activeWorkspaceId: string;
   sessionStatus: SessionStatus;
   can: (permission: Permission) => boolean;
   canTrackProject: (projectId: string) => boolean;
@@ -603,105 +783,124 @@ interface StoreValue {
   setWorkspaceSettings: (patch: Partial<WorkspaceSettings>) => StoreResult;
   setUserPreferences: (patch: Partial<UserPreferences>) => StoreResult;
   updateCurrentMemberEmail: (email: string) => StoreResult;
+  switchWorkspace: (workspaceId: string) => StoreResult;
+  createWorkspace: (name: string) => StoreResult;
+  updateWorkspace: (
+    workspaceId: string,
+    patch: { name?: string; logoDataUrl?: string | null },
+  ) => StoreResult;
+  archiveWorkspace: (workspaceId: string) => StoreResult;
+  restoreWorkspace: (workspaceId: string) => StoreResult;
+  leaveWorkspace: (workspaceId: string) => StoreResult;
   signOut: () => StoreResult;
   resumeSession: (memberId: string) => StoreResult;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
 
-let idCounter = 100;
-const nextId = (prefix: string) => `${prefix}${++idCounter}`;
-
-const inviteEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function displayNameFromInviteEmail(email: string): string {
-  const localPart = email
-    .split("@")[0]
-    ?.replace(/[._-]+/g, " ")
-    .trim();
-  if (!localPart) return email;
-  return localPart.replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function initialsFromName(name: string): string {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
-  return initials || "?";
-}
-
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [workspaceSnapshot] = useState<PersistedWorkspace>(() => readPersistedWorkspace());
+  const [account, setAccount] = useState<PersistedAccount>(() => readPersistedAccount());
   const [activeMemberId, setActiveMemberId] = useState(() =>
-    readActiveMemberId(workspaceSnapshot.members),
+    readActiveMemberId(account.identities),
+  );
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() =>
+    readActiveWorkspaceId(account, readActiveMemberId(account.identities)),
   );
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>(() => readSessionStatus());
-  const [entries, setEntries] = useState<TimeEntry[]>(workspaceSnapshot.entries);
-  const [projects, setProjects] = useState<Project[]>(workspaceSnapshot.projects);
-  const [clients, setClients] = useState<Client[]>(workspaceSnapshot.clients);
-  const [members, setMembers] = useState<Member[]>(workspaceSnapshot.members);
+  const activeData =
+    account.workspaces.find((data) => data.workspace.id === activeWorkspaceId) ??
+    account.workspaces[0];
+  const [entries, setEntries] = useState<TimeEntry[]>(() => activeData?.entries ?? []);
+  const [projects, setProjects] = useState<Project[]>(() => activeData?.projects ?? []);
+  const [clients, setClients] = useState<Client[]>(() => activeData?.clients ?? []);
+  const [members, setMembers] = useState<Member[]>(() =>
+    (activeData?.memberships ?? [])
+      .map((membership) => membershipToMember(membership, account.identities))
+      .filter((member): member is Member => member !== null),
+  );
+  const [settings, setSettingsState] = useState<WorkspaceSettings>(
+    () => activeData?.settings ?? initialSettings,
+  );
+  const [trello, setTrelloState] = useState<TrelloState>(() => activeData?.trello ?? initialTrello);
   const [timer, setTimer] = useState<TimerState>(() =>
-    readPersistedTimer(activeMemberId, workspaceSnapshot.projects),
+    activeData
+      ? readPersistedTimer(activeMemberId, activeData.workspace.id, activeData.projects)
+      : initialTimer,
   );
-  const [trello, setTrelloState] = useState<TrelloState>(initialTrello);
   const [elapsed, setElapsed] = useState(() => elapsedForTimer(timer));
-  const [settings, setSettingsState] = useState<WorkspaceSettings>(workspaceSnapshot.settings);
-  const [preferencesByMemberId, setPreferencesByMemberId] = useState(
-    workspaceSnapshot.preferencesByMemberId,
-  );
   const [today, setToday] = useState(() => getLocalToday());
-
+  const currentWorkspace = activeData?.workspace ?? null;
+  const currentWorkspaceMembership =
+    activeData?.memberships.find((membership) => membership.userId === activeMemberId) ?? null;
   const currentMember = members.find((member) => member.id === activeMemberId) ?? null;
-  const preferences = preferencesByMemberId[activeMemberId] ?? initialPreferences;
-
+  const preferences = account.preferencesByUserId[activeMemberId] ?? initialPreferences;
   const timerRef = useRef(timer);
   timerRef.current = timer;
 
   useEffect(() => {
     try {
-      if (timer.status === "idle") {
-        window.localStorage.removeItem(TIMER_STORAGE_KEY(activeMemberId));
-      } else {
-        window.localStorage.setItem(TIMER_STORAGE_KEY(activeMemberId), JSON.stringify(timer));
-      }
+      if (!currentWorkspace) return;
+      const key = TIMER_STORAGE_KEY(activeMemberId, currentWorkspace.id);
+      if (timer.status === "idle") window.localStorage.removeItem(key);
+      else window.localStorage.setItem(key, JSON.stringify(timer));
     } catch {
-      // The timer remains usable when browser storage is unavailable.
+      // Memory fallback.
     }
-  }, [activeMemberId, timer]);
+  }, [activeMemberId, currentWorkspace, timer]);
+
+  useEffect(() => {
+    const current = account.workspaces.find((data) => data.workspace.id === activeWorkspaceId);
+    if (!current) return;
+    const next: WorkspaceData = {
+      ...current,
+      entries,
+      projects,
+      clients,
+      memberships: membersToMemberships(activeWorkspaceId, members),
+      settings,
+      trello,
+    };
+    if (
+      current.entries === entries &&
+      current.projects === projects &&
+      current.clients === clients &&
+      current.settings === settings &&
+      current.trello === trello
+    )
+      return;
+    setAccount((previous) => ({
+      ...previous,
+      workspaces: previous.workspaces.map((data) =>
+        data.workspace.id === activeWorkspaceId ? next : data,
+      ),
+    }));
+  }, [activeWorkspaceId, clients, entries, members, projects, settings, trello]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(
-        WORKSPACE_STORAGE_KEY,
-        JSON.stringify({
-          version: 8,
-          entries,
-          projects,
-          clients,
-          members,
-          settings,
-          preferencesByMemberId,
-        }),
-      );
+      window.localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(account));
     } catch {
-      // The workspace remains usable when browser storage is unavailable.
+      /* Memory fallback. */
     }
-  }, [clients, entries, members, preferencesByMemberId, projects, settings]);
+  }, [account]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, activeWorkspaceId);
+    } catch {
+      /* Memory fallback. */
+    }
+  }, [activeWorkspaceId]);
 
   useEffect(() => {
     const refreshToday = () => setToday(getLocalToday());
     const refreshWhenActive = () => {
       if (document.visibilityState === "visible") refreshToday();
     };
-
     refreshToday();
     const id = window.setInterval(refreshToday, 60_000);
     window.addEventListener("focus", refreshToday);
     document.addEventListener("visibilitychange", refreshWhenActive);
-
     return () => {
       window.clearInterval(id);
       window.removeEventListener("focus", refreshToday);
@@ -714,18 +913,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const refreshWhenActive = () => {
       if (document.visibilityState === "visible") refreshElapsed();
     };
-
     refreshElapsed();
     window.addEventListener("focus", refreshElapsed);
     document.addEventListener("visibilitychange", refreshWhenActive);
-
-    if (timer.status !== "running") {
+    if (timer.status !== "running")
       return () => {
         window.removeEventListener("focus", refreshElapsed);
         document.removeEventListener("visibilitychange", refreshWhenActive);
       };
-    }
-
     const id = window.setInterval(refreshElapsed, 1000);
     return () => {
       window.clearInterval(id);
@@ -736,64 +931,53 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<StoreValue>(() => {
     const can = (permission: Permission): boolean => {
-      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active") {
+      if (
+        sessionStatus !== "active" ||
+        !currentMember ||
+        currentMember.status !== "active" ||
+        currentWorkspace?.status === "archived"
+      )
         return false;
-      }
       if (currentMember.role === "Owner") return true;
-      if (currentMember.role === "Admin") {
-        return permission !== "manage-admins";
-      }
+      if (currentMember.role === "Admin") return permission !== "manage-admins";
       return permission === "track-own-time" || permission === "manage-own-entries";
     };
 
     const canTrackProject = (projectId: string): boolean => {
-      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active") {
+      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active")
         return false;
-      }
       const project = projects.find((candidate) => candidate.id === projectId);
-      if (!project) return false;
-      return currentMember?.role !== "Member" || project.memberIds.includes(activeMemberId);
+      if (!project || project.status !== "active") return false;
+      return currentMember.role !== "Member" || project.memberIds.includes(activeMemberId);
     };
 
-    const validateProjectId = (projectId: string | null): StoreResult => {
+    const validateProjectId = (projectId: string | null, allowUnassigned = false): StoreResult => {
       if (projectId === null) return { success: true };
-      if (projects.some((project) => project.id === projectId) && canTrackProject(projectId)) {
-        return { success: true };
-      }
-      if (projects.some((project) => project.id === projectId)) {
-        return { success: false, error: "This project is not assigned to your team member." };
-      }
-      return { success: false, error: "Choose an existing project or No project." };
+      const project = projects.find((candidate) => candidate.id === projectId);
+      if (!project) return { success: false, error: "Choose an existing project or No project." };
+      if (allowUnassigned || canTrackProject(projectId)) return { success: true };
+      return { success: false, error: "This project is not assigned to your team member." };
     };
 
     const validateEntry = (
       entry: Omit<TimeEntry, "id">,
-      options: { allowExistingProjectId?: string | null } = {},
+      allowExistingProjectId?: string | null,
     ): StoreResult => {
-      const projectValidation = validateProjectId(entry.projectId);
-      if (
-        !projectValidation.success &&
-        (entry.projectId !== options.allowExistingProjectId ||
-          !projects.some((project) => project.id === entry.projectId))
-      ) {
-        return projectValidation;
-      }
+      const projectValidation = validateProjectId(
+        entry.projectId,
+        entry.projectId === allowExistingProjectId,
+      );
+      if (!projectValidation.success) return projectValidation;
       if (!entry.task.trim()) return { success: false, error: "A task is required." };
       if (!isValidDateOnly(entry.date)) return { success: false, error: "Choose a valid date." };
-      if (entry.endDate && !isValidDateOnly(entry.endDate)) {
+      if (entry.endDate && (!isValidDateOnly(entry.endDate) || entry.endDate < entry.date))
         return { success: false, error: "Choose a valid end date." };
-      }
-      if (entry.endDate && entry.endDate < entry.date) {
-        return { success: false, error: "End date cannot be before the start date." };
-      }
       const endDate = getEndDateForEntry(entry);
-      const elapsedSeconds = getElapsedSeconds({ ...entry, endDate });
-      if (elapsedSeconds <= 0 || entry.seconds <= 0) {
+      const calculated = getElapsedSeconds({ ...entry, endDate });
+      if (calculated <= 0 || entry.seconds <= 0)
         return { success: false, error: "End time must be after start time." };
-      }
-      if (Math.abs(elapsedSeconds - entry.seconds) > 1) {
+      if (Math.abs(calculated - entry.seconds) > 1)
         return { success: false, error: "Duration must match the selected time range." };
-      }
       return { success: true };
     };
 
@@ -802,12 +986,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       projectId: string | null,
       billable?: boolean,
     ): StoreResult => {
-      if (!can("track-own-time")) {
+      if (!can("track-own-time"))
         return { success: false, error: "Your account cannot track time." };
-      }
-      if (timerRef.current.status !== "idle") {
+      if (timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before starting another one." };
-      }
       const projectValidation = validateProjectId(projectId);
       if (!projectValidation.success) return projectValidation;
       const projectDefault =
@@ -815,9 +997,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? settings.defaultBillable
           : (projects.find((project) => project.id === projectId)?.billable ??
             settings.defaultBillable);
-      setElapsed(0);
       const next = {
-        status: "running",
+        status: "running" as const,
+        workspaceId: activeWorkspaceId,
         task: task.trim() || "Untitled task",
         projectId,
         billable: billable ?? projectDefault,
@@ -827,6 +1009,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         startClock: nowTime(),
       } satisfies TimerState;
       timerRef.current = next;
+      setElapsed(0);
       setTimer(next);
       return { success: true };
     };
@@ -836,20 +1019,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       projectId?: string | null;
       billable?: boolean;
     }): StoreResult => {
-      if (!can("track-own-time")) {
+      if (!can("track-own-time"))
         return { success: false, error: "Your account cannot update the active timer." };
-      }
       const current = timerRef.current;
-      if (current.status === "idle") {
+      if (current.status === "idle")
         return { success: false, error: "There is no active timer to update." };
-      }
       if (patch.projectId !== undefined) {
         const projectValidation = validateProjectId(patch.projectId);
         if (!projectValidation.success) return projectValidation;
       }
-      if (patch.task !== undefined && !patch.task.trim()) {
+      if (patch.task !== undefined && !patch.task.trim())
         return { success: false, error: "A task is required." };
-      }
       const next = {
         ...current,
         ...patch,
@@ -861,62 +1041,64 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const pauseTimer = () => {
-      const t = timerRef.current;
-      if (t.status !== "running") return;
-      const total = elapsedForTimer(t);
-      setElapsed(total);
-      const next = { ...t, status: "paused" as const, accumulated: total, startedAt: null };
+      const current = timerRef.current;
+      if (current.status !== "running") return;
+      const next = {
+        ...current,
+        status: "paused" as const,
+        accumulated: elapsedForTimer(current),
+        startedAt: null,
+      };
       timerRef.current = next;
+      setElapsed(next.accumulated);
       setTimer(next);
     };
 
     const resumeTimer = () => {
-      const t = timerRef.current;
-      if (t.status !== "paused") return;
-      const next = { ...t, status: "running" as const, startedAt: Date.now() };
+      const current = timerRef.current;
+      if (current.status !== "paused" || current.workspaceId !== activeWorkspaceId) return;
+      const next = { ...current, status: "running" as const, startedAt: Date.now() };
       timerRef.current = next;
       setTimer(next);
     };
 
     const stopTimer = () => {
-      const t = timerRef.current;
-      if (t.status === "idle") return;
-      const total = elapsedForTimer(t);
-      const startedDate = t.startedDate ?? getLocalToday();
-      const finish = addSecondsToDateTime(startedDate, t.startClock, total);
+      const current = timerRef.current;
+      if (current.status === "idle" || current.workspaceId !== activeWorkspaceId) return;
+      const total = elapsedForTimer(current);
+      const startedDate = current.startedDate ?? getLocalToday();
+      const finish = addSecondsToDateTime(startedDate, current.startClock, total);
       if (total > 0) {
-        const startTimestamp = dateTimeToTimestamp(startedDate, t.startClock);
+        const startTimestamp = dateTimeToTimestamp(startedDate, current.startClock);
         const endTimestamp = startTimestamp === null ? null : startTimestamp + total * 1000;
         setEntries((list) => [
           {
             id: nextId("t"),
             date: startedDate,
-            start: t.startClock,
+            start: current.startClock,
             end: finish.end,
             ...(finish.endDate !== startedDate ? { endDate: finish.endDate } : {}),
             ...(startTimestamp !== null ? { startTimestamp } : {}),
             ...(endTimestamp !== null ? { endTimestamp } : {}),
             seconds: total,
             userId: activeMemberId,
-            projectId: t.projectId,
-            task: t.task,
-            billable: t.billable,
+            projectId: current.projectId,
+            task: current.task,
+            billable: current.billable,
           },
           ...list,
         ]);
       }
-      setElapsed(0);
       timerRef.current = initialTimer;
       setTimer(initialTimer);
+      setElapsed(0);
     };
 
     const addEntry = (entry: Omit<TimeEntry, "id">): StoreResult => {
-      if (!can("manage-own-entries") || entry.userId !== activeMemberId) {
+      if (!can("manage-own-entries") || entry.userId !== activeMemberId)
         return { success: false, error: "You can only create your own time entries." };
-      }
-      if (timerRef.current.status !== "idle") {
+      if (timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before adding time manually." };
-      }
       const validation = validateEntry(entry);
       if (!validation.success) return validation;
       setEntries((list) => [{ ...entry, id: nextId("t") }, ...list]);
@@ -926,12 +1108,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const updateEntry = (id: string, patch: Partial<Omit<TimeEntry, "id">>): StoreResult => {
       const current = entries.find((entry) => entry.id === id);
       if (!current) return { success: false, error: "This time entry no longer exists." };
-      if (!can("manage-own-entries") || current.userId !== activeMemberId) {
+      if (!can("manage-own-entries") || current.userId !== activeMemberId)
         return { success: false, error: "You can only edit your own time entries." };
-      }
-      if (patch.userId !== undefined && patch.userId !== current.userId) {
+      if (patch.userId !== undefined && patch.userId !== current.userId)
         return { success: false, error: "A time entry owner cannot be changed." };
-      }
       const next = { ...current, ...patch };
       const timeChanged = ["date", "start", "end", "endDate", "seconds"].some(
         (field) => field in patch,
@@ -940,31 +1120,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const onlyDateChanged =
           "date" in patch &&
           !["start", "end", "endDate", "seconds"].some((field) => field in patch);
-        const preservedStart =
+        const startTimestamp =
           onlyDateChanged && typeof current.startTimestamp === "number"
             ? dateTimeToTimestamp(next.date, next.start)
             : null;
-        if (preservedStart !== null) {
-          next.startTimestamp = preservedStart;
-          next.endTimestamp = preservedStart + next.seconds * 1000;
+        if (startTimestamp !== null) {
+          next.startTimestamp = startTimestamp;
+          next.endTimestamp = startTimestamp + next.seconds * 1000;
         } else {
           delete next.startTimestamp;
           delete next.endTimestamp;
         }
       }
-      const validation = validateEntry(next, { allowExistingProjectId: current.projectId });
+      const validation = validateEntry(next, current.projectId);
       if (!validation.success) return validation;
       setEntries((list) => list.map((entry) => (entry.id === id ? next : entry)));
       return { success: true };
     };
 
+    const deleteEntry = (id: string): StoreResult => {
+      const entry = entries.find((candidate) => candidate.id === id);
+      if (!entry) return { success: false, error: "This time entry no longer exists." };
+      if (!can("manage-own-entries") || entry.userId !== activeMemberId)
+        return { success: false, error: "You can only delete your own time entries." };
+      setEntries((list) => list.filter((candidate) => candidate.id !== id));
+      return { success: true };
+    };
+
     const restoreEntry = (entry: TimeEntry): StoreResult => {
-      if (!can("manage-own-entries") || entry.userId !== activeMemberId) {
+      if (!can("manage-own-entries") || entry.userId !== activeMemberId)
         return { success: false, error: "You can only restore your own time entries." };
-      }
-      if (entries.some((current) => current.id === entry.id)) {
+      if (entries.some((candidate) => candidate.id === entry.id))
         return { success: false, error: "This time entry already exists." };
-      }
       const validation = validateEntry(entry);
       if (!validation.success) return validation;
       setEntries((list) => [entry, ...list]);
@@ -972,27 +1159,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const addProject = (project: Omit<Project, "id">): StoreResult => {
-      if (!can("manage-projects")) {
+      if (!can("manage-projects"))
         return { success: false, error: "Only Admins and the Owner can manage projects." };
-      }
       if (!project.name.trim()) return { success: false, error: "A project name is required." };
-      if (!clients.some((client) => client.id === project.clientId)) {
+      if (!clients.some((client) => client.id === project.clientId))
         return { success: false, error: "Choose an existing client for this project." };
-      }
-      if (typeof project.billable !== "boolean") {
+      if (typeof project.billable !== "boolean")
         return { success: false, error: "Choose whether this project is billable." };
-      }
-      if (!can("manage-project-members")) {
+      if (!can("manage-project-members"))
         return { success: false, error: "You cannot assign members to projects." };
-      }
       if (
         project.memberIds.some(
           (memberId) =>
             !members.some((member) => member.id === memberId && member.status === "active"),
         )
-      ) {
+      )
         return { success: false, error: "Only active members can be assigned to a project." };
-      }
       setProjects((list) => [
         {
           ...project,
@@ -1006,45 +1188,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const updateProject = (id: string, patch: Partial<Omit<Project, "id">>): StoreResult => {
-      if (!can("manage-projects")) {
+      if (!can("manage-projects"))
         return { success: false, error: "Only Admins and the Owner can manage projects." };
-      }
       const current = projects.find((project) => project.id === id);
       if (!current) return { success: false, error: "This project no longer exists." };
       const next = { ...current, ...patch, name: (patch.name ?? current.name).trim() };
       if (!next.name) return { success: false, error: "A project name is required." };
-      if (!clients.some((client) => client.id === next.clientId)) {
+      if (!clients.some((client) => client.id === next.clientId))
         return { success: false, error: "A project must keep a valid client." };
-      }
-      if (typeof next.billable !== "boolean") {
+      if (typeof next.billable !== "boolean")
         return { success: false, error: "Choose whether this project is billable." };
-      }
-      if ("memberIds" in patch && !can("manage-project-members")) {
+      if ("memberIds" in patch && !can("manage-project-members"))
         return { success: false, error: "You cannot assign members to projects." };
-      }
       if (
         next.memberIds.some(
           (memberId) =>
             !members.some((member) => member.id === memberId && member.status === "active"),
         )
-      ) {
+      )
         return { success: false, error: "Only active members can be assigned to a project." };
-      }
       setProjects((list) => list.map((project) => (project.id === id ? next : project)));
       return { success: true };
     };
 
-    const validateClient = (client: Omit<Client, "id">): StoreResult => {
-      if (!client.name.trim()) return { success: false, error: "A client name is required." };
-      return { success: true };
-    };
-
     const addClient = (client: Omit<Client, "id">): StoreResult => {
-      if (!can("manage-clients")) {
+      if (!can("manage-clients"))
         return { success: false, error: "Only Admins and the Owner can manage clients." };
-      }
-      const validation = validateClient(client);
-      if (!validation.success) return validation;
+      if (!client.name.trim()) return { success: false, error: "A client name is required." };
       setClients((list) => [
         { id: nextId("c"), name: client.name.trim(), contact: client.contact.trim() },
         ...list,
@@ -1053,9 +1223,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const updateClient = (id: string, patch: Partial<Client>): StoreResult => {
-      if (!can("manage-clients")) {
+      if (!can("manage-clients"))
         return { success: false, error: "Only Admins and the Owner can manage clients." };
-      }
       const current = clients.find((client) => client.id === id);
       if (!current) return { success: false, error: "This client no longer exists." };
       const next = {
@@ -1064,76 +1233,82 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         name: (patch.name ?? current.name).trim(),
         contact: (patch.contact ?? current.contact).trim(),
       };
-      const validation = validateClient(next);
-      if (!validation.success) return validation;
+      if (!next.name) return { success: false, error: "A client name is required." };
       setClients((list) => list.map((client) => (client.id === id ? next : client)));
       return { success: true };
     };
 
     const deleteClient = (id: string): StoreResult => {
-      if (!can("manage-clients")) {
+      if (!can("manage-clients"))
         return { success: false, error: "Only Admins and the Owner can manage clients." };
-      }
       const current = clients.find((client) => client.id === id);
       if (!current) return { success: false, error: "This client no longer exists." };
       const linkedProjects = projects.filter((project) => project.clientId === id);
-      if (linkedProjects.length > 0) {
+      if (linkedProjects.length > 0)
         return {
           success: false,
           error: `This client is used by ${linkedProjects.length} project${linkedProjects.length === 1 ? "" : "s"}. Remove or reassign those projects first.`,
         };
-      }
       setClients((list) => list.filter((client) => client.id !== id));
       return { success: true };
     };
 
     const inviteMember = (email: string, role: Exclude<Role, "Owner">): StoreResult => {
-      if (!can("manage-members")) {
+      if (!can("manage-members"))
         return { success: false, error: "Only Admins and the Owner can invite members." };
-      }
       const normalizedEmail = email.trim().toLowerCase();
-      if (!inviteEmailPattern.test(normalizedEmail)) {
+      if (!inviteEmailPattern.test(normalizedEmail))
         return { success: false, error: "Enter a valid email address." };
-      }
-      if (role !== "Admin" && role !== "Member") {
+      if (role !== "Admin" && role !== "Member")
         return { success: false, error: "Choose a valid role for this invitation." };
-      }
-      if (role === "Admin" && !can("manage-admins")) {
+      if (role === "Admin" && !can("manage-admins"))
         return { success: false, error: "Only the Owner can invite Admins." };
-      }
-      if (members.some((member) => member.email.trim().toLowerCase() === normalizedEmail)) {
+      if (members.filter((member) => member.status !== "removed").length >= 50)
+        return {
+          success: false,
+          error: "This workspace has reached its limit of 50 members and invitations.",
+        };
+      if (members.some((member) => member.email.toLowerCase() === normalizedEmail))
         return {
           success: false,
           error: "This email is already part of the team or has a pending invitation.",
         };
-      }
-
-      const name = displayNameFromInviteEmail(normalizedEmail);
-      const invitation: Member = {
+      const existingIdentity = account.identities.find(
+        (identity) => identity.email.toLowerCase() === normalizedEmail,
+      );
+      const identity = existingIdentity ?? {
         id: nextId("u"),
-        name,
+        name: displayNameFromInviteEmail(normalizedEmail),
         email: normalizedEmail,
+        initials: initialsFromName(displayNameFromInviteEmail(normalizedEmail)),
+      };
+      const invitation: Member = {
+        ...identity,
         role,
-        status: "invited",
-        initials: initialsFromName(name),
-        invitedAt: new Date().toISOString(),
+        status: existingIdentity ? "active" : "invited",
+        ...(existingIdentity ? {} : { invitedAt: new Date().toISOString() }),
       };
       setMembers((list) => [invitation, ...list]);
+      if (!existingIdentity)
+        setAccount((current) => ({
+          ...current,
+          identities: [...current.identities, identity],
+          preferencesByUserId: {
+            ...current.preferencesByUserId,
+            [identity.id]: { ...initialPreferences },
+          },
+        }));
       return { success: true };
     };
 
     const resendInvite = (memberId: string): StoreResult => {
-      if (!can("manage-members")) {
+      if (!can("manage-members"))
         return { success: false, error: "Only Admins and the Owner can manage invitations." };
-      }
       const member = members.find((candidate) => candidate.id === memberId);
-      if (!member) return { success: false, error: "This invitation no longer exists." };
-      if (member.status !== "invited") {
+      if (!member || member.status !== "invited")
         return { success: false, error: "Only pending invitations can be resent." };
-      }
-      if (member.role === "Admin" && !can("manage-admins")) {
+      if (member.role === "Admin" && !can("manage-admins"))
         return { success: false, error: "Only the Owner can manage Admin invitations." };
-      }
       setMembers((list) =>
         list.map((candidate) =>
           candidate.id === memberId
@@ -1145,50 +1320,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const cancelInvite = (memberId: string): StoreResult => {
-      if (!can("manage-members")) {
+      if (!can("manage-members"))
         return { success: false, error: "Only Admins and the Owner can manage invitations." };
-      }
       const member = members.find((candidate) => candidate.id === memberId);
-      if (!member) return { success: false, error: "This invitation no longer exists." };
-      if (member.status !== "invited") {
+      if (!member || member.status !== "invited")
         return { success: false, error: "Only pending invitations can be canceled." };
-      }
-      if (member.role === "Admin" && !can("manage-admins")) {
+      if (member.role === "Admin" && !can("manage-admins"))
         return { success: false, error: "Only the Owner can manage Admin invitations." };
-      }
       setMembers((list) => list.filter((candidate) => candidate.id !== memberId));
       return { success: true };
     };
 
     const removeMember = (memberId: string): StoreResult => {
-      if (!can("manage-members")) {
+      if (!can("manage-members"))
         return { success: false, error: "Only Admins and the Owner can remove members." };
-      }
       const member = members.find((candidate) => candidate.id === memberId);
       if (!member) return { success: false, error: "This team member no longer exists." };
-      if (memberId === activeMemberId && currentMember?.role === "Owner") {
+      if (memberId === activeMemberId && currentMember?.role === "Owner")
         return { success: false, error: "The Owner cannot remove their own account." };
-      }
-      if (member.status !== "active") {
+      if (member.status !== "active")
         return { success: false, error: "Only active members can be removed." };
-      }
-      if (member.role === "Owner") {
+      if (member.role === "Owner")
         return { success: false, error: "The workspace owner cannot be removed." };
-      }
-      if (member.role === "Admin" && !can("manage-admins")) {
+      if (member.role === "Admin" && !can("manage-admins"))
         return { success: false, error: "Only the Owner can remove Admins." };
-      }
-
       const activeAdmins = members.filter(
         (candidate) => candidate.status === "active" && candidate.role === "Admin",
       );
-      if (member.role === "Admin" && activeAdmins.length <= 1) {
+      if (member.role === "Admin" && activeAdmins.length <= 1)
         return { success: false, error: "The last admin cannot be removed." };
-      }
-
       setMembers((list) =>
         list.map((candidate) =>
-          candidate.id === memberId ? { ...candidate, status: "removed" as const } : candidate,
+          candidate.id === memberId ? { ...candidate, status: "removed" } : candidate,
         ),
       );
       setProjects((list) =>
@@ -1201,21 +1364,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const restoreMember = (memberId: string): StoreResult => {
-      if (!can("manage-members")) {
+      if (!can("manage-members"))
         return { success: false, error: "Only Admins and the Owner can restore members." };
-      }
       const member = members.find((candidate) => candidate.id === memberId);
-      if (!member) return { success: false, error: "This team member no longer exists." };
-      if (member.status !== "removed") {
+      if (!member || member.status !== "removed")
         return { success: false, error: "Only removed members can be restored." };
-      }
-      if (member.role === "Admin" && !can("manage-admins")) {
+      if (member.role === "Admin" && !can("manage-admins"))
         return { success: false, error: "Only the Owner can restore Admins." };
-      }
-
       setMembers((list) =>
         list.map((candidate) =>
-          candidate.id === memberId ? { ...candidate, status: "active" as const } : candidate,
+          candidate.id === memberId ? { ...candidate, status: "active" } : candidate,
         ),
       );
       return { success: true };
@@ -1224,34 +1382,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const updateMemberRole = (memberId: string, role: Exclude<Role, "Owner">): StoreResult => {
       const member = members.find((candidate) => candidate.id === memberId);
       if (!member) return { success: false, error: "This team member no longer exists." };
-      if (memberId === activeMemberId && currentMember?.role === "Owner") {
+      if (memberId === activeMemberId && currentMember?.role === "Owner")
         return { success: false, error: "The Owner cannot change their own role." };
-      }
-      if (member.role === "Owner") {
+      if (member.role === "Owner")
         return { success: false, error: "The workspace owner role cannot be changed." };
-      }
-      if (role !== "Admin" && role !== "Member") {
+      if (role !== "Admin" && role !== "Member")
         return { success: false, error: "Choose a valid team role." };
-      }
-      if (currentMember?.role === "Admin" && member.role !== "Member") {
+      if (currentMember?.role === "Admin" && member.role !== "Member")
         return { success: false, error: "Admins can only manage Members." };
-      }
-      if (!can("manage-members")) {
+      if (!can("manage-members"))
         return { success: false, error: "Only Admins and the Owner can change roles." };
-      }
-      if (member.status !== "active" && currentMember?.role === "Admin") {
-        return { success: false, error: "Admins can only promote active Members." };
-      }
       if (member.role === "Admin" && role === "Member") {
-        if (!can("manage-admins")) {
+        if (!can("manage-admins"))
           return { success: false, error: "Only the Owner can reassign Admin roles." };
-        }
-        const activeAdmins = members.filter(
-          (candidate) => candidate.status === "active" && candidate.role === "Admin",
-        );
-        if (member.status === "active" && activeAdmins.length <= 1) {
+        if (
+          members.filter((candidate) => candidate.status === "active" && candidate.role === "Admin")
+            .length <= 1
+        )
           return { success: false, error: "The last admin cannot be reassigned." };
-        }
       }
       setMembers((list) =>
         list.map((candidate) => (candidate.id === memberId ? { ...candidate, role } : candidate)),
@@ -1259,37 +1407,375 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { success: true };
     };
 
-    const setActiveMember = (memberId: string): StoreResult => {
-      if (sessionStatus !== "active") {
-        return { success: false, error: "Sign in to change the preview identity." };
+    const setTrello = (patch: Partial<TrelloState>): StoreResult => {
+      if (!can("manage-integrations"))
+        return { success: false, error: "Only Admins and the Owner can manage integrations." };
+      setTrelloState((current) => ({ ...current, ...patch }));
+      return { success: true };
+    };
+
+    const setWorkspaceSettings = (patch: Partial<WorkspaceSettings>): StoreResult => {
+      if (!can("manage-workspace-settings"))
+        return {
+          success: false,
+          error: "Only Admins and the Owner can change workspace settings.",
+        };
+      const next = { ...settings, ...patch };
+      if (typeof next.defaultBillable !== "boolean")
+        return { success: false, error: "Choose a valid default billability setting." };
+      if (next.weekStart !== "monday" && next.weekStart !== "sunday")
+        return { success: false, error: "Choose a valid week start." };
+      setSettingsState(next);
+      return { success: true };
+    };
+
+    const setUserPreferences = (patch: Partial<UserPreferences>): StoreResult => {
+      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active")
+        return { success: false, error: "Choose an active preview identity." };
+      const next = { ...preferences, ...patch };
+      if (
+        typeof next.reminders !== "boolean" ||
+        typeof next.weeklyDigest !== "boolean" ||
+        typeof next.idleDetection !== "boolean" ||
+        !isLocale(next.language) ||
+        !isThemeMode(next.theme) ||
+        !isValidAvatarUrl(next.avatarUrl)
+      )
+        return { success: false, error: "Choose valid personal preferences." };
+      setAccount((current) => ({
+        ...current,
+        preferencesByUserId: { ...current.preferencesByUserId, [activeMemberId]: next },
+      }));
+      return { success: true };
+    };
+
+    const updateCurrentMemberEmail = (email: string): StoreResult => {
+      if (!currentMember || currentMember.status !== "active")
+        return { success: false, error: "Choose an active preview identity." };
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!inviteEmailPattern.test(normalizedEmail))
+        return { success: false, error: "Enter a valid email address." };
+      if (
+        members.some(
+          (member) =>
+            member.id !== activeMemberId && member.email.toLowerCase() === normalizedEmail,
+        )
+      )
+        return { success: false, error: "This email is already part of the team." };
+      setAccount((current) => ({
+        ...current,
+        identities: current.identities.map((identity) =>
+          identity.id === activeMemberId ? { ...identity, email: normalizedEmail } : identity,
+        ),
+      }));
+      setMembers((list) =>
+        list.map((member) =>
+          member.id === activeMemberId ? { ...member, email: normalizedEmail } : member,
+        ),
+      );
+      return { success: true };
+    };
+
+    const switchWorkspace = (workspaceId: string): StoreResult => {
+      if (workspaceId === activeWorkspaceId) return { success: true };
+      const target = account.workspaces.find((data) => data.workspace.id === workspaceId);
+      if (!target) return { success: false, error: "This workspace could not be found." };
+      const membership = target.memberships.find(
+        (candidate) => candidate.userId === activeMemberId,
+      );
+      if (!membership || membership.status !== "active")
+        return { success: false, error: "You do not have access to this workspace." };
+      if (timerRef.current.status === "running")
+        return { success: false, error: "Pause the active timer before switching workspaces." };
+      const current = account.workspaces.find((data) => data.workspace.id === activeWorkspaceId);
+      if (current) {
+        const currentSnapshot: WorkspaceData = {
+          ...current,
+          entries,
+          projects,
+          clients,
+          memberships: membersToMemberships(activeWorkspaceId, members),
+          settings,
+          trello,
+        };
+        setAccount((previous) => ({
+          ...previous,
+          workspaces: previous.workspaces.map((data) =>
+            data.workspace.id === activeWorkspaceId ? currentSnapshot : data,
+          ),
+        }));
       }
+      setActiveWorkspaceId(workspaceId);
+      setEntries(target.entries);
+      setProjects(target.projects);
+      setClients(target.clients);
+      setMembers(
+        target.memberships
+          .map((item) => membershipToMember(item, account.identities))
+          .filter((member): member is Member => member !== null),
+      );
+      setSettingsState(target.settings);
+      setTrelloState(target.trello);
+      const nextTimer = readPersistedTimer(activeMemberId, workspaceId, target.projects);
+      timerRef.current = nextTimer;
+      setTimer(nextTimer);
+      setElapsed(elapsedForTimer(nextTimer));
+      return { success: true };
+    };
+
+    const createWorkspace = (name: string): StoreResult => {
+      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active")
+        return { success: false, error: "Choose an active preview identity." };
+      if (timerRef.current.status !== "idle")
+        return {
+          success: false,
+          error: "Pause or stop the active timer before creating a workspace.",
+        };
+      if (
+        account.workspaces.filter((data) => data.workspace.ownerId === activeMemberId).length >= 5
+      )
+        return { success: false, error: "You can create up to 5 workspaces." };
+      const trimmedName = name.trim();
+      if (!trimmedName) return { success: false, error: "A workspace name is required." };
+      if (
+        account.workspaces.some(
+          (data) => data.workspace.name.toLowerCase() === trimmedName.toLowerCase(),
+        )
+      )
+        return { success: false, error: "A workspace with this name already exists." };
+      const id = nextId("w");
+      const workspace: WorkspaceData = {
+        workspace: {
+          id,
+          name: trimmedName,
+          ownerId: activeMemberId,
+          logoDataUrl: null,
+          status: "active",
+          createdAt: new Date().toISOString(),
+        },
+        memberships: [
+          {
+            workspaceId: id,
+            userId: activeMemberId,
+            role: "Owner",
+            status: "active",
+            joinedAt: new Date().toISOString(),
+          },
+        ],
+        entries: [],
+        projects: [],
+        clients: [],
+        settings: { ...initialSettings },
+        trello: cloneTrello(initialTrello),
+      };
+      const current = account.workspaces.find((data) => data.workspace.id === activeWorkspaceId);
+      setAccount((previous) => ({
+        ...previous,
+        workspaces: [
+          ...previous.workspaces.map((data) =>
+            data.workspace.id === activeWorkspaceId && current
+              ? {
+                  ...current,
+                  entries,
+                  projects,
+                  clients,
+                  memberships: membersToMemberships(activeWorkspaceId, members),
+                  settings,
+                  trello,
+                }
+              : data,
+          ),
+          workspace,
+        ],
+      }));
+      setActiveWorkspaceId(id);
+      setEntries([]);
+      setProjects([]);
+      setClients([]);
+      setMembers([{ ...currentMember, role: "Owner", status: "active" }]);
+      setSettingsState({ ...initialSettings });
+      setTrelloState(cloneTrello(initialTrello));
+      return { success: true, id };
+    };
+
+    const updateWorkspace = (
+      workspaceId: string,
+      patch: { name?: string; logoDataUrl?: string | null },
+    ): StoreResult => {
+      const target = account.workspaces.find((data) => data.workspace.id === workspaceId);
+      if (!target) return { success: false, error: "This workspace could not be found." };
+      const membership = target.memberships.find((item) => item.userId === activeMemberId);
+      if (!membership || membership.role !== "Owner" || membership.status !== "active")
+        return { success: false, error: "Only the workspace Owner can edit it." };
+      if (target.workspace.status === "archived")
+        return { success: false, error: "Archived workspaces are read-only. Restore it first." };
+      const name = patch.name === undefined ? target.workspace.name : patch.name.trim();
+      if (!name) return { success: false, error: "A workspace name is required." };
+      if (patch.logoDataUrl !== undefined && !isValidLogoUrl(patch.logoDataUrl))
+        return { success: false, error: "Choose a PNG, JPG or WebP logo smaller than 500 KB." };
+      setAccount((current) => ({
+        ...current,
+        workspaces: current.workspaces.map((data) =>
+          data.workspace.id === workspaceId
+            ? {
+                ...data,
+                workspace: {
+                  ...data.workspace,
+                  name,
+                  ...(patch.logoDataUrl !== undefined ? { logoDataUrl: patch.logoDataUrl } : {}),
+                },
+              }
+            : data,
+        ),
+      }));
+      return { success: true };
+    };
+
+    const archiveWorkspace = (workspaceId: string): StoreResult => {
+      const target = account.workspaces.find((data) => data.workspace.id === workspaceId);
+      if (!target) return { success: false, error: "This workspace could not be found." };
+      const membership = target.memberships.find((item) => item.userId === activeMemberId);
+      if (!membership || membership.role !== "Owner")
+        return { success: false, error: "Only the workspace Owner can archive it." };
+      if (timerRef.current.status !== "idle")
+        return {
+          success: false,
+          error: "Pause or stop the active timer before archiving a workspace.",
+        };
+      setAccount((current) => ({
+        ...current,
+        workspaces: current.workspaces.map((data) =>
+          data.workspace.id === workspaceId
+            ? {
+                ...data,
+                workspace: {
+                  ...data.workspace,
+                  status: "archived",
+                  archivedAt: new Date().toISOString(),
+                },
+              }
+            : data,
+        ),
+      }));
+      return { success: true };
+    };
+
+    const restoreWorkspace = (workspaceId: string): StoreResult => {
+      const target = account.workspaces.find((data) => data.workspace.id === workspaceId);
+      if (!target) return { success: false, error: "This workspace could not be found." };
+      const membership = target.memberships.find((item) => item.userId === activeMemberId);
+      if (!membership || membership.role !== "Owner")
+        return { success: false, error: "Only the workspace Owner can restore it." };
+      setAccount((current) => ({
+        ...current,
+        workspaces: current.workspaces.map((data) =>
+          data.workspace.id === workspaceId
+            ? (() => {
+                const { archivedAt: _archivedAt, ...workspace } = data.workspace;
+                return { ...data, workspace: { ...workspace, status: "active" as const } };
+              })()
+            : data,
+        ),
+      }));
+      return { success: true };
+    };
+
+    const leaveWorkspace = (workspaceId: string): StoreResult => {
+      const target = account.workspaces.find((data) => data.workspace.id === workspaceId);
+      const membership = target?.memberships.find((item) => item.userId === activeMemberId);
+      if (!target || !membership || membership.status !== "active")
+        return { success: false, error: "You are not an active member of this workspace." };
+      if (membership.role === "Owner")
+        return {
+          success: false,
+          error: "The Owner must archive the workspace instead of leaving it.",
+        };
+      if (timerRef.current.status !== "idle")
+        return {
+          success: false,
+          error: "Pause or stop the active timer before leaving a workspace.",
+        };
+      const accessible = account.workspaces.filter(
+        (data) =>
+          data.workspace.id !== workspaceId &&
+          data.memberships.some(
+            (item) => item.userId === activeMemberId && item.status === "active",
+          ),
+      );
+      if (accessible.length === 0)
+        return {
+          success: false,
+          error: "Keep at least one workspace available before leaving this one.",
+        };
+      const nextWorkspace = accessible[0];
+      if (!nextWorkspace) return { success: false, error: "No other workspace is available." };
+      setAccount((current) => ({
+        ...current,
+        workspaces: current.workspaces.map((data) =>
+          data.workspace.id === workspaceId
+            ? {
+                ...data,
+                memberships: data.memberships.map((item) =>
+                  item.userId === activeMemberId ? { ...item, status: "removed" } : item,
+                ),
+                projects: data.projects.map((project) => ({
+                  ...project,
+                  memberIds: project.memberIds.filter((id) => id !== activeMemberId),
+                })),
+              }
+            : data,
+        ),
+      }));
+      setActiveWorkspaceId(nextWorkspace.workspace.id);
+      setEntries(nextWorkspace.entries);
+      setProjects(nextWorkspace.projects);
+      setClients(nextWorkspace.clients);
+      setMembers(
+        nextWorkspace.memberships
+          .map((item) => membershipToMember(item, account.identities))
+          .filter((member): member is Member => member !== null),
+      );
+      setSettingsState(nextWorkspace.settings);
+      setTrelloState(nextWorkspace.trello);
+      const nextTimer = readPersistedTimer(
+        activeMemberId,
+        nextWorkspace.workspace.id,
+        nextWorkspace.projects,
+      );
+      timerRef.current = nextTimer;
+      setTimer(nextTimer);
+      setElapsed(elapsedForTimer(nextTimer));
+      return { success: true };
+    };
+
+    const setActiveMember = (memberId: string): StoreResult => {
       const member = members.find(
         (candidate) => candidate.id === memberId && candidate.status === "active",
       );
-      if (!member) return { success: false, error: "Choose an active preview identity." };
-      if (timerRef.current.status !== "idle") {
+      if (!member)
+        return { success: false, error: "Choose an active preview identity in this workspace." };
+      if (timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before changing preview identity." };
-      }
       try {
         window.localStorage.setItem(ACTIVE_MEMBER_STORAGE_KEY, memberId);
       } catch {
-        return { success: false, error: "Preview identity could not be saved locally." };
+        /* Memory fallback. */
       }
-      timerRef.current = initialTimer;
-      setTimer(initialTimer);
-      setElapsed(0);
+      const nextTimer = readPersistedTimer(memberId, activeWorkspaceId, projects);
+      timerRef.current = nextTimer;
+      setTimer(nextTimer);
+      setElapsed(elapsedForTimer(nextTimer));
       setActiveMemberId(memberId);
       return { success: true };
     };
 
     const signOut = (): StoreResult => {
-      if (timerRef.current.status !== "idle") {
+      if (timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before signing out." };
-      }
       try {
         window.localStorage.setItem(SESSION_STORAGE_KEY, "signed-out");
       } catch {
-        return { success: false, error: "The session could not be ended locally." };
+        /* Memory fallback. */
       }
       setSessionStatus("signed-out");
       return { success: true };
@@ -1300,86 +1786,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         (candidate) => candidate.id === memberId && candidate.status === "active",
       );
       if (!member) return { success: false, error: "Choose an active preview identity." };
-      if (timerRef.current.status !== "idle") {
+      if (timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before changing preview identity." };
-      }
       try {
         window.localStorage.setItem(ACTIVE_MEMBER_STORAGE_KEY, memberId);
         window.localStorage.removeItem(SESSION_STORAGE_KEY);
       } catch {
-        return { success: false, error: "Preview identity could not be saved locally." };
+        /* Memory fallback. */
       }
-      timerRef.current = initialTimer;
-      setTimer(initialTimer);
-      setElapsed(0);
+      const nextTimer = readPersistedTimer(memberId, activeWorkspaceId, projects);
+      timerRef.current = nextTimer;
+      setTimer(nextTimer);
+      setElapsed(elapsedForTimer(nextTimer));
       setActiveMemberId(memberId);
       setSessionStatus("active");
       return { success: true };
     };
 
-    const setWorkspaceSettings = (patch: Partial<WorkspaceSettings>): StoreResult => {
-      if (!can("manage-workspace-settings")) {
+    const summaries: WorkspaceSummary[] = account.workspaces
+      .filter((data) =>
+        data.memberships.some((item) => item.userId === activeMemberId && item.status === "active"),
+      )
+      .map((data) => {
+        const membership = data.memberships.find((item) => item.userId === activeMemberId)!;
+        const owner = account.identities.find((identity) => identity.id === data.workspace.ownerId);
         return {
-          success: false,
-          error: "Only Admins and the Owner can change workspace settings.",
+          ...data.workspace,
+          ownerName: owner?.name ?? "Unknown owner",
+          role: membership.role,
+          membershipStatus: membership.status,
+          isOwned: data.workspace.ownerId === activeMemberId,
         };
-      }
-      const next = { ...settings, ...patch };
-      if (!next.workspaceName.trim()) {
-        return { success: false, error: "Workspace name is required." };
-      }
-      if (typeof next.defaultBillable !== "boolean") {
-        return { success: false, error: "Choose a valid default billability setting." };
-      }
-      if (next.weekStart !== "monday" && next.weekStart !== "sunday") {
-        return { success: false, error: "Choose a valid week start." };
-      }
-      setSettingsState({ ...next, workspaceName: next.workspaceName.trim() });
-      return { success: true };
-    };
-
-    const setUserPreferences = (patch: Partial<UserPreferences>): StoreResult => {
-      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active") {
-        return { success: false, error: "Choose an active preview identity." };
-      }
-      const next = { ...preferences, ...patch };
-      if (
-        typeof next.reminders !== "boolean" ||
-        typeof next.weeklyDigest !== "boolean" ||
-        typeof next.idleDetection !== "boolean" ||
-        !isLocale(next.language) ||
-        !isThemeMode(next.theme) ||
-        !isValidAvatarUrl(next.avatarUrl)
-      ) {
-        return { success: false, error: "Choose valid personal preferences." };
-      }
-      setPreferencesByMemberId((map) => ({ ...map, [activeMemberId]: next }));
-      return { success: true };
-    };
-
-    const updateCurrentMemberEmail = (email: string): StoreResult => {
-      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active") {
-        return { success: false, error: "Choose an active preview identity." };
-      }
-      const normalizedEmail = email.trim().toLowerCase();
-      if (!inviteEmailPattern.test(normalizedEmail)) {
-        return { success: false, error: "Enter a valid email address." };
-      }
-      if (
-        members.some(
-          (member) =>
-            member.id !== activeMemberId && member.email.toLowerCase() === normalizedEmail,
-        )
-      ) {
-        return { success: false, error: "This email is already part of the team." };
-      }
-      setMembers((list) =>
-        list.map((member) =>
-          member.id === activeMemberId ? { ...member, email: normalizedEmail } : member,
-        ),
-      );
-      return { success: true };
-    };
+      });
 
     return {
       entries,
@@ -1392,6 +1830,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       settings,
       preferences,
       currentMember,
+      currentWorkspace,
+      currentWorkspaceMembership,
+      workspaces: summaries,
+      activeWorkspaceId,
       sessionStatus,
       can,
       canTrackProject,
@@ -1405,15 +1847,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       stopTimer,
       addEntry,
       updateEntry,
-      deleteEntry: (id) => {
-        const entry = entries.find((candidate) => candidate.id === id);
-        if (!entry) return { success: false, error: "This time entry no longer exists." };
-        if (!can("manage-own-entries") || entry.userId !== activeMemberId) {
-          return { success: false, error: "You can only delete your own time entries." };
-        }
-        setEntries((list) => list.filter((e) => e.id !== id));
-        return { success: true };
-      },
+      deleteEntry,
       restoreEntry,
       addProject,
       updateProject,
@@ -1426,23 +1860,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       removeMember,
       restoreMember,
       updateMemberRole,
-      setTrello: (patch) => {
-        if (!can("manage-integrations")) {
-          return { success: false, error: "Only Admins and the Owner can manage integrations." };
-        }
-        setTrelloState((s) => ({ ...s, ...patch }));
-        return { success: true };
-      },
+      setTrello,
       setWorkspaceSettings,
       setUserPreferences,
       updateCurrentMemberEmail,
+      switchWorkspace,
+      createWorkspace,
+      updateWorkspace,
+      archiveWorkspace,
+      restoreWorkspace,
+      leaveWorkspace,
       signOut,
       resumeSession,
     };
   }, [
+    account,
     activeMemberId,
+    activeWorkspaceId,
     clients,
     currentMember,
+    currentWorkspace,
     elapsed,
     entries,
     members,
@@ -1459,12 +1896,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 }
 
 export function useStore(): StoreValue {
-  const ctx = useContext(StoreContext);
-  if (!ctx) throw new Error("useStore must be used inside StoreProvider");
-  return ctx;
+  const context = useContext(StoreContext);
+  if (!context) throw new Error("useStore must be used inside StoreProvider");
+  return context;
 }
 
-/** Simulates an async read so screens can show loading skeletons. */
 export function useSimulatedLoad(delay = 450): boolean {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -1477,5 +1913,7 @@ export function useSimulatedLoad(delay = 450): boolean {
 export function useProjectName(): (id: string | null) => string {
   const { projects } = useStore();
   return (id: string | null) =>
-    id === null ? "No project" : (projects.find((p) => p.id === id)?.name ?? "Unknown project");
+    id === null
+      ? "No project"
+      : (projects.find((project) => project.id === id)?.name ?? "Unknown project");
 }

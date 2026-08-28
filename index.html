@@ -1,9 +1,42 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-US" class="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f8fafc" />
+    <meta name="theme-color" content="#f5f6f8" />
+    <script>
+      (() => {
+        const root = document.documentElement;
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        let preferences = null;
+
+        try {
+          const activeMember = window.localStorage.getItem("time-blossom:active-member:v1") || "u1";
+          const raw =
+            window.localStorage.getItem("time-blossom:account:v9") ||
+            window.localStorage.getItem("time-blossom:workspace:v8");
+          const snapshot = raw ? JSON.parse(raw) : null;
+          preferences =
+            snapshot?.preferencesByUserId?.[activeMember] ||
+            snapshot?.preferencesByMemberId?.[activeMember] ||
+            null;
+        } catch {
+          preferences = null;
+        }
+
+        const language = preferences?.language === "pt-BR" ? "pt-BR" : "en-US";
+        const theme = preferences?.theme || "system";
+        const dark = theme === "dark" || (theme === "system" && prefersDark);
+
+        root.lang = language;
+        root.classList.toggle("dark", dark);
+        root.classList.toggle("light", !dark);
+        root.style.colorScheme = dark ? "dark" : "light";
+        document
+          .querySelector('meta[name="theme-color"]')
+          ?.setAttribute("content", dark ? "#050505" : "#f5f6f8");
+      })();
+    </script>
     <meta
       name="description"
       content="A calm, focused workspace for tracking time across projects and clients."
@@ -20,7 +53,11 @@
     <title>Time Blossom — Simple time tracking</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main class="app-boot-screen">
+        <span class="app-boot-spinner" role="status" aria-label="Loading Time Blossom…"></span>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

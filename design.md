@@ -211,7 +211,7 @@ system before they can track time.
 - The filter bar supports Team, Client, Project, Task, Description and
   Billability. Team is available only to Admins and Owners. Client and Project
   filters support multiple selections and accent-insensitive search; `No
-  project` remains a first-class report category. Hidden filters keep their
+project` remains a first-class report category. Hidden filters keep their
   values until `Clear filters` is used. Tags and approval Status are not shown
   until the data model supports them.
 - Members are scoped to their own entries in Reports and exports. Admins and
@@ -305,9 +305,10 @@ system before they can track time.
 - Team management protects Owner and the last active Admin. Admins can invite,
   remove, restore and promote Members, but cannot change existing Admins or invite
   Admins. Only the Owner can manage Admin roles.
-- Settings separate workspace defaults from personal preferences. Workspace name,
-  default billability and week start are global and require Admin or Owner access;
-  reminders, weekly digest and idle detection belong to the active identity.
+- The Workspaces edit modal owns workspace-wide defaults: workspace name, default
+  billability and week start. These controls require Admin or Owner access;
+  reminders, weekly digest and idle detection remain personal preferences in
+  Settings.
 - `Preview identity` in Settings is a local-only mock control for Marina (Owner),
   Caio (Admin) and Helena (Member). It is not authentication. Switching requires
   an idle timer and reloads the application; active timers are stored under the
@@ -315,3 +316,29 @@ system before they can track time.
 - Workspace data, members, settings and per-member preferences use a versioned
   local snapshot with safe seed fallback and migration from the previous shape.
   Store guards remain authoritative even if a hidden UI action is called directly.
+
+## Workspaces
+
+- Workspaces are the product's isolation boundary. Each identity can create up
+  to five workspaces, including archived ones; shared workspaces do not count
+  toward that owned-workspace limit. Each workspace supports at most 50 active
+  members or pending invitations.
+- Clients, projects, members, entries, tracking defaults, preferences and
+  integrations belong to the active workspace. New workspaces start empty and
+  the creator receives the `Owner` membership for that workspace.
+- The sidebar workspace switcher uses an initials mark only. The optional
+  workspace logo is not shown in the sidebar and is used exclusively for PDF
+  report branding. The avatar menu places `Workspaces` immediately above
+  `Settings`.
+- Owners can edit, archive and restore their own workspaces. Archived
+  workspaces are read-only. Members can leave a workspace owned by someone
+  else; an Owner must archive rather than leave. Switching away from a running
+  timer requires an explicit `Pause and switch` confirmation, while paused
+  timers remain in their original workspace.
+- Workspace logos are processed locally as PNG, JPG or WebP files up to
+  approximately 500 KB. PDF exports include the active workspace name and logo
+  when available, with `TB` as the no-logo fallback; CSV and XLSX remain
+  text-only.
+- The local account snapshot is versioned and migrates the former single
+  workspace without discarding data. Invalid storage falls back to safe seeds;
+  there is no backend, authentication or cross-device synchronization.

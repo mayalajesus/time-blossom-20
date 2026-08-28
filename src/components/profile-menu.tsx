@@ -1,6 +1,6 @@
 import { Description, Dropdown, Label, toast } from "@heroui/react";
 import { useNavigate } from "@tanstack/react-router";
-import { LogOut, Settings, SlidersHorizontal } from "lucide-react";
+import { Layers3, LogOut, Settings, SlidersHorizontal } from "lucide-react";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
@@ -16,6 +16,9 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
     switch (key) {
       case "settings":
         navigate({ to: "/settings", hash: "account" });
+        break;
+      case "workspaces":
+        navigate({ to: "/workspaces" });
         break;
       case "preferences":
         navigate({ to: "/settings", hash: "personal-preferences" });
@@ -48,7 +51,7 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
         ) : null}
       </Dropdown.Trigger>
       <Dropdown.Popover
-        placement={showName ? "right end" : "bottom end"}
+        placement={showName ? "right" : "bottom"}
         className="w-64 max-w-[calc(100vw-1.5rem)] p-1"
       >
         <div className="border-b border-default px-3 py-2">
@@ -57,6 +60,10 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
           <Description className="mt-1 text-xs">{t(currentMember.role)}</Description>
         </div>
         <Dropdown.Menu onAction={(key) => handleAction(String(key))}>
+          <Dropdown.Item id="workspaces">
+            <Layers3 className="size-4" />
+            <Label>{t("Workspaces")}</Label>
+          </Dropdown.Item>
           <Dropdown.Item id="settings">
             <Settings className="size-4" />
             <Label>{t("Settings")}</Label>

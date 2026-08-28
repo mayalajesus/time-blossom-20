@@ -79,6 +79,34 @@ control for Marina (Owner), Caio (Admin) and Helena (Member). This control is a
 local role preview, not authentication. The Owner's own Team row is read-only:
 there is no action menu, and personal preferences are managed in Settings.
 
+## Workspaces
+
+- Each active identity can create up to five workspaces, including archived
+  workspaces in that count. Shared workspaces received through membership do
+  not count toward that limit.
+- A workspace accepts at most 50 active members and pending invitations. Its
+  members, clients, projects, time entries, settings and Trello state are
+  isolated from every other workspace.
+- New workspaces start empty with default tracking settings. The creator is
+  their `Owner`; workspace roles and access are specific to each membership.
+- The workspace switcher is available from the sidebar, and `Workspaces` is
+  available in the avatar menu immediately above `Settings`. The sidebar uses
+  initials only; the optional workspace logo is reserved for report PDFs.
+- Owners can edit, archive and restore their own workspaces. Archived
+  workspaces are read-only. Members of another owner's workspace can leave it;
+  an Owner must archive their workspace instead.
+- Workspace name, default billability and week start are edited together in the
+  workspace edit modal; personal preferences remain in Settings.
+- A running timer belongs to its source workspace. Switching workspace asks the
+  user to `Pause and switch`; paused timers remain in their original workspace
+  and are not stopped or converted into entries automatically.
+- Workspace logos are stored locally, limited to PNG, JPG or WebP files of
+  approximately 500 KB, and are used exclusively as PDF report branding. CSV
+  and XLSX exports remain text-only.
+- This prototype has no backend, authentication or cross-device sync. The
+  versioned local snapshot migrates the previous single-workspace shape and
+  falls back to safe seed data when storage is invalid.
+
 ## Reports
 
 Reports use one shared pipeline for period selection, permission scope, filters,

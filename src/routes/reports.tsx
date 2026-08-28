@@ -309,7 +309,17 @@ function ReportsPage() {
     page: rawSearch.page ?? 1,
   };
   const navigate = Route.useNavigate();
-  const { entries, projects, clients, members, currentUserId, can, settings, today } = useStore();
+  const {
+    entries,
+    projects,
+    clients,
+    members,
+    currentUserId,
+    currentWorkspace,
+    can,
+    settings,
+    today,
+  } = useStore();
   const { locale, t } = useI18n();
   const loading = useSimulatedLoad(600);
   const [exportOpen, setExportOpen] = useState(false);
@@ -348,7 +358,7 @@ function ReportsPage() {
 
   const updateSearch = (patch: Partial<ReportSearch>) => {
     navigate({
-      search: (previous) => ({ ...previous, ...patch, page: patch.page ?? 1 }),
+      search: { ...search, ...patch, page: patch.page ?? 1 },
     });
   };
 
@@ -443,6 +453,14 @@ function ReportsPage() {
   const exportContext = useMemo(
     () => ({
       locale,
+      ...(currentWorkspace
+        ? {
+            branding: {
+              workspaceName: currentWorkspace.name,
+              logoDataUrl: currentWorkspace.logoDataUrl,
+            },
+          }
+        : {}),
       displayTitle: `${t(reportViews.find((report) => report.id === search.view)?.label ?? "Time")} ${t("report")}`,
       subtitle: `Time Blossom · ${formatDateRange(range.startDate, range.endDate, locale)}`,
       meta: [
@@ -478,6 +496,7 @@ function ReportsPage() {
     }),
     [
       billable,
+      currentWorkspace,
       filteredEntries.length,
       internal,
       locale,

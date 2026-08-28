@@ -24,6 +24,10 @@ export type ReportExportPayload = {
   columns: string[];
   rows: Array<Record<string, string | number>>;
   locale?: Locale;
+  branding?: {
+    workspaceName: string;
+    logoDataUrl: string | null;
+  };
 };
 
 export type ReportExportResult = { success: true } | { success: false; error: string };
@@ -136,6 +140,10 @@ function printableMarkup(payload: ReportExportPayload): string {
   const locale = payload.locale ?? defaultLocale;
   const title = payload.displayTitle ?? humanizeTitle(payload.title);
   const subtitle = payload.subtitle ?? translate("Time Blossom · filtered report", locale);
+  const workspaceName = payload.branding?.workspaceName?.trim() || "Time Blossom";
+  const brandMark = payload.branding?.logoDataUrl
+    ? `<img class="brand-logo" src="${escapeHtml(payload.branding.logoDataUrl)}" alt="" />`
+    : `<span class="brand-mark">TB</span>`;
   const generatedAt = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
@@ -161,6 +169,7 @@ function printableMarkup(payload: ReportExportPayload): string {
       .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 15px; border-bottom: 2px solid #1f2937; }
       .brand { display: flex; align-items: center; gap: 9px; color: #0d8cf0; font-weight: 800; letter-spacing: .02em; }
       .brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 7px; color: #fff; background: #0d8cf0; font-size: 11px; }
+      .brand-logo { display: block; width: 22px; height: 22px; border-radius: 7px; object-fit: cover; }
       h1 { margin: 13px 0 3px; color: #111827; font-size: 22px; line-height: 1.15; letter-spacing: -.02em; }
       .subtitle { margin: 0; color: #667085; font-size: 11px; }
       .generated { margin: 2px 0 0; color: #667085; font-size: 9px; text-align: right; }
@@ -192,7 +201,7 @@ function printableMarkup(payload: ReportExportPayload): string {
     <main class="report">
       <header class="header">
         <div>
-          <div class="brand"><span class="brand-mark">TB</span><span>Time Blossom</span></div>
+          <div class="brand">${brandMark}<span>${escapeHtml(workspaceName)}</span></div>
           <h1>${escapeHtml(title)}</h1>
           <p class="subtitle">${escapeHtml(subtitle)}</p>
         </div>

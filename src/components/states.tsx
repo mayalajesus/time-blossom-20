@@ -1,38 +1,33 @@
-import { Alert, Button, Card, Skeleton } from "@heroui/react";
+import { Alert, Button, Card, Spinner } from "@heroui/react";
 import type { ReactNode } from "react";
 import { useI18n } from "@/lib/i18n";
 
-export function TableSkeleton({ rows = 5 }: { rows?: number }) {
+export function LoadingState({ label, className }: { label?: string; className?: string }) {
+  const { t } = useI18n();
+  const loadingLabel = label ?? t("Loading data");
+
   return (
-    <Card>
-      <Card.Content className="flex flex-col gap-3 py-4">
-        {Array.from({ length: rows }).map((_, i) => (
-          <div key={i} className="flex items-center gap-4">
-            <Skeleton className="h-4 w-4 rounded-full" />
-            <Skeleton className="h-4 flex-1 rounded-md" />
-            <Skeleton className="h-4 w-24 rounded-md" />
-            <Skeleton className="h-4 w-16 rounded-md" />
-          </div>
-        ))}
+    <Card
+      className={className ?? ""}
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label={loadingLabel}
+    >
+      <Card.Content className="flex min-h-32 flex-col items-center justify-center gap-3 px-6 py-8 text-center">
+        <Spinner aria-hidden="true" className="motion-reduce:animate-none" />
+        <span className="text-sm text-muted">{loadingLabel}</span>
       </Card.Content>
     </Card>
   );
 }
 
-export function CardsSkeleton({ count = 4 }: { count?: number }) {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {Array.from({ length: count }).map((_, i) => (
-        <Card key={i}>
-          <Card.Content className="flex flex-col gap-3 py-5">
-            <Skeleton className="h-4 w-32 rounded-md" />
-            <Skeleton className="h-3 w-20 rounded-md" />
-            <Skeleton className="h-2 w-full rounded-md" />
-          </Card.Content>
-        </Card>
-      ))}
-    </div>
-  );
+export function TableSkeleton({ rows: _rows = 5 }: { rows?: number }) {
+  return <LoadingState />;
+}
+
+export function CardsSkeleton({ count: _count = 4 }: { count?: number }) {
+  return <LoadingState />;
 }
 
 export function EmptyBlock({

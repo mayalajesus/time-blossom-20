@@ -29,6 +29,7 @@ import { HeaderTimerControl } from "@/components/header-timer-control";
 import { LogTimeModal } from "@/components/log-time-modal";
 import { ProfileMenu } from "@/components/profile-menu";
 import { FormAlert } from "@/components/form-feedback";
+import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { AppI18nProvider, useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 
@@ -99,7 +100,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function AppShellContent({ children }: { children: ReactNode }) {
-  const { settings } = useStore();
   const { t } = useI18n();
   const navigate = useNavigate();
   const location = useLocation();
@@ -134,9 +134,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
         }`}
       >
         <div className="flex items-center justify-between gap-2 px-1 py-2">
-          {!collapsed && (
-            <span className="truncate text-sm font-semibold">{settings.workspaceName}</span>
-          )}
+          <WorkspaceSwitcher collapsed={collapsed} />
           <Button
             aria-label={t("Toggle sidebar")}
             isIconOnly
@@ -280,6 +278,9 @@ function AppShellContent({ children }: { children: ReactNode }) {
           </Form>
           <div className="ml-auto flex items-center gap-2">
             <HeaderTimerControl />
+            <div className="md:hidden">
+              <WorkspaceSwitcher compact />
+            </div>
             <div className="md:hidden">
               <ProfileMenu />
             </div>
