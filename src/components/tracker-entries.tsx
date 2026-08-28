@@ -20,6 +20,7 @@ import {
   parseDurationInput,
   shiftDate,
 } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import type { TimeEntry } from "@/lib/mock-data";
 
 export interface TrackerDay {
@@ -184,6 +185,7 @@ function groupEntries(days: TrackerDay[]): TrackerGroup[] {
 }
 
 export function TrackerEntries({ days }: { days: TrackerDay[] }) {
+  const { locale, t } = useI18n();
   const [activeCell, setActiveCell] = useState<ActiveCell>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const entryIds = useMemo(
@@ -218,10 +220,10 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
   return (
     <div
       className="overflow-x-auto rounded-xl border border-default"
-      aria-label="Time entries for selected period"
+      aria-label={t("Time entries for selected period")}
     >
       <table className="tracker-table w-full min-w-[1040px] table-fixed border-collapse bg-surface text-left">
-        <caption className="sr-only">Time entries for selected period</caption>
+        <caption className="sr-only">{t("Time entries for selected period")}</caption>
         <colgroup>
           <col className="w-[21%]" />
           <col className="w-[18%]" />
@@ -237,39 +239,39 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
               scope="col"
               className="whitespace-nowrap px-4 py-2 text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
             >
-              Task
+              {t("Task")}
             </th>
             <th
               scope="col"
               className="whitespace-nowrap px-4 py-2 text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
             >
-              Project / client
+              {t("Project / client")}
             </th>
             <th
               scope="col"
               className="whitespace-nowrap px-4 py-2 text-center text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
             >
-              Start
+              {t("Start")}
             </th>
             <th
               scope="col"
               className="whitespace-nowrap px-4 py-2 text-center text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
             >
-              End
+              {t("End")}
             </th>
             <th
               scope="col"
               className="whitespace-nowrap px-4 py-2 text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
             >
-              Date
+              {t("Date")}
             </th>
             <th
               scope="col"
               className="whitespace-nowrap px-4 py-2 text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
             >
-              Duration
+              {t("Duration")}
             </th>
-            <th scope="col" aria-label="Actions" />
+            <th scope="col" aria-label={t("Actions")} />
           </tr>
         </thead>
         <tbody>
@@ -330,20 +332,28 @@ function TrackerGroupSummaryRow({
   onToggle: () => void;
 }) {
   const { projects, clients, timer, startTimer } = useStore();
+  const { locale, t, error } = useI18n();
   const project = projects.find((item) => item.id === group.projectId);
-  const projectName = project?.name ?? "No project";
+  const projectName = project?.name ?? t("No project");
   const clientName = project
-    ? (clients.find((client) => client.id === project.clientId)?.name ?? "Unknown client")
-    : "No client";
+    ? (clients.find((client) => client.id === project.clientId)?.name ?? t("Unknown client"))
+    : t("No client");
   const summaryCellClass =
     "cursor-pointer border-b border-default bg-surface px-4 py-3 align-middle overflow-hidden";
   const summaryTextClass = "block min-w-0 truncate whitespace-nowrap";
-  const toggleLabel = `${isExpanded ? "Collapse" : "Expand"} ${group.entries.length} entries for ${group.task}; ${group.billable ? "billable" : "internal"}`;
+  const toggleLabel = t(
+    `${isExpanded ? "Collapse" : "Expand"} {count} entries for {task}; {type}`,
+    {
+      count: group.entries.length,
+      task: group.task,
+      type: group.billable ? t("billable") : t("internal"),
+    },
+  );
 
   const startAgain = () => {
     if (timer.status !== "idle") return;
     const result = startTimer(group.task, group.projectId, group.billable);
-    if (!result.success) toast("Could not start timer", { description: result.error });
+    if (!result.success) toast(t("Could not start timer"), { description: error(result.error) });
   };
 
   const handleSummaryClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
@@ -383,7 +393,9 @@ function TrackerGroupSummaryRow({
             />
           </Button>
           <span className="truncate pl-1 text-xs text-muted">
-            {group.entries.length} {group.entries.length === 1 ? "entry" : "entries"}
+            {t(group.entries.length === 1 ? "{count} entry" : "{count} entries", {
+              count: group.entries.length,
+            })}
           </span>
         </div>
       </td>
@@ -405,19 +417,19 @@ function TrackerGroupSummaryRow({
       </td>
       <td className={summaryCellClass}>
         <span className={`${summaryTextClass} tabular-nums text-muted`}>
-          {formatDate(group.date)}
+          {formatDate(group.date, locale)}
         </span>
       </td>
       <td className={summaryCellClass}>
         <span className={`${summaryTextClass} font-medium tabular-nums text-foreground`}>
-          {formatDuration(group.totalSeconds)}
+          {formatDuration(group.totalSeconds, locale)}
         </span>
       </td>
       <td className={`${trackerActionCellClass} bg-surface`}>
         <div className={trackerActionLayoutClass} data-tracker-action>
           <Button
             isIconOnly
-            aria-label={`Start ${group.task} again`}
+            aria-label={t("Start {task} again", { task: group.task })}
             isDisabled={timer.status !== "idle"}
             className={trackerActionButtonClass}
             variant="tertiary"
@@ -426,11 +438,11 @@ function TrackerGroupSummaryRow({
             <Play className="size-4" />
           </Button>
           <ActionDropdown
-            ariaLabel={`Actions for ${group.task} group`}
+            ariaLabel={t("Actions for {task} group", { task: group.task })}
             items={[
               {
                 id: "toggle",
-                label: isExpanded ? "Collapse group" : "Expand group",
+                label: t(isExpanded ? "Collapse group" : "Expand group"),
                 icon: <ChevronDown className={`size-4 ${isExpanded ? "rotate-180" : ""}`} />,
               },
             ]}
@@ -459,6 +471,7 @@ function TrackerEntryRow({
 }) {
   const { projects, clients, timer, startTimer, updateEntry, deleteEntry, restoreEntry } =
     useStore();
+  const { locale, t, error } = useI18n();
   const rowRef = useRef<HTMLTableRowElement | null>(null);
   const focusRef = useRef<HTMLInputElement | null>(null);
   const savedDraftRef = useRef<EntryDraft>(toDraft(entry));
@@ -483,14 +496,15 @@ function TrackerEntryRow({
   }, [activeField]);
 
   const project = projects.find((item) => item.id === entry.projectId);
-  const projectName = project?.name ?? "No project";
+  const projectName = project?.name ?? t("No project");
   const clientName = project
-    ? (clients.find((client) => client.id === project.clientId)?.name ?? "Unknown client")
-    : "No client";
+    ? (clients.find((client) => client.id === project.clientId)?.name ?? t("Unknown client"))
+    : t("No client");
   const selectedProject = projects.find((item) => item.id === draft.projectId);
   const selectedClientName = selectedProject
-    ? (clients.find((client) => client.id === selectedProject.clientId)?.name ?? "Unknown client")
-    : "No client";
+    ? (clients.find((client) => client.id === selectedProject.clientId)?.name ??
+      t("Unknown client"))
+    : t("No client");
   const entryEndDate = getEndDateForEntry(entry);
   const entryEndDayOffset = getEntryEndDayOffset(entry);
   const endTimeLabel = `End time: ${entry.end}${
@@ -499,8 +513,8 @@ function TrackerEntryRow({
       : ""
   }`;
   const validateDraft = (candidate: EntryDraft, allowFullDayDuration = false): string | null => {
-    if (!candidate.task.trim()) return "Task is required.";
-    if (!isValidDateOnly(candidate.date)) return "Choose a valid date.";
+    if (!candidate.task.trim()) return t("Task is required.");
+    if (!isValidDateOnly(candidate.date)) return t("Choose a valid date.");
     const elapsedMinutes = getElapsedMinutes(
       candidate.date,
       candidate.start,
@@ -509,10 +523,10 @@ function TrackerEntryRow({
     );
     const preciseDuration = parseDurationInput(candidate.duration);
     if (elapsedMinutes <= 0 && !allowFullDayDuration && !(preciseDuration && preciseDuration > 0)) {
-      return "End time must be after start time.";
+      return t("End time must be after start time.");
     }
     if (candidate.projectId !== null && !projects.some((item) => item.id === candidate.projectId)) {
-      return "Choose an existing project or No project.";
+      return t("Choose an existing project or No project.");
     }
     return null;
   };
@@ -522,8 +536,8 @@ function TrackerEntryRow({
     setDraft(candidate);
     setValidationMessage(null);
     const durationSeconds = parseDurationInput(candidate.duration);
-    toast("Entry updated", {
-      description: `${candidate.task} · ${durationSeconds === null ? candidate.duration : formatDuration(durationSeconds)}`,
+    toast(t("Entry updated"), {
+      description: `${candidate.task} · ${durationSeconds === null ? candidate.duration : formatDuration(durationSeconds, locale)}`,
     });
   };
 
@@ -562,7 +576,7 @@ function TrackerEntryRow({
           : { [field]: normalizedValue };
     const result = updateEntry(entry.id, patch);
     if (!result.success) {
-      setValidationMessage(result.error);
+      setValidationMessage(error(result.error));
       return false;
     }
 
@@ -605,7 +619,7 @@ function TrackerEntryRow({
       endTimestamp: dateTimeToTimestamp(endDate, end) ?? undefined,
     });
     if (!result.success) {
-      setValidationMessage(result.error);
+      setValidationMessage(error(result.error));
       return false;
     }
 
@@ -617,7 +631,9 @@ function TrackerEntryRow({
   const commitDuration = (value: string, close = false): boolean => {
     const totalSeconds = parseDurationInput(value);
     if (totalSeconds === null) {
-      setValidationMessage("Use H:MM, HHMM, HMM, 2h or Ns (for example, 1:20, 120, 825 or 45s).");
+      setValidationMessage(
+        t("Use H:MM, HHMM, HMM, 2h or Ns (for example, 1:20, 120, 825 or 45s)."),
+      );
       return false;
     }
 
@@ -651,7 +667,7 @@ function TrackerEntryRow({
       endTimestamp: dateTimeToTimestamp(finish.endDate, finish.end) ?? undefined,
     });
     if (!result.success) {
-      setValidationMessage(result.error);
+      setValidationMessage(error(result.error));
       return false;
     }
 
@@ -754,12 +770,13 @@ function TrackerEntryRow({
     deleteEntry(entry.id);
     setDeleteDialogOpen(false);
     onDeactivate();
-    toast("Time entry deleted", {
+    toast(t("Time entry deleted"), {
       actionProps: {
-        children: "Undo",
+        children: t("Undo"),
         onPress: () => {
           const result = restoreEntry(deletedEntry);
-          if (!result.success) toast("Could not restore entry", { description: result.error });
+          if (!result.success)
+            toast(t("Could not restore entry"), { description: error(result.error) });
         },
       },
       timeout: 20_000,
@@ -769,7 +786,7 @@ function TrackerEntryRow({
   const startAgain = () => {
     if (timer.status !== "idle") return;
     const result = startTimer(entry.task, entry.projectId, entry.billable);
-    if (!result.success) toast("Could not start timer", { description: result.error });
+    if (!result.success) toast(t("Could not start timer"), { description: error(result.error) });
   };
 
   const actionCell = (
@@ -777,7 +794,7 @@ function TrackerEntryRow({
       <div className={trackerActionLayoutClass} data-tracker-action>
         <Button
           isIconOnly
-          aria-label={`Start ${entry.task} again`}
+          aria-label={t("Start {task} again", { task: entry.task })}
           isDisabled={timer.status !== "idle"}
           className={trackerActionButtonClass}
           variant="tertiary"
@@ -786,11 +803,11 @@ function TrackerEntryRow({
           <Play className="size-4" />
         </Button>
         <ActionDropdown
-          ariaLabel={`Actions for ${entry.task}`}
+          ariaLabel={t("Actions for {task}", { task: entry.task })}
           items={[
             {
               id: "delete",
-              label: "Delete entry",
+              label: t("Delete entry"),
               icon: <Trash2 className="size-4" />,
               tone: "danger",
             },
@@ -879,7 +896,7 @@ function TrackerEntryRow({
                   }))
                 }
               >
-                <Label className="sr-only">Task</Label>
+                <Label className="sr-only">{t("Task")}</Label>
                 <Input
                   ref={focusRef}
                   className={compactInputClass}
@@ -908,7 +925,9 @@ function TrackerEntryRow({
               isIconOnly
               size="sm"
               variant="ghost"
-              aria-label={`Billable: ${entry.billable ? "yes" : "no"}`}
+              aria-label={t("Billable: {value}", {
+                value: entry.billable ? t("yes") : t("no"),
+              })}
               aria-pressed={entry.billable}
               data-tracker-field="billable"
               className="size-4 min-w-4 !rounded-full !p-0"
@@ -937,11 +956,11 @@ function TrackerEntryRow({
                 }))
               }
             >
-              <Label className="sr-only">Description</Label>
+              <Label className="sr-only">{t("Description")}</Label>
               <Input
                 ref={focusRef}
                 className={compactInputClass}
-                placeholder="Add a note"
+                placeholder={t("Add a note")}
                 onBlur={() => {
                   if (commitField("description", draft.description)) onDeactivate();
                 }}
@@ -954,7 +973,7 @@ function TrackerEntryRow({
               size="sm"
               variant="ghost"
               fullWidth
-              aria-label={entry.description ? "Edit description" : "Add description"}
+              aria-label={t(entry.description ? "Edit description" : "Add description")}
               className={`${descriptionButtonClass} mt-0.5 !h-6 !min-h-6 !justify-start text-xs text-muted ${entry.description ? "" : "text-transparent"}`}
               data-tracker-field="description"
               onPress={() => onActivate("description")}
@@ -968,7 +987,7 @@ function TrackerEntryRow({
           {activeField === "project" ? (
             <>
               <ProjectSelect
-                ariaLabel="Project"
+                ariaLabel={t("Project")}
                 value={draft.projectId ?? "none"}
                 allowArchivedId={entry.projectId}
                 onChange={(value) => {
@@ -1012,7 +1031,7 @@ function TrackerEntryRow({
               isInvalid={Boolean(validationMessage)}
               onChange={(value) => setDraft((current) => ({ ...current, start: value }))}
             >
-              <Label className="sr-only">Start time</Label>
+              <Label className="sr-only">{t("Start time")}</Label>
               <Input
                 ref={focusRef}
                 className={timeInputClass}
@@ -1029,7 +1048,7 @@ function TrackerEntryRow({
               variant="ghost"
               className={timeSlotClass}
               data-tracker-field="start"
-              aria-label={`Start time: ${entry.start}`}
+              aria-label={t("Start time: {time}", { time: entry.start })}
               onPress={() => onActivate("start")}
             >
               {entry.start}
@@ -1047,8 +1066,8 @@ function TrackerEntryRow({
               onChange={(value) => setDraft((current) => ({ ...current, end: value }))}
             >
               <Label className="sr-only">
-                End time
-                {getDayOffset(draft.date, draft.endDate) > 0 ? ", next day" : ""}
+                {t("End time")}
+                {getDayOffset(draft.date, draft.endDate) > 0 ? `, ${t("next day")}` : ""}
               </Label>
               <Input
                 ref={focusRef}
@@ -1079,7 +1098,7 @@ function TrackerEntryRow({
             <>
               <HeroUIDatePicker
                 value={draft.date}
-                label="Date"
+                label={t("Date")}
                 className="!w-[8rem] !min-w-[8rem]"
                 compact
                 autoFocus
@@ -1100,7 +1119,7 @@ function TrackerEntryRow({
               data-tracker-field="date"
               onPress={() => onActivate("date")}
             >
-              {formatDate(entry.date)}
+              {formatDate(entry.date, locale)}
             </Button>
           )}
         </td>
@@ -1114,13 +1133,13 @@ function TrackerEntryRow({
               isInvalid={Boolean(validationMessage)}
               onChange={(value) => setDraft((current) => ({ ...current, duration: value }))}
             >
-              <Label className="sr-only">Duration</Label>
+              <Label className="sr-only">{t("Duration")}</Label>
               <Input
                 ref={focusRef}
                 className={durationInputClass}
                 variant="secondary"
                 inputMode="decimal"
-                placeholder="H:MM"
+                placeholder={t("H:MM")}
                 onBlur={() => commitDuration(draft.duration)}
                 onKeyDown={handleDurationKeyDown}
               />
@@ -1134,7 +1153,7 @@ function TrackerEntryRow({
               data-tracker-field="duration"
               onPress={() => onActivate("duration")}
             >
-              {formatDuration(entry.seconds)}
+              {formatDuration(entry.seconds, locale)}
             </Button>
           )}
         </td>
@@ -1147,19 +1166,19 @@ function TrackerEntryRow({
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>Delete time entry?</Modal.Heading>
+                <Modal.Heading>{t("Delete time entry?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
                 <p className="text-sm text-muted">
-                  Delete “{entry.task}”? This action cannot be undone.
+                  {t("Delete “{task}”? This action cannot be undone.", { task: entry.task })}
                 </p>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
-                  Keep entry
+                  {t("Keep entry")}
                 </Button>
                 <Button variant="secondary" className="text-danger" onPress={confirmDelete}>
-                  Delete entry
+                  {t("Delete entry")}
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>

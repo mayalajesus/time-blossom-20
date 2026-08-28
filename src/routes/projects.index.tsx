@@ -29,6 +29,7 @@ import { PageHeader } from "@/components/page-header";
 import { FormAlert } from "@/components/form-feedback";
 import { CardsSkeleton, EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration, getLocalToday } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import type { Project } from "@/lib/mock-data";
 import { useSimulatedLoad, useStore } from "@/lib/store";
 
@@ -62,6 +63,7 @@ function ProjectsPage() {
     addProject,
     updateProject,
   } = useStore();
+  const { locale, t, error } = useI18n();
   const loading = useSimulatedLoad(500);
   const [filter, setFilter] = useState<string>("active");
   const [newOpen, setNewOpen] = useState(false);
@@ -96,10 +98,10 @@ function ProjectsPage() {
       memberIds: assignedMemberIds,
     });
     if (!result.success) {
-      setCreateError(result.error);
+      setCreateError(error(result.error));
       return;
     }
-    toast("Project created", { description: name.trim() });
+    toast(t("Project created"), { description: name.trim() });
     setName("");
     setClientId("");
     setProjectBillable(settings.defaultBillable);
@@ -111,31 +113,31 @@ function ProjectsPage() {
   const toggleProjectStatus = (projectId: string, isActive: boolean, name: string) => {
     const result = updateProject(projectId, { status: isActive ? "on-hold" : "active" });
     if (!result.success) {
-      setStatusError(result.error);
+      setStatusError(error(result.error));
       return;
     }
     setStatusError(null);
-    toast(`Project ${isActive ? "deactivated" : "activated"}`, { description: name });
+    toast(t(isActive ? "Project deactivated" : "Project activated"), { description: name });
   };
 
   const restoreProject = (project: Project) => {
     const result = updateProject(project.id, { status: "active" });
     if (!result.success) {
-      setStatusError(result.error);
+      setStatusError(error(result.error));
       return;
     }
     setStatusError(null);
-    toast("Project restored", { description: project.name });
+    toast(t("Project restored"), { description: project.name });
   };
 
   const toggleProjectBillable = (project: Project) => {
     const result = updateProject(project.id, { billable: !project.billable });
     if (!result.success) {
-      setStatusError(result.error);
+      setStatusError(error(result.error));
       return;
     }
     setStatusError(null);
-    toast(project.billable ? "Project marked internal" : "Project marked billable", {
+    toast(t(project.billable ? "Project marked internal" : "Project marked billable"), {
       description: project.name,
     });
   };
@@ -144,10 +146,10 @@ function ProjectsPage() {
     if (!pendingArchive) return;
     const result = updateProject(pendingArchive.id, { status: "archived" });
     if (!result.success) {
-      setStatusError(result.error);
+      setStatusError(error(result.error));
       return;
     }
-    toast("Project archived", { description: pendingArchive.name });
+    toast(t("Project archived"), { description: pendingArchive.name });
     setStatusError(null);
     setPendingArchive(null);
   };
@@ -162,10 +164,10 @@ function ProjectsPage() {
     if (!pendingMembers) return;
     const result = updateProject(pendingMembers.id, { memberIds: assignedMemberIds });
     if (!result.success) {
-      setMemberError(result.error);
+      setMemberError(error(result.error));
       return;
     }
-    toast("Project members updated", { description: pendingMembers.name });
+    toast(t("Project members updated"), { description: pendingMembers.name });
     setPendingMembers(null);
     setMemberError(null);
   };
@@ -175,12 +177,12 @@ function ProjectsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Projects"
-        description="Time tracked per project across the workspace."
+        title={t("Projects")}
+        description={t("Time tracked per project across the workspace.")}
         actions={
           <>
             <Select
-              aria-label="Filter projects"
+              aria-label={t("Filter projects")}
               className="w-28 shrink-0"
               value={filter}
               variant="secondary"
@@ -193,10 +195,10 @@ function ProjectsPage() {
               <Select.Popover>
                 <ListBox>
                   {[
-                    { id: "all", label: "All" },
-                    { id: "active", label: "Active" },
-                    { id: "inactive", label: "Inactive" },
-                    { id: "archived", label: "Archived" },
+                    { id: "all", label: t("All") },
+                    { id: "active", label: t("Active") },
+                    { id: "inactive", label: t("Inactive") },
+                    { id: "archived", label: t("Archived") },
                   ].map((o) => (
                     <ListBox.Item key={o.id} id={o.id} textValue={o.label}>
                       <Label>{o.label}</Label>
@@ -215,7 +217,7 @@ function ProjectsPage() {
                 }}
               >
                 <Plus className="size-4" />
-                New project
+                {t("New project")}
               </Button>
             ) : null}
           </>
@@ -223,7 +225,7 @@ function ProjectsPage() {
       />
 
       {statusError ? (
-        <FormAlert title="Could not update project" description={statusError} />
+        <FormAlert title={t("Could not update project")} description={statusError} />
       ) : null}
 
       {loading ? (
@@ -231,8 +233,8 @@ function ProjectsPage() {
       ) : visible.length === 0 ? (
         <EmptyBlock
           icon={<FolderKanban className="size-5" />}
-          title="No projects here"
-          description="Change the status filter or create a new project to get started."
+          title={t("No projects here")}
+          description={t("Change the status filter or create a new project to get started.")}
           action={
             can("manage-projects") ? (
               <Button
@@ -244,7 +246,7 @@ function ProjectsPage() {
                   setNewOpen(true);
                 }}
               >
-                New project
+                {t("New project")}
               </Button>
             ) : null
           }
@@ -269,15 +271,18 @@ function ProjectsPage() {
                 </Link>
                 <div className="flex shrink-0 items-center gap-2">
                   <Chip color={project.billable ? "success" : "default"} size="sm" variant="soft">
-                    {project.billable ? "Billable" : "Internal"}
+                    {project.billable ? t("Billable") : t("Internal")}
                   </Chip>
                   {can("manage-projects") ? (
                     <ActionDropdown
-                      ariaLabel={`${project.status === "archived" ? "Archived" : "Project"} actions for ${project.name}`}
+                      ariaLabel={t("{kind} actions for {name}", {
+                        kind: project.status === "archived" ? t("Archived") : t("Project"),
+                        name: project.name,
+                      })}
                       items={[
                         {
                           id: "members",
-                          label: "Manage members",
+                          label: t("Manage members"),
                           icon: <Users className="size-4" />,
                         },
                         ...(project.status === "archived"
@@ -285,7 +290,7 @@ function ProjectsPage() {
                           : [
                               {
                                 id: "status",
-                                label: project.status === "active" ? "Active" : "Inactive",
+                                label: project.status === "active" ? t("Active") : t("Inactive"),
                                 icon: <Power className="size-4" />,
                                 trailing: (
                                   <Switch
@@ -303,18 +308,18 @@ function ProjectsPage() {
                             ]),
                         {
                           id: "billable",
-                          label: project.billable ? "Make internal" : "Make billable",
+                          label: project.billable ? t("Make internal") : t("Make billable"),
                           icon: <CircleDollarSign className="size-4" />,
                         },
                         project.status === "archived"
                           ? {
                               id: "restore",
-                              label: "Restore project",
+                              label: t("Restore project"),
                               icon: <ArchiveRestore className="size-4" />,
                             }
                           : {
                               id: "archive",
-                              label: "Archive project",
+                              label: t("Archive project"),
                               icon: <Archive className="size-4" />,
                               tone: "danger" as const,
                             },
@@ -339,14 +344,16 @@ function ProjectsPage() {
 
               <div className="mt-auto flex items-end justify-between gap-4 pt-4 text-sm">
                 <div className="min-w-0">
-                  <p className="text-xs text-muted">Tracked</p>
+                  <p className="text-xs text-muted">{t("Tracked")}</p>
                   <p className="truncate tabular-nums font-medium text-foreground">
-                    {formatDuration(projectSeconds(project.id))}
+                    {formatDuration(projectSeconds(project.id), locale)}
                   </p>
                 </div>
                 <div className="min-w-0 text-right">
-                  <p className="text-xs text-muted">Last activity</p>
-                  <p className="truncate text-foreground">{formatDate(project.lastActivity)}</p>
+                  <p className="text-xs text-muted">{t("Last activity")}</p>
+                  <p className="truncate text-foreground">
+                    {formatDate(project.lastActivity, locale)}
+                  </p>
                 </div>
               </div>
             </article>
@@ -368,23 +375,27 @@ function ProjectsPage() {
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>Archive project?</Modal.Heading>
+                <Modal.Heading>{t("Archive project?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body className="flex flex-col gap-4">
                 {statusError ? (
-                  <FormAlert title="Could not archive project" description={statusError} />
+                  <FormAlert title={t("Could not archive project")} description={statusError} />
                 ) : null}
                 <p className="text-sm text-muted">
-                  {pendingArchive?.name ?? "This project"} will leave Active and Inactive lists.
-                  Existing time entries will remain available in reports and history.
+                  {t(
+                    "{name} will leave Active and Inactive lists. Existing time entries will remain available in reports and history.",
+                    {
+                      name: pendingArchive?.name ?? t("This project"),
+                    },
+                  )}
                 </p>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
-                  Cancel
+                  {t("Cancel")}
                 </Button>
                 <Button variant="danger" onPress={archiveProject}>
-                  Archive project
+                  {t("Archive project")}
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>
@@ -398,7 +409,7 @@ function ProjectsPage() {
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>New project</Modal.Heading>
+                <Modal.Heading>{t("New project")}</Modal.Heading>
               </Modal.Header>
               <Form
                 onSubmit={(event) => {
@@ -408,7 +419,7 @@ function ProjectsPage() {
               >
                 <Modal.Body className="flex flex-col gap-4">
                   {createError ? (
-                    <FormAlert title="Could not create project" description={createError} />
+                    <FormAlert title={t("Could not create project")} description={createError} />
                   ) : null}
 
                   <TextField
@@ -416,21 +427,21 @@ function ProjectsPage() {
                     fullWidth
                     name="project-name"
                     value={name}
-                    validate={(value) => (value.trim() ? null : "Project name is required")}
+                    validate={(value) => (value.trim() ? null : t("Project name is required"))}
                     onChange={(value) => {
                       setName(value);
                       setCreateError(null);
                     }}
                   >
-                    <Label>Name</Label>
-                    <Input placeholder="e.g. Brand refresh" />
+                    <Label>{t("Name")}</Label>
+                    <Input placeholder={t("e.g. Brand refresh")} />
                     <FieldError />
                   </TextField>
 
                   <div className="flex flex-col gap-2">
-                    <Label>Client</Label>
+                    <Label>{t("Client")}</Label>
                     <Select
-                      aria-label="Client"
+                      aria-label={t("Client")}
                       fullWidth
                       value={clientId || "none"}
                       onChange={(key) => {
@@ -445,8 +456,8 @@ function ProjectsPage() {
                       </Select.Trigger>
                       <Select.Popover>
                         <ListBox>
-                          <ListBox.Item id="none" textValue="Select a client" isDisabled>
-                            <Label>Select a client</Label>
+                          <ListBox.Item id="none" textValue={t("Select a client")} isDisabled>
+                            <Label>{t("Select a client")}</Label>
                           </ListBox.Item>
                           {clients.map((c) => (
                             <ListBox.Item key={c.id} id={c.id} textValue={c.name}>
@@ -457,7 +468,7 @@ function ProjectsPage() {
                         </ListBox>
                       </Select.Popover>
                     </Select>
-                    <Description>Every project is connected to one client.</Description>
+                    <Description>{t("Every project is connected to one client.")}</Description>
                   </div>
 
                   <Switch
@@ -468,22 +479,22 @@ function ProjectsPage() {
                       <Switch.Thumb />
                     </Switch.Control>
                     <Switch.Content>
-                      <Label>Billable</Label>
-                      <Description>New entries use this as their default.</Description>
+                      <Label>{t("Billable")}</Label>
+                      <Description>{t("New entries use this as their default.")}</Description>
                     </Switch.Content>
                   </Switch>
 
                   <div className="space-y-3">
                     <div>
-                      <Label>Project members</Label>
+                      <Label>{t("Project members")}</Label>
                       <Description>
-                        Only assigned members can track time on this project.
+                        {t("Only assigned members can track time on this project.")}
                       </Description>
                     </div>
                     {activeMembers.map((member) => (
                       <Switch
                         key={member.id}
-                        aria-label={`Assign ${member.name}`}
+                        aria-label={t("Assign {name}", { name: member.name })}
                         isSelected={assignedMemberIds.includes(member.id)}
                         onChange={(selected) =>
                           setAssignedMemberIds((current) =>
@@ -498,7 +509,7 @@ function ProjectsPage() {
                         </Switch.Control>
                         <Switch.Content>
                           <Label>{member.name}</Label>
-                          <Description>{member.role}</Description>
+                          <Description>{t(member.role)}</Description>
                         </Switch.Content>
                       </Switch>
                     ))}
@@ -506,10 +517,10 @@ function ProjectsPage() {
                 </Modal.Body>
                 <Modal.Footer>
                   <Button slot="close" type="button" variant="secondary">
-                    Cancel
+                    {t("Cancel")}
                   </Button>
                   <Button type="submit" isDisabled={!name.trim() || !clientId}>
-                    Create project
+                    {t("Create project")}
                   </Button>
                 </Modal.Footer>
               </Form>
@@ -532,20 +543,21 @@ function ProjectsPage() {
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>Manage project members</Modal.Heading>
+                <Modal.Heading>{t("Manage project members")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body className="space-y-4">
                 {memberError ? (
-                  <FormAlert title="Could not update members" description={memberError} />
+                  <FormAlert title={t("Could not update members")} description={memberError} />
                 ) : null}
                 <p className="text-sm text-muted">
-                  Select the active members who can track time on{" "}
-                  {pendingMembers?.name ?? "this project"}.
+                  {t("Select the active members who can track time on {name}.", {
+                    name: pendingMembers?.name ?? t("this project"),
+                  })}
                 </p>
                 {activeMembers.map((member) => (
                   <Switch
                     key={member.id}
-                    aria-label={`Assign ${member.name}`}
+                    aria-label={t("Assign {name}", { name: member.name })}
                     isSelected={assignedMemberIds.includes(member.id)}
                     onChange={(selected) =>
                       setAssignedMemberIds((current) =>
@@ -560,16 +572,16 @@ function ProjectsPage() {
                     </Switch.Control>
                     <Switch.Content>
                       <Label>{member.name}</Label>
-                      <Description>{member.role}</Description>
+                      <Description>{t(member.role)}</Description>
                     </Switch.Content>
                   </Switch>
                 ))}
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
-                  Cancel
+                  {t("Cancel")}
                 </Button>
-                <Button onPress={saveMembers}>Save members</Button>
+                <Button onPress={saveMembers}>{t("Save members")}</Button>
               </Modal.Footer>
             </Modal.Dialog>
           </Modal.Container>

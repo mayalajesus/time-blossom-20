@@ -1,6 +1,7 @@
 import { Description, Input, Label, ListBox, Select, TextField } from "@heroui/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
+import { useI18n } from "@/lib/i18n";
 
 export type ProjectSelectValue = "all" | "none" | string;
 
@@ -28,6 +29,7 @@ export function ProjectSelect({
   ariaLabel,
 }: ProjectSelectProps) {
   const { projects, clients, canTrackProject } = useStore();
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -59,7 +61,7 @@ export function ProjectSelect({
   }, [isOpen]);
 
   const clientNameFor = (clientId: string) =>
-    clients.find((client) => client.id === clientId)?.name ?? "Unknown client";
+    clients.find((client) => client.id === clientId)?.name ?? t("Unknown client");
 
   return (
     <Select
@@ -89,27 +91,27 @@ export function ProjectSelect({
             value={query}
             onChange={setQuery}
           >
-            <Label className="sr-only">Search projects</Label>
+            <Label className="sr-only">{t("Search projects")}</Label>
             <Input
               ref={searchRef}
-              placeholder="Search projects..."
+              placeholder={`${t("Search projects")}...`}
               onKeyDown={(event) => {
                 if (event.key !== "Escape") event.stopPropagation();
               }}
             />
           </TextField>
 
-          <ListBox aria-label="Projects" className="max-h-72 overflow-y-auto">
+          <ListBox aria-label={t("Projects")} className="max-h-72 overflow-y-auto">
             {includeAll ? (
-              <ListBox.Item id="all" textValue="All projects">
-                <Label>All projects</Label>
+              <ListBox.Item id="all" textValue={t("All projects")}>
+                <Label>{t("All projects")}</Label>
                 <ListBox.ItemIndicator />
               </ListBox.Item>
             ) : null}
-            <ListBox.Item id="none" textValue="No project No client">
+            <ListBox.Item id="none" textValue={`${t("No project")} ${t("No client")}`}>
               <div className="flex min-w-0 flex-col">
-                <Label>No project</Label>
-                <Description>No client</Description>
+                <Label>{t("No project")}</Label>
+                <Description>{t("No client")}</Description>
               </div>
               <ListBox.ItemIndicator />
             </ListBox.Item>
@@ -129,8 +131,8 @@ export function ProjectSelect({
             ))}
 
             {query.trim() && filteredProjects.length === 0 ? (
-              <ListBox.Item id="no-results" isDisabled textValue="No projects found">
-                <Description>No projects found</Description>
+              <ListBox.Item id="no-results" isDisabled textValue={t("No projects found")}>
+                <Description>{t("No projects found")}</Description>
               </ListBox.Item>
             ) : null}
           </ListBox>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { ProjectSelect } from "@/components/project-select";
 import { formatClock } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 
 export function TimerCard() {
@@ -18,6 +19,7 @@ export function TimerCard() {
     resumeTimer,
     stopTimer,
   } = useStore();
+  const { t, error } = useI18n();
   const [task, setTask] = useState("");
   const [activeTask, setActiveTask] = useState(timer.task);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -51,16 +53,16 @@ export function TimerCard() {
             if (value.trim()) updateActiveTimer({ task: value });
           }}
         >
-          <Label className="sr-only">What are you working on?</Label>
+          <Label className="sr-only">{t("What are you working on?")}</Label>
           <Input
-            placeholder="What are you working on?"
+            placeholder={t("What are you working on?")}
             onBlur={() => {
               if (!active) return;
               if (activeTask.trim()) {
                 updateActiveTimer({ task: activeTask });
               } else {
                 setActiveTask(timer.task);
-                setTimerError("A task is required.");
+                setTimerError(t("A task is required."));
               }
             }}
             onKeyDown={(event) => {
@@ -70,9 +72,9 @@ export function TimerCard() {
         </TextField>
 
         <div className="min-w-0 sm:col-span-1 lg:col-span-1">
-          <Label className="sr-only">Project</Label>
+          <Label className="sr-only">{t("Project")}</Label>
           <ProjectSelect
-            ariaLabel="Project"
+            ariaLabel={t("Project")}
             value={(active ? timer.projectId : projectId) ?? "none"}
             allowArchivedId={active ? timer.projectId : null}
             onChange={(value) => {
@@ -106,7 +108,7 @@ export function TimerCard() {
               }}
             >
               <Play className="size-4" />
-              Start
+              {t("Start")}
             </Button>
           ) : (
             <>
@@ -118,7 +120,7 @@ export function TimerCard() {
                   onPress={pauseTimer}
                 >
                   <Pause className="size-4" />
-                  Pause
+                  {t("Pause")}
                 </Button>
               ) : (
                 <Button
@@ -128,7 +130,7 @@ export function TimerCard() {
                   onPress={resumeTimer}
                 >
                   <Play className="size-4" />
-                  Resume
+                  {t("Resume")}
                 </Button>
               )}
               <Button
@@ -142,7 +144,7 @@ export function TimerCard() {
                 }}
               >
                 <Square className="size-4" />
-                Stop
+                {t("Stop")}
               </Button>
             </>
           )}
@@ -160,14 +162,14 @@ export function TimerCard() {
             <Switch.Thumb />
           </Switch.Control>
           <Switch.Content>
-            <Label>Billable</Label>
+            <Label>{t("Billable")}</Label>
           </Switch.Content>
         </Switch>
       </div>
 
       {timerError ? (
         <div className="mt-3">
-          <FormAlert title="Timer could not update" description={timerError} />
+          <FormAlert title={t("Timer could not update")} description={error(timerError)} />
         </div>
       ) : null}
     </div>

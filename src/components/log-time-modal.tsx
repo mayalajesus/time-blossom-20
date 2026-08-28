@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { ProjectSelect } from "@/components/project-select";
+import { useI18n } from "@/lib/i18n";
 import { useStore, type StoreResult } from "@/lib/store";
 import {
   addSecondsToDateTime,
@@ -42,6 +43,7 @@ export function LogTimeModal({
   entry?: TimeEntry | null;
 }) {
   const { projects, clients, settings, addEntry, updateEntry, currentUserId, timer } = useStore();
+  const { locale, t, error } = useI18n();
   const [timeMode, setTimeMode] = useState<"range" | "duration">("range");
   const [task, setTask] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -92,19 +94,19 @@ export function LogTimeModal({
     timeMode === "duration"
       ? (parsedDurationSeconds ?? 0)
       : getElapsedMinutes(date, start, effectiveEndDate, effectiveEnd) * 60;
-  const taskError = task.trim().length === 0 ? "Task is required" : undefined;
-  const dateError = !isValidDateOnly(date) ? "Choose a valid date" : undefined;
+  const taskError = task.trim().length === 0 ? t("Task is required") : undefined;
+  const dateError = !isValidDateOnly(date) ? t("Choose a valid date") : undefined;
   const timeError =
     timeMode === "duration"
       ? parsedDurationSeconds === null
-        ? "Use H:MM, HHMM, HMM, 2h or Ns (for example, 2:45, 825 or 45s)"
+        ? t("Use H:MM, HHMM, HMM, 2h or Ns (for example, 2:45, 825 or 45s)")
         : undefined
       : entrySeconds <= 0
-        ? "End time must be after start time"
+        ? t("End time must be after start time")
         : undefined;
   const manualTimerError =
     !entry && timer.status !== "idle"
-      ? "Stop the active timer before adding time manually."
+      ? t("Stop the active timer before adding time manually.")
       : undefined;
   const invalid = Boolean(taskError || dateError || timeError || manualTimerError);
 
@@ -152,8 +154,8 @@ export function LogTimeModal({
       setSaveError(result.error);
       return;
     }
-    toast(entry ? "Time entry updated" : "Time entry added", {
-      description: `${task.trim()} · ${formatDuration(entrySeconds)}`,
+    toast(t(entry ? "Time entry updated" : "Time entry added"), {
+      description: `${task.trim()} · ${formatDuration(entrySeconds, locale)}`,
     });
     setTask("");
     setDescription("");
@@ -172,7 +174,7 @@ export function LogTimeModal({
           <Modal.Dialog className="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col overflow-hidden">
             <Modal.CloseTrigger />
             <Modal.Header className="shrink-0">
-              <Modal.Heading>{entry ? "Edit time entry" : "Log time manually"}</Modal.Heading>
+              <Modal.Heading>{t(entry ? "Edit time entry" : "Log time manually")}</Modal.Heading>
             </Modal.Header>
             <Form
               className="flex min-h-0 flex-1 flex-col overflow-visible"
@@ -183,10 +185,13 @@ export function LogTimeModal({
             >
               <Modal.Body className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain flex flex-col gap-4">
                 {saveError ? (
-                  <FormAlert title="Could not save entry" description={saveError} />
+                  <FormAlert title={t("Could not save entry")} description={error(saveError)} />
                 ) : null}
                 {manualTimerError ? (
-                  <FormAlert title="Manual entry unavailable" description={manualTimerError} />
+                  <FormAlert
+                    title={t("Manual entry unavailable")}
+                    description={t(manualTimerError)}
+                  />
                 ) : null}
 
                 <TextField
@@ -194,23 +199,23 @@ export function LogTimeModal({
                   fullWidth
                   name="task"
                   value={task}
-                  validate={(value) => (value.trim() ? null : "Task is required")}
+                  validate={(value) => (value.trim() ? null : t("Task is required"))}
                   onChange={(value) => {
                     setTask(value);
                     setSaveError(null);
                   }}
                 >
-                  <Label>Task</Label>
-                  <Input placeholder="e.g. Landing page revisions" />
+                  <Label>{t("Task")}</Label>
+                  <Input placeholder={t("e.g. Landing page revisions")} />
                   <FieldError />
                 </TextField>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="flex min-w-0 flex-col gap-2">
-                    <Label>Date</Label>
+                    <Label>{t("Date")}</Label>
                     <HeroUIDatePicker
                       value={date}
-                      label="Date"
+                      label={t("Date")}
                       isInvalid={Boolean(dateError)}
                       onChange={(next) => {
                         setDate(next);
@@ -221,9 +226,9 @@ export function LogTimeModal({
                   </div>
 
                   <div className="flex min-w-0 flex-col gap-2">
-                    <Label>Project</Label>
+                    <Label>{t("Project")}</Label>
                     <ProjectSelect
-                      ariaLabel="Project"
+                      ariaLabel={t("Project")}
                       value={projectId ?? "none"}
                       allowArchivedId={entry?.projectId ?? null}
                       onChange={(value) => {
@@ -244,33 +249,35 @@ export function LogTimeModal({
                 </div>
 
                 {selectedProject ? (
-                  <Description>Client: {selectedClient?.name ?? "Unknown client"}</Description>
+                  <Description>
+                    {t("Client: {name}", { name: selectedClient?.name ?? t("Unknown client") })}
+                  </Description>
                 ) : null}
 
                 <div
                   className="flex flex-wrap items-center gap-2"
                   role="group"
-                  aria-label="Time entry mode"
+                  aria-label={t("Time entry mode")}
                 >
                   <Button
                     size="sm"
                     variant={timeMode === "range" ? "secondary" : "tertiary"}
                     onPress={() => setTimeMode("range")}
                   >
-                    Start / End
+                    {t("Start / End")}
                   </Button>
                   <Button
                     size="sm"
                     variant={timeMode === "duration" ? "secondary" : "tertiary"}
                     onPress={() => setTimeMode("duration")}
                   >
-                    Duration
+                    {t("Duration")}
                   </Button>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <TextField fullWidth name="start" type="time" value={start} onChange={setStart}>
-                    <Label>Start</Label>
+                    <Label>{t("Start")}</Label>
                     <Input />
                   </TextField>
                   {timeMode === "range" ? (
@@ -282,7 +289,7 @@ export function LogTimeModal({
                       isInvalid={Boolean(timeError)}
                       onChange={setEnd}
                     >
-                      <Label>End</Label>
+                      <Label>{t("End")}</Label>
                       <Input />
                       <FieldError>{timeError}</FieldError>
                     </TextField>
@@ -294,18 +301,23 @@ export function LogTimeModal({
                       isInvalid={Boolean(timeError)}
                       onChange={setDuration}
                       validate={(value) =>
-                        parseDurationInput(value) === null ? "Use H:MM, HHMM, HMM, 2h or Ns" : null
+                        parseDurationInput(value) === null
+                          ? t("Use H:MM, HHMM, HMM, 2h or Ns")
+                          : null
                       }
                     >
-                      <Label>Duration</Label>
-                      <Input placeholder="e.g. 2:45 or 825" />
+                      <Label>{t("Duration")}</Label>
+                      <Input placeholder={t("e.g. 2:45 or 825")} />
                       <FieldError />
                     </TextField>
                   )}
                 </div>
 
                 <Description>
-                  Duration: {entrySeconds > 0 ? formatDuration(entrySeconds) : "invalid range"}
+                  {t("Duration: {value}", {
+                    value:
+                      entrySeconds > 0 ? formatDuration(entrySeconds, locale) : t("invalid range"),
+                  })}
                 </Description>
 
                 <TextField
@@ -314,9 +326,9 @@ export function LogTimeModal({
                   value={description}
                   onChange={setDescription}
                 >
-                  <Label>Notes</Label>
-                  <TextArea placeholder="Optional details" />
-                  <Description>Keep useful context attached to this entry.</Description>
+                  <Label>{t("Notes")}</Label>
+                  <TextArea placeholder={t("Optional details")} />
+                  <Description>{t("Keep useful context attached to this entry.")}</Description>
                 </TextField>
 
                 <Switch
@@ -327,16 +339,16 @@ export function LogTimeModal({
                     <Switch.Thumb />
                   </Switch.Control>
                   <Switch.Content>
-                    <Label>Billable</Label>
+                    <Label>{t("Billable")}</Label>
                   </Switch.Content>
                 </Switch>
               </Modal.Body>
               <Modal.Footer className="shrink-0">
                 <Button slot="close" type="button" variant="secondary">
-                  Cancel
+                  {t("Cancel")}
                 </Button>
                 <Button type="submit" isDisabled={invalid}>
-                  Save entry
+                  {t("Save entry")}
                 </Button>
               </Modal.Footer>
             </Form>

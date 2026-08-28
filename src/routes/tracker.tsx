@@ -16,6 +16,7 @@ import {
   shiftTrackerPeriod,
   type TrackerPeriod,
 } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import { useSimulatedLoad, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/tracker")({
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/tracker")({
 
 function TrackerPage() {
   const { entries, today, currentUserId, settings, timer } = useStore();
+  const { locale, t } = useI18n();
   const loading = useSimulatedLoad();
   const [logOpen, setLogOpen] = useState(false);
   const weekStartsOn = settings.weekStart === "sunday" ? 0 : 1;
@@ -77,7 +79,7 @@ function TrackerPage() {
 
   return (
     <div className="space-y-7">
-      <PageHeader title="Tracker" description={formatLongDate(today)} />
+      <PageHeader title={t("Tracker")} description={formatLongDate(today, locale)} />
 
       <TimerCard />
 
@@ -86,7 +88,9 @@ function TrackerPage() {
           <div className="flex min-w-0 items-center gap-1">
             <Button
               isIconOnly
-              aria-label={`Previous ${navigationUnit}`}
+              aria-label={t("Previous {unit}", {
+                unit: t(navigationUnit === "range" ? "range" : navigationUnit),
+              })}
               size="sm"
               variant="tertiary"
               onPress={() => setPeriod(shiftTrackerPeriod(period, -1, weekStartsOn))}
@@ -106,7 +110,9 @@ function TrackerPage() {
             </h2>
             <Button
               isIconOnly
-              aria-label={`Next ${navigationUnit}`}
+              aria-label={t("Next {unit}", {
+                unit: t(navigationUnit === "range" ? "range" : navigationUnit),
+              })}
               size="sm"
               variant="tertiary"
               onPress={() => setPeriod(shiftTrackerPeriod(period, 1, weekStartsOn))}
@@ -126,13 +132,13 @@ function TrackerPage() {
                   })
                 }
               >
-                This week
+                {t("This week")}
               </Button>
             )}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
             <span className="text-sm tabular-nums text-muted">
-              {formatDuration(periodTotal)} tracked
+              {formatDuration(periodTotal, locale)} {t("tracked")}
             </span>
             <Button
               size="sm"
@@ -141,7 +147,7 @@ function TrackerPage() {
               onPress={openLog}
             >
               <CalendarPlus className="size-4" />
-              Add entry
+              {t("Add entry")}
             </Button>
           </div>
         </div>
@@ -151,8 +157,8 @@ function TrackerPage() {
         ) : days.length === 0 ? (
           <EmptyBlock
             icon={<Clock className="size-5" />}
-            title="No time tracked in this period"
-            description="Start the timer above or add an entry for a date in this period."
+            title={t("No time tracked in this period")}
+            description={t("Start the timer above or add an entry for a date in this period.")}
             action={
               <Button
                 size="sm"
@@ -161,7 +167,7 @@ function TrackerPage() {
                 onPress={openLog}
               >
                 <CalendarPlus className="size-4" />
-                Add entry
+                {t("Add entry")}
               </Button>
             }
           />

@@ -8,20 +8,24 @@ import {
   ListBox,
   Select,
   Switch,
+  Tabs,
   TextField,
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { PageHeader } from "@/components/page-header";
-import { useStore } from "@/lib/store";
+import { localeOptions, translate, useI18n } from "@/lib/i18n";
+import { ProfileAvatar } from "@/components/profile-avatar";
+import { prepareAvatarImage } from "@/lib/profile-image";
+import { useStore, type ThemeMode } from "@/lib/store";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
       { title: "Settings — Time Blossom" },
-      { name: "description", content: "Workspace name, default billing and reminder preferences." },
+      { name: "description", content: "Workspace settings and personal preferences." },
       { property: "og:title", content: "Settings — Time Blossom" },
       { property: "og:description", content: "Configure your Time Blossom workspace." },
     ],
@@ -39,11 +43,33 @@ function SettingsPage() {
     setWorkspaceSettings,
     setUserPreferences,
     setActiveMember,
+    updateCurrentMemberEmail,
   } = useStore();
+  const { t, error } = useI18n();
   const [name, setName] = useState(settings.workspaceName);
-  const [weekStart, setWeekStart] = useState(settings.weekStart);
+  const [defaultBillable, setDefaultBillable] = useState(settings.defaultBillable);
+  const [weekStart, setWeekStart] = useState<"monday" | "sunday">(settings.weekStart);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [preferenceError, setPreferenceError] = useState<string | null>(null);
   const [identityError, setIdentityError] = useState<string | null>(null);
+  const [accountEmail, setAccountEmail] = useState(currentMember?.email ?? "");
+  const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setName(settings.workspaceName);
+    setDefaultBillable(settings.defaultBillable);
+    setWeekStart(settings.weekStart);
+  }, [settings]);
+
+  useEffect(() => {
+    setAccountEmail(currentMember?.email ?? "");
+    setPassword("");
+    setPasswordConfirmation("");
+    setAccountError(null);
+  }, [currentMember?.id, currentMember?.email]);
 
   const toggles = [
     {
@@ -63,14 +89,41 @@ function SettingsPage() {
     },
   ];
 
+  const themeOptions: Array<{
+    id: ThemeMode;
+    label: string;
+    hint: string;
+  }> = [
+    { id: "system", label: "System", hint: "Follow your device theme." },
+    { id: "light", label: "Light", hint: "Always use the light theme." },
+    { id: "dark", label: "Dark", hint: "Always use the dark theme." },
+  ];
+
   const saveWorkspace = () => {
-    const result = setWorkspaceSettings({ workspaceName: name.trim(), weekStart });
+    const result = setWorkspaceSettings({
+      workspaceName: name.trim(),
+      defaultBillable,
+      weekStart,
+    });
     if (!result.success) {
       setWorkspaceError(result.error);
       return;
     }
     setWorkspaceError(null);
-    toast("Workspace settings saved");
+    toast(t("Workspace settings saved"));
+  };
+
+  const savePreference = <K extends keyof typeof preferences>(
+    patch: Pick<typeof preferences, K>,
+  ) => {
+    const result = setUserPreferences(patch);
+    if (!result.success) {
+      setPreferenceError(result.error);
+      return;
+    }
+    setPreferenceError(null);
+    const locale = "language" in patch ? patch.language : preferences.language;
+    toast(translate("Preferences saved", locale));
   };
 
   const changeIdentity = (memberId: string) => {
@@ -82,9 +135,278 @@ function SettingsPage() {
     window.location.reload();
   };
 
+  const savePhoto = async (file: File) => {
+    try {
+      const avatarUrl = await prepareAvatarImage(file);
+      const result = setUserPreferences({ avatarUrl });
+      if (!result.success) {
+        setAccountError(result.error);
+        return;
+      }
+      setAccountError(null);
+      toast(t("Profile photo updated"));
+    } catch (photoError) {
+      const code = photoError instanceof Error ? photoError.message : "read";
+      setAccountError(
+        code === "type"
+          ? "Choose a JPG, PNG, WebP or GIF image."
+          : code === "size"
+            ? "Profile photos must be smaller than 1 MB."
+            : "The profile photo could not be read.",
+      );
+    }
+  };
+
+  const removePhoto = () => {
+    const result = setUserPreferences({ avatarUrl: null });
+    if (!result.success) {
+      setAccountError(result.error);
+      return;
+    }
+    setAccountError(null);
+    toast(t("Profile photo removed"));
+  };
+
+  const saveAccount = () => {
+    if (password && password.length < 8) {
+      setAccountError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== passwordConfirmation) {
+      setAccountError("Passwords do not match.");
+      return;
+    }
+
+    const result = updateCurrentMemberEmail(accountEmail.trim() || currentMember?.email || "");
+    if (!result.success) {
+      setAccountError(result.error);
+      return;
+    }
+    setAccountError(null);
+    setPassword("");
+    setPasswordConfirmation("");
+    toast(t("Account settings saved"));
+  };
+
+  if (!currentMember) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <PageHeader
+          title={t("Settings")}
+          description={t("Manage your account, personal preferences and workspace defaults.")}
+        />
+        <FormAlert
+          title={t("Account")}
+          description={t("The current account could not be loaded.")}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl space-y-6">
-      <PageHeader title="Settings" description="Workspace preferences and defaults." />
+      <PageHeader
+        title={t("Settings")}
+        description={t("Manage your account, personal preferences and workspace defaults.")}
+      />
+
+      <section
+        id="account"
+        className="scroll-mt-24 space-y-5 rounded-2xl border border-default bg-surface p-5"
+      >
+        <div>
+          <h2 className="font-medium text-foreground">{t("Account")}</h2>
+          <p className="mt-1 text-sm text-muted">{t("Manage your profile and account details.")}</p>
+        </div>
+
+        {accountError ? (
+          <FormAlert title={t("Could not save account")} description={error(accountError)} />
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-4">
+          <ProfileAvatar member={currentMember} avatarUrl={preferences.avatarUrl} size="lg" />
+          <div className="min-w-0">
+            <p className="truncate font-medium text-foreground">{currentMember.name}</p>
+            <input
+              ref={avatarInputRef}
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              aria-label={t("Change profile photo")}
+              className="hidden"
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) void savePhoto(file);
+              }}
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" type="button" onPress={() => avatarInputRef.current?.click()}>
+                {t("Change profile photo")}
+              </Button>
+              {preferences.avatarUrl ? (
+                <Button size="sm" type="button" variant="tertiary" onPress={removePhoto}>
+                  {t("Remove profile photo")}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <form
+          noValidate
+          className="space-y-4 border-t border-default pt-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            saveAccount();
+          }}
+        >
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="account-email">{t("Email")}</Label>
+            <input
+              className="input input--full-width input--primary"
+              required
+              id="account-email"
+              name="account-email"
+              type="email"
+              value={accountEmail}
+              onChange={(event) => {
+                setAccountEmail(event.target.value);
+                setAccountError(null);
+              }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="account-password">{t("Password")}</Label>
+            <input
+              className="input input--full-width input--primary"
+              id="account-password"
+              name="account-password"
+              type="password"
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setAccountError(null);
+              }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="account-password-confirmation">{t("Confirm password")}</Label>
+            <input
+              className="input input--full-width input--primary"
+              id="account-password-confirmation"
+              name="account-password-confirmation"
+              type="password"
+              value={passwordConfirmation}
+              onChange={(event) => {
+                setPasswordConfirmation(event.target.value);
+                setAccountError(null);
+              }}
+            />
+          </div>
+          <Description>
+            {t(
+              "Password changes are simulated in this local preview because no authentication service is connected.",
+            )}
+          </Description>
+
+          <div className="flex justify-end border-t border-default pt-4">
+            <Button type="submit" isDisabled={!(accountEmail || currentMember.email).trim()}>
+              {t("Save account")}
+            </Button>
+          </div>
+        </form>
+      </section>
+
+      <div
+        id="personal-preferences"
+        className="scroll-mt-24 space-y-5 rounded-2xl border border-default bg-surface p-5"
+      >
+        <div>
+          <h2 className="font-medium text-foreground">{t("Personal preferences")}</h2>
+          <p className="mt-1 text-sm text-muted">
+            {t("These preferences apply only to your account.")}
+          </p>
+        </div>
+
+        {preferenceError ? (
+          <FormAlert
+            title={t("Could not save personal preferences")}
+            description={error(preferenceError)}
+          />
+        ) : null}
+
+        <div className="flex flex-col gap-2">
+          <Label>{t("Language")}</Label>
+          <Select
+            aria-label={t("Language")}
+            value={preferences.language}
+            onChange={(key) =>
+              savePreference({ language: String(key ?? "en-US") as typeof preferences.language })
+            }
+          >
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                {localeOptions.map((option) => (
+                  <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
+                    <Label>{option.label}</Label>
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+          <Description>{t("Choose the language for your account.")}</Description>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label>{t("Theme")}</Label>
+          <Tabs
+            className="w-full"
+            selectedKey={preferences.theme}
+            onSelectionChange={(key) => savePreference({ theme: String(key) as ThemeMode })}
+          >
+            <Tabs.ListContainer>
+              <Tabs.List aria-label={t("Theme")} className="w-full">
+                {themeOptions.map((option) => (
+                  <Tabs.Tab key={option.id} id={option.id} className="flex-1">
+                    {t(option.label)}
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
+                ))}
+              </Tabs.List>
+            </Tabs.ListContainer>
+            {themeOptions.map((option) => (
+              <Tabs.Panel key={option.id} className="pt-3 text-sm text-muted" id={option.id}>
+                {t(option.hint)}
+              </Tabs.Panel>
+            ))}
+          </Tabs>
+          <Description>{t("Choose how Time Blossom should look for your account.")}</Description>
+        </div>
+
+        {toggles.map((item) => (
+          <Switch
+            key={item.key}
+            aria-label={t(item.title)}
+            isSelected={preferences[item.key]}
+            onChange={(selected: boolean) => savePreference({ [item.key]: selected })}
+          >
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            <Switch.Content>
+              <Label>{t(item.title)}</Label>
+              <Description>{t(item.hint)}</Description>
+            </Switch.Content>
+          </Switch>
+        ))}
+      </div>
 
       {can("manage-workspace-settings") ? (
         <Form
@@ -95,12 +417,17 @@ function SettingsPage() {
           }}
         >
           <div>
-            <h2 className="font-medium text-foreground">Workspace settings</h2>
-            <p className="mt-1 text-sm text-muted">Defaults shared by everyone in the workspace.</p>
+            <h2 className="font-medium text-foreground">{t("Workspace settings")}</h2>
+            <p className="mt-1 text-sm text-muted">
+              {t("Defaults shared by everyone in the workspace.")}
+            </p>
           </div>
 
           {workspaceError ? (
-            <FormAlert title="Could not save workspace settings" description={workspaceError} />
+            <FormAlert
+              title={t("Could not save workspace settings")}
+              description={error(workspaceError)}
+            />
           ) : null}
 
           <TextField
@@ -108,40 +435,40 @@ function SettingsPage() {
             fullWidth
             name="workspace-name"
             value={name}
-            validate={(value) => (value.trim() ? null : "Workspace name is required")}
+            validate={(value) => (value.trim() ? null : t("Workspace name is required"))}
             onChange={(value) => {
               setName(value);
               setWorkspaceError(null);
             }}
           >
-            <Label>Workspace name</Label>
+            <Label>{t("Workspace name")}</Label>
             <Input />
             <FieldError />
           </TextField>
 
           <Switch
-            aria-label="Billable by default"
-            isSelected={settings.defaultBillable}
+            aria-label={t("Billable by default")}
+            isSelected={defaultBillable}
             onChange={(selected: boolean) => {
-              const result = setWorkspaceSettings({ defaultBillable: selected });
-              if (!result.success) setWorkspaceError(result.error);
+              setDefaultBillable(selected);
+              setWorkspaceError(null);
             }}
           >
             <Switch.Control>
               <Switch.Thumb />
             </Switch.Control>
             <Switch.Content>
-              <Label>Billable by default</Label>
-              <Description>New entries start marked as billable.</Description>
+              <Label>{t("Billable by default")}</Label>
+              <Description>{t("New entries start marked as billable.")}</Description>
             </Switch.Content>
           </Switch>
 
           <div className="flex flex-col gap-2">
-            <Label>Week starts on</Label>
+            <Label>{t("Week starts on")}</Label>
             <Select
-              aria-label="Week starts on"
+              aria-label={t("Week starts on")}
               value={weekStart}
-              onChange={(key) => setWeekStart(String(key ?? "monday"))}
+              onChange={(key) => setWeekStart(String(key ?? "monday") as "monday" | "sunday")}
             >
               <Select.Trigger>
                 <Select.Value />
@@ -149,14 +476,16 @@ function SettingsPage() {
               </Select.Trigger>
               <Select.Popover>
                 <ListBox>
-                  <ListBox.Item id="monday" textValue="Monday">
-                    <Label>Monday</Label>
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                  <ListBox.Item id="sunday" textValue="Sunday">
-                    <Label>Sunday</Label>
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
+                  {(["monday", "sunday"] as const).map((day) => (
+                    <ListBox.Item
+                      key={day}
+                      id={day}
+                      textValue={t(day === "monday" ? "Monday" : "Sunday")}
+                    >
+                      <Label>{t(day === "monday" ? "Monday" : "Sunday")}</Label>
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
                 </ListBox>
               </Select.Popover>
             </Select>
@@ -164,48 +493,35 @@ function SettingsPage() {
 
           <div className="flex justify-end border-t border-default pt-4">
             <Button type="submit" isDisabled={!name.trim()}>
-              Save workspace settings
+              {t("Save workspace settings")}
             </Button>
           </div>
         </Form>
-      ) : null}
-
-      <div className="space-y-5 rounded-2xl border border-default bg-surface p-5">
-        <div>
-          <h2 className="font-medium text-foreground">Personal preferences</h2>
-          <p className="mt-1 text-sm text-muted">These preferences apply only to your account.</p>
+      ) : (
+        <div className="rounded-2xl border border-default bg-surface p-5">
+          <FormAlert
+            status="default"
+            title={t("Workspace settings")}
+            description={t("Workspace settings are managed by Admins and the Owner.")}
+          />
         </div>
-
-        {toggles.map((item) => (
-          <Switch
-            key={item.key}
-            aria-label={item.title}
-            isSelected={preferences[item.key]}
-            onChange={(selected: boolean) => setUserPreferences({ [item.key]: selected })}
-          >
-            <Switch.Control>
-              <Switch.Thumb />
-            </Switch.Control>
-            <Switch.Content>
-              <Label>{item.title}</Label>
-              <Description>{item.hint}</Description>
-            </Switch.Content>
-          </Switch>
-        ))}
-      </div>
+      )}
 
       <div className="space-y-3 rounded-2xl border border-default bg-surface p-5">
         <div>
-          <h2 className="font-medium text-foreground">Preview identity</h2>
+          <h2 className="font-medium text-foreground">{t("Preview identity")}</h2>
           <p className="mt-1 text-sm text-muted">
-            Local-only preview control; it does not represent real authentication.
+            {t("Local-only preview control; it does not represent real authentication.")}
           </p>
         </div>
         {identityError ? (
-          <FormAlert title="Could not change preview identity" description={identityError} />
+          <FormAlert
+            title={t("Could not change preview identity")}
+            description={error(identityError)}
+          />
         ) : null}
         <Select
-          aria-label="Preview identity"
+          aria-label={t("Preview identity")}
           value={currentMember?.id ?? ""}
           onChange={(key) => changeIdentity(String(key ?? ""))}
         >
@@ -221,11 +537,11 @@ function SettingsPage() {
                   <ListBox.Item
                     key={member.id}
                     id={member.id}
-                    textValue={`${member.name} ${member.role}`}
+                    textValue={`${member.name} ${t(member.role)}`}
                   >
                     <div className="flex min-w-0 flex-col">
                       <Label>{member.name}</Label>
-                      <Description>{member.role}</Description>
+                      <Description>{t(member.role)}</Description>
                     </div>
                     <ListBox.ItemIndicator />
                   </ListBox.Item>

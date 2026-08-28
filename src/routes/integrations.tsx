@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Trello } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { formatLocalDateTime } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import { trelloBoards, trelloCards, trelloLists, trelloWorkspaces } from "@/lib/mock-data";
 import { useStore } from "@/lib/store";
 
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/integrations")({
 
 function IntegrationsPage() {
   const { trello, can, setTrello } = useStore();
+  const { locale, t } = useI18n();
   const canManageIntegrations = can("manage-integrations");
   const connected = trello.status === "connected" || trello.status === "synced";
   const toggleSelected = connected || trello.status === "connecting";
@@ -51,7 +53,7 @@ function IntegrationsPage() {
         setTrello({
           status: "synced",
           cards: trelloCards,
-          lastSync: formatLocalDateTime(),
+          lastSync: formatLocalDateTime(new Date(), locale),
         }),
       900,
     );
@@ -59,7 +61,10 @@ function IntegrationsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Integrations" description="Bring tasks from the tools you already use." />
+      <PageHeader
+        title={t("Integrations")}
+        description={t("Bring tasks from the tools you already use.")}
+      />
 
       <div className="rounded-2xl border border-default bg-surface p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -70,16 +75,16 @@ function IntegrationsPage() {
             <div className="space-y-1">
               <p className="font-medium text-foreground">Trello</p>
               <p className="text-sm text-muted">
-                Import cards from your boards and start timers straight from a card.
+                {t("Import cards from your boards and start timers straight from a card.")}
               </p>
               <Chip color={connected ? "success" : "default"} size="sm" variant="soft">
-                {trello.status}
+                {t(trello.status)}
               </Chip>
             </div>
           </div>
           {canManageIntegrations ? (
             <Button
-              aria-label="Connect Trello"
+              aria-label={t("Connect Trello")}
               aria-pressed={toggleSelected}
               className="h-7 w-12 min-w-12 justify-start rounded-full p-1 data-[pressed=true]:justify-end"
               isIconOnly
@@ -95,7 +100,8 @@ function IntegrationsPage() {
           <div className="mt-6 space-y-4 border-t border-default pt-5">
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
               <span className="text-muted">
-                {trello.workspace} · {trello.board} · last sync {trello.lastSync ?? "never"}
+                {trello.workspace} · {trello.board} · {t("last sync")}{" "}
+                {trello.lastSync ?? t("never")}
               </span>
               {canManageIntegrations ? (
                 <Button
@@ -104,7 +110,7 @@ function IntegrationsPage() {
                   isPending={trello.status === "syncing"}
                   onPress={sync}
                 >
-                  Sync now
+                  {t("Sync now")}
                 </Button>
               ) : null}
             </div>

@@ -1,0 +1,735 @@
+import { createContext, useContext, useEffect, useMemo } from "react";
+import type { ReactNode } from "react";
+
+export type Locale = "en-US" | "pt-BR";
+
+export const defaultLocale: Locale = "en-US";
+
+export const localeOptions: Array<{ id: Locale; label: string }> = [
+  { id: "en-US", label: "English" },
+  { id: "pt-BR", label: "Português (Brasil)" },
+];
+
+const ptBR: Record<string, string> = {
+  Tracker: "Controle de tempo",
+  Projects: "Projetos",
+  Clients: "Clientes",
+  Team: "Equipe",
+  Reports: "Relatórios",
+  Integrations: "Integrações",
+  Settings: "Configurações",
+  "Go to tracker": "Ir para o controle de tempo",
+  "Manage projects": "Gerenciar projetos",
+  "Manage clients": "Gerenciar clientes",
+  "Members and roles": "Membros e funções",
+  "Time analytics": "Análise de horas",
+  "Trello and more": "Trello e mais",
+  "Workspace settings": "Configurações do workspace",
+  Navigation: "Navegação",
+  Actions: "Ações",
+  Projects: "Projetos",
+  Clients: "Clientes",
+  "Start timer": "Iniciar cronômetro",
+  "Stop timer": "Parar cronômetro",
+  "Begin tracking now": "Começar a registrar agora",
+  "Save the running entry": "Salvar o registro em andamento",
+  "Log time manually": "Registrar horas manualmente",
+  "Add a past entry": "Adicionar um registro anterior",
+  "Global search": "Busca global",
+  "Open search results": "Abrir resultados da busca",
+  "Open project": "Abrir projeto",
+  "Open clients": "Abrir clientes",
+  "Search commands, projects, clients…": "Buscar comandos, projetos e clientes…",
+  "No results for “{query}”.": "Nenhum resultado para “{query}”.",
+  Commands: "Comandos",
+  "Navigate with arrow keys": "Navegue com as setas do teclado",
+  "to close": "para fechar",
+  "Search…": "Buscar…",
+  "Search workspace": "Buscar no workspace",
+  "Search projects": "Buscar projetos",
+  "All projects": "Todos os projetos",
+  "No project": "Sem projeto",
+  "No client": "Sem cliente",
+  "No projects found": "Nenhum projeto encontrado",
+  "Previous month": "Mês anterior",
+  "Next month": "Próximo mês",
+  "Select {label}": "Selecionar {label}",
+  "Open {label} calendar": "Abrir calendário de {label}",
+  "Choose tracking date range": "Escolher período do controle de tempo",
+  Today: "Hoje",
+  Yesterday: "Ontem",
+  "This week": "Esta semana",
+  "Last week": "Semana passada",
+  "Last 2 weeks": "Últimas 2 semanas",
+  "This month": "Este mês",
+  "Last month": "Mês passado",
+  "This year": "Este ano",
+  "Last year": "Ano passado",
+  "Custom range": "Período personalizado",
+  "Start / End": "Início / fim",
+  Duration: "Duração",
+  Start: "Início",
+  End: "Fim",
+  Notes: "Observações",
+  Billable: "Faturável",
+  Internal: "Interno",
+  "What are you working on?": "No que você está trabalhando?",
+  Start: "Iniciar",
+  Pause: "Pausar",
+  Resume: "Retomar",
+  Stop: "Parar",
+  "Timer could not update": "Não foi possível atualizar o cronômetro",
+  "Task is required": "A tarefa é obrigatória",
+  "Use H:MM, HHMM, HMM, 2h or Ns": "Use H:MM, HHMM, HMM, 2h ou Ns",
+  "Use H:MM, HHMM, HMM, 2h or Ns (for example, 2:45, 825 or 45s)":
+    "Use H:MM, HHMM, HMM, 2h ou Ns (por exemplo, 2:45, 825 ou 45s)",
+  "invalid range": "intervalo inválido",
+  "Optional details": "Detalhes opcionais",
+  "Keep useful context attached to this entry.":
+    "Mantenha informações úteis vinculadas a este registro.",
+  Cancel: "Cancelar",
+  "Save entry": "Salvar registro",
+  "Edit time entry": "Editar registro de horas",
+  "Log time manually": "Registrar horas manualmente",
+  Task: "Tarefa",
+  Date: "Data",
+  Project: "Projeto",
+  "Client: {name}": "Cliente: {name}",
+  "Unknown client": "Cliente desconhecido",
+  "Duration: {value}": "Duração: {value}",
+  "Time entries": "Registros de horas",
+  "Time entry deleted": "Registro de horas excluído",
+  Undo: "Desfazer",
+  "Could not restore entry": "Não foi possível restaurar o registro",
+  "Entry actions": "Ações do registro",
+  "Edit entry": "Editar registro",
+  "Mark as internal": "Marcar como interno",
+  "Mark as billable": "Marcar como faturável",
+  "Delete entry": "Excluir registro",
+  "Delete time entry?": "Excluir registro de horas?",
+  "This removes {task}. You can undo it from the confirmation toast for 20 seconds.":
+    "Isto remove {task}. Você pode desfazer pela notificação de confirmação durante 20 segundos.",
+  "Tracker period": "Período do controle de tempo",
+  tracked: "registradas",
+  "No time tracked in this period": "Nenhuma hora registrada neste período",
+  "Start the timer above or add an entry for a date in this period.":
+    "Inicie o cronômetro acima ou adicione um registro para uma data deste período.",
+  "Add entry": "Adicionar registro",
+  "Previous {unit}": "{unit} anterior",
+  "Next {unit}": "Próximo {unit}",
+  "Total tracked": "Total registrado",
+  "Last activity": "Última atividade",
+  "Time tracked per project across the workspace.": "Horas registradas por projeto no workspace.",
+  All: "Todos",
+  Active: "Ativo",
+  Inactive: "Inativo",
+  Archived: "Arquivado",
+  "New project": "Novo projeto",
+  "No projects here": "Nenhum projeto aqui",
+  "Change the status filter or create a new project to get started.":
+    "Altere o filtro de status ou crie um novo projeto para começar.",
+  "Manage members": "Gerenciar membros",
+  "Make internal": "Tornar interno",
+  "Make billable": "Tornar faturável",
+  "Restore project": "Restaurar projeto",
+  "Archive project": "Arquivar projeto",
+  "Archive project?": "Arquivar projeto?",
+  "Could not archive project": "Não foi possível arquivar o projeto",
+  "Existing time entries will remain available in reports and history.":
+    "Os registros de horas existentes continuarão disponíveis nos relatórios e no histórico.",
+  "Project members updated": "Membros do projeto atualizados",
+  "New project": "Novo projeto",
+  "Project name is required": "O nome do projeto é obrigatório",
+  "e.g. Brand refresh": "ex.: Atualização da marca",
+  "Choose a client": "Escolha um cliente",
+  "Project created": "Projeto criado",
+  "Project deactivated": "Projeto desativado",
+  "Project activated": "Projeto ativado",
+  "Project restored": "Projeto restaurado",
+  "Project marked internal": "Projeto marcado como interno",
+  "Project marked billable": "Projeto marcado como faturável",
+  "Project archived": "Projeto arquivado",
+  "Could not update project": "Não foi possível atualizar o projeto",
+  Clients: "Clientes",
+  "Manage the people and companies connected to your projects.":
+    "Gerencie as pessoas e empresas ligadas aos seus projetos.",
+  "New client": "Novo cliente",
+  "No clients yet": "Ainda não há clientes",
+  "Add a client to connect projects and organize tracked time.":
+    "Adicione um cliente para vincular projetos e organizar as horas registradas.",
+  Contact: "Contato",
+  "Client name is required": "O nome do cliente é obrigatório",
+  "e.g. Northwind Coffee": "ex.: Café Northwind",
+  Optional: "Opcional",
+  "Enter a valid email address": "Informe um endereço de e-mail válido",
+  "Create client": "Criar cliente",
+  "Client created": "Cliente criado",
+  "Delete client?": "Excluir cliente?",
+  "Could not delete client": "Não foi possível excluir o cliente",
+  "Client cannot be deleted": "O cliente não pode ser excluído",
+  "Remove or reassign those projects first.": "Remova ou reatribua esses projetos primeiro.",
+  "This permanently removes {name}. Tracked time entries without a direct client relationship remain unchanged.":
+    "Isto remove {name} permanentemente. Registros de horas sem vínculo direto com cliente permanecem inalterados.",
+  "Delete client": "Excluir cliente",
+  "Manage the people and access in this workspace.":
+    "Gerencie as pessoas e os acessos deste workspace.",
+  "Invite member": "Convidar membro",
+  "No team members yet": "Ainda não há membros na equipe",
+  "Invite teammates to collaborate on projects and track time together.":
+    "Convide colegas para colaborar em projetos e registrar horas juntos.",
+  Member: "Membro",
+  Admin: "Administrador",
+  Owner: "Proprietário",
+  Active: "Ativo",
+  Invited: "Convidado",
+  Removed: "Removido",
+  "Invite member": "Convidar membro",
+  Email: "E-mail",
+  Role: "Função",
+  Invite: "Convidar",
+  "Invite sent": "Convite enviado",
+  "Resend invite": "Reenviar convite",
+  "Cancel invite": "Cancelar convite",
+  "Remove member": "Remover membro",
+  "Restore member": "Restaurar membro",
+  "Make admin": "Tornar administrador",
+  "Make member": "Tornar membro",
+  "Remove team member?": "Remover membro da equipe?",
+  "Restore team member?": "Restaurar membro da equipe?",
+  "This removes {name} from active workspace access. Their tracked history remains available.":
+    "Isto remove {name} do acesso ativo ao workspace. O histórico de horas continua disponível.",
+  "This restores {name}'s workspace access. Project assignments will need to be added again.":
+    "Isto restaura o acesso de {name} ao workspace. As atribuições de projetos precisarão ser adicionadas novamente.",
+  "Remove member": "Remover membro",
+  "Restore member": "Restaurar membro",
+  "Could not update team member": "Não foi possível atualizar o membro da equipe",
+  "Team member updated": "Membro da equipe atualizado",
+  "Member removed": "Membro removido",
+  "Member restored": "Membro restaurado",
+  Reports: "Relatórios",
+  "Inspect every entry with its project, client, person and billability.":
+    "Consulte cada registro com projeto, cliente, pessoa e faturamento.",
+  "Compare totals with flexible project, client, member, task or date groups.":
+    "Compare totais por projeto, cliente, membro, tarefa ou data.",
+  "Review one complete week across projects or team members.":
+    "Revise uma semana completa por projeto ou membro da equipe.",
+  "Compare time, billing mix and activity across the available team.":
+    "Compare horas, composição de faturamento e atividade da equipe.",
+  Detailed: "Detalhado",
+  Summary: "Resumo",
+  Weekly: "Semanal",
+  "Report view": "Visualização do relatório",
+  "Report filters": "Filtros do relatório",
+  "Clear filters": "Limpar filtros",
+  "No records match the selected filters.": "Nenhum registro corresponde aos filtros selecionados.",
+  "Export report": "Exportar relatório",
+  Export: "Exportar",
+  Close: "Fechar",
+  "Included data": "Dados incluídos",
+  "This export uses the current period, filters and report view ({count} rows).":
+    "Esta exportação usa o período, os filtros e a visualização atuais ({count} linhas).",
+  Format: "Formato",
+  "Export started": "Exportação iniciada",
+  "A print-ready report opened for printing or saving as PDF.":
+    "Um relatório pronto para impressão foi aberto para imprimir ou salvar como PDF.",
+  "The filtered {format} report is downloading.":
+    "O relatório filtrado em {format} está sendo baixado.",
+  "Export prepared": "Exportação preparada",
+  "The print window is ready. Choose Save as PDF in the browser print dialog.":
+    "A janela de impressão está pronta. Escolha Salvar como PDF no diálogo de impressão do navegador.",
+  "The file uses the same filtered dataset shown in this report.":
+    "O arquivo usa o mesmo conjunto de dados filtrado exibido neste relatório.",
+  "Export unavailable": "Exportação indisponível",
+  Integrations: "Integrações",
+  "Bring tasks from the tools you already use.": "Traga tarefas das ferramentas que você já usa.",
+  "Import cards from your boards and start timers straight from a card.":
+    "Importe cartões dos seus quadros e inicie cronômetros diretamente de um cartão.",
+  disconnected: "desconectado",
+  connecting: "conectando",
+  connected: "conectado",
+  syncing: "sincronizando",
+  synced: "sincronizado",
+  error: "erro",
+  "reconnect-required": "reconexão necessária",
+  "last sync": "última sincronização",
+  never: "nunca",
+  "Connect Trello": "Conectar Trello",
+  "Sync now": "Sincronizar agora",
+  Search: "Busca",
+  "Look across projects, clients, team and entries.":
+    "Busque em projetos, clientes, equipe e registros.",
+  "No matches": "Nenhum resultado",
+  "Start typing": "Comece a digitar",
+  "Try another keyword or check the spelling.": "Tente outra palavra-chave ou confira a grafia.",
+  "Results appear as you type.": "Os resultados aparecem enquanto você digita.",
+  Settings: "Configurações",
+  "Workspace preferences and defaults.": "Preferências e padrões do workspace.",
+  "Manage your account, personal preferences and workspace defaults.":
+    "Gerencie sua conta, preferências pessoais e padrões do workspace.",
+  Account: "Conta",
+  "Manage your profile and account details.": "Gerencie seu perfil e os dados da sua conta.",
+  "Save account": "Salvar conta",
+  "Account settings saved": "Configurações da conta salvas",
+  Password: "Senha",
+  "Confirm password": "Confirmar senha",
+  "Password must be at least 8 characters.": "A senha deve ter pelo menos 8 caracteres.",
+  "Passwords do not match.": "As senhas não coincidem.",
+  "Password changes are simulated in this local preview because no authentication service is connected.":
+    "As alterações de senha são simuladas neste preview local porque não há um serviço de autenticação conectado.",
+  "Could not save account": "Não foi possível salvar a conta",
+  "The current account could not be loaded.": "Não foi possível carregar a conta atual.",
+  "Defaults shared by everyone in the workspace.": "Padrões compartilhados por todos no workspace.",
+  "Workspace name": "Nome do workspace",
+  "Workspace name is required": "O nome do workspace é obrigatório",
+  "Workspace name is required.": "O nome do workspace é obrigatório.",
+  "Billable by default": "Faturável por padrão",
+  "New entries start marked as billable.": "Novos registros começam marcados como faturáveis.",
+  "Week starts on": "A semana começa no",
+  Monday: "segunda-feira",
+  Sunday: "domingo",
+  "Save workspace settings": "Salvar configurações do workspace",
+  "Could not save workspace settings": "Não foi possível salvar as configurações do workspace",
+  "Workspace settings saved": "Configurações do workspace salvas",
+  "Personal preferences": "Preferências pessoais",
+  "These preferences apply only to your account.":
+    "Estas preferências se aplicam somente à sua conta.",
+  Reminders: "Lembretes",
+  "Nudge me when I forget to start a timer.":
+    "Lembre você quando esquecer de iniciar um cronômetro.",
+  "Weekly digest": "Resumo semanal",
+  "Email me a summary every Monday.": "Envie um resumo por e-mail toda segunda-feira.",
+  "Idle detection": "Detecção de inatividade",
+  "Pause the timer after long inactivity.":
+    "Pausa o cronômetro após um longo período de inatividade.",
+  Language: "Idioma",
+  "Choose the language for your account.": "Escolha o idioma da sua conta.",
+  "Preferences saved": "Preferências salvas",
+  "Could not save personal preferences": "Não foi possível salvar as preferências pessoais",
+  "Preview identity": "Identidade de preview",
+  "Local-only preview control; it does not represent real authentication.":
+    "Controle local de preview; não representa uma autenticação real.",
+  "Could not change preview identity": "Não foi possível alterar a identidade de preview",
+  "Workspace settings are managed by Admins and the Owner.":
+    "As configurações do workspace são gerenciadas por Administradores e pelo Proprietário.",
+  "This page didn't load": "Esta página não carregou",
+  "Something went wrong on our end. You can try refreshing or head back home.":
+    "Algo deu errado. Você pode atualizar a página ou voltar para o início.",
+  "Try again": "Tentar novamente",
+  "Go home": "Voltar ao início",
+  "Page not found": "Página não encontrada",
+  "The page you're looking for doesn't exist or has been moved.":
+    "A página que você procura não existe ou foi movida.",
+  "The page you're looking for doesn't exist or has been moved.":
+    "A página que você procura não existe ou foi movida.",
+  "Loading Time Blossom…": "Carregando o Time Blossom…",
+  "Preparing your workspace…": "Preparando seu workspace…",
+  "Time Blossom could not load: {error}": "O Time Blossom não pôde carregar: {error}",
+  "Only Admins and the Owner can change workspace settings.":
+    "Somente Administradores e o Proprietário podem alterar as configurações do workspace.",
+  "Choose a valid default billability setting.":
+    "Escolha uma configuração válida de faturamento padrão.",
+  "Choose a valid week start.": "Escolha um início de semana válido.",
+  "Choose an active preview identity.": "Escolha uma identidade de preview ativa.",
+  "Stop the active timer before changing preview identity.":
+    "Pare o cronômetro ativo antes de alterar a identidade de preview.",
+  "Preview identity could not be saved locally.":
+    "Não foi possível salvar a identidade de preview localmente.",
+  "Stop the active timer before adding time manually.":
+    "Pare o cronômetro ativo antes de adicionar horas manualmente.",
+  "Stop the active timer before starting another one.":
+    "Pare o cronômetro ativo antes de iniciar outro.",
+  "Your account cannot track time.": "Sua conta não pode registrar horas.",
+  "Your account cannot update the active timer.":
+    "Sua conta não pode atualizar o cronômetro ativo.",
+  "There is no active timer to update.": "Não há cronômetro ativo para atualizar.",
+  "A task is required.": "Uma tarefa é obrigatória.",
+  "Choose an existing project or No project.": "Escolha um projeto existente ou Sem projeto.",
+  "This project is not assigned to your team member.":
+    "Este projeto não está atribuído ao seu membro da equipe.",
+  "Choose a valid date.": "Escolha uma data válida.",
+  "Choose a valid end date.": "Escolha uma data final válida.",
+  "End date cannot be before the start date.": "A data final não pode ser anterior à data inicial.",
+  "End time must be after start time.": "O horário final deve ser posterior ao inicial.",
+  "Duration must match the selected time range.":
+    "A duração deve corresponder ao intervalo selecionado.",
+  "You can only create your own time entries.":
+    "Você só pode criar seus próprios registros de horas.",
+  "You can only edit your own time entries.":
+    "Você só pode editar seus próprios registros de horas.",
+  "You can only delete your own time entries.":
+    "Você só pode excluir seus próprios registros de horas.",
+  "This time entry no longer exists.": "Este registro de horas não existe mais.",
+  "This time entry already exists.": "Este registro de horas já existe.",
+  "You can only restore your own time entries.":
+    "Você só pode restaurar seus próprios registros de horas.",
+  "Only Admins and the Owner can manage projects.":
+    "Somente Administradores e o Proprietário podem gerenciar projetos.",
+  "A project name is required.": "O nome do projeto é obrigatório.",
+  "Choose an existing client for this project.": "Escolha um cliente existente para este projeto.",
+  "Choose whether this project is billable.": "Escolha se este projeto é faturável.",
+  "You cannot assign members to projects.": "Você não pode atribuir membros a projetos.",
+  "Only active members can be assigned to a project.":
+    "Somente membros ativos podem ser atribuídos a um projeto.",
+  "This project no longer exists.": "Este projeto não existe mais.",
+  "A project must keep a valid client.": "Um projeto deve manter um cliente válido.",
+  "Only Admins and the Owner can manage clients.":
+    "Somente Administradores e o Proprietário podem gerenciar clientes.",
+  "A client name is required.": "O nome do cliente é obrigatório.",
+  "This client no longer exists.": "Este cliente não existe mais.",
+  "Only Admins and the Owner can invite members.":
+    "Somente Administradores e o Proprietário podem convidar membros.",
+  "Enter a valid email address.": "Informe um endereço de e-mail válido.",
+  "Choose a valid invite role.": "Escolha uma função de convite válida.",
+  "Only the Owner can invite Admins.": "Somente o Proprietário pode convidar Administradores.",
+  "This member already has access or an invitation.": "Este membro já tem acesso ou um convite.",
+  "Only Admins and the Owner can manage invitations.":
+    "Somente Administradores e o Proprietário podem gerenciar convites.",
+  "This invitation no longer exists.": "Este convite não existe mais.",
+  "Only pending invitations can be resent.": "Somente convites pendentes podem ser reenviados.",
+  "Only the Owner can manage Admin invitations.":
+    "Somente o Proprietário pode gerenciar convites de Administradores.",
+  "Only pending invitations can be canceled.": "Somente convites pendentes podem ser cancelados.",
+  "Only Admins and the Owner can remove members.":
+    "Somente Administradores e o Proprietário podem remover membros.",
+  "The Owner cannot remove their own account.": "O Proprietário não pode remover a própria conta.",
+  "Only active members can be removed.": "Somente membros ativos podem ser removidos.",
+  "The workspace owner cannot be removed.": "O proprietário do workspace não pode ser removido.",
+  "Only the Owner can remove Admins.": "Somente o Proprietário pode remover Administradores.",
+  "The last admin cannot be removed.": "O último Administrador não pode ser removido.",
+  "Only Admins and the Owner can restore members.":
+    "Somente Administradores e o Proprietário podem restaurar membros.",
+  "Only removed members can be restored.": "Somente membros removidos podem ser restaurados.",
+  "Only the Owner can restore Admins.": "Somente o Proprietário pode restaurar Administradores.",
+  "This team member no longer exists.": "Este membro da equipe não existe mais.",
+  "The Owner cannot change their own role.": "O Proprietário não pode alterar a própria função.",
+  "The workspace owner role cannot be changed.":
+    "A função do proprietário do workspace não pode ser alterada.",
+  "Choose a valid team role.": "Escolha uma função de equipe válida.",
+  "Admins can only manage Members.": "Administradores só podem gerenciar Membros.",
+  "Only Admins and the Owner can change roles.":
+    "Somente Administradores e o Proprietário podem alterar funções.",
+  "Admins can only promote active Members.": "Administradores só podem promover Membros ativos.",
+  "Only the Owner can reassign Admin roles.":
+    "Somente o Proprietário pode reatribuir funções de Administrador.",
+  "The last admin cannot be reassigned.": "O último Administrador não pode ser reatribuído.",
+  "Only Admins and the Owner can manage integrations.":
+    "Somente Administradores e o Proprietário podem gerenciar integrações.",
+  "Toggle sidebar": "Alternar barra lateral",
+  Theme: "Tema",
+  System: "Sistema",
+  Light: "Claro",
+  Dark: "Escuro",
+  "Follow your device theme.": "Seguir o tema do seu dispositivo.",
+  "Always use the light theme.": "Usar sempre o tema claro.",
+  "Always use the dark theme.": "Usar sempre o tema escuro.",
+  "Choose how Time Blossom should look for your account.":
+    "Escolha a aparência do Time Blossom para sua conta.",
+  "Open account menu for {name}": "Abrir o menu da conta de {name}",
+  "Change profile photo": "Alterar foto de perfil",
+  "Remove profile photo": "Remover foto de perfil",
+  "Profile photo updated": "Foto de perfil atualizada",
+  "Profile photo removed": "Foto de perfil removida",
+  "Could not save profile photo: {error}": "Não foi possível salvar a foto de perfil: {error}",
+  "Could not remove profile photo: {error}": "Não foi possível remover a foto de perfil: {error}",
+  "Choose a JPG, PNG, WebP or GIF image.": "Escolha uma imagem JPG, PNG, WebP ou GIF.",
+  "Profile photos must be smaller than 1 MB.": "As fotos de perfil devem ter menos de 1 MB.",
+  "The profile photo could not be read.": "Não foi possível ler a foto de perfil.",
+  "Sign out": "Sair da conta",
+  "Could not sign out: {error}": "Não foi possível sair da conta: {error}",
+  "You are signed out": "Você saiu da conta",
+  "Choose a preview identity to continue.": "Escolha uma identidade de preview para continuar.",
+  "Could not resume preview": "Não foi possível retomar o preview",
+  "Continue to preview": "Continuar para o preview",
+  "No active preview identities.": "Não há identidades de preview ativas.",
+  "Sign in to change the preview identity.":
+    "Entre novamente para alterar a identidade de preview.",
+  "The session could not be ended locally.": "Não foi possível encerrar a sessão localmente.",
+  Collapse: "Recolher",
+  Expand: "Expandir",
+  "Report views": "Visualizações do relatório",
+  "Mobile navigation": "Navegação móvel",
+  "Something went wrong": "Algo deu errado",
+  "We couldn't load this data. Check your connection and try again.":
+    "Não foi possível carregar estes dados. Verifique sua conexão e tente novamente.",
+  breadcrumb: "trilha de navegação",
+  More: "Mais",
+  "Previous slide": "Slide anterior",
+  "Next slide": "Próximo slide",
+  Close: "Fechar",
+  pagination: "paginação",
+  "Go to previous page": "Ir para a página anterior",
+  "Go to next page": "Ir para a próxima página",
+  "More pages": "Mais páginas",
+  Sidebar: "Barra lateral",
+  "Displays the mobile sidebar.": "Exibe a barra lateral móvel.",
+  "Toggle Sidebar": "Alternar barra lateral",
+  "Time entries for selected period": "Registros de horas do período selecionado",
+  "Project / client": "Projeto / cliente",
+  "Open period calendar: {label}": "Abrir calendário do período: {label}",
+  week: "semana",
+  day: "dia",
+  range: "período",
+  "Could not start timer": "Não foi possível iniciar o cronômetro",
+  "Start {task} again": "Iniciar {task} novamente",
+  "Actions for {task}": "Ações para {task}",
+  "Actions for {task} group": "Ações para o grupo {task}",
+  "Collapse group": "Recolher grupo",
+  "Expand group": "Expandir grupo",
+  "{count} entry": "{count} registro",
+  "{count} entries": "{count} registros",
+  billable: "faturável",
+  internal: "interno",
+  "next day": "dia seguinte",
+  "{count} days later": "{count} dias depois",
+  "Billable: {value}": "Faturável: {value}",
+  yes: "sim",
+  no: "não",
+  "Start time": "Horário inicial",
+  "End time": "Horário final",
+  "Start time: {time}": "Horário inicial: {time}",
+  "Add a note": "Adicionar uma observação",
+  "Edit description": "Editar descrição",
+  "Add description": "Adicionar descrição",
+  "H:MM": "H:MM",
+  "Delete “{task}”? This action cannot be undone.":
+    "Excluir “{task}”? Esta ação não pode ser desfeita.",
+  "Keep entry": "Manter registro",
+  "Time entry updated": "Registro de horas atualizado",
+  "Time entry added": "Registro de horas adicionado",
+  "Could not save entry": "Não foi possível salvar o registro",
+  "Manual entry unavailable": "Registro manual indisponível",
+  "e.g. Landing page revisions": "ex.: Revisões da página inicial",
+  "e.g. 2:45 or 825": "ex.: 2:45 ou 825",
+  "Time entry mode": "Modo do registro de horas",
+  "Choose a valid date": "Escolha uma data válida",
+  "End time must be after start time": "O horário final deve ser posterior ao inicial",
+  "Use H:MM, HHMM, HMM, 2h or Ns (for example, 1:20, 120, 825 or 45s).":
+    "Use H:MM, HHMM, HMM, 2h ou Ns (por exemplo, 1:20, 120, 825 ou 45s).",
+  Name: "Nome",
+  Tracked: "Registrado",
+  Time: "Horário",
+  "Project / client": "Projeto / cliente",
+  "Filter projects": "Filtrar projetos",
+  "Select a client": "Selecione um cliente",
+  "Every project is connected to one client.": "Todo projeto está vinculado a um cliente.",
+  "New entries use this as their default.": "Novos registros usarão esta opção por padrão.",
+  "Project members": "Membros do projeto",
+  "Only assigned members can track time on this project.":
+    "Somente membros atribuídos podem registrar horas neste projeto.",
+  "Assign {name}": "Atribuir {name}",
+  "Create project": "Criar projeto",
+  "Manage project members": "Gerenciar membros do projeto",
+  "Could not update members": "Não foi possível atualizar os membros",
+  "Select the active members who can track time on {name}.":
+    "Selecione os membros ativos que podem registrar horas em {name}.",
+  "Save members": "Salvar membros",
+  "{name} will leave Active and Inactive lists. Existing time entries will remain available in reports and history.":
+    "{name} sairá das listas Ativo e Inativo. Os registros existentes continuarão disponíveis nos relatórios e no histórico.",
+  "This project": "Este projeto",
+  "Could not create project": "Não foi possível criar o projeto",
+  "This client": "Este cliente",
+  "this client": "este cliente",
+  "{name} is connected to {count} project{suffix}. Remove or reassign those projects first.":
+    "{name} está conectado a {count} projeto{suffix}. Remova ou reatribua esses projetos primeiro.",
+  "Invite teammates, manage roles and tracked hours.":
+    "Convide colegas, gerencie funções e acompanhe as horas registradas.",
+  "Team members": "Membros da equipe",
+  "Invitation pending": "Convite pendente",
+  "Access removed": "Acesso removido",
+  "Actions for invitation to {email}": "Ações do convite para {email}",
+  "No actions available for your account": "Nenhuma ação disponível para sua conta",
+  "Invitation prepared": "Convite preparado",
+  "Could not refresh invitation": "Não foi possível atualizar o convite",
+  "Invitation refreshed": "Convite atualizado",
+  "Invitation canceled": "Convite cancelado",
+  "Could not restore access": "Não foi possível restaurar o acesso",
+  "Access restored": "Acesso restaurado",
+  "{email} no longer has access to the workspace.": "{email} não tem mais acesso ao workspace.",
+  "Could not change role": "Não foi possível alterar a função",
+  "Role updated": "Função atualizada",
+  "Could not prepare invitation": "Não foi possível preparar o convite",
+  "Email is required": "O e-mail é obrigatório",
+  "This email is already part of the team": "Este e-mail já faz parte da equipe",
+  "The invitation will be prepared for future delivery.":
+    "O convite será preparado para envio futuro.",
+  "Invitation role": "Função do convite",
+  "Owner access is reserved for the workspace owner.":
+    "O acesso de Proprietário é reservado ao proprietário do workspace.",
+  "Prepare invite": "Preparar convite",
+  "The pending invitation for {email} will be removed from the team list.":
+    "O convite pendente para {email} será removido da equipe.",
+  "Keep invitation": "Manter convite",
+  "Cancel invitation": "Cancelar convite",
+  "Removing {name} revokes workspace access and removes them from current project assignments. Their tracked time and reports remain available. Restoring access later will not reassign projects automatically.":
+    "Remover {name} revoga o acesso ao workspace e remove a pessoa das atribuições atuais de projetos. As horas e relatórios continuam disponíveis. Restaurar o acesso depois não reatribuirá projetos automaticamente.",
+  "Keep member": "Manter membro",
+  "Remove from team": "Remover da equipe",
+  "Project not found": "Projeto não encontrado",
+  "This project may have been archived or removed.":
+    "Este projeto pode ter sido arquivado ou removido.",
+  "Back to projects": "Voltar aos projetos",
+  "{client} · updated {date}": "{client} · atualizado em {date}",
+  "Total tracked": "Total registrado",
+  Members: "Membros",
+  "No time tracked": "Nenhuma hora registrada",
+  "Entries logged against this project will appear here.":
+    "Os registros deste projeto aparecerão aqui.",
+  "Open project": "Abrir projeto",
+  "Open clients": "Abrir clientes",
+  'Search for "{query}"': 'Buscar por "{query}"',
+  "Command menu search": "Busca do menu de comandos",
+  "Date range: {range}": "Período: {range}",
+  "Date range": "Período",
+  "Date range preset": "Predefinição do período",
+  "Date range presets": "Predefinições do período",
+  "Choose report date range": "Escolher período do relatório",
+  "{label} filter": "Filtro de {label}",
+  "{label} options": "Opções de {label}",
+  "Search {label} options": "Buscar opções de {label}",
+  "Search {label}...": "Buscar {label}...",
+  "No results": "Nenhum resultado",
+  Filters: "Filtros",
+  "Show filters": "Exibir filtros",
+  "Choose report filters": "Escolher filtros do relatório",
+  "Task filter": "Filtro de tarefa",
+  "Description filter": "Filtro de descrição",
+  "All billability": "Todo faturamento",
+  "Add filters": "Adicionar filtros",
+  "Clear active report filters": "Limpar filtros ativos do relatório",
+  "Report totals": "Totais do relatório",
+  "No time entries match": "Nenhum registro corresponde",
+  "Try a wider period or clear one of the active filters.":
+    "Tente um período maior ou limpe um dos filtros ativos.",
+  "Total · {count} entries": "Total · {count} registros",
+  "{count} entries · page {page} of {pages}": "{count} registros · página {page} de {pages}",
+  Previous: "Anterior",
+  Next: "Próximo",
+  "Group by": "Agrupar por",
+  "Then by": "Depois por",
+  "Weekly group": "Agrupamento semanal",
+  Group: "Grupo",
+  Period: "Período",
+  Scope: "Escopo",
+  Records: "Registros",
+  Share: "Participação",
+  "Average/day": "Média/dia",
+  User: "Usuário",
+  "Start date": "Data inicial",
+  "Start time": "Hora inicial",
+  "End date": "Data final",
+  "End time": "Hora final",
+  report: "relatório",
+  "Workspace report": "Relatório do workspace",
+  "Your report": "Seu relatório",
+  "{count} team members": "{count} membros da equipe",
+  "{count} clients": "{count} clientes",
+  "{count} projects": "{count} projetos",
+  Time: "Tempo",
+  "The CSV export could not be prepared.": "Não foi possível preparar a exportação CSV.",
+  "The Excel export could not be prepared.": "Não foi possível preparar a exportação Excel.",
+  "Time Blossom · filtered report": "Time Blossom · relatório filtrado",
+  Generated: "Gerado em",
+  "Time Blossom · report export": "Time Blossom · exportação do relatório",
+  records: "registros",
+  "No records match the selected report.": "Nenhum registro corresponde ao relatório selecionado.",
+  "The PDF print preview could not be prepared.":
+    "Não foi possível preparar a visualização de impressão do PDF.",
+  "The PDF print preview could not be opened.":
+    "Não foi possível abrir a visualização de impressão do PDF.",
+  "Export {scope}": "Exportar {scope}",
+  "The filtered {format} report is downloading.":
+    "O relatório filtrado em {format} está sendo baixado.",
+  "Project details — Time Blossom": "Detalhes do projeto — Time Blossom",
+  "This removes {task}. You can undo it from the confirmation toast for 20 seconds.":
+    "Isto remove {task}. Você pode desfazer pela notificação durante 20 segundos.",
+  "Could not create client": "Não foi possível criar o cliente",
+  "Invitation prepared": "Convite preparado",
+  "Could not save personal preferences": "Não foi possível salvar as preferências pessoais",
+  "Choose valid personal preferences.": "Escolha preferências pessoais válidas.",
+  "Time Blossom — Simple time tracking": "Time Blossom — Controle de tempo simples",
+  "Time Blossom — Time tracking for small teams":
+    "Time Blossom — Controle de tempo para pequenas equipes",
+  "Time Blossom is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.":
+    "Time Blossom é um controle de tempo simples para freelancers e pequenas equipes: cronômetro, registros, relatórios e faturamento de clientes.",
+  "Track hours, manage projects and bill clients with a calm, focused workspace.":
+    "Acompanhe horas, gerencie projetos e fature clientes em um workspace calmo e focado.",
+  "Start the live timer, log time and manage your entries in one focused workspace.":
+    "Inicie o cronômetro, registre horas e gerencie seus registros em um workspace focado.",
+  "Live timer and daily time entries in one focused view.":
+    "Cronômetro e registros diários em uma única visão focada.",
+  "Track hours per project, monitor status and open detailed project breakdowns.":
+    "Acompanhe horas por projeto, monitore o status e abra detalhes completos.",
+  "All client and internal projects with tracked time at a glance.":
+    "Todos os projetos de clientes e internos com horas registradas em um só lugar.",
+  "Manage clients, contacts and the projects connected to each client.":
+    "Gerencie clientes, contatos e os projetos ligados a cada cliente.",
+  "Client list with contacts and tracked time.":
+    "Lista de clientes com contatos e horas registradas.",
+  "Invite teammates, manage roles and track team hours.":
+    "Convide colegas, gerencie funções e acompanhe as horas da equipe.",
+  "Invite teammates and see tracked hours by member.":
+    "Convide colegas e veja as horas registradas por membro.",
+  "Detailed, summary, weekly and team time reports.":
+    "Relatórios detalhados, resumidos, semanais e da equipe.",
+  "Filter and understand tracked time.": "Filtre e entenda as horas registradas.",
+  "Connect Time Blossom to Trello and sync cards into tracked tasks.":
+    "Conecte o Time Blossom ao Trello e sincronize cartões como tarefas registradas.",
+  "Simulated Trello sync for your time tracking.":
+    "Sincronização simulada do Trello para seu controle de tempo.",
+  "Workspace settings and personal preferences.":
+    "Configurações do workspace e preferências pessoais.",
+  "Configure your Time Blossom workspace.": "Configure seu workspace do Time Blossom.",
+  "Search projects, clients, teammates and time entries.":
+    "Busque projetos, clientes, colegas e registros de horas.",
+  "Find anything in your workspace.": "Encontre qualquer coisa no seu workspace.",
+};
+
+type MessageValue = string | number;
+
+function interpolate(template: string, values?: Record<string, MessageValue>): string {
+  if (!values) return template;
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? `{${key}}`));
+}
+
+export function translate(
+  key: string,
+  locale: Locale = defaultLocale,
+  values?: Record<string, MessageValue>,
+): string {
+  return interpolate(locale === "pt-BR" ? (ptBR[key] ?? key) : key, values);
+}
+
+interface I18nContextValue {
+  locale: Locale;
+  t: (key: string, values?: Record<string, MessageValue>) => string;
+  error: (message: string) => string;
+}
+
+const I18nContext = createContext<I18nContextValue | null>(null);
+
+export function AppI18nProvider({ locale, children }: { locale: Locale; children: ReactNode }) {
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
+  const value = useMemo<I18nContextValue>(
+    () => ({
+      locale,
+      t: (key, values) => translate(key, locale, values),
+      error: (message) => translate(message, locale),
+    }),
+    [locale],
+  );
+
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
+}
+
+export function useI18n(): I18nContextValue {
+  const context = useContext(I18nContext);
+  if (!context) throw new Error("useI18n must be used inside AppI18nProvider");
+  return context;
+}
+
+export function isLocale(value: unknown): value is Locale {
+  return value === "en-US" || value === "pt-BR";
+}

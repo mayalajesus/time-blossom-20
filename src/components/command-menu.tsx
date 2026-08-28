@@ -10,12 +10,12 @@ import {
   Plus,
   Search,
   Settings,
-  Sun,
   Users,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useStore } from "@/lib/store";
+import { useI18n } from "@/lib/i18n";
 
 interface Command {
   id: string;
@@ -30,15 +30,14 @@ export function CommandMenu({
   isOpen,
   onOpenChange,
   onLogTime,
-  onToggleTheme,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onLogTime: () => void;
-  onToggleTheme: () => void;
 }) {
   const navigate = useNavigate();
   const { projects, clients, timer, startTimer, stopTimer } = useStore();
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
 
   const close = () => {
@@ -50,56 +49,56 @@ export function CommandMenu({
     const nav: Command[] = [
       {
         id: "nav-tracker",
-        label: "Tracker",
-        hint: "Go to tracker",
+        label: t("Tracker"),
+        hint: t("Go to tracker"),
         icon: <CalendarDays className="size-4" />,
         group: "Navigation",
         run: () => navigate({ to: "/tracker" }),
       },
       {
         id: "nav-projects",
-        label: "Projects",
-        hint: "Manage projects",
+        label: t("Projects"),
+        hint: t("Manage projects"),
         icon: <FolderKanban className="size-4" />,
         group: "Navigation",
         run: () => navigate({ to: "/projects" }),
       },
       {
         id: "nav-clients",
-        label: "Clients",
-        hint: "Manage clients",
+        label: t("Clients"),
+        hint: t("Manage clients"),
         icon: <Building2 className="size-4" />,
         group: "Navigation",
         run: () => navigate({ to: "/clients" }),
       },
       {
         id: "nav-team",
-        label: "Team",
-        hint: "Members and roles",
+        label: t("Team"),
+        hint: t("Members and roles"),
         icon: <Users className="size-4" />,
         group: "Navigation",
         run: () => navigate({ to: "/team" }),
       },
       {
         id: "nav-reports",
-        label: "Reports",
-        hint: "Time analytics",
+        label: t("Reports"),
+        hint: t("Time analytics"),
         icon: <BarChart3 className="size-4" />,
         group: "Navigation",
         run: () => navigate({ to: "/reports", search: { view: "detailed" } }),
       },
       {
         id: "nav-integrations",
-        label: "Integrations",
-        hint: "Trello and more",
+        label: t("Integrations"),
+        hint: t("Trello and more"),
         icon: <Plug className="size-4" />,
         group: "Navigation",
         run: () => navigate({ to: "/integrations" }),
       },
       {
         id: "nav-settings",
-        label: "Settings",
-        hint: "Workspace settings",
+        label: t("Settings"),
+        hint: t("Workspace settings"),
         icon: <Settings className="size-4" />,
         group: "Navigation",
         run: () => navigate({ to: "/settings" }),
@@ -109,8 +108,8 @@ export function CommandMenu({
     const actions: Command[] = [
       {
         id: "action-timer",
-        label: timer.status === "idle" ? "Start timer" : "Stop timer",
-        hint: timer.status === "idle" ? "Begin tracking now" : "Save the running entry",
+        label: timer.status === "idle" ? t("Start timer") : t("Stop timer"),
+        hint: timer.status === "idle" ? t("Begin tracking now") : t("Save the running entry"),
         icon: <Play className="size-4" />,
         group: "Actions",
         run: () => (timer.status === "idle" ? startTimer("Quick task", null) : stopTimer()),
@@ -119,8 +118,8 @@ export function CommandMenu({
         ? [
             {
               id: "action-log",
-              label: "Log time manually",
-              hint: "Add a past entry",
+              label: t("Log time manually"),
+              hint: t("Add a past entry"),
               icon: <Plus className="size-4" />,
               group: "Actions" as const,
               run: onLogTime,
@@ -128,17 +127,9 @@ export function CommandMenu({
           ]
         : []),
       {
-        id: "action-theme",
-        label: "Toggle theme",
-        hint: "Switch light and dark",
-        icon: <Sun className="size-4" />,
-        group: "Actions",
-        run: onToggleTheme,
-      },
-      {
         id: "action-search",
-        label: query ? `Search for "${query}"` : "Global search",
-        hint: "Open search results",
+        label: query ? t('Search for "{query}"', { query }) : t("Global search"),
+        hint: t("Open search results"),
         icon: <Search className="size-4" />,
         group: "Actions",
         run: () => navigate({ to: "/search", search: { q: query } }),
@@ -148,7 +139,7 @@ export function CommandMenu({
     const projectCommands: Command[] = projects.map((p) => ({
       id: `project-${p.id}`,
       label: p.name,
-      hint: "Open project",
+      hint: t("Open project"),
       icon: <FolderKanban className="size-4" />,
       group: "Projects",
       run: () => navigate({ to: "/projects/$projectId", params: { projectId: p.id } }),
@@ -157,24 +148,14 @@ export function CommandMenu({
     const clientCommands: Command[] = clients.map((c) => ({
       id: `client-${c.id}`,
       label: c.name,
-      hint: "Open clients",
+      hint: t("Open clients"),
       icon: <Building2 className="size-4" />,
       group: "Clients",
       run: () => navigate({ to: "/clients" }),
     }));
 
     return [...actions, ...nav, ...projectCommands, ...clientCommands];
-  }, [
-    clients,
-    navigate,
-    onLogTime,
-    onToggleTheme,
-    projects,
-    query,
-    startTimer,
-    stopTimer,
-    timer.status,
-  ]);
+  }, [clients, navigate, onLogTime, projects, query, startTimer, stopTimer, t, timer.status]);
 
   const filtered = commands.filter((c) =>
     `${c.label} ${c.group}`.toLowerCase().includes(query.trim().toLowerCase()),
@@ -195,10 +176,10 @@ export function CommandMenu({
           <Modal.Dialog>
             <div className="border-b border-default px-3 py-2">
               <TextField fullWidth name="command-search" value={query} onChange={setQuery}>
-                <Label className="sr-only">Command menu search</Label>
+                <Label className="sr-only">{t("Command menu search")}</Label>
                 <Input
                   autoFocus
-                  placeholder="Search commands, projects, clients…"
+                  placeholder={t("Search commands, projects, clients…")}
                   variant="secondary"
                 />
               </TextField>
@@ -206,11 +187,11 @@ export function CommandMenu({
             <div className="max-h-[52vh] overflow-y-auto p-2">
               {filtered.length === 0 ? (
                 <p className="px-3 py-8 text-center text-sm text-muted">
-                  No results for “{query}”.
+                  {t("No results for “{query}”.", { query })}
                 </p>
               ) : (
                 <ListBox
-                  aria-label="Commands"
+                  aria-label={t("Commands")}
                   selectionMode="none"
                   onAction={(key) => {
                     const cmd = commands.find((c) => c.id === String(key));
@@ -229,7 +210,7 @@ export function CommandMenu({
                           textValue={group}
                         >
                           <Label className="text-xs tracking-wide text-muted uppercase">
-                            {group}
+                            {t(group)}
                           </Label>
                         </ListBox.Item>
                         {filtered
@@ -248,9 +229,9 @@ export function CommandMenu({
               )}
             </div>
             <div className="flex items-center justify-between border-t border-default px-4 py-2 text-xs text-muted">
-              <span>Navigate with arrow keys</span>
+              <span>{t("Navigate with arrow keys")}</span>
               <span className="flex items-center gap-1">
-                <Kbd>esc</Kbd> to close
+                <Kbd>esc</Kbd> {t("to close")}
               </span>
             </div>
           </Modal.Dialog>

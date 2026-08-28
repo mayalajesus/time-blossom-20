@@ -27,6 +27,8 @@ import {
 } from "@/lib/format";
 import { useSimulatedLoad, useStore } from "@/lib/store";
 import type { ReportExportPayload } from "@/lib/report-export";
+import { useI18n } from "@/lib/i18n";
+import type { Locale } from "@/lib/i18n";
 
 const reportViews = [
   { id: "summary", label: "Summary" },
@@ -177,12 +179,13 @@ function getDimensionLabel(
   members: Member[],
   projects: Project[],
   clients: Client[],
+  locale: Locale,
 ): string {
   if (dimension === "project") return projectNameFor(projects, entry.projectId);
   if (dimension === "client") return clientNameFor(clients, projects, entry.projectId);
   if (dimension === "member") return nameForMember(members, entry.userId);
   if (dimension === "task") return entry.task || "Untitled task";
-  return formatDate(entry.date);
+  return formatDate(entry.date, locale);
 }
 
 function getDimensionKey(entry: TimeEntry, dimension: GroupDimension, projects: Project[]): string {
@@ -210,6 +213,7 @@ function buildGroups(
   members: Member[],
   projects: Project[],
   clients: Client[],
+  locale: Locale,
 ): ReportGroup[] {
   const primaryMap = new Map<string, TimeEntry[]>();
   for (const entry of entries) {
@@ -224,7 +228,7 @@ function buildGroups(
       const children =
         secondary === "none" || secondary === primary
           ? undefined
-          : buildGroups(groupEntries, secondary, "none", members, projects, clients);
+          : buildGroups(groupEntries, secondary, "none", members, projects, clients, locale);
       const seconds = groupEntries.reduce((sum, entry) => sum + entry.seconds, 0);
       return {
         key,
@@ -234,6 +238,7 @@ function buildGroups(
           members,
           projects,
           clients,
+          locale,
         ),
         seconds,
         billable: groupEntries
@@ -305,6 +310,7 @@ function ReportsPage() {
   };
   const navigate = Route.useNavigate();
   const { entries, projects, clients, members, currentUserId, can, settings, today } = useStore();
+  const { locale, t } = useI18n();
   const loading = useSimulatedLoad(600);
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -419,45 +425,62 @@ function ReportsPage() {
     .filter((entry) => entry.billable)
     .reduce((sum, entry) => sum + entry.seconds, 0);
   const internal = total - billable;
-  const reportScope = can("export-all-reports") ? "Workspace report" : "Your report";
+  const reportScope = can("export-all-reports") ? t("Workspace report") : t("Your report");
   const [summaryExpanded, setSummaryExpanded] = useState<Record<string, boolean>>({});
   const groups = useMemo(
-    () => buildGroups(filteredEntries, search.group, search.subgroup, members, projects, clients),
-    [clients, filteredEntries, members, projects, search.group, search.subgroup],
+    () =>
+      buildGroups(
+        filteredEntries,
+        search.group,
+        search.subgroup,
+        members,
+        projects,
+        clients,
+        locale,
+      ),
+    [clients, filteredEntries, members, projects, locale, search.group, search.subgroup],
   );
   const exportContext = useMemo(
     () => ({
-      displayTitle: `${reportViews.find((report) => report.id === search.view)?.label ?? "Time"} report`,
-      subtitle: `Time Blossom · ${formatDateRange(range.startDate, range.endDate)}`,
+      locale,
+      displayTitle: `${t(reportViews.find((report) => report.id === search.view)?.label ?? "Time")} ${t("report")}`,
+      subtitle: `Time Blossom · ${formatDateRange(range.startDate, range.endDate, locale)}`,
       meta: [
-        { label: "Period", value: formatDateRange(range.startDate, range.endDate) },
-        { label: "Scope", value: reportScope },
+        { label: t("Period"), value: formatDateRange(range.startDate, range.endDate, locale) },
+        { label: t("Scope"), value: reportScope },
         {
-          label: "Filters",
+          label: t("Filters"),
           value:
             [
-              search.members ? `${parseIds(search.members).length} team members` : "",
-              search.clients ? `${parseIds(search.clients).length} clients` : "",
-              search.projects ? `${parseIds(search.projects).length} projects` : "",
-              search.task ? `Task: ${search.task}` : "",
-              search.description ? `Description: ${search.description}` : "",
-              search.billability !== "all" ? search.billability : "",
+              search.members
+                ? t("{count} team members", { count: parseIds(search.members).length })
+                : "",
+              search.clients
+                ? t("{count} clients", { count: parseIds(search.clients).length })
+                : "",
+              search.projects
+                ? t("{count} projects", { count: parseIds(search.projects).length })
+                : "",
+              search.task ? `${t("Task")}: ${search.task}` : "",
+              search.description ? `${t("Description")}: ${search.description}` : "",
+              search.billability !== "all" ? t(search.billability) : "",
             ]
               .filter(Boolean)
-              .join(" · ") || "None",
+              .join(" · ") || t("None"),
         },
       ],
       summary: [
-        { label: "Tracked", value: formatDuration(total) },
-        { label: "Billable", value: formatDuration(billable) },
-        { label: "Internal", value: formatDuration(internal) },
-        { label: "Records", value: String(filteredEntries.length) },
+        { label: t("Tracked"), value: formatDuration(total, locale) },
+        { label: t("Billable"), value: formatDuration(billable, locale) },
+        { label: t("Internal"), value: formatDuration(internal, locale) },
+        { label: t("Records"), value: String(filteredEntries.length) },
       ],
     }),
     [
       billable,
       filteredEntries.length,
       internal,
+      locale,
       range.endDate,
       range.startDate,
       reportScope,
@@ -468,6 +491,7 @@ function ReportsPage() {
       search.projects,
       search.task,
       search.view,
+      t,
       total,
     ],
   );
@@ -475,18 +499,18 @@ function ReportsPage() {
   const exportPayload = useMemo<ReportExportPayload>(() => {
     if (search.view === "detailed") {
       const columns = [
-        "Project",
-        "Client",
-        "Task",
-        "User",
-        "Email",
-        "Description",
-        "Billability",
-        "Start date",
-        "Start time",
-        "End date",
-        "End time",
-        "Duration",
+        t("Project"),
+        t("Client"),
+        t("Task"),
+        t("User"),
+        t("Email"),
+        t("Description"),
+        t("Billability"),
+        t("Start date"),
+        t("Start time"),
+        t("End date"),
+        t("End time"),
+        t("Duration"),
       ];
       return {
         ...exportContext,
@@ -496,18 +520,18 @@ function ReportsPage() {
           const member = memberMap.get(entry.userId);
           const endDate = getEndDateForEntry(entry);
           return {
-            Project: projectNameFor(projects, entry.projectId),
-            Client: clientNameFor(clients, projects, entry.projectId),
-            Task: entry.task,
-            User: member?.name ?? "Unknown member",
-            Email: member?.email ?? "",
-            Description: entry.description ?? "",
-            Billability: entry.billable ? "Billable" : "Internal",
-            "Start date": entry.date,
-            "Start time": entry.start,
-            "End date": endDate,
-            "End time": endLabel(entry),
-            Duration: formatDuration(entry.seconds),
+            [t("Project")]: projectNameFor(projects, entry.projectId),
+            [t("Client")]: clientNameFor(clients, projects, entry.projectId),
+            [t("Task")]: entry.task,
+            [t("User")]: member?.name ?? t("Unknown member"),
+            [t("Email")]: member?.email ?? "",
+            [t("Description")]: entry.description ?? "",
+            [t("Billability")]: entry.billable ? t("Billable") : t("Internal"),
+            [t("Start date")]: formatDate(entry.date, locale),
+            [t("Start time")]: entry.start,
+            [t("End date")]: formatDate(endDate, locale),
+            [t("End time")]: endLabel(entry),
+            [t("Duration")]: formatDuration(entry.seconds, locale),
           };
         }),
       };
@@ -516,13 +540,13 @@ function ReportsPage() {
       return {
         ...exportContext,
         title: `time-blossom-${search.view}`,
-        columns: ["Group", "Tracked", "Billable", "Internal", "Records"],
+        columns: [t("Group"), t("Tracked"), t("Billable"), t("Internal"), t("Records")],
         rows: groups.map((group) => ({
-          Group: group.label,
-          Tracked: formatDuration(group.seconds),
-          Billable: formatDuration(group.billable),
-          Internal: formatDuration(group.seconds - group.billable),
-          Records: group.records,
+          [t("Group")]: group.label,
+          [t("Tracked")]: formatDuration(group.seconds, locale),
+          [t("Billable")]: formatDuration(group.billable, locale),
+          [t("Internal")]: formatDuration(group.seconds - group.billable, locale),
+          [t("Records")]: group.records,
         })),
       };
     }
@@ -538,15 +562,24 @@ function ReportsPage() {
       return {
         ...exportContext,
         title: `time-blossom-${search.view}`,
-        columns: ["Group", ...weekDates, "Tracked", "Billable", "Internal"],
+        columns: [
+          t("Group"),
+          ...weekDates.map((date) => formatDate(date, locale)),
+          t("Tracked"),
+          t("Billable"),
+          t("Internal"),
+        ],
         rows: rows.map((row) => ({
-          Group: row.label,
+          [t("Group")]: row.label,
           ...Object.fromEntries(
-            weekDates.map((date) => [date, formatDuration(row.byDate[date] ?? 0)]),
+            weekDates.map((date) => [
+              formatDate(date, locale),
+              formatDuration(row.byDate[date] ?? 0, locale),
+            ]),
           ),
-          Tracked: formatDuration(row.seconds),
-          Billable: formatDuration(row.billable),
-          Internal: formatDuration(row.seconds - row.billable),
+          [t("Tracked")]: formatDuration(row.seconds, locale),
+          [t("Billable")]: formatDuration(row.billable, locale),
+          [t("Internal")]: formatDuration(row.seconds - row.billable, locale),
         })),
       };
     }
@@ -561,28 +594,29 @@ function ReportsPage() {
       ...exportContext,
       title: `time-blossom-${search.view}`,
       columns: [
-        "Member",
-        "Tracked",
-        "Billable",
-        "Internal",
-        "Records",
-        "Projects",
-        "Clients",
-        "Average/day",
-        "Share",
+        t("Member"),
+        t("Tracked"),
+        t("Billable"),
+        t("Internal"),
+        t("Records"),
+        t("Projects"),
+        t("Clients"),
+        t("Average/day"),
+        t("Share"),
       ],
       rows: teamRows.map((row) => ({
-        Member: row.member.name,
-        Tracked: formatDuration(row.seconds),
-        Billable: formatDuration(row.billable),
-        Internal: formatDuration(row.seconds - row.billable),
-        Records: row.records,
-        Projects: row.projectCount,
-        Clients: row.clientCount,
-        "Average/day": formatDuration(
+        [t("Member")]: row.member.name,
+        [t("Tracked")]: formatDuration(row.seconds, locale),
+        [t("Billable")]: formatDuration(row.billable, locale),
+        [t("Internal")]: formatDuration(row.seconds - row.billable, locale),
+        [t("Records")]: row.records,
+        [t("Projects")]: row.projectCount,
+        [t("Clients")]: row.clientCount,
+        [t("Average/day")]: formatDuration(
           row.activeDays ? Math.round(row.seconds / row.activeDays) : 0,
+          locale,
         ),
-        Share: total ? `${Math.round((row.seconds / total) * 100)}%` : "0%",
+        [t("Share")]: total ? `${Math.round((row.seconds / total) * 100)}%` : "0%",
       })),
     };
   }, [
@@ -597,15 +631,17 @@ function ReportsPage() {
     exportContext,
     search.view,
     search.weeklyGroup,
+    locale,
     showTeam,
+    t,
     total,
   ]);
 
   const description = {
-    detailed: "Inspect every entry with its project, client, person and billability.",
-    summary: "Compare totals with flexible project, client, member, task or date groups.",
-    weekly: "Review one complete week across projects or team members.",
-    team: "Compare time, billing mix and activity across the available team.",
+    detailed: t("Inspect every entry with its project, client, person and billability."),
+    summary: t("Compare totals with flexible project, client, member, task or date groups."),
+    weekly: t("Review one complete week across projects or team members."),
+    team: t("Compare time, billing mix and activity across the available team."),
   }[search.view];
 
   const clearFilters = () =>
@@ -621,28 +657,28 @@ function ReportsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Reports"
+        title={t("Reports")}
         description={description}
         actions={
           <div className="flex items-center gap-2">
             <Select
-              aria-label="Report view"
+              aria-label={t("Report view")}
               className="w-36"
               value={search.view}
               onChange={(key) => {
                 if (key) updateSearch({ view: String(key) as ReportView });
               }}
             >
-              <Label className="sr-only">Report view</Label>
+              <Label className="sr-only">{t("Report view")}</Label>
               <Select.Trigger>
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
               <Select.Popover>
-                <ListBox aria-label="Report views">
+                <ListBox aria-label={t("Report views")}>
                   {reportViews.map((report) => (
                     <ListBox.Item key={report.id} id={report.id} textValue={report.label}>
-                      <Label>{report.label}</Label>
+                      <Label>{t(report.label)}</Label>
                       <ListBox.ItemIndicator />
                     </ListBox.Item>
                   ))}
@@ -651,7 +687,7 @@ function ReportsPage() {
             </Select>
             <Button variant="secondary" onPress={() => setExportOpen(true)}>
               <Download className="size-4" />
-              Export
+              {t("Export")}
             </Button>
           </div>
         }
@@ -779,12 +815,13 @@ function ReportOverview({
   internal: number;
   records: number;
 }) {
+  const { locale, t } = useI18n();
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <StatCard label="Tracked" value={formatDuration(total)} />
-      <StatCard label="Billable" value={formatDuration(billable)} />
-      <StatCard label="Internal" value={formatDuration(internal)} />
-      <StatCard label="Entries" value={String(records)} />
+      <StatCard label={t("Tracked")} value={formatDuration(total, locale)} />
+      <StatCard label={t("Billable")} value={formatDuration(billable, locale)} />
+      <StatCard label={t("Internal")} value={formatDuration(internal, locale)} />
+      <StatCard label={t("Entries")} value={String(records)} />
     </div>
   );
 }
@@ -810,15 +847,16 @@ function ReportTableHead({ children }: { children: ReactNode }) {
 }
 
 function EmptyReport({ onClear }: { onClear: () => void }) {
+  const { t } = useI18n();
   return (
     <EmptyBlock
       icon={<FileBarChart className="size-5" />}
-      title="No time entries match"
-      description="Try a wider period or clear one of the active filters."
+      title={t("No time entries match")}
+      description={t("Try a wider period or clear one of the active filters.")}
       action={
         <Button variant="secondary" onPress={onClear}>
           <RotateCcw className="size-4" />
-          Clear filters
+          {t("Clear filters")}
         </Button>
       }
     />
@@ -842,6 +880,7 @@ function DetailedReport({
   projects: Project[];
   clients: Client[];
 }) {
+  const { locale, t } = useI18n();
   if (entries.length === 0) return <EmptyReport onClear={onClear} />;
   const pageSize = 50;
   const pageCount = Math.max(1, Math.ceil(entries.length / pageSize));
@@ -853,22 +892,22 @@ function DetailedReport({
         <ReportTableHead>
           <tr>
             {[
-              "Date",
-              "Member",
-              "Project",
-              "Client",
-              "Task",
-              "Description",
-              "Start",
-              "End",
-              "Duration",
-              "Billability",
+              t("Date"),
+              t("Member"),
+              t("Project"),
+              t("Client"),
+              t("Task"),
+              t("Description"),
+              t("Start"),
+              t("End"),
+              t("Duration"),
+              t("Billability"),
             ].map((label) => (
               <th
                 key={label}
                 className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase"
               >
-                {label}
+                {t(label)}
               </th>
             ))}
           </tr>
@@ -876,7 +915,9 @@ function DetailedReport({
         <tbody>
           {pageEntries.map((entry) => (
             <tr key={entry.id} className="border-b border-default last:border-b-0">
-              <td className="whitespace-nowrap px-4 py-3 text-muted">{formatDate(entry.date)}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-muted">
+                {formatDate(entry.date, locale)}
+              </td>
               <td className="whitespace-nowrap px-4 py-3 text-muted">
                 {nameForMember(members, entry.userId)}
               </td>
@@ -895,10 +936,10 @@ function DetailedReport({
                 {endLabel(entry)}
               </td>
               <td className="whitespace-nowrap px-4 py-3 font-medium tabular-nums">
-                {formatDuration(entry.seconds)}
+                {formatDuration(entry.seconds, locale)}
               </td>
               <td className="whitespace-nowrap px-4 py-3 text-muted">
-                {entry.billable ? "Billable" : "Internal"}
+                {entry.billable ? t("Billable") : t("Internal")}
               </td>
             </tr>
           ))}
@@ -906,25 +947,33 @@ function DetailedReport({
         <tfoot className="border-t border-default bg-surface-secondary">
           <tr>
             <td colSpan={8} className="px-4 py-3 text-right font-medium text-muted">
-              Total · {entries.length} entries
+              {t("Total · {count} entries", { count: entries.length })}
             </td>
             <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">
-              {formatDuration(entries.reduce((sum, entry) => sum + entry.seconds, 0))}
+              {formatDuration(
+                entries.reduce((sum, entry) => sum + entry.seconds, 0),
+                locale,
+              )}
             </td>
             <td className="px-4 py-3 text-muted">
               {formatDuration(
                 entries
                   .filter((entry) => entry.billable)
                   .reduce((sum, entry) => sum + entry.seconds, 0),
+                locale,
               )}{" "}
-              billable
+              {t("billable")}
             </td>
           </tr>
         </tfoot>
       </ReportTable>
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
         <span>
-          {entries.length} entries · page {currentPage} of {pageCount}
+          {t("{count} entries · page {page} of {pages}", {
+            count: entries.length,
+            page: currentPage,
+            pages: pageCount,
+          })}
         </span>
         <div className="flex items-center gap-2">
           <Button
@@ -933,7 +982,7 @@ function DetailedReport({
             isDisabled={currentPage === 1}
             onPress={() => onPageChange(currentPage - 1)}
           >
-            Previous
+            {t("Previous")}
           </Button>
           <Button
             variant="secondary"
@@ -941,7 +990,7 @@ function DetailedReport({
             isDisabled={currentPage === pageCount}
             onPress={() => onPageChange(currentPage + 1)}
           >
-            Next
+            {t("Next")}
           </Button>
         </div>
       </div>
@@ -970,6 +1019,7 @@ function SummaryReport({
   onChangeSubgroup: (group: GroupDimension | "none") => void;
   onClear: () => void;
 }) {
+  const { t } = useI18n();
   if (groups.length === 0) return <EmptyReport onClear={onClear} />;
   return (
     <div className="space-y-4">
@@ -986,7 +1036,7 @@ function SummaryReport({
           label="Then by"
           value={secondary}
           options={[
-            { id: "none", label: "None" },
+            { id: "none", label: t("None") },
             ...groupOptions.filter((option) => option.id !== primary),
           ]}
           onChange={onChangeSubgroup}
@@ -1035,6 +1085,7 @@ function SummaryRow({
   expanded: Record<string, boolean>;
   onToggle: (key: string) => void;
 }) {
+  const { locale, t } = useI18n();
   const expandable = Boolean(group.children?.length);
   const isOpen = Boolean(expanded[group.key]);
   return (
@@ -1047,7 +1098,10 @@ function SummaryRow({
                 variant="ghost"
                 size="sm"
                 isIconOnly
-                aria-label={`${isOpen ? "Collapse" : "Expand"} ${group.label}`}
+                aria-label={t("{action} {label}", {
+                  action: t(isOpen ? "Collapse" : "Expand"),
+                  label: group.label,
+                })}
                 aria-expanded={isOpen}
                 onPress={() => onToggle(group.key)}
               >
@@ -1060,13 +1114,13 @@ function SummaryRow({
           </div>
         </td>
         <td className="whitespace-nowrap px-4 py-3 font-medium tabular-nums">
-          {formatDuration(group.seconds)}
+          {formatDuration(group.seconds, locale)}
         </td>
         <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted">
-          {formatDuration(group.billable)}
+          {formatDuration(group.billable, locale)}
         </td>
         <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted">
-          {formatDuration(group.seconds - group.billable)}
+          {formatDuration(group.seconds - group.billable, locale)}
         </td>
         <td className="px-4 py-3 tabular-nums text-muted">{group.records}</td>
         <td className="px-4 py-3 tabular-nums text-muted">
@@ -1100,25 +1154,26 @@ function GroupSelect({
   options: Array<{ id: string; label: string }>;
   onChange: (value: GroupDimension | "none") => void;
 }) {
+  const { t } = useI18n();
   return (
     <Select
-      aria-label={label}
+      aria-label={t(label)}
       className="w-44"
       value={value}
       onChange={(key) => {
         if (key) onChange(String(key) as GroupDimension | "none");
       }}
     >
-      <Label className="sr-only">{label}</Label>
+      <Label className="sr-only">{t(label)}</Label>
       <Select.Trigger>
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover>
-        <ListBox aria-label={label}>
+        <ListBox aria-label={t(label)}>
           {options.map((option) => (
             <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
-              <Label>{option.label}</Label>
+              <Label>{t(option.label)}</Label>
               <ListBox.ItemIndicator />
             </ListBox.Item>
           ))}
@@ -1151,9 +1206,10 @@ function buildWeeklyRows(
         ? projectNameFor(projects, entry.projectId)
         : nameForMember(members, entry.userId);
     const current = map.get(key) ?? { key, label, seconds: 0, billable: 0, byDate: {} };
-    current.seconds += entry.seconds;
-    current.billable += entry.billable ? entry.seconds : 0;
-    current.byDate[entry.date] = (current.byDate[entry.date] ?? 0) + entry.seconds;
+    const seconds = entry.seconds;
+    current.seconds += seconds;
+    current.billable += entry.billable ? seconds : 0;
+    current.byDate[entry.date] = (current.byDate[entry.date] ?? 0) + seconds;
     map.set(key, current);
   }
   return [...map.values()].sort((a, b) => b.seconds - a.seconds || a.label.localeCompare(b.label));
@@ -1176,6 +1232,7 @@ function WeeklyReport({
   onChange: (dimension: WeeklyDimension) => void;
   onClear: () => void;
 }) {
+  const { locale, t } = useI18n();
   const dates = Array.from({ length: 7 }, (_, index) => shiftDate(range.startDate, index));
   const rows = buildWeeklyRows(entries, dimension, members, projects, dates);
   if (rows.length === 0) return <EmptyReport onClear={onClear} />;
@@ -1195,24 +1252,24 @@ function WeeklyReport({
         <ReportTableHead>
           <tr>
             <th className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase">
-              Group
+              {t("Group")}
             </th>
             {dates.map((date) => (
               <th
                 key={date}
                 className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase"
               >
-                {formatDate(date)}
+                {formatDate(date, locale)}
               </th>
             ))}
             <th className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase">
-              Tracked
+              {t("Tracked")}
             </th>
             <th className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase">
-              Billable
+              {t("Billable")}
             </th>
             <th className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase">
-              Internal
+              {t("Internal")}
             </th>
           </tr>
         </ReportTableHead>
@@ -1222,13 +1279,17 @@ function WeeklyReport({
               <td className="px-4 py-3 font-medium">{row.label}</td>
               {dates.map((date) => (
                 <td key={date} className="px-4 py-3 tabular-nums text-muted">
-                  {formatDuration(row.byDate[date] ?? 0)}
+                  {formatDuration(row.byDate[date] ?? 0, locale)}
                 </td>
               ))}
-              <td className="px-4 py-3 font-medium tabular-nums">{formatDuration(row.seconds)}</td>
-              <td className="px-4 py-3 tabular-nums text-muted">{formatDuration(row.billable)}</td>
+              <td className="px-4 py-3 font-medium tabular-nums">
+                {formatDuration(row.seconds, locale)}
+              </td>
               <td className="px-4 py-3 tabular-nums text-muted">
-                {formatDuration(row.seconds - row.billable)}
+                {formatDuration(row.billable, locale)}
+              </td>
+              <td className="px-4 py-3 tabular-nums text-muted">
+                {formatDuration(row.seconds - row.billable, locale)}
               </td>
             </tr>
           ))}
@@ -1295,6 +1356,7 @@ function TeamReport({
   scopeToMember: string | null;
   onClear: () => void;
 }) {
+  const { locale, t } = useI18n();
   const rows = buildTeamRows(entries, members, projects, clients, scopeToMember);
   if (rows.length === 0) return <EmptyReport onClear={onClear} />;
   return (
@@ -1316,7 +1378,7 @@ function TeamReport({
               key={label}
               className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase"
             >
-              {label}
+              {t(label)}
             </th>
           ))}
         </tr>
@@ -1328,16 +1390,23 @@ function TeamReport({
               <div className="font-medium">{row.member.name}</div>
               <div className="text-xs text-muted">{row.member.email}</div>
             </td>
-            <td className="px-4 py-3 font-medium tabular-nums">{formatDuration(row.seconds)}</td>
-            <td className="px-4 py-3 tabular-nums text-muted">{formatDuration(row.billable)}</td>
+            <td className="px-4 py-3 font-medium tabular-nums">
+              {formatDuration(row.seconds, locale)}
+            </td>
             <td className="px-4 py-3 tabular-nums text-muted">
-              {formatDuration(row.seconds - row.billable)}
+              {formatDuration(row.billable, locale)}
+            </td>
+            <td className="px-4 py-3 tabular-nums text-muted">
+              {formatDuration(row.seconds - row.billable, locale)}
             </td>
             <td className="px-4 py-3 tabular-nums text-muted">{row.records}</td>
             <td className="px-4 py-3 tabular-nums text-muted">{row.projectCount}</td>
             <td className="px-4 py-3 tabular-nums text-muted">{row.clientCount}</td>
             <td className="px-4 py-3 tabular-nums text-muted">
-              {formatDuration(row.activeDays ? Math.round(row.seconds / row.activeDays) : 0)}
+              {formatDuration(
+                row.activeDays ? Math.round(row.seconds / row.activeDays) : 0,
+                locale,
+              )}
             </td>
             <td className="px-4 py-3 tabular-nums text-muted">
               {total ? `${Math.round((row.seconds / total) * 100)}%` : "0%"}

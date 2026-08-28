@@ -4,6 +4,7 @@ import { SearchIcon } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyBlock } from "@/components/states";
 import { useStore } from "@/lib/store";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/search")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -24,6 +25,7 @@ function SearchPage() {
   const { q } = Route.useSearch();
   const navigate = useNavigate();
   const { projects, clients, members, entries } = useStore();
+  const { t } = useI18n();
   const term = q.trim().toLowerCase();
 
   const match = (value: string) => term.length > 0 && value.toLowerCase().includes(term);
@@ -33,7 +35,7 @@ function SearchPage() {
   const e = entries.filter((x) => {
     const projectName =
       x.projectId === null
-        ? "No project"
+        ? t("No project")
         : (projects.find((p) => p.id === x.projectId)?.name ?? "");
     return match(`${x.task} ${x.description ?? ""} ${projectName}`);
   });
@@ -41,7 +43,10 @@ function SearchPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Search" description="Look across projects, clients, team and entries." />
+      <PageHeader
+        title={t("Search")}
+        description={t("Look across projects, clients, team and entries.")}
+      />
 
       <TextField
         fullWidth
@@ -49,22 +54,24 @@ function SearchPage() {
         value={q}
         onChange={(value) => navigate({ to: "/search", search: { q: value } })}
       >
-        <Label className="sr-only">Search workspace</Label>
-        <Input placeholder="Search…" />
+        <Label className="sr-only">{t("Search workspace")}</Label>
+        <Input placeholder={t("Search…")} />
       </TextField>
 
       {empty ? (
         <EmptyBlock
           icon={<SearchIcon className="size-5" />}
-          title={term ? "No matches" : "Start typing"}
+          title={term ? t("No matches") : t("Start typing")}
           description={
-            term ? "Try another keyword or check the spelling." : "Results appear as you type."
+            term
+              ? t("Try another keyword or check the spelling.")
+              : t("Results appear as you type.")
           }
         />
       ) : (
         <div className="space-y-6">
           {p.length > 0 && (
-            <Section title="Projects">
+            <Section title={t("Projects")}>
               {p.map((item) => (
                 <Link
                   key={item.id}
@@ -78,7 +85,7 @@ function SearchPage() {
             </Section>
           )}
           {c.length > 0 && (
-            <Section title="Clients">
+            <Section title={t("Clients")}>
               {c.map((item) => (
                 <Link
                   key={item.id}
@@ -91,7 +98,7 @@ function SearchPage() {
             </Section>
           )}
           {m.length > 0 && (
-            <Section title="Team">
+            <Section title={t("Team")}>
               {m.map((item) => (
                 <Link
                   key={item.id}
@@ -104,7 +111,7 @@ function SearchPage() {
             </Section>
           )}
           {e.length > 0 && (
-            <Section title="Time entries">
+            <Section title={t("Time entries")}>
               {e.slice(0, 10).map((item) => (
                 <Link
                   key={item.id}

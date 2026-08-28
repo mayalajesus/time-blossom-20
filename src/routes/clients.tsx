@@ -18,6 +18,7 @@ import { FormAlert } from "@/components/form-feedback";
 import { PageHeader } from "@/components/page-header";
 import { EmptyBlock, TableSkeleton } from "@/components/states";
 import { formatDuration } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import type { Client } from "@/lib/mock-data";
 import { useSimulatedLoad, useStore } from "@/lib/store";
 
@@ -38,6 +39,7 @@ export const Route = createFileRoute("/clients")({
 
 function ClientsPage() {
   const { clients, projects, entries, can, addClient, deleteClient } = useStore();
+  const { locale, t, error } = useI18n();
   const loading = useSimulatedLoad(400);
   const [newOpen, setNewOpen] = useState(false);
   const [name, setName] = useState("");
@@ -68,10 +70,10 @@ function ClientsPage() {
     if (!name.trim()) return;
     const result = addClient({ name: name.trim(), contact: contact.trim() });
     if (!result.success) {
-      setCreateError(result.error);
+      setCreateError(error(result.error));
       return;
     }
-    toast("Client created", { description: name.trim() });
+    toast(t("Client created"), { description: name.trim() });
     resetCreateForm();
     setNewOpen(false);
   };
@@ -80,10 +82,10 @@ function ClientsPage() {
     if (!pendingDelete) return;
     const result = deleteClient(pendingDelete.id);
     if (!result.success) {
-      setDeleteError(result.error);
+      setDeleteError(error(result.error));
       return;
     }
-    toast("Client removed", { description: pendingDelete.name });
+    toast(t("Client removed"), { description: pendingDelete.name });
     setPendingDelete(null);
     setDeleteError(null);
   };
@@ -93,8 +95,8 @@ function ClientsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Clients"
-        description="Manage the people and companies connected to your projects."
+        title={t("Clients")}
+        description={t("Manage the people and companies connected to your projects.")}
         actions={
           can("manage-clients") ? (
             <Button
@@ -104,7 +106,7 @@ function ClientsPage() {
               }}
             >
               <Plus className="size-4" />
-              New client
+              {t("New client")}
             </Button>
           ) : null
         }
@@ -115,12 +117,12 @@ function ClientsPage() {
       ) : clients.length === 0 ? (
         <EmptyBlock
           icon={<Building2 className="size-5" />}
-          title="No clients yet"
-          description="Add a client to connect projects and organize tracked time."
+          title={t("No clients yet")}
+          description={t("Add a client to connect projects and organize tracked time.")}
           action={
             can("manage-clients") ? (
               <Button size="sm" variant="secondary" onPress={() => setNewOpen(true)}>
-                New client
+                {t("New client")}
               </Button>
             ) : null
           }
@@ -128,13 +130,13 @@ function ClientsPage() {
       ) : (
         <Table>
           <Table.ScrollContainer>
-            <Table.Content aria-label="Clients" className="min-w-[640px]">
+            <Table.Content aria-label={t("Clients")} className="min-w-[640px]">
               <Table.Header>
-                <Table.Column isRowHeader>Client</Table.Column>
-                <Table.Column>Contact</Table.Column>
-                <Table.Column className="text-center">Projects</Table.Column>
-                <Table.Column className="text-center">Tracked</Table.Column>
-                <Table.Column aria-label="Actions">{""}</Table.Column>
+                <Table.Column isRowHeader>{t("Client")}</Table.Column>
+                <Table.Column>{t("Contact")}</Table.Column>
+                <Table.Column className="text-center">{t("Projects")}</Table.Column>
+                <Table.Column className="text-center">{t("Tracked")}</Table.Column>
+                <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
               </Table.Header>
               <Table.Body>
                 {clients.map((client) => (
@@ -143,17 +145,17 @@ function ClientsPage() {
                     <Table.Cell className="text-muted">{client.contact || "—"}</Table.Cell>
                     <Table.Cell className="text-center">{projectCountFor(client.id)}</Table.Cell>
                     <Table.Cell className="text-center tabular-nums">
-                      {formatDuration(secondsFor(client.id))}
+                      {formatDuration(secondsFor(client.id), locale)}
                     </Table.Cell>
                     <Table.Cell>
                       {can("manage-clients") ? (
                         <div className="flex justify-end">
                           <ActionDropdown
-                            ariaLabel={`Actions for ${client.name}`}
+                            ariaLabel={t("Actions for {name}", { name: client.name })}
                             items={[
                               {
                                 id: "delete",
-                                label: "Delete client",
+                                label: t("Delete client"),
                                 icon: <Trash2 className="size-4" />,
                                 tone: "danger",
                               },
@@ -188,7 +190,7 @@ function ClientsPage() {
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>New client</Modal.Heading>
+                <Modal.Heading>{t("New client")}</Modal.Heading>
               </Modal.Header>
               <Form
                 onSubmit={(event) => {
@@ -198,7 +200,7 @@ function ClientsPage() {
               >
                 <Modal.Body className="flex flex-col gap-4">
                   {createError ? (
-                    <FormAlert title="Could not create client" description={createError} />
+                    <FormAlert title={t("Could not create client")} description={createError} />
                   ) : null}
 
                   <TextField
@@ -206,14 +208,14 @@ function ClientsPage() {
                     fullWidth
                     name="client-name"
                     value={name}
-                    validate={(value) => (value.trim() ? null : "Client name is required")}
+                    validate={(value) => (value.trim() ? null : t("Client name is required"))}
                     onChange={(value) => {
                       setName(value);
                       setCreateError(null);
                     }}
                   >
-                    <Label>Name</Label>
-                    <Input placeholder="e.g. Northwind Coffee" />
+                    <Label>{t("Name")}</Label>
+                    <Input placeholder={t("e.g. Northwind Coffee")} />
                     <FieldError />
                   </TextField>
 
@@ -225,25 +227,25 @@ function ClientsPage() {
                     validate={(value) =>
                       !value.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
                         ? null
-                        : "Enter a valid email address"
+                        : t("Enter a valid email address")
                     }
                     onChange={(value) => {
                       setContact(value);
                       setCreateError(null);
                     }}
                   >
-                    <Label>Contact</Label>
-                    <Input placeholder="name@company.com" />
-                    <Description>Optional</Description>
+                    <Label>{t("Contact")}</Label>
+                    <Input placeholder={t("name@company.com")} />
+                    <Description>{t("Optional")}</Description>
                     <FieldError />
                   </TextField>
                 </Modal.Body>
                 <Modal.Footer>
                   <Button slot="close" type="button" variant="secondary">
-                    Cancel
+                    {t("Cancel")}
                   </Button>
                   <Button type="submit" isDisabled={!name.trim()}>
-                    Create client
+                    {t("Create client")}
                   </Button>
                 </Modal.Footer>
               </Form>
@@ -266,35 +268,46 @@ function ClientsPage() {
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>Delete client?</Modal.Heading>
+                <Modal.Heading>{t("Delete client?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body className="flex flex-col gap-4">
                 {deleteError ? (
-                  <FormAlert title="Could not delete client" description={deleteError} />
+                  <FormAlert title={t("Could not delete client")} description={deleteError} />
                 ) : null}
                 {pendingProjectCount > 0 ? (
                   <FormAlert
                     status="warning"
-                    title="Client cannot be deleted"
-                    description={`${pendingDelete?.name ?? "This client"} is connected to ${pendingProjectCount} project${pendingProjectCount === 1 ? "" : "s"}. Remove or reassign those projects first.`}
+                    title={t("Client cannot be deleted")}
+                    description={t(
+                      "{name} is connected to {count} project{suffix}. Remove or reassign those projects first.",
+                      {
+                        name: pendingDelete?.name ?? t("This client"),
+                        count: pendingProjectCount,
+                        suffix: pendingProjectCount === 1 ? "" : "s",
+                      },
+                    )}
                   />
                 ) : (
                   <p className="text-sm text-muted">
-                    This permanently removes {pendingDelete?.name ?? "this client"}. Tracked time
-                    entries without a direct client relationship remain unchanged.
+                    {t(
+                      "This permanently removes {name}. Tracked time entries without a direct client relationship remain unchanged.",
+                      {
+                        name: pendingDelete?.name ?? t("this client"),
+                      },
+                    )}
                   </p>
                 )}
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
-                  Cancel
+                  {t("Cancel")}
                 </Button>
                 <Button
                   variant="danger"
                   isDisabled={pendingProjectCount > 0}
                   onPress={confirmDelete}
                 >
-                  Delete client
+                  {t("Delete client")}
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>

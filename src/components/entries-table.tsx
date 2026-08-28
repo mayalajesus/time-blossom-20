@@ -5,6 +5,7 @@ import { ActionDropdown } from "@/components/action-dropdown";
 import { LogTimeModal } from "@/components/log-time-modal";
 import { useStore } from "@/lib/store";
 import { formatDate, formatDuration, getEntryEndDayOffset } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import type { TimeEntry } from "@/lib/mock-data";
 
 export function EntriesTable({
@@ -17,6 +18,7 @@ export function EntriesTable({
   showMember?: boolean;
 }) {
   const { projects, members, currentUserId, deleteEntry, restoreEntry, updateEntry } = useStore();
+  const { locale, t, error } = useI18n();
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TimeEntry | null>(null);
 
@@ -25,37 +27,40 @@ export function EntriesTable({
     const deletedEntry = pendingDelete;
     deleteEntry(deletedEntry.id);
     setPendingDelete(null);
-    toast("Time entry deleted", {
-      description: `${deletedEntry.task} · ${formatDuration(deletedEntry.seconds)}`,
+    toast(t("Time entry deleted"), {
+      description: `${deletedEntry.task} · ${formatDuration(deletedEntry.seconds, locale)}`,
       timeout: 20_000,
       actionProps: {
-        children: "Undo",
+        children: t("Undo"),
         onPress: () => {
           const result = restoreEntry(deletedEntry);
-          if (!result.success) toast("Could not restore entry", { description: result.error });
+          if (!result.success)
+            toast(t("Could not restore entry"), { description: error(result.error) });
         },
       },
     });
   };
 
   const projectName = (id: string | null) =>
-    id === null ? "No project" : (projects.find((p) => p.id === id)?.name ?? "Unknown project");
+    id === null
+      ? t("No project")
+      : (projects.find((p) => p.id === id)?.name ?? t("Unknown project"));
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "—";
 
   return (
     <>
       <Table>
         <Table.ScrollContainer>
-          <Table.Content aria-label="Time entries" className="min-w-[720px]">
+          <Table.Content aria-label={t("Time entries")} className="min-w-[720px]">
             <Table.Header>
-              <Table.Column isRowHeader>Task</Table.Column>
-              <Table.Column>Project</Table.Column>
-              {showMember ? <Table.Column>Member</Table.Column> : null}
-              {showDate ? <Table.Column>Date</Table.Column> : null}
-              <Table.Column>Time</Table.Column>
-              <Table.Column>Duration</Table.Column>
-              <Table.Column>Billable</Table.Column>
-              <Table.Column aria-label="Actions">{""}</Table.Column>
+              <Table.Column isRowHeader>{t("Task")}</Table.Column>
+              <Table.Column>{t("Project")}</Table.Column>
+              {showMember ? <Table.Column>{t("Member")}</Table.Column> : null}
+              {showDate ? <Table.Column>{t("Date")}</Table.Column> : null}
+              <Table.Column>{t("Time")}</Table.Column>
+              <Table.Column>{t("Duration")}</Table.Column>
+              <Table.Column>{t("Billable")}</Table.Column>
+              <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
             </Table.Header>
             <Table.Body>
               {entries.map((entry) => {
@@ -72,7 +77,7 @@ export function EntriesTable({
                     </Table.Cell>
                     <Table.Cell>{projectName(entry.projectId)}</Table.Cell>
                     {showMember ? <Table.Cell>{memberName(entry.userId)}</Table.Cell> : null}
-                    {showDate ? <Table.Cell>{formatDate(entry.date)}</Table.Cell> : null}
+                    {showDate ? <Table.Cell>{formatDate(entry.date, locale)}</Table.Cell> : null}
                     <Table.Cell className="tabular-nums text-muted">
                       {entry.start} – {entry.end}
                       {getEntryEndDayOffset(entry) > 0 ? (
@@ -80,32 +85,34 @@ export function EntriesTable({
                       ) : null}
                     </Table.Cell>
                     <Table.Cell className="tabular-nums font-medium">
-                      {formatDuration(entry.seconds)}
+                      {formatDuration(entry.seconds, locale)}
                     </Table.Cell>
                     <Table.Cell>
                       <Chip color={entry.billable ? "success" : "default"} size="sm" variant="soft">
-                        {entry.billable ? "Billable" : "Internal"}
+                        {entry.billable ? t("Billable") : t("Internal")}
                       </Chip>
                     </Table.Cell>
                     <Table.Cell>
                       {isOwnEntry ? (
                         <div className="flex justify-end gap-1">
                           <ActionDropdown
-                            ariaLabel="Entry actions"
+                            ariaLabel={t("Entry actions")}
                             items={[
                               {
                                 id: "edit",
-                                label: "Edit entry",
+                                label: t("Edit entry"),
                                 icon: <Pencil className="size-4" />,
                               },
                               {
                                 id: "billable",
-                                label: entry.billable ? "Mark as internal" : "Mark as billable",
+                                label: entry.billable
+                                  ? t("Mark as internal")
+                                  : t("Mark as billable"),
                                 icon: <CircleDollarSign className="size-4" />,
                               },
                               {
                                 id: "delete",
-                                label: "Delete entry",
+                                label: t("Delete entry"),
                                 icon: <Trash2 className="size-4" />,
                                 tone: "danger",
                               },
@@ -146,20 +153,24 @@ export function EntriesTable({
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>Delete time entry?</Modal.Heading>
+                <Modal.Heading>{t("Delete time entry?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
                 <p className="text-sm text-muted">
-                  This removes {pendingDelete?.task ?? "this entry"}. You can undo it from the
-                  confirmation toast for 20 seconds.
+                  {t(
+                    "This removes {task}. You can undo it from the confirmation toast for 20 seconds.",
+                    {
+                      task: pendingDelete?.task ?? t("this entry"),
+                    },
+                  )}
                 </p>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
-                  Cancel
+                  {t("Cancel")}
                 </Button>
                 <Button variant="danger" onPress={confirmDelete}>
-                  Delete entry
+                  {t("Delete entry")}
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>

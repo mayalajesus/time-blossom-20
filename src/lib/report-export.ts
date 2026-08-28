@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { defaultLocale, translate, type Locale } from "@/lib/i18n";
 
 export type ReportExportFormat = "csv" | "xlsx" | "pdf";
 
@@ -22,6 +23,7 @@ export type ReportExportPayload = {
   summary?: ReportExportSummaryItem[];
   columns: string[];
   rows: Array<Record<string, string | number>>;
+  locale?: Locale;
 };
 
 export type ReportExportResult = { success: true } | { success: false; error: string };
@@ -53,7 +55,10 @@ function exportCsv(payload: ReportExportPayload): ReportExportResult {
     downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${payload.title}.csv`);
     return { success: true };
   } catch {
-    return { success: false, error: "The CSV export could not be prepared." };
+    return {
+      success: false,
+      error: translate("The CSV export could not be prepared.", payload.locale),
+    };
   }
 }
 
@@ -65,7 +70,10 @@ function exportXlsx(payload: ReportExportPayload): ReportExportResult {
     XLSX.writeFile(workbook, `${payload.title}.xlsx`);
     return { success: true };
   } catch {
-    return { success: false, error: "The Excel export could not be prepared." };
+    return {
+      success: false,
+      error: translate("The Excel export could not be prepared.", payload.locale),
+    };
   }
 }
 
@@ -119,21 +127,22 @@ function renderTable(payload: ReportExportPayload): string {
               .join("")}</tr>`,
         )
         .join("")
-    : `<tr><td class="empty" colspan="${columns.length}">No records match the selected report.</td></tr>`;
+    : `<tr><td class="empty" colspan="${columns.length}">${escapeHtml(translate("No records match the selected report.", payload.locale))}</td></tr>`;
 
   return `<div class="table-wrap"><table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function printableMarkup(payload: ReportExportPayload): string {
+  const locale = payload.locale ?? defaultLocale;
   const title = payload.displayTitle ?? humanizeTitle(payload.title);
-  const subtitle = payload.subtitle ?? "Time Blossom · filtered report";
-  const generatedAt = new Intl.DateTimeFormat(undefined, {
+  const subtitle = payload.subtitle ?? translate("Time Blossom · filtered report", locale);
+  const generatedAt = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date());
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${locale}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -187,12 +196,12 @@ function printableMarkup(payload: ReportExportPayload): string {
           <h1>${escapeHtml(title)}</h1>
           <p class="subtitle">${escapeHtml(subtitle)}</p>
         </div>
-        <p class="generated">Generated ${escapeHtml(generatedAt)}</p>
+        <p class="generated">${escapeHtml(translate("Generated", locale))} ${escapeHtml(generatedAt)}</p>
       </header>
       ${renderMeta(payload.meta)}
       ${renderSummary(payload.summary, payload.rows.length)}
       ${renderTable(payload)}
-      <footer class="footer"><span>Time Blossom · report export</span><span>${payload.rows.length} records</span></footer>
+      <footer class="footer"><span>${escapeHtml(translate("Time Blossom · report export", locale))}</span><span>${payload.rows.length} ${escapeHtml(translate("records", locale))}</span></footer>
     </main>
   </body>
 </html>`;

@@ -17,6 +17,7 @@ import {
   isValidDateOnly,
   nowTime,
 } from "./format";
+import { defaultLocale, isLocale, type Locale } from "./i18n";
 
 export type TimerStatus = "idle" | "running" | "paused";
 
@@ -43,9 +44,13 @@ const initialTimer: TimerState = {
 };
 
 const ACTIVE_MEMBER_STORAGE_KEY = "time-blossom:active-member:v1";
+const SESSION_STORAGE_KEY = "time-blossom:session:v1";
 const TIMER_STORAGE_KEY = (memberId: string) => `time-blossom:active-timer:v2:${memberId}`;
-const WORKSPACE_STORAGE_KEY = "time-blossom:workspace:v5";
+const WORKSPACE_STORAGE_KEY = "time-blossom:workspace:v8";
 const LEGACY_WORKSPACE_STORAGE_KEYS = [
+  `time-blossom:workspace:v7`,
+  `time-blossom:workspace:v6`,
+  `time-blossom:workspace:v5`,
   `time-blossom:workspace:v4:${defaultCurrentUserId}`,
   `time-blossom:workspace:v3:${defaultCurrentUserId}`,
   `time-blossom:workspace:v2:${defaultCurrentUserId}`,
@@ -133,14 +138,19 @@ const initialTrello: TrelloState = {
 export interface WorkspaceSettings {
   workspaceName: string;
   defaultBillable: boolean;
-  roundingMinutes: string;
-  weekStart: string;
+  weekStart: "monday" | "sunday";
 }
+
+export type ThemeMode = "system" | "light" | "dark";
+export type SessionStatus = "active" | "signed-out";
 
 export interface UserPreferences {
   reminders: boolean;
   weeklyDigest: boolean;
   idleDetection: boolean;
+  language: Locale;
+  theme: ThemeMode;
+  avatarUrl: string | null;
 }
 
 export type Permission =
@@ -159,7 +169,6 @@ export type Permission =
 const initialSettings: WorkspaceSettings = {
   workspaceName: "Studio Co.",
   defaultBillable: true,
-  roundingMinutes: "none",
   weekStart: "monday",
 };
 
@@ -167,10 +176,13 @@ const initialPreferences: UserPreferences = {
   reminders: true,
   weeklyDigest: false,
   idleDetection: true,
+  language: defaultLocale,
+  theme: "system",
+  avatarUrl: null,
 };
 
 type PersistedWorkspace = {
-  version: 5;
+  version: 8;
   entries: TimeEntry[];
   projects: Project[];
   clients: Client[];
@@ -178,6 +190,19 @@ type PersistedWorkspace = {
   settings: WorkspaceSettings;
   preferencesByMemberId: Record<string, UserPreferences>;
 };
+
+function isThemeMode(value: unknown): value is ThemeMode {
+  return value === "system" || value === "light" || value === "dark";
+}
+
+function isValidAvatarUrl(value: unknown): value is string | null {
+  return (
+    value === null ||
+    (typeof value === "string" &&
+      /^data:image\/(?:png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
+      value.length <= 1_500_000)
+  );
+}
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -278,7 +303,20 @@ function isValidSettingsSnapshot(value: unknown): value is WorkspaceSettings {
   return (
     typeof settings.workspaceName === "string" &&
     typeof settings.defaultBillable === "boolean" &&
-    typeof settings.roundingMinutes === "string" &&
+    (settings.weekStart === "monday" || settings.weekStart === "sunday")
+  );
+}
+
+function isValidLegacySettingsSnapshot(value: unknown): value is {
+  workspaceName: string;
+  defaultBillable: boolean;
+  weekStart: "monday" | "sunday";
+} {
+  if (!value || typeof value !== "object") return false;
+  const settings = value as Partial<WorkspaceSettings>;
+  return (
+    typeof settings.workspaceName === "string" &&
+    typeof settings.defaultBillable === "boolean" &&
     (settings.weekStart === "monday" || settings.weekStart === "sunday")
   );
 }
@@ -289,7 +327,10 @@ function isValidPreferencesSnapshot(value: unknown): value is UserPreferences {
   return (
     typeof preferences.reminders === "boolean" &&
     typeof preferences.weeklyDigest === "boolean" &&
-    typeof preferences.idleDetection === "boolean"
+    typeof preferences.idleDetection === "boolean" &&
+    isLocale(preferences.language) &&
+    isThemeMode(preferences.theme) &&
+    isValidAvatarUrl(preferences.avatarUrl)
   );
 }
 
@@ -301,7 +342,7 @@ function isValidPreferencesMap(value: unknown): value is Record<string, UserPref
 function isValidWorkspaceSnapshot(value: unknown): value is PersistedWorkspace {
   if (!value || typeof value !== "object") return false;
   const snapshot = value as Partial<PersistedWorkspace>;
-  if (snapshot.version !== 5) return false;
+  if (snapshot.version !== 8) return false;
   if (!Array.isArray(snapshot.projects) || !Array.isArray(snapshot.clients)) return false;
   if (!Array.isArray(snapshot.members)) return false;
   if (
@@ -340,11 +381,16 @@ function migrateLegacyWorkspace(value: unknown): PersistedWorkspace | null {
   };
   const legacySettings = legacy.settings;
   if (
-    (legacy.version !== 2 && legacy.version !== 3 && legacy.version !== 4) ||
+    (legacy.version !== 2 &&
+      legacy.version !== 3 &&
+      legacy.version !== 4 &&
+      legacy.version !== 5 &&
+      legacy.version !== 6 &&
+      legacy.version !== 7) ||
     !Array.isArray(legacy.entries) ||
     !Array.isArray(legacy.projects) ||
     !Array.isArray(legacy.clients) ||
-    !isValidSettingsSnapshot(legacySettings)
+    !isValidLegacySettingsSnapshot(legacySettings)
   ) {
     return null;
   }
@@ -405,19 +451,31 @@ function migrateLegacyWorkspace(value: unknown): PersistedWorkspace | null {
       !Array.isArray(legacy.preferencesByMemberId)
         ? (legacy.preferencesByMemberId as Record<string, unknown>)[member.id]
         : undefined;
-    preferencesByMemberId[member.id] = isValidPreferencesSnapshot(stored)
-      ? stored
-      : {
-          reminders: legacySettingsWithPreferences.reminders ?? initialPreferences.reminders,
-          weeklyDigest:
-            legacySettingsWithPreferences.weeklyDigest ?? initialPreferences.weeklyDigest,
-          idleDetection:
-            legacySettingsWithPreferences.idleDetection ?? initialPreferences.idleDetection,
-        };
+    const candidate =
+      stored && typeof stored === "object" && !Array.isArray(stored)
+        ? (stored as Record<string, unknown>)
+        : {};
+    preferencesByMemberId[member.id] = {
+      reminders:
+        typeof candidate.reminders === "boolean"
+          ? candidate.reminders
+          : (legacySettingsWithPreferences.reminders ?? initialPreferences.reminders),
+      weeklyDigest:
+        typeof candidate.weeklyDigest === "boolean"
+          ? candidate.weeklyDigest
+          : (legacySettingsWithPreferences.weeklyDigest ?? initialPreferences.weeklyDigest),
+      idleDetection:
+        typeof candidate.idleDetection === "boolean"
+          ? candidate.idleDetection
+          : (legacySettingsWithPreferences.idleDetection ?? initialPreferences.idleDetection),
+      language: isLocale(candidate.language) ? candidate.language : defaultLocale,
+      theme: isThemeMode(candidate.theme) ? candidate.theme : initialPreferences.theme,
+      avatarUrl: isValidAvatarUrl(candidate.avatarUrl) ? candidate.avatarUrl : null,
+    };
   }
 
   return {
-    version: 5,
+    version: 8,
     entries: legacy.entries,
     projects: normalizedProjects,
     clients: normalizedClients,
@@ -425,7 +483,6 @@ function migrateLegacyWorkspace(value: unknown): PersistedWorkspace | null {
     settings: {
       workspaceName: legacySettings.workspaceName,
       defaultBillable: legacySettings.defaultBillable,
-      roundingMinutes: legacySettings.roundingMinutes,
       weekStart: legacySettings.weekStart,
     },
     preferencesByMemberId,
@@ -434,7 +491,7 @@ function migrateLegacyWorkspace(value: unknown): PersistedWorkspace | null {
 
 function readPersistedWorkspace(): PersistedWorkspace {
   const fallback: PersistedWorkspace = {
-    version: 5,
+    version: 8,
     entries: seedEntries,
     projects: seedProjects,
     clients: seedClients,
@@ -488,6 +545,17 @@ function readActiveMemberId(availableMembers: Member[]): string {
     : (availableMembers.find((member) => member.status === "active")?.id ?? defaultCurrentUserId);
 }
 
+function readSessionStatus(): SessionStatus {
+  if (typeof window === "undefined") return "active";
+  try {
+    return window.localStorage.getItem(SESSION_STORAGE_KEY) === "signed-out"
+      ? "signed-out"
+      : "active";
+  } catch {
+    return "active";
+  }
+}
+
 export type StoreResult = { success: true } | { success: false; error: string };
 
 interface StoreValue {
@@ -501,6 +569,7 @@ interface StoreValue {
   settings: WorkspaceSettings;
   preferences: UserPreferences;
   currentMember: Member | null;
+  sessionStatus: SessionStatus;
   can: (permission: Permission) => boolean;
   canTrackProject: (projectId: string) => boolean;
   setActiveMember: (memberId: string) => StoreResult;
@@ -533,6 +602,9 @@ interface StoreValue {
   setTrello: (patch: Partial<TrelloState>) => StoreResult;
   setWorkspaceSettings: (patch: Partial<WorkspaceSettings>) => StoreResult;
   setUserPreferences: (patch: Partial<UserPreferences>) => StoreResult;
+  updateCurrentMemberEmail: (email: string) => StoreResult;
+  signOut: () => StoreResult;
+  resumeSession: (memberId: string) => StoreResult;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -566,6 +638,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [activeMemberId, setActiveMemberId] = useState(() =>
     readActiveMemberId(workspaceSnapshot.members),
   );
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(() => readSessionStatus());
   const [entries, setEntries] = useState<TimeEntry[]>(workspaceSnapshot.entries);
   const [projects, setProjects] = useState<Project[]>(workspaceSnapshot.projects);
   const [clients, setClients] = useState<Client[]>(workspaceSnapshot.clients);
@@ -604,7 +677,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       window.localStorage.setItem(
         WORKSPACE_STORAGE_KEY,
         JSON.stringify({
-          version: 5,
+          version: 8,
           entries,
           projects,
           clients,
@@ -663,7 +736,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<StoreValue>(() => {
     const can = (permission: Permission): boolean => {
-      if (!currentMember || currentMember.status !== "active") return false;
+      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active") {
+        return false;
+      }
       if (currentMember.role === "Owner") return true;
       if (currentMember.role === "Admin") {
         return permission !== "manage-admins";
@@ -672,7 +747,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const canTrackProject = (projectId: string): boolean => {
-      if (!currentMember || currentMember.status !== "active") return false;
+      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active") {
+        return false;
+      }
       const project = projects.find((candidate) => candidate.id === projectId);
       if (!project) return false;
       return currentMember?.role !== "Member" || project.memberIds.includes(activeMemberId);
@@ -1183,6 +1260,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const setActiveMember = (memberId: string): StoreResult => {
+      if (sessionStatus !== "active") {
+        return { success: false, error: "Sign in to change the preview identity." };
+      }
       const member = members.find(
         (candidate) => candidate.id === memberId && candidate.status === "active",
       );
@@ -1202,6 +1282,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { success: true };
     };
 
+    const signOut = (): StoreResult => {
+      if (timerRef.current.status !== "idle") {
+        return { success: false, error: "Stop the active timer before signing out." };
+      }
+      try {
+        window.localStorage.setItem(SESSION_STORAGE_KEY, "signed-out");
+      } catch {
+        return { success: false, error: "The session could not be ended locally." };
+      }
+      setSessionStatus("signed-out");
+      return { success: true };
+    };
+
+    const resumeSession = (memberId: string): StoreResult => {
+      const member = members.find(
+        (candidate) => candidate.id === memberId && candidate.status === "active",
+      );
+      if (!member) return { success: false, error: "Choose an active preview identity." };
+      if (timerRef.current.status !== "idle") {
+        return { success: false, error: "Stop the active timer before changing preview identity." };
+      }
+      try {
+        window.localStorage.setItem(ACTIVE_MEMBER_STORAGE_KEY, memberId);
+        window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      } catch {
+        return { success: false, error: "Preview identity could not be saved locally." };
+      }
+      timerRef.current = initialTimer;
+      setTimer(initialTimer);
+      setElapsed(0);
+      setActiveMemberId(memberId);
+      setSessionStatus("active");
+      return { success: true };
+    };
+
     const setWorkspaceSettings = (patch: Partial<WorkspaceSettings>): StoreResult => {
       if (!can("manage-workspace-settings")) {
         return {
@@ -1216,9 +1331,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (typeof next.defaultBillable !== "boolean") {
         return { success: false, error: "Choose a valid default billability setting." };
       }
-      if (typeof next.roundingMinutes !== "string") {
-        return { success: false, error: "Choose a valid rounding setting." };
-      }
       if (next.weekStart !== "monday" && next.weekStart !== "sunday") {
         return { success: false, error: "Choose a valid week start." };
       }
@@ -1227,18 +1339,45 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const setUserPreferences = (patch: Partial<UserPreferences>): StoreResult => {
-      if (!currentMember || currentMember.status !== "active") {
+      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active") {
         return { success: false, error: "Choose an active preview identity." };
       }
       const next = { ...preferences, ...patch };
       if (
         typeof next.reminders !== "boolean" ||
         typeof next.weeklyDigest !== "boolean" ||
-        typeof next.idleDetection !== "boolean"
+        typeof next.idleDetection !== "boolean" ||
+        !isLocale(next.language) ||
+        !isThemeMode(next.theme) ||
+        !isValidAvatarUrl(next.avatarUrl)
       ) {
         return { success: false, error: "Choose valid personal preferences." };
       }
       setPreferencesByMemberId((map) => ({ ...map, [activeMemberId]: next }));
+      return { success: true };
+    };
+
+    const updateCurrentMemberEmail = (email: string): StoreResult => {
+      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active") {
+        return { success: false, error: "Choose an active preview identity." };
+      }
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!inviteEmailPattern.test(normalizedEmail)) {
+        return { success: false, error: "Enter a valid email address." };
+      }
+      if (
+        members.some(
+          (member) =>
+            member.id !== activeMemberId && member.email.toLowerCase() === normalizedEmail,
+        )
+      ) {
+        return { success: false, error: "This email is already part of the team." };
+      }
+      setMembers((list) =>
+        list.map((member) =>
+          member.id === activeMemberId ? { ...member, email: normalizedEmail } : member,
+        ),
+      );
       return { success: true };
     };
 
@@ -1253,6 +1392,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       settings,
       preferences,
       currentMember,
+      sessionStatus,
       can,
       canTrackProject,
       setActiveMember,
@@ -1295,6 +1435,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       setWorkspaceSettings,
       setUserPreferences,
+      updateCurrentMemberEmail,
+      signOut,
+      resumeSession,
     };
   }, [
     activeMemberId,
@@ -1305,6 +1448,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     members,
     preferences,
     projects,
+    sessionStatus,
     settings,
     timer,
     today,

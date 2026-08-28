@@ -1,6 +1,7 @@
 import { Button, Toast } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "../components/layout/app-shell";
+import { useI18n } from "../lib/i18n";
 import { StoreProvider } from "../lib/store";
 import {
   Outlet,
@@ -15,17 +16,18 @@ import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">{t("Page not found")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+          {t("The page you're looking for doesn't exist or has been moved.")}
         </p>
         <div className="mt-6">
-          <Button onPress={() => navigate({ to: "/" })}>Go home</Button>
+          <Button onPress={() => navigate({ to: "/" })}>{t("Go home")}</Button>
         </div>
       </div>
     </div>
@@ -35,15 +37,16 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  const { t } = useI18n();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+          {t("This page didn't load")}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          {t("Something went wrong on our end. You can try refreshing or head back home.")}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Button
@@ -52,10 +55,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
               reset();
             }}
           >
-            Try again
+            {t("Try again")}
           </Button>
           <Button variant="secondary" onPress={() => router.navigate({ to: "/" })}>
-            Go home
+            {t("Go home")}
           </Button>
         </div>
       </div>
@@ -97,32 +100,97 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-
-  useEffect(() => {
-    const titles: Record<string, string> = {
-      "/": "Time Blossom — Simple time tracking",
-      "/tracker": "Tracker — Time Blossom time tracking",
-      "/today": "Tracker — Time Blossom time tracking",
-      "/projects": "Projects — Time Blossom time tracking",
-      "/clients": "Clients — Time Blossom time tracking",
-      "/team": "Team — Time Blossom time tracking",
-      "/reports": "Reports — Time Blossom time tracking",
-      "/integrations": "Integrations — Time Blossom time tracking",
-      "/settings": "Settings — Time Blossom time tracking",
-      "/search": "Search — Time Blossom time tracking",
-    };
-    document.title = titles[pathname] ?? "Time Blossom — Simple time tracking";
-  }, [pathname]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <StoreProvider>
         <AppShell>
-          <Outlet />
+          <RootOutlet />
         </AppShell>
       </StoreProvider>
       <Toast.Provider />
     </QueryClientProvider>
   );
+}
+
+function RootOutlet() {
+  const { t } = useI18n();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  useEffect(() => {
+    const metadata: Record<string, { title: string; description: string; ogDescription: string }> =
+      {
+        "/": {
+          title: t("Time Blossom — Time tracking for small teams"),
+          description: t(
+            "Time Blossom is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.",
+          ),
+          ogDescription: t(
+            "Track hours, manage projects and bill clients with a calm, focused workspace.",
+          ),
+        },
+        "/tracker": {
+          title: `${t("Tracker")} — Time Blossom`,
+          description: t(
+            "Start the live timer, log time and manage your entries in one focused workspace.",
+          ),
+          ogDescription: t("Live timer and daily time entries in one focused view."),
+        },
+        "/today": {
+          title: `${t("Tracker")} — Time Blossom`,
+          description: t(
+            "Start the live timer, log time and manage your entries in one focused workspace.",
+          ),
+          ogDescription: t("Live timer and daily time entries in one focused view."),
+        },
+        "/projects": {
+          title: `${t("Projects")} — Time Blossom`,
+          description: t(
+            "Track hours per project, monitor status and open detailed project breakdowns.",
+          ),
+          ogDescription: t("All client and internal projects with tracked time at a glance."),
+        },
+        "/clients": {
+          title: `${t("Clients")} — Time Blossom`,
+          description: t("Manage clients, contacts and the projects connected to each client."),
+          ogDescription: t("Client list with contacts and tracked time."),
+        },
+        "/team": {
+          title: `${t("Team")} — Time Blossom`,
+          description: t("Invite teammates, manage roles and track team hours."),
+          ogDescription: t("Invite teammates and see tracked hours by member."),
+        },
+        "/reports": {
+          title: `${t("Reports")} — Time Blossom`,
+          description: t("Detailed, summary, weekly and team time reports."),
+          ogDescription: t("Filter and understand tracked time."),
+        },
+        "/integrations": {
+          title: `${t("Integrations")} — Time Blossom`,
+          description: t("Connect Time Blossom to Trello and sync cards into tracked tasks."),
+          ogDescription: t("Simulated Trello sync for your time tracking."),
+        },
+        "/settings": {
+          title: `${t("Settings")} — Time Blossom`,
+          description: t("Workspace settings and personal preferences."),
+          ogDescription: t("Configure your Time Blossom workspace."),
+        },
+        "/search": {
+          title: `${t("Search")} — Time Blossom`,
+          description: t("Search projects, clients, teammates and time entries."),
+          ogDescription: t("Find anything in your workspace."),
+        },
+      };
+    const current = metadata[pathname] ?? metadata["/"]!;
+    document.title = current.title;
+    for (const [selector, content] of [
+      ['meta[name="description"]', current.description],
+      ['meta[property="og:title"]', current.title],
+      ['meta[property="og:description"]', current.ogDescription],
+    ] as const) {
+      document.querySelector<HTMLMetaElement>(selector)?.setAttribute("content", content);
+    }
+  }, [pathname, t]);
+
+  return <Outlet />;
 }

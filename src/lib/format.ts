@@ -9,6 +9,7 @@ import {
   startOfWeek,
   startOfYear,
 } from "date-fns";
+import type { Locale } from "./i18n";
 
 export type TrackerPeriodUnit = "day" | "week" | "custom";
 
@@ -56,12 +57,16 @@ function at(list: number[], index: number): number {
   return list[index] ?? 0;
 }
 
-export function formatDuration(seconds: number): string {
-  if (seconds > 0 && seconds < 60) return `${Math.floor(seconds)}s`;
+export function formatDuration(seconds: number, locale: Locale = "en-US"): string {
+  const units =
+    locale === "pt-BR"
+      ? { second: "s", minute: "min", hour: "h" }
+      : { second: "s", minute: "m", hour: "h" };
+  if (seconds > 0 && seconds < 60) return `${Math.floor(seconds)}${units.second}`;
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  if (h === 0) return `${m}m`;
-  return `${h}h ${String(m).padStart(2, "0")}m`;
+  if (h === 0) return `${m}${units.minute}`;
+  return `${h}${units.hour} ${String(m).padStart(2, "0")}${units.minute}`;
 }
 
 export function formatClock(seconds: number): string {
@@ -83,15 +88,15 @@ export function normalizeSearch(value: string): string {
     .trim();
 }
 
-export function formatDate(iso: string): string {
-  return parseDateOnly(iso).toLocaleDateString("en-US", {
+export function formatDate(iso: string, locale: Locale = "en-US"): string {
+  return parseDateOnly(iso).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
   });
 }
 
-export function formatLongDate(iso: string): string {
-  return parseDateOnly(iso).toLocaleDateString("en-US", {
+export function formatLongDate(iso: string, locale: Locale = "en-US"): string {
+  return parseDateOnly(iso).toLocaleDateString(locale, {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -184,8 +189,8 @@ export function getReportPeriodRange(
   return { startDate: currentWeek.start, endDate: currentWeek.end };
 }
 
-export function formatReportPeriod(range: DateRange): string {
-  return formatDateRange(range.startDate, range.endDate);
+export function formatReportPeriod(range: DateRange, locale: Locale = "en-US"): string {
+  return formatDateRange(range.startDate, range.endDate, locale);
 }
 
 export function shiftDate(iso: string, days: number): string {
@@ -411,71 +416,51 @@ export function shiftTrackerPeriod(
   return { unit: "custom", startDate, endDate };
 }
 
-export function formatWeekRange(start: string, end: string): string {
-  const startDate = parseDateOnly(start);
-  const endDate = parseDateOnly(end);
-  const sameYear = startDate.getFullYear() === endDate.getFullYear();
-  const sameMonth = sameYear && startDate.getMonth() === endDate.getMonth();
-
-  if (sameMonth) {
-    return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "d, yyyy")}`;
-  }
-
-  return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "MMM d, yyyy")}`;
+export function formatWeekRange(start: string, end: string, locale: Locale = "en-US"): string {
+  return `${formatDate(start, locale)}–${formatDate(end, locale)}`;
 }
 
-export function formatCompactDateRange(start: string, end: string): string {
-  const startDate = parseDateOnly(start);
-  const endDate = parseDateOnly(end);
-  const sameYear = startDate.getFullYear() === endDate.getFullYear();
-  const sameMonth = sameYear && startDate.getMonth() === endDate.getMonth();
-
-  if (sameMonth) {
-    return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "d")}`;
-  }
-
-  if (sameYear) {
-    return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "MMM d")}`;
-  }
-
-  return `${formatDateFns(startDate, "MMM d, yyyy")}–${formatDateFns(endDate, "MMM d, yyyy")}`;
+export function formatCompactDateRange(
+  start: string,
+  end: string,
+  locale: Locale = "en-US",
+): string {
+  return `${formatDate(start, locale)}–${formatDate(end, locale)}`;
 }
 
-export function formatDateRange(start: string, end: string): string {
-  const startDate = parseDateOnly(start);
-  const endDate = parseDateOnly(end);
-  const sameYear = startDate.getFullYear() === endDate.getFullYear();
-  const sameMonth = sameYear && startDate.getMonth() === endDate.getMonth();
-
-  if (start === end) return formatDateFns(startDate, "MMM d, yyyy");
-  if (sameMonth) return `${formatDateFns(startDate, "MMM d")}–${formatDateFns(endDate, "d, yyyy")}`;
-  return `${formatDateFns(startDate, "MMM d, yyyy")}–${formatDateFns(endDate, "MMM d, yyyy")}`;
+export function formatDateRange(start: string, end: string, locale: Locale = "en-US"): string {
+  return start === end
+    ? parseDateOnly(start).toLocaleDateString(locale, { dateStyle: "medium" })
+    : `${parseDateOnly(start).toLocaleDateString(locale, { dateStyle: "medium" })}–${parseDateOnly(end).toLocaleDateString(locale, { dateStyle: "medium" })}`;
 }
 
 export function formatTrackerPeriodLabel(
   period: TrackerPeriod,
   today: string,
   weekStartsOn: 0 | 1 = 1,
+  locale: Locale = "en-US",
 ): string {
-  if (period.unit === "custom") return formatDateRange(period.startDate, period.endDate);
+  if (period.unit === "custom") return formatDateRange(period.startDate, period.endDate, locale);
 
   if (period.unit === "day") {
-    return period.startDate === today
-      ? "Today"
-      : formatDateFns(parseDateOnly(period.startDate), "MMM d, yyyy");
+    return period.startDate === today ? "Today" : formatDate(period.startDate, locale);
   }
 
   if (period.unit === "week") {
     const currentWeek = getWeekBounds(today, weekStartsOn);
     if (period.startDate === currentWeek.start) return "This week";
-    return formatWeekRange(period.startDate, period.endDate);
+    return formatWeekRange(period.startDate, period.endDate, locale);
   }
 
   return "Custom range";
 }
 
-export function formatDayHeading(iso: string): string {
-  return formatDateFns(parseDateOnly(iso), "EEE, MMM d");
+export function formatDayHeading(iso: string, locale: Locale = "en-US"): string {
+  return parseDateOnly(iso).toLocaleDateString(locale, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export function minutesBetween(start: string, end: string): number {
@@ -500,8 +485,8 @@ export function getLocalToday(reference = new Date()): string {
   return toIsoDate(reference);
 }
 
-export function formatLocalDateTime(reference = new Date()): string {
-  return `${getLocalToday(reference)} ${formatLocalTime(reference)}`;
+export function formatLocalDateTime(reference = new Date(), locale: Locale = "en-US"): string {
+  return reference.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
 }
 
 function formatLocalTime(date: Date): string {

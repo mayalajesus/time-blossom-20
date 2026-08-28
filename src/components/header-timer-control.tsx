@@ -1,13 +1,15 @@
 import { Button, toast } from "@heroui/react";
 import { Pause, Play } from "lucide-react";
 import { formatClock } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 
 export function HeaderTimerControl() {
   const { timer, elapsed, startTimer, pauseTimer, resumeTimer } = useStore();
+  const { t, error } = useI18n();
 
   const isRunning = timer.status === "running";
-  const actionLabel = isRunning ? "Pause" : timer.status === "paused" ? "Resume" : "Start";
+  const actionLabel = isRunning ? t("Pause") : timer.status === "paused" ? t("Resume") : t("Start");
 
   const handleAction = () => {
     if (isRunning) {
@@ -22,7 +24,7 @@ export function HeaderTimerControl() {
 
     const result = startTimer("Quick task", null);
     if (!result.success) {
-      toast("Could not start timer", { description: result.error });
+      toast(t("Could not start timer"), { description: error(result.error) });
     }
   };
 

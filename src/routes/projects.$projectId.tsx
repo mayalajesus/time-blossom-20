@@ -5,6 +5,7 @@ import { EntriesTable } from "@/components/entries-table";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { EmptyBlock, TableSkeleton } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import { useSimulatedLoad, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/projects/$projectId")({
@@ -21,7 +22,8 @@ export const Route = createFileRoute("/projects/$projectId")({
 
 function ProjectDetail() {
   const { projectId } = Route.useParams();
-  const { projects, clients, entries, members } = useStore();
+  const { projects, clients, entries, members, settings } = useStore();
+  const { locale, t } = useI18n();
   const loading = useSimulatedLoad(400);
 
   const project = projects.find((p) => p.id === projectId);
@@ -33,12 +35,12 @@ function ProjectDetail() {
     return (
       <EmptyBlock
         icon={<Clock className="size-5" />}
-        title="Project not found"
-        description="This project may have been archived or removed."
+        title={t("Project not found")}
+        description={t("This project may have been archived or removed.")}
         action={
           <Link to="/projects">
             <Button size="sm" variant="secondary">
-              Back to projects
+              {t("Back to projects")}
             </Button>
           </Link>
         }
@@ -56,29 +58,38 @@ function ProjectDetail() {
         className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        Projects
+        {t("Projects")}
       </Link>
 
       <PageHeader
         title={project.name}
-        description={`${client?.name ?? "No client"} · updated ${formatDate(project.lastActivity)}`}
+        description={t("{client} · updated {date}", {
+          client: client?.name ?? t("No client"),
+          date: formatDate(project.lastActivity, locale),
+        })}
         actions={
           <div className="flex items-center gap-2">
             <Chip size="sm" variant="soft">
-              {project.status}
+              {t(
+                project.status === "on-hold"
+                  ? "Inactive"
+                  : project.status === "archived"
+                    ? "Archived"
+                    : "Active",
+              )}
             </Chip>
             <Chip color={project.billable ? "success" : "default"} size="sm" variant="soft">
-              {project.billable ? "Billable" : "Internal"}
+              {project.billable ? t("Billable") : t("Internal")}
             </Chip>
           </div>
         }
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total tracked" value={formatDuration(total)} />
-        <StatCard label="Billable" value={formatDuration(billable)} />
+        <StatCard label={t("Total tracked")} value={formatDuration(total, locale)} />
+        <StatCard label={t("Billable")} value={formatDuration(billable, locale)} />
         <StatCard
-          label="Members"
+          label={t("Members")}
           value={String(team.length)}
           hint={team.map((m) => m.name).join(", ")}
         />
@@ -89,8 +100,8 @@ function ProjectDetail() {
       ) : projectEntries.length === 0 ? (
         <EmptyBlock
           icon={<Clock className="size-5" />}
-          title="No time tracked"
-          description="Entries logged against this project will appear here."
+          title={t("No time tracked")}
+          description={t("Entries logged against this project will appear here.")}
         />
       ) : (
         <EntriesTable entries={projectEntries} showDate showMember />

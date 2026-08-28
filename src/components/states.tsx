@@ -1,5 +1,6 @@
 import { Alert, Button, Card, Skeleton } from "@heroui/react";
 import type { ReactNode } from "react";
+import { useI18n } from "@/lib/i18n";
 
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
@@ -62,23 +63,26 @@ export function EmptyBlock({
 }
 
 export function ErrorBlock({
-  title = "Something went wrong",
-  description = "We couldn't load this data. Check your connection and try again.",
+  title,
+  description,
   onRetry,
 }: {
   title?: string;
   description?: string;
   onRetry?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <Alert status="danger">
       <Alert.Indicator />
       <Alert.Content>
-        <Alert.Title>{title}</Alert.Title>
-        <Alert.Description>{description}</Alert.Description>
+        <Alert.Title>{title ?? t("Something went wrong")}</Alert.Title>
+        <Alert.Description>
+          {description ?? t("We couldn't load this data. Check your connection and try again.")}
+        </Alert.Description>
         {onRetry ? (
           <Button className="mt-3" size="sm" variant="secondary" onPress={onRetry}>
-            Try again
+            {t("Try again")}
           </Button>
         ) : null}
       </Alert.Content>

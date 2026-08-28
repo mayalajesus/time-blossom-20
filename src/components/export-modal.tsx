@@ -7,6 +7,7 @@ import {
   type ReportExportFormat,
   type ReportExportPayload,
 } from "@/lib/report-export";
+import { useI18n } from "@/lib/i18n";
 
 export function ExportModal({
   isOpen,
@@ -22,6 +23,7 @@ export function ExportModal({
   const [format, setFormat] = useState<ReportExportFormat>("csv");
   const [hasExported, setHasExported] = useState(false);
   const [exportError, setExportError] = useState("");
+  const { t, error } = useI18n();
 
   const close = (open: boolean) => {
     if (!open) {
@@ -38,7 +40,7 @@ export function ExportModal({
           <Modal.Dialog>
             <Modal.CloseTrigger />
             <Modal.Header>
-              <Modal.Heading>Export {scope}</Modal.Heading>
+              <Modal.Heading>{t("Export {scope}", { scope })}</Modal.Heading>
             </Modal.Header>
             <Form
               onSubmit={(event) => {
@@ -46,25 +48,31 @@ export function ExportModal({
                 const result = exportReport(format, payload);
                 if (!result.success) {
                   setHasExported(false);
-                  setExportError(result.error);
+                  setExportError(error(result.error));
                   return;
                 }
                 setHasExported(true);
                 setExportError("");
-                toast("Export started", {
+                toast(t("Export started"), {
                   description:
                     format === "pdf"
-                      ? "A print-ready report opened for printing or saving as PDF."
-                      : `The filtered ${format.toUpperCase()} report is downloading.`,
+                      ? t("A print-ready report opened for printing or saving as PDF.")
+                      : t("The filtered {format} report is downloading.", {
+                          format: format.toUpperCase(),
+                        }),
                 });
               }}
             >
               <Modal.Body className="flex flex-col gap-5">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Included data</p>
+                  <p className="text-sm font-medium text-foreground">{t("Included data")}</p>
                   <Description>
-                    This export uses the current period, filters and report view (
-                    {payload.rows.length} rows).
+                    {t(
+                      "This export uses the current period, filters and report view ({count} rows).",
+                      {
+                        count: payload.rows.length,
+                      },
+                    )}
                   </Description>
                 </div>
                 <RadioGroup
@@ -75,7 +83,7 @@ export function ExportModal({
                   }}
                   orientation="horizontal"
                 >
-                  <Label>Format</Label>
+                  <Label>{t("Format")}</Label>
                   {(["csv", "xlsx", "pdf"] as const).map((item) => (
                     <Radio key={item} value={item}>
                       <Radio.Content>
@@ -90,25 +98,31 @@ export function ExportModal({
                 {hasExported ? (
                   <FormAlert
                     status="success"
-                    title="Export prepared"
+                    title={t("Export prepared")}
                     description={
                       format === "pdf"
-                        ? "The print window is ready. Choose Save as PDF in the browser print dialog."
-                        : "The file uses the same filtered dataset shown in this report."
+                        ? t(
+                            "The print window is ready. Choose Save as PDF in the browser print dialog.",
+                          )
+                        : t("The file uses the same filtered dataset shown in this report.")
                     }
                   />
                 ) : null}
                 {exportError ? (
-                  <FormAlert status="danger" title="Export unavailable" description={exportError} />
+                  <FormAlert
+                    status="danger"
+                    title={t("Export unavailable")}
+                    description={exportError}
+                  />
                 ) : null}
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" type="button" variant="secondary">
-                  Close
+                  {t("Close")}
                 </Button>
                 <Button type="submit">
                   <Download className="size-4" />
-                  Export
+                  {t("Export")}
                 </Button>
               </Modal.Footer>
             </Form>

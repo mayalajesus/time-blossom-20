@@ -22,6 +22,7 @@ import { FormAlert } from "@/components/form-feedback";
 import { PageHeader } from "@/components/page-header";
 import { TableSkeleton } from "@/components/states";
 import { formatDuration } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 import type { Member, Role } from "@/lib/mock-data";
 import { useSimulatedLoad, useStore } from "@/lib/store";
 
@@ -52,6 +53,7 @@ function TeamPage() {
     restoreMember,
     updateMemberRole,
   } = useStore();
+  const { locale, t, error } = useI18n();
   const loading = useSimulatedLoad(400);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -86,11 +88,11 @@ function TeamPage() {
   const submitInvite = () => {
     const result = inviteMember(email, role);
     if (!result.success) {
-      setInviteError(result.error);
+      setInviteError(error(result.error));
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
-    toast("Invitation prepared", {
+    toast(t("Invitation prepared"), {
       description: `${normalizedEmail} · ${role}`,
     });
     resetInviteForm();
@@ -100,20 +102,20 @@ function TeamPage() {
   const handleResend = (member: Member) => {
     const result = resendInvite(member.id);
     if (!result.success) {
-      toast("Could not refresh invitation", { description: result.error });
+      toast(t("Could not refresh invitation"), { description: error(result.error) });
       return;
     }
-    toast("Invitation refreshed", { description: member.email });
+    toast(t("Invitation refreshed"), { description: member.email });
   };
 
   const confirmCancel = () => {
     if (!pendingCancel) return;
     const result = cancelInvite(pendingCancel.id);
     if (!result.success) {
-      setCancelError(result.error);
+      setCancelError(error(result.error));
       return;
     }
-    toast("Invitation canceled", { description: pendingCancel.email });
+    toast(t("Invitation canceled"), { description: pendingCancel.email });
     setPendingCancel(null);
     setCancelError(null);
   };
@@ -121,21 +123,23 @@ function TeamPage() {
   const handleRestore = (member: Member) => {
     const result = restoreMember(member.id);
     if (!result.success) {
-      toast("Could not restore access", { description: result.error });
+      toast(t("Could not restore access"), { description: error(result.error) });
       return;
     }
-    toast("Access restored", { description: member.email });
+    toast(t("Access restored"), { description: member.email });
   };
 
   const confirmRemove = () => {
     if (!pendingRemove) return;
     const result = removeMember(pendingRemove.id);
     if (!result.success) {
-      setRemoveError(result.error);
+      setRemoveError(error(result.error));
       return;
     }
-    toast("Member removed", {
-      description: `${pendingRemove.email} no longer has access to the workspace.`,
+    toast(t("Member removed"), {
+      description: t("{email} no longer has access to the workspace.", {
+        email: pendingRemove.email,
+      }),
     });
     setPendingRemove(null);
     setRemoveError(null);
@@ -145,22 +149,22 @@ function TeamPage() {
     const nextRole: InviteRole = member.role === "Admin" ? "Member" : "Admin";
     const result = updateMemberRole(member.id, nextRole);
     if (!result.success) {
-      toast("Could not change role", { description: result.error });
+      toast(t("Could not change role"), { description: error(result.error) });
       return;
     }
-    toast("Role updated", { description: `${member.name} · ${nextRole}` });
+    toast(t("Role updated"), { description: `${member.name} · ${t(nextRole)}` });
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Team"
-        description="Invite teammates, manage roles and tracked hours."
+        title={t("Team")}
+        description={t("Invite teammates, manage roles and tracked hours.")}
         actions={
           can("manage-members") ? (
             <Button onPress={openInvite}>
               <Send className="size-4" />
-              Invite member
+              {t("Invite member")}
             </Button>
           ) : null
         }
@@ -171,13 +175,13 @@ function TeamPage() {
       ) : (
         <Table>
           <Table.ScrollContainer>
-            <Table.Content aria-label="Team members" className="min-w-[680px]">
+            <Table.Content aria-label={t("Team members")} className="min-w-[680px]">
               <Table.Header>
-                <Table.Column isRowHeader>Member</Table.Column>
-                <Table.Column>Role</Table.Column>
-                <Table.Column>Status</Table.Column>
-                <Table.Column>Tracked</Table.Column>
-                <Table.Column aria-label="Actions">{""}</Table.Column>
+                <Table.Column isRowHeader>{t("Member")}</Table.Column>
+                <Table.Column>{t("Role")}</Table.Column>
+                <Table.Column>{t("Status")}</Table.Column>
+                <Table.Column>{t("Tracked")}</Table.Column>
+                <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
               </Table.Header>
               <Table.Body>
                 {orderedMembers.map((member) => {
@@ -205,51 +209,55 @@ function TeamPage() {
                             </span>
                             <span className="truncate text-xs text-muted">
                               {invited
-                                ? "Invitation pending"
+                                ? t("Invitation pending")
                                 : removed
-                                  ? "Access removed"
+                                  ? t("Access removed")
                                   : member.email}
                             </span>
                           </div>
                         </div>
                       </Table.Cell>
-                      <Table.Cell>{member.role}</Table.Cell>
+                      <Table.Cell>{t(member.role)}</Table.Cell>
                       <Table.Cell>
                         <Chip
                           color={invited ? "warning" : removed ? "default" : "success"}
                           size="sm"
                           variant="soft"
                         >
-                          {invited ? "Invited" : removed ? "Removed" : "Active"}
+                          {invited ? t("Invited") : removed ? t("Removed") : t("Active")}
                         </Chip>
                       </Table.Cell>
                       <Table.Cell className="tabular-nums">
-                        {invited ? "—" : formatDuration(secondsFor(member.id))}
+                        {invited ? "—" : formatDuration(secondsFor(member.id), locale)}
                       </Table.Cell>
                       <Table.Cell>
                         {invited && canManageTarget ? (
                           <div className="flex justify-end">
                             <ActionDropdown
-                              ariaLabel={`Actions for invitation to ${member.email}`}
+                              ariaLabel={t("Actions for invitation to {email}", {
+                                email: member.email,
+                              })}
                               items={[
                                 ...(canChangeRole
                                   ? [
                                       {
                                         id: "role",
                                         label:
-                                          member.role === "Admin" ? "Make member" : "Make admin",
+                                          member.role === "Admin"
+                                            ? t("Make member")
+                                            : t("Make admin"),
                                         icon: <UserRoundCheck className="size-4" />,
                                       },
                                     ]
                                   : []),
                                 {
                                   id: "resend",
-                                  label: "Resend invite",
+                                  label: t("Resend invite"),
                                   icon: <Mail className="size-4" />,
                                 },
                                 {
                                   id: "cancel",
-                                  label: "Cancel invite",
+                                  label: t("Cancel invite"),
                                   icon: <Trash2 className="size-4" />,
                                   tone: "danger",
                                 },
@@ -267,11 +275,11 @@ function TeamPage() {
                         ) : removed && canManageTarget ? (
                           <div className="flex justify-end">
                             <ActionDropdown
-                              ariaLabel={`Actions for ${member.name}`}
+                              ariaLabel={t("Actions for {name}", { name: member.name })}
                               items={[
                                 {
                                   id: "restore",
-                                  label: "Restore access",
+                                  label: t("Restore access"),
                                   icon: <UserRoundCheck className="size-4" />,
                                 },
                               ]}
@@ -283,21 +291,23 @@ function TeamPage() {
                         ) : member.status === "active" && canManageTarget ? (
                           <div className="flex justify-end">
                             <ActionDropdown
-                              ariaLabel={`Actions for ${member.name}`}
+                              ariaLabel={t("Actions for {name}", { name: member.name })}
                               items={[
                                 ...(canChangeRole
                                   ? [
                                       {
                                         id: "role",
                                         label:
-                                          member.role === "Admin" ? "Make member" : "Make admin",
+                                          member.role === "Admin"
+                                            ? t("Make member")
+                                            : t("Make admin"),
                                         icon: <UserRoundCheck className="size-4" />,
                                       },
                                     ]
                                   : []),
                                 {
                                   id: "remove",
-                                  label: "Remove from team",
+                                  label: t("Remove from team"),
                                   icon: <Trash2 className="size-4" />,
                                   tone: "danger",
                                 },
@@ -312,7 +322,9 @@ function TeamPage() {
                             />
                           </div>
                         ) : isCurrentMember ? (
-                          <span className="sr-only">No actions available for your account</span>
+                          <span className="sr-only">
+                            {t("No actions available for your account")}
+                          </span>
                         ) : null}
                       </Table.Cell>
                     </Table.Row>
@@ -336,7 +348,7 @@ function TeamPage() {
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>Invite member</Modal.Heading>
+                <Modal.Heading>{t("Invite member")}</Modal.Heading>
               </Modal.Header>
               <Form
                 onSubmit={(event) => {
@@ -346,7 +358,10 @@ function TeamPage() {
               >
                 <Modal.Body className="flex flex-col gap-4">
                   {inviteError ? (
-                    <FormAlert title="Could not prepare invitation" description={inviteError} />
+                    <FormAlert
+                      title={t("Could not prepare invitation")}
+                      description={inviteError}
+                    />
                   ) : null}
 
                   <TextField
@@ -357,12 +372,12 @@ function TeamPage() {
                     value={email}
                     validate={(value) => {
                       const normalized = value.trim().toLowerCase();
-                      if (!normalized) return "Email is required";
+                      if (!normalized) return t("Email is required");
                       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-                        return "Enter a valid email address";
+                        return t("Enter a valid email address");
                       }
                       if (members.some((member) => member.email.toLowerCase() === normalized)) {
-                        return "This email is already part of the team";
+                        return t("This email is already part of the team");
                       }
                       return null;
                     }}
@@ -371,16 +386,18 @@ function TeamPage() {
                       setInviteError(null);
                     }}
                   >
-                    <Label>Email</Label>
-                    <Input placeholder="name@company.com" />
-                    <Description>The invitation will be prepared for future delivery.</Description>
+                    <Label>{t("Email")}</Label>
+                    <Input placeholder={t("name@company.com")} />
+                    <Description>
+                      {t("The invitation will be prepared for future delivery.")}
+                    </Description>
                     <FieldError />
                   </TextField>
 
                   <div className="flex flex-col gap-2">
-                    <Label>Role</Label>
+                    <Label>{t("Role")}</Label>
                     <Select
-                      aria-label="Invitation role"
+                      aria-label={t("Invitation role")}
                       fullWidth
                       value={role}
                       onChange={(key) => setRole(String(key ?? "Member") as InviteRole)}
@@ -393,22 +410,24 @@ function TeamPage() {
                         <ListBox>
                           {inviteRoles.map((option) => (
                             <ListBox.Item key={option} id={option} textValue={option}>
-                              <Label>{option}</Label>
+                              <Label>{t(option)}</Label>
                               <ListBox.ItemIndicator />
                             </ListBox.Item>
                           ))}
                         </ListBox>
                       </Select.Popover>
                     </Select>
-                    <Description>Owner access is reserved for the workspace owner.</Description>
+                    <Description>
+                      {t("Owner access is reserved for the workspace owner.")}
+                    </Description>
                   </div>
                 </Modal.Body>
                 <Modal.Footer>
                   <Button slot="close" type="button" variant="secondary">
-                    Cancel
+                    {t("Cancel")}
                   </Button>
                   <Button type="submit" isDisabled={!email.trim()}>
-                    Prepare invite
+                    {t("Prepare invite")}
                   </Button>
                 </Modal.Footer>
               </Form>
@@ -431,23 +450,24 @@ function TeamPage() {
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>Cancel invitation?</Modal.Heading>
+                <Modal.Heading>{t("Cancel invitation?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body className="flex flex-col gap-4">
                 {cancelError ? (
-                  <FormAlert title="Could not cancel invitation" description={cancelError} />
+                  <FormAlert title={t("Could not cancel invitation")} description={cancelError} />
                 ) : null}
                 <p className="text-sm text-muted">
-                  The pending invitation for {pendingCancel?.email ?? "this member"} will be removed
-                  from the team list.
+                  {t("The pending invitation for {email} will be removed from the team list.", {
+                    email: pendingCancel?.email ?? t("this member"),
+                  })}
                 </p>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
-                  Keep invitation
+                  {t("Keep invitation")}
                 </Button>
                 <Button variant="danger" onPress={confirmCancel}>
-                  Cancel invitation
+                  {t("Cancel invitation")}
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>
@@ -469,24 +489,27 @@ function TeamPage() {
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>Remove member from team?</Modal.Heading>
+                <Modal.Heading>{t("Remove member from team?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body className="flex flex-col gap-4">
                 {removeError ? (
-                  <FormAlert title="Could not remove member" description={removeError} />
+                  <FormAlert title={t("Could not remove member")} description={removeError} />
                 ) : null}
                 <p className="text-sm text-muted">
-                  Removing {pendingRemove?.name ?? "this member"} revokes workspace access and
-                  removes them from current project assignments. Their tracked time and reports
-                  remain available. Restoring access later will not reassign projects automatically.
+                  {t(
+                    "Removing {name} revokes workspace access and removes them from current project assignments. Their tracked time and reports remain available. Restoring access later will not reassign projects automatically.",
+                    {
+                      name: pendingRemove?.name ?? t("this member"),
+                    },
+                  )}
                 </p>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
-                  Keep member
+                  {t("Keep member")}
                 </Button>
                 <Button variant="danger" onPress={confirmRemove}>
-                  Remove from team
+                  {t("Remove from team")}
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>
