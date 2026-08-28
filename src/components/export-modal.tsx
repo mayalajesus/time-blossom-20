@@ -21,9 +21,13 @@ export function ExportModal({
 }) {
   const [format, setFormat] = useState<ReportExportFormat>("csv");
   const [hasExported, setHasExported] = useState(false);
+  const [exportError, setExportError] = useState("");
 
   const close = (open: boolean) => {
-    if (!open) setHasExported(false);
+    if (!open) {
+      setHasExported(false);
+      setExportError("");
+    }
     onOpenChange(open);
   };
 
@@ -39,12 +43,18 @@ export function ExportModal({
             <Form
               onSubmit={(event) => {
                 event.preventDefault();
-                exportReport(format, payload);
+                const result = exportReport(format, payload);
+                if (!result.success) {
+                  setHasExported(false);
+                  setExportError(result.error);
+                  return;
+                }
                 setHasExported(true);
+                setExportError("");
                 toast("Export started", {
                   description:
                     format === "pdf"
-                      ? "A print-ready report opened in a new window."
+                      ? "A print-ready report opened for printing or saving as PDF."
                       : `The filtered ${format.toUpperCase()} report is downloading.`,
                 });
               }}
@@ -59,7 +69,10 @@ export function ExportModal({
                 </div>
                 <RadioGroup
                   value={format}
-                  onChange={(next: string) => setFormat(next as ReportExportFormat)}
+                  onChange={(next: string) => {
+                    setFormat(next as ReportExportFormat);
+                    setExportError("");
+                  }}
                   orientation="horizontal"
                 >
                   <Label>Format</Label>
@@ -78,8 +91,15 @@ export function ExportModal({
                   <FormAlert
                     status="success"
                     title="Export prepared"
-                    description="The file uses the same filtered dataset shown in this report."
+                    description={
+                      format === "pdf"
+                        ? "The print window is ready. Choose Save as PDF in the browser print dialog."
+                        : "The file uses the same filtered dataset shown in this report."
+                    }
                   />
+                ) : null}
+                {exportError ? (
+                  <FormAlert status="danger" title="Export unavailable" description={exportError} />
                 ) : null}
               </Modal.Body>
               <Modal.Footer>

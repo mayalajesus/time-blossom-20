@@ -425,6 +425,52 @@ function ReportsPage() {
     () => buildGroups(filteredEntries, search.group, search.subgroup, members, projects, clients),
     [clients, filteredEntries, members, projects, search.group, search.subgroup],
   );
+  const exportContext = useMemo(
+    () => ({
+      displayTitle: `${reportViews.find((report) => report.id === search.view)?.label ?? "Time"} report`,
+      subtitle: `Time Blossom · ${formatDateRange(range.startDate, range.endDate)}`,
+      meta: [
+        { label: "Period", value: formatDateRange(range.startDate, range.endDate) },
+        { label: "Scope", value: reportScope },
+        {
+          label: "Filters",
+          value:
+            [
+              search.members ? `${parseIds(search.members).length} team members` : "",
+              search.clients ? `${parseIds(search.clients).length} clients` : "",
+              search.projects ? `${parseIds(search.projects).length} projects` : "",
+              search.task ? `Task: ${search.task}` : "",
+              search.description ? `Description: ${search.description}` : "",
+              search.billability !== "all" ? search.billability : "",
+            ]
+              .filter(Boolean)
+              .join(" · ") || "None",
+        },
+      ],
+      summary: [
+        { label: "Tracked", value: formatDuration(total) },
+        { label: "Billable", value: formatDuration(billable) },
+        { label: "Internal", value: formatDuration(internal) },
+        { label: "Records", value: String(filteredEntries.length) },
+      ],
+    }),
+    [
+      billable,
+      filteredEntries.length,
+      internal,
+      range.endDate,
+      range.startDate,
+      reportScope,
+      search.billability,
+      search.clients,
+      search.description,
+      search.members,
+      search.projects,
+      search.task,
+      search.view,
+      total,
+    ],
+  );
 
   const exportPayload = useMemo<ReportExportPayload>(() => {
     if (search.view === "detailed") {
@@ -443,6 +489,7 @@ function ReportsPage() {
         "Duration",
       ];
       return {
+        ...exportContext,
         title: `time-blossom-${search.view}`,
         columns,
         rows: filteredEntries.map((entry) => {
@@ -459,7 +506,7 @@ function ReportsPage() {
             "Start date": entry.date,
             "Start time": entry.start,
             "End date": endDate,
-            "End time": entry.end,
+            "End time": endLabel(entry),
             Duration: formatDuration(entry.seconds),
           };
         }),
@@ -467,6 +514,7 @@ function ReportsPage() {
     }
     if (search.view === "summary") {
       return {
+        ...exportContext,
         title: `time-blossom-${search.view}`,
         columns: ["Group", "Tracked", "Billable", "Internal", "Records"],
         rows: groups.map((group) => ({
@@ -488,6 +536,7 @@ function ReportsPage() {
         weekDates,
       );
       return {
+        ...exportContext,
         title: `time-blossom-${search.view}`,
         columns: ["Group", ...weekDates, "Tracked", "Billable", "Internal"],
         rows: rows.map((row) => ({
@@ -509,6 +558,7 @@ function ReportsPage() {
       showTeam ? null : currentUserId,
     );
     return {
+      ...exportContext,
       title: `time-blossom-${search.view}`,
       columns: [
         "Member",
@@ -544,6 +594,7 @@ function ReportsPage() {
     memberMap,
     projects,
     range.startDate,
+    exportContext,
     search.view,
     search.weeklyGroup,
     showTeam,

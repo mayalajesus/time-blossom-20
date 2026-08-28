@@ -219,6 +219,10 @@ system before they can track time.
 - CSV, XLSX and print-ready PDF exports receive the already filtered dataset
   and active view, preventing screen/export divergence. Export columns use the
   existing model only and retain overnight end-date indicators such as `+1`.
+  PDF output is a clean, light, print-oriented document with Time Blossom
+  branding, report context, active-filter metadata, totals and a paginated
+  table whose header repeats across printed pages. The print window remains
+  available so the user can choose the browser's `Save as PDF` destination.
 
 ## Interaction and states
 
