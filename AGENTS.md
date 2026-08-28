@@ -11,8 +11,9 @@ useful without enterprise-style clutter.
 - React 19, TypeScript and Vite.
 - Vite and file-based TanStack Router routes under `src/routes`.
 - HeroUI for product UI, Tailwind CSS for layout and tokens, Lucide for icons.
-- Local mock data only. Do not add backend, authentication, payment or live
-  integration behavior to the frontend-only prototype.
+- The frontend keeps a local preview adapter for development and QA. The
+  Supabase adapter is the production path; never expose administrative keys in
+  browser code.
 - Keep shared state and domain types in `src/lib`, reusable UI in
   `src/components`, and route-specific composition in `src/routes`.
 
@@ -25,14 +26,16 @@ bun run build
 bun run lint
 ```
 
-Use the existing lockfile and scripts. Do not commit generated output such as
-`node_modules`, `.output` or `.wrangler`.
+Use the existing package manager and scripts. Do not commit generated output
+such as `node_modules`, `dist`, `.output` or `.wrangler`.
 
 ## UI rules
 
 - Preserve the Today → choose task → start → work → stop flow.
 - Reuse HeroUI components before introducing custom primitives.
 - Every primary screen needs loading, populated, empty and error treatment.
+- Loading uses the shared HeroUI Spinner; empty states are reserved for real
+  zero-data conditions.
 - Keep keyboard focus visible, icon buttons labelled and responsive layouts free
   of accidental horizontal overflow.
 - Use motion only for small state changes, menus, dialogs and item transitions.

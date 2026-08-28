@@ -13,9 +13,16 @@ by project and client, and inspect lightweight reports.
 - Light, dark and system theme behavior.
 - Responsive shell with keyboard-friendly controls.
 
-The current version is a frontend prototype backed by local mock data. It does
-not connect to a database, authentication provider, payment service or external
-task API.
+The local preview is backed by versioned mock data in `localStorage`. It is
+kept as a development and QA adapter while the Supabase production adapter is
+introduced. The first backend milestone covers authentication, workspaces,
+members, projects, clients, timers, entries, preferences and reports; billing
+and external task integrations remain deferred.
+
+When `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are present, the
+authentication, account preferences, avatar storage and invitation flows use
+Supabase. The migration and Edge Function deployment notes are in
+`supabase/README.md`. Keep service-role keys on the server only.
 
 ## Run locally
 
@@ -38,7 +45,9 @@ bun run build
 - `src/routes` contains file-based routes.
 - `src/components` contains reusable product UI.
 - `src/lib/mock-data.ts` contains prototype records.
-- `src/lib/store.tsx` contains the local state model.
+- `src/lib/store.tsx` contains the local state model and shared store contract.
+- `src/lib/permissions.ts` contains pure permission rules used by the store and
+  domain tests.
 - `design.md` documents the visual and interaction direction.
 - `AGENTS.md` documents contribution conventions.
 
@@ -104,9 +113,10 @@ there is no action menu, and personal preferences are managed in Settings.
 - Workspace logos are stored locally, limited to PNG, JPG or WebP files of
   approximately 500 KB, and are used exclusively as PDF report branding. CSV
   and XLSX exports remain text-only.
-- This prototype has no backend, authentication or cross-device sync. The
-  versioned local snapshot migrates the previous single-workspace shape and
-  falls back to safe seed data when storage is invalid.
+- The local preview has no real authentication or cross-device sync. The
+  versioned local snapshot migrates previous workspace shapes and falls back to
+  safe seed data when storage is invalid. Production data is created in a new
+  Supabase environment rather than imported from browser storage.
 
 ## Reports
 

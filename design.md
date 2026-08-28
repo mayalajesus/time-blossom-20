@@ -263,8 +263,9 @@ project` remains a first-class report category. Hidden filters keep their
 - Input surfaces must remain visibly distinct from their canvas in both themes,
   and muted text must stay readable without relying on low-contrast gray-on-gray
   states or field shadows.
-- Loading uses skeletons; empty states explain what is missing and provide the
-  next action; errors offer recovery or a safe return path.
+- Loading uses the shared HeroUI Spinner with a compact status surface; empty
+  states explain what is missing and provide the next action; errors offer
+  recovery or a safe return path.
 - Toasts confirm completed local actions. Alerts are reserved for conditions
   that require attention.
 - Motion is limited to menus, dialogs, timer state changes and short item
@@ -362,5 +363,6 @@ project` remains a first-class report category. Hidden filters keep their
   when available, with `TB` as the no-logo fallback; CSV and XLSX remain
   text-only.
 - The local account snapshot is versioned and migrates the former single
-  workspace without discarding data. Invalid storage falls back to safe seeds;
-  there is no backend, authentication or cross-device synchronization.
+  workspace without discarding data. Invalid storage falls back to safe seeds.
+  Production uses Supabase for authentication, persistence and cross-device
+  synchronization; the local adapter remains available in development and QA.
