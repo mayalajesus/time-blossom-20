@@ -7,18 +7,18 @@ export function LoadingState({ label, className }: { label?: string; className?:
   const loadingLabel = label ?? t("Loading data");
 
   return (
-    <Card
-      className={className ?? ""}
+    <div
+      className={`loading-state ${className ?? ""}`.trim()}
       role="status"
       aria-live="polite"
       aria-busy="true"
       aria-label={loadingLabel}
     >
-      <Card.Content className="flex min-h-32 flex-col items-center justify-center gap-3 px-6 py-8 text-center">
+      <div className="flex min-h-24 flex-col items-center justify-center gap-3 px-4 py-6 text-center">
         <Spinner aria-hidden="true" className="motion-reduce:animate-none" />
         <span className="text-sm text-muted">{loadingLabel}</span>
-      </Card.Content>
-    </Card>
+      </div>
+    </div>
   );
 }
 

@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { I18nProvider, Popover, RangeCalendar } from "@heroui/react";
+import { Button, I18nProvider, Popover, RangeCalendar } from "@heroui/react";
 import { CalendarDate } from "@internationalized/date";
 import type { RangeValue } from "@react-types/shared";
 import { useEffect, useState } from "react";
@@ -108,7 +108,8 @@ export function TrackerPeriodFilter({
 
   return (
     <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
-      <Popover.Trigger
+      <Button
+        variant="ghost"
         aria-label={`Open period calendar: ${label}`}
         className="flex h-8 w-[11rem] min-w-[11rem] max-w-[11rem] shrink-0 items-center justify-center rounded-lg px-2 text-center outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
       >
@@ -126,7 +127,7 @@ export function TrackerPeriodFilter({
             </span>
           )}
         </span>
-      </Popover.Trigger>
+      </Button>
       <Popover.Content
         placement={isShortViewport ? "top start" : "bottom start"}
         shouldFlip

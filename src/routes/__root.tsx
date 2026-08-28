@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "../components/layout/app-shell";
 import { useI18n } from "../lib/i18n";
 import { StoreProvider } from "../lib/store";
+import { AuthProvider } from "../lib/auth-context";
 import {
   Outlet,
   createRootRouteWithContext,
@@ -111,11 +112,13 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <StoreProvider>
-        <AppShell>
-          <RootOutlet />
-        </AppShell>
-      </StoreProvider>
+      <AuthProvider>
+        <StoreProvider>
+          <AppShell>
+            <RootOutlet />
+          </AppShell>
+        </StoreProvider>
+      </AuthProvider>
       <Toast.Provider />
     </QueryClientProvider>
   );

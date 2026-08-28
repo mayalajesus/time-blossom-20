@@ -1,0 +1,14 @@
+project_id = "time-blossom"
+
+[auth]
+enable_signup = true
+enable_email_confirmations = true
+
+[auth.external.google]
+enabled = true
+
+[functions.invite-member]
+verify_jwt = true
+
+[functions.accept-invitation]
+verify_jwt = true

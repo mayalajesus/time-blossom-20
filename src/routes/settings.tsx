@@ -10,13 +10,16 @@ import {
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { PageHeader } from "@/components/page-header";
 import { localeOptions, translate, useI18n } from "@/lib/i18n";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { prepareAvatarImage } from "@/lib/profile-image";
 import { useStore, type ThemeMode } from "@/lib/store";
+import { updateEmail, updatePassword } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-context";
+import { createSupabaseDataSource } from "@/lib/supabase-data-source";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -39,21 +42,25 @@ function SettingsPage() {
     setActiveMember,
     updateCurrentMemberEmail,
   } = useStore();
+  const { configured, session } = useAuth();
+  const dataSource = useMemo(() => createSupabaseDataSource(), []);
   const { t, error } = useI18n();
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
   const [identityError, setIdentityError] = useState<string | null>(null);
-  const [accountEmail, setAccountEmail] = useState(currentMember?.email ?? "");
+  const [accountEmail, setAccountEmail] = useState(
+    session?.user.email ?? currentMember?.email ?? "",
+  );
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [accountError, setAccountError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setAccountEmail(currentMember?.email ?? "");
+    setAccountEmail(session?.user.email ?? currentMember?.email ?? "");
     setPassword("");
     setPasswordConfirmation("");
     setAccountError(null);
-  }, [currentMember?.id, currentMember?.email]);
+  }, [currentMember?.id, currentMember?.email, session?.user.email]);
 
   const toggles = [
     {
@@ -83,7 +90,14 @@ function SettingsPage() {
     { id: "dark", label: "Dark", hint: "Always use the dark theme." },
   ];
 
-  const savePreference = (patch: Partial<typeof preferences>) => {
+  const savePreference = async (patch: Partial<typeof preferences>) => {
+    if (configured && session) {
+      const remote = await dataSource.updatePreferences(session.user.id, patch);
+      if (!remote.success) {
+        setPreferenceError(remote.error);
+        return;
+      }
+    }
     const result = setUserPreferences(patch);
     if (!result.success) {
       setPreferenceError(result.error);
@@ -106,7 +120,17 @@ function SettingsPage() {
   const savePhoto = async (file: File) => {
     try {
       const avatarUrl = await prepareAvatarImage(file);
-      const result = setUserPreferences({ avatarUrl });
+      let savedAvatarUrl = avatarUrl;
+      if (configured && session) {
+        const image = await fetch(avatarUrl).then((response) => response.blob());
+        const remote = await dataSource.uploadAvatar(session.user.id, image);
+        if (!remote.success) {
+          setAccountError(remote.error);
+          return;
+        }
+        savedAvatarUrl = remote.data;
+      }
+      const result = setUserPreferences({ avatarUrl: savedAvatarUrl });
       if (!result.success) {
         setAccountError(result.error);
         return;
@@ -125,7 +149,14 @@ function SettingsPage() {
     }
   };
 
-  const removePhoto = () => {
+  const removePhoto = async () => {
+    if (configured && session) {
+      const remote = await dataSource.removeAvatar(session.user.id);
+      if (!remote.success) {
+        setAccountError(remote.error);
+        return;
+      }
+    }
     const result = setUserPreferences({ avatarUrl: null });
     if (!result.success) {
       setAccountError(result.error);
@@ -135,7 +166,7 @@ function SettingsPage() {
     toast(t("Profile photo removed"));
   };
 
-  const saveAccount = () => {
+  const saveAccount = async () => {
     if (password && password.length < 8) {
       setAccountError("Password must be at least 8 characters.");
       return;
@@ -145,10 +176,29 @@ function SettingsPage() {
       return;
     }
 
-    const result = updateCurrentMemberEmail(accountEmail.trim() || currentMember?.email || "");
-    if (!result.success) {
-      setAccountError(result.error);
-      return;
+    if (configured) {
+      const nextEmail = accountEmail.trim();
+      const currentEmail = session?.user.email ?? "";
+      if (nextEmail && nextEmail !== currentEmail) {
+        const emailResult = await updateEmail(nextEmail);
+        if (!emailResult.success) {
+          setAccountError(emailResult.error);
+          return;
+        }
+      }
+      if (password) {
+        const passwordResult = await updatePassword(password);
+        if (!passwordResult.success) {
+          setAccountError(passwordResult.error);
+          return;
+        }
+      }
+    } else {
+      const result = updateCurrentMemberEmail(accountEmail.trim() || currentMember?.email || "");
+      if (!result.success) {
+        setAccountError(result.error);
+        return;
+      }
     }
     setAccountError(null);
     setPassword("");
@@ -212,7 +262,12 @@ function SettingsPage() {
                 {t("Change profile photo")}
               </Button>
               {preferences.avatarUrl ? (
-                <Button size="sm" type="button" variant="tertiary" onPress={removePhoto}>
+                <Button
+                  size="sm"
+                  type="button"
+                  variant="tertiary"
+                  onPress={() => void removePhoto()}
+                >
                   {t("Remove profile photo")}
                 </Button>
               ) : null}

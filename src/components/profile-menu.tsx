@@ -4,6 +4,8 @@ import { Layers3, LogOut, Settings, SlidersHorizontal } from "lucide-react";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
+import { signOut as signOutRemote } from "@/lib/auth";
+import { useAuth } from "@/lib/auth-context";
 
 export function ProfileMenu({
   showName = false,
@@ -13,12 +15,13 @@ export function ProfileMenu({
   showRole?: boolean;
 }) {
   const { currentMember, preferences, signOut } = useStore();
+  const { configured } = useAuth();
   const { t, error } = useI18n();
   const navigate = useNavigate();
 
   if (!currentMember) return null;
 
-  const handleAction = (key: string) => {
+  const handleAction = async (key: string) => {
     switch (key) {
       case "settings":
         navigate({ to: "/settings", hash: "account" });
@@ -30,9 +33,11 @@ export function ProfileMenu({
         navigate({ to: "/settings", hash: "personal-preferences" });
         break;
       case "sign-out": {
-        const result = signOut();
+        const result = configured ? await signOutRemote() : signOut();
         if (!result.success) {
           toast(t("Could not sign out: {error}", { error: error(result.error) }));
+        } else if (configured) {
+          void navigate({ to: "/login", replace: true });
         }
         break;
       }

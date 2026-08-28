@@ -134,22 +134,20 @@ function ReportsNavigation({
   if (collapsed) {
     return (
       <Popover isOpen={reportsOpen} onOpenChange={onReportsOpenChange}>
-        <Popover.Trigger className="block w-10 mx-auto">
-          <Button
-            aria-controls="reports-submenu-collapsed"
-            aria-expanded={reportsOpen}
-            aria-label={t("Reports")}
-            isIconOnly
-            variant={reportsActive ? "secondary" : "ghost"}
-            className={`h-10 min-h-10 w-full justify-center rounded-xl px-2.5 py-0 text-sm focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-              reportsActive ? "bg-surface-secondary text-foreground" : "text-muted"
-            }`}
-          >
-            <span className="flex size-5 shrink-0 items-center justify-center">
-              <BarChart3 aria-hidden="true" className="size-4" />
-            </span>
-          </Button>
-        </Popover.Trigger>
+        <Button
+          aria-controls="reports-submenu-collapsed"
+          aria-expanded={reportsOpen}
+          aria-label={t("Reports")}
+          isIconOnly
+          variant={reportsActive ? "secondary" : "ghost"}
+          className={`mx-auto block h-10 min-h-10 w-10 rounded-xl px-2.5 py-0 text-sm focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+            reportsActive ? "bg-surface-secondary text-foreground" : "text-muted"
+          }`}
+        >
+          <span className="flex size-5 shrink-0 items-center justify-center">
+            <BarChart3 aria-hidden="true" className="size-4" />
+          </span>
+        </Button>
         <Popover.Content placement="right top" className="w-44 max-w-[calc(100vw-1rem)] p-1">
           <div id="reports-submenu-collapsed">{reportLinks}</div>
         </Popover.Content>

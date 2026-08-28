@@ -1,4 +1,4 @@
-import { Calendar, DateField, IconCalendar, Popover } from "@heroui/react";
+import { Button, Calendar, DateField, IconCalendar, Popover } from "@heroui/react";
 import { DateInputGroup } from "@heroui/react/date-input-group";
 import { CalendarDate } from "@internationalized/date";
 import { useEffect, useState } from "react";
@@ -131,7 +131,9 @@ export function HeroUIDatePicker({
                 {(segment) => <DateInputGroup.Segment segment={segment} />}
               </DateInputGroup.Input>
               <DateInputGroup.Suffix className="shrink-0">
-                <Popover.Trigger
+                <Button
+                  variant="ghost"
+                  isIconOnly
                   aria-label={`Open ${label} calendar`}
                   className={
                     compact
@@ -140,7 +142,7 @@ export function HeroUIDatePicker({
                   }
                 >
                   <IconCalendar className={compact ? "size-3.5" : "size-4"} />
-                </Popover.Trigger>
+                </Button>
               </DateInputGroup.Suffix>
             </DateInputGroup>
           </DateField>

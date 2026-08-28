@@ -18,6 +18,11 @@ import {
   nowTime,
 } from "./format";
 import { defaultLocale, isLocale, type Locale } from "./i18n";
+import {
+  canTrackProject as canTrackProjectForRole,
+  hasPermission,
+  type Permission,
+} from "./permissions";
 
 export type TimerStatus = "idle" | "running" | "paused";
 
@@ -83,20 +88,10 @@ export interface UserPreferences {
   language: Locale;
   theme: ThemeMode;
   avatarUrl: string | null;
+  timezone: string;
 }
 
-export type Permission =
-  | "track-own-time"
-  | "manage-own-entries"
-  | "manage-projects"
-  | "manage-clients"
-  | "manage-project-members"
-  | "manage-members"
-  | "manage-admins"
-  | "view-all-reports"
-  | "export-all-reports"
-  | "manage-workspace-settings"
-  | "manage-integrations";
+export type { Permission } from "./permissions";
 
 export type StoreResult = { success: true; id?: string } | { success: false; error: string };
 
@@ -111,7 +106,7 @@ export interface WorkspaceData {
 }
 
 type PersistedAccount = {
-  version: 9;
+  version: 10;
   identities: UserIdentity[];
   workspaces: WorkspaceData[];
   preferencesByUserId: Record<string, UserPreferences>;
@@ -141,6 +136,7 @@ const initialPreferences: UserPreferences = {
   language: defaultLocale,
   theme: "system",
   avatarUrl: null,
+  timezone: getInitialTimeZone(),
 };
 
 const initialTrello: TrelloState = {
@@ -156,8 +152,9 @@ const initialTrello: TrelloState = {
 const ACTIVE_MEMBER_STORAGE_KEY = "time-blossom:active-member:v1";
 const ACTIVE_WORKSPACE_STORAGE_KEY = "time-blossom:active-workspace:v1";
 const SESSION_STORAGE_KEY = "time-blossom:session:v1";
-const ACCOUNT_STORAGE_KEY = "time-blossom:account:v9";
+const ACCOUNT_STORAGE_KEY = "time-blossom:account:v10";
 const LEGACY_ACCOUNT_KEYS = [
+  "time-blossom:account:v9",
   "time-blossom:workspace:v8",
   "time-blossom:workspace:v7",
   "time-blossom:workspace:v6",
@@ -182,12 +179,32 @@ function isThemeMode(value: unknown): value is ThemeMode {
   return value === "system" || value === "light" || value === "dark";
 }
 
+export function isValidTimeZone(value: unknown): value is string {
+  if (typeof value !== "string" || !value.trim()) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function getInitialTimeZone(): string {
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return isValidTimeZone(timezone) ? timezone : "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
 function isValidAvatarUrl(value: unknown): value is string | null {
   return (
     value === null ||
     (typeof value === "string" &&
-      /^data:image\/(?:png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
-      value.length <= 1_500_000)
+      ((/^data:image\/(?:png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
+        value.length <= 1_500_000) ||
+        /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/sign\/avatars\//.test(value)))
   );
 }
 
@@ -209,7 +226,8 @@ function isValidPreferences(value: unknown): value is UserPreferences {
     typeof prefs.idleDetection === "boolean" &&
     isLocale(prefs.language) &&
     isThemeMode(prefs.theme) &&
-    isValidAvatarUrl(prefs.avatarUrl)
+    isValidAvatarUrl(prefs.avatarUrl) &&
+    isValidTimeZone(prefs.timezone)
   );
 }
 
@@ -385,7 +403,7 @@ function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
       : { ...initialPreferences };
   }
   return {
-    version: 9,
+    version: 10,
     identities,
     workspaces: [
       {
@@ -412,7 +430,59 @@ function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
   };
 }
 
-function makeSeedAccount(): PersistedAccount {
+function migrateAccountSnapshot(value: unknown): PersistedAccount | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as {
+    version?: unknown;
+    identities?: UserIdentity[];
+    workspaces?: WorkspaceData[];
+    preferencesByUserId?: Record<string, unknown>;
+  };
+  if (
+    raw.version !== 9 ||
+    !Array.isArray(raw.identities) ||
+    !Array.isArray(raw.workspaces) ||
+    !raw.preferencesByUserId ||
+    typeof raw.preferencesByUserId !== "object"
+  )
+    return null;
+
+  const preferencesByUserId: Record<string, UserPreferences> = {};
+  for (const identity of raw.identities) {
+    if (!identity || typeof identity !== "object" || typeof identity.id !== "string") return null;
+    const candidate = raw.preferencesByUserId[identity.id];
+    if (!candidate || typeof candidate !== "object") return null;
+    const preferences = candidate as Partial<UserPreferences>;
+    if (
+      typeof preferences.reminders !== "boolean" ||
+      typeof preferences.weeklyDigest !== "boolean" ||
+      typeof preferences.idleDetection !== "boolean" ||
+      !isLocale(preferences.language) ||
+      !isThemeMode(preferences.theme) ||
+      !isValidAvatarUrl(preferences.avatarUrl)
+    )
+      return null;
+    preferencesByUserId[identity.id] = {
+      reminders: preferences.reminders,
+      weeklyDigest: preferences.weeklyDigest,
+      idleDetection: preferences.idleDetection,
+      language: preferences.language,
+      theme: preferences.theme,
+      avatarUrl: preferences.avatarUrl,
+      timezone: getInitialTimeZone(),
+    };
+  }
+
+  const migrated: PersistedAccount = {
+    version: 10,
+    identities: raw.identities,
+    workspaces: raw.workspaces,
+    preferencesByUserId,
+  };
+  return isValidAccount(migrated) ? migrated : null;
+}
+
+export function makeSeedAccount(): PersistedAccount {
   const identities = seedMembers.map(createIdentity);
   const defaultWorkspaceId = "w1";
   const sharedWorkspaceId = "w2";
@@ -454,7 +524,7 @@ function makeSeedAccount(): PersistedAccount {
     trello: initialTrello,
   };
   return {
-    version: 9,
+    version: 10,
     identities,
     workspaces: [defaultWorkspace, sharedWorkspace],
     preferencesByUserId: Object.fromEntries(
@@ -463,11 +533,11 @@ function makeSeedAccount(): PersistedAccount {
   };
 }
 
-function isValidAccount(value: unknown): value is PersistedAccount {
+export function isValidAccount(value: unknown): value is PersistedAccount {
   if (!value || typeof value !== "object") return false;
   const account = value as Partial<PersistedAccount>;
   if (
-    account.version !== 9 ||
+    account.version !== 10 ||
     !Array.isArray(account.identities) ||
     !Array.isArray(account.workspaces) ||
     !account.preferencesByUserId ||
@@ -581,7 +651,7 @@ function readPersistedAccount(): PersistedAccount {
       if (!raw) continue;
       const parsed: unknown = JSON.parse(raw);
       if (isValidAccount(parsed)) return parsed;
-      const migrated = normalizeLegacyAccount(parsed);
+      const migrated = migrateAccountSnapshot(parsed) ?? normalizeLegacyAccount(parsed);
       if (migrated) {
         window.localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(migrated));
         if (key !== ACCOUNT_STORAGE_KEY) window.localStorage.removeItem(key);
@@ -702,7 +772,7 @@ function readPersistedTimer(
   return initialTimer;
 }
 
-function elapsedForTimer(timer: TimerState, now = Date.now()): number {
+export function elapsedForTimer(timer: TimerState, now = Date.now()): number {
   if (timer.status !== "running" || timer.startedAt === null) return timer.accumulated;
   return Math.max(0, timer.accumulated + Math.floor((now - timer.startedAt) / 1000));
 }
@@ -874,7 +944,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         data.workspace.id === activeWorkspaceId ? next : data,
       ),
     }));
-  }, [activeWorkspaceId, clients, entries, members, projects, settings, trello]);
+  }, [
+    account.workspaces,
+    activeWorkspaceId,
+    clients,
+    entries,
+    members,
+    projects,
+    settings,
+    trello,
+  ]);
 
   useEffect(() => {
     try {
@@ -930,25 +1009,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [timer.status, timer.startedAt, timer.accumulated]);
 
   const value = useMemo<StoreValue>(() => {
-    const can = (permission: Permission): boolean => {
-      if (
-        sessionStatus !== "active" ||
-        !currentMember ||
-        currentMember.status !== "active" ||
-        currentWorkspace?.status === "archived"
-      )
-        return false;
-      if (currentMember.role === "Owner") return true;
-      if (currentMember.role === "Admin") return permission !== "manage-admins";
-      return permission === "track-own-time" || permission === "manage-own-entries";
-    };
+    const can = (permission: Permission): boolean =>
+      hasPermission(currentMember?.role ?? null, permission, {
+        sessionActive: sessionStatus === "active",
+        memberActive: currentMember?.status === "active",
+        workspaceStatus: currentWorkspace?.status ?? "archived",
+      });
 
     const canTrackProject = (projectId: string): boolean => {
-      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active")
-        return false;
       const project = projects.find((candidate) => candidate.id === projectId);
-      if (!project || project.status !== "active") return false;
-      return currentMember.role !== "Member" || project.memberIds.includes(activeMemberId);
+      return canTrackProjectForRole(currentMember?.role ?? null, activeMemberId, project ?? null, {
+        sessionActive: sessionStatus === "active",
+        memberActive: currentMember?.status === "active",
+      });
     };
 
     const validateProjectId = (projectId: string | null, allowUnassigned = false): StoreResult => {
@@ -1439,7 +1512,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         typeof next.idleDetection !== "boolean" ||
         !isLocale(next.language) ||
         !isThemeMode(next.theme) ||
-        !isValidAvatarUrl(next.avatarUrl)
+        !isValidAvatarUrl(next.avatarUrl) ||
+        !isValidTimeZone(next.timezone)
       )
         return { success: false, error: "Choose valid personal preferences." };
       setAccount((current) => ({
@@ -1879,6 +1953,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     activeWorkspaceId,
     clients,
     currentMember,
+    currentWorkspaceMembership,
     currentWorkspace,
     elapsed,
     entries,

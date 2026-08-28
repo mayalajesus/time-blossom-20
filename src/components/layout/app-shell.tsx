@@ -22,9 +22,22 @@ import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { SidebarNavigation } from "@/components/layout/sidebar-navigation";
 import { AppI18nProvider, useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth-context";
+
+const publicAuthPaths = new Set([
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/auth/callback",
+  "/invite/accept",
+]);
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { preferences, sessionStatus } = useStore();
+  const { configured, loading: authLoading, session } = useAuth();
+  const currentLocation = useLocation();
+  const navigate = useNavigate();
+  const isPublicAuthPath = publicAuthPaths.has(currentLocation.pathname);
   const [systemDark, setSystemDark] = useState(
     () =>
       typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches,
@@ -49,10 +62,26 @@ export function AppShell({ children }: { children: ReactNode }) {
       ?.setAttribute("content", dark ? "#050505" : "#f5f6f8");
   }, [dark]);
 
+  useEffect(() => {
+    if (!configured || authLoading || session || isPublicAuthPath) return;
+    void navigate({ to: "/login", replace: true });
+  }, [authLoading, configured, isPublicAuthPath, navigate, session]);
+
+  if (configured && (authLoading || (!session && !isPublicAuthPath))) {
+    const loadingLabel = document.documentElement.lang === "pt-BR" ? "Carregando" : "Loading";
+    return (
+      <main className="app-boot-screen">
+        <span className="app-boot-spinner" role="status" aria-label={loadingLabel} />
+      </main>
+    );
+  }
+
   return (
     <AppI18nProvider locale={preferences.language}>
       <HeroI18nProvider locale={preferences.language}>
-        {sessionStatus === "signed-out" ? (
+        {isPublicAuthPath ? (
+          children
+        ) : sessionStatus === "signed-out" ? (
           <SignedOutScreen />
         ) : (
           <AppShellContent>{children}</AppShellContent>
@@ -94,108 +123,123 @@ function AppShellContent({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-default bg-surface p-2 md:flex ${
-          collapsed ? "w-16" : "w-56"
-        }`}
-      >
-        <div
-          className={`flex gap-1 px-1 py-2 ${collapsed ? "flex-col items-center" : "items-center"}`}
+    <>
+      <a className="skip-link" href="#main-content">
+        {t("Skip to content")}
+      </a>
+      <div className="min-h-screen bg-background text-foreground">
+        <aside
+          className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-default bg-surface p-2 md:flex ${
+            collapsed ? "w-16" : "w-56"
+          }`}
         >
-          <div className={collapsed ? "flex w-10 justify-center" : "min-w-0 flex-1"}>
-            <ProfileMenu showName={!collapsed} showRole={!collapsed} />
-          </div>
-          <Button
-            aria-label={t("Toggle sidebar")}
-            isIconOnly
-            size="sm"
-            variant="ghost"
-            className={`shrink-0 ${collapsed ? "size-10 min-w-10" : ""}`}
-            onPress={() => setCollapsed((c) => !c)}
+          <div
+            className={`flex gap-1 px-1 py-2 ${collapsed ? "flex-col items-center" : "items-center"}`}
           >
-            <PanelLeft aria-hidden="true" className="size-4" />
-          </Button>
-        </div>
-
-        <SidebarNavigation
-          collapsed={collapsed}
-          reportsOpen={reportsOpen}
-          onReportsOpenChange={setReportsOpen}
-        />
-
-        <div className="mt-3 shrink-0 border-t border-default px-1 pt-3">
-          <WorkspaceSwitcher collapsed={collapsed} popoverPlacement="footer" />
-        </div>
-      </aside>
-
-      <div
-        className={`min-h-screen min-w-0 transition-[padding] duration-200 ${
-          collapsed ? "md:pl-16" : "md:pl-56"
-        }`}
-      >
-        <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-default bg-background/80 px-3 py-2.5 backdrop-blur sm:gap-3 sm:px-4 sm:py-3">
-          <div className="md:hidden">
+            <div className={collapsed ? "flex w-10 justify-center" : "min-w-0 flex-1"}>
+              <ProfileMenu showName={!collapsed} showRole={!collapsed} />
+            </div>
             <Button
-              aria-label={t("Open navigation")}
+              aria-label={t("Toggle sidebar")}
               isIconOnly
               size="sm"
-              variant="tertiary"
-              onPress={() => setMobileNavOpen(true)}
+              variant="ghost"
+              className={`shrink-0 ${collapsed ? "size-10 min-w-10" : ""}`}
+              onPress={() => setCollapsed((c) => !c)}
             >
-              <Menu aria-hidden="true" className="size-4" />
+              <PanelLeft aria-hidden="true" className="size-4" />
             </Button>
           </div>
-          <div className="min-w-0 flex-1">
-            <GlobalSearchForm
-              className="max-w-sm"
-              query={query}
-              onQueryChange={setQuery}
-              onSubmit={() => navigate({ to: "/search", search: { q: query } })}
-            />
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <HeaderTimerControl />
-          </div>
-        </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">{children}</main>
+          <SidebarNavigation
+            collapsed={collapsed}
+            reportsOpen={reportsOpen}
+            onReportsOpenChange={setReportsOpen}
+          />
+
+          <div className="mt-3 shrink-0 border-t border-default px-1 pt-3">
+            <WorkspaceSwitcher collapsed={collapsed} popoverPlacement="footer" />
+          </div>
+        </aside>
+
+        <div
+          className={`min-h-screen min-w-0 transition-[padding] duration-200 ${
+            collapsed ? "md:pl-16" : "md:pl-56"
+          }`}
+        >
+          <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-default bg-background/80 px-3 py-2.5 backdrop-blur sm:gap-3 sm:px-4 sm:py-3">
+            <div className="md:hidden">
+              <Button
+                aria-label={t("Open navigation")}
+                isIconOnly
+                size="sm"
+                variant="tertiary"
+                onPress={() => setMobileNavOpen(true)}
+              >
+                <Menu aria-hidden="true" className="size-4" />
+              </Button>
+            </div>
+            <div className="min-w-0 flex-1">
+              <GlobalSearchForm
+                className="max-w-sm"
+                query={query}
+                onQueryChange={setQuery}
+                onSubmit={() => navigate({ to: "/search", search: { q: query } })}
+              />
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <HeaderTimerControl />
+            </div>
+          </header>
+
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 outline-none md:px-8"
+          >
+            {children}
+          </main>
+        </div>
+
+        <Drawer isOpen={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <Drawer.Backdrop>
+            <Drawer.Content placement="left" className="w-[min(18rem,calc(100vw-1rem))]">
+              <Drawer.Dialog className="flex h-full flex-col">
+                <Drawer.Header className="flex items-center gap-3 border-b border-default px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <ProfileMenu showName showRole />
+                  </div>
+                  <div className="sr-only">
+                    <Drawer.Heading className="text-base font-semibold">
+                      {t("Navigation")}
+                    </Drawer.Heading>
+                    <p className="mt-0.5 text-xs text-muted">{t("Time Blossom")}</p>
+                  </div>
+                  <Drawer.CloseTrigger aria-label={t("Close navigation")} />
+                </Drawer.Header>
+                <Drawer.Body className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+                  <SidebarNavigation
+                    reportsOpen={reportsOpen}
+                    onReportsOpenChange={setReportsOpen}
+                    onNavigate={() => setMobileNavOpen(false)}
+                  />
+                </Drawer.Body>
+                <Drawer.Footer className="flex shrink-0 flex-col gap-2 border-t border-default px-3 py-3">
+                  <WorkspaceSwitcher popoverPlacement="footer" />
+                </Drawer.Footer>
+              </Drawer.Dialog>
+            </Drawer.Content>
+          </Drawer.Backdrop>
+        </Drawer>
+
+        <CommandMenu
+          isOpen={cmdOpen}
+          onOpenChange={setCmdOpen}
+          onLogTime={() => setLogOpen(true)}
+        />
+        <LogTimeModal isOpen={logOpen} onOpenChange={setLogOpen} />
       </div>
-
-      <Drawer isOpen={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-        <Drawer.Backdrop>
-          <Drawer.Content placement="left" className="w-[min(18rem,calc(100vw-1rem))]">
-            <Drawer.Dialog className="flex h-full flex-col">
-              <Drawer.Header className="flex items-center gap-3 border-b border-default px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <ProfileMenu showName showRole />
-                </div>
-                <div className="sr-only">
-                  <Drawer.Heading className="text-base font-semibold">
-                    {t("Navigation")}
-                  </Drawer.Heading>
-                  <p className="mt-0.5 text-xs text-muted">{t("Time Blossom")}</p>
-                </div>
-                <Drawer.CloseTrigger aria-label={t("Close navigation")} />
-              </Drawer.Header>
-              <Drawer.Body className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
-                <SidebarNavigation
-                  reportsOpen={reportsOpen}
-                  onReportsOpenChange={setReportsOpen}
-                  onNavigate={() => setMobileNavOpen(false)}
-                />
-              </Drawer.Body>
-              <Drawer.Footer className="shrink-0 border-t border-default px-3 py-3">
-                <WorkspaceSwitcher popoverPlacement="footer" />
-              </Drawer.Footer>
-            </Drawer.Dialog>
-          </Drawer.Content>
-        </Drawer.Backdrop>
-      </Drawer>
-
-      <CommandMenu isOpen={cmdOpen} onOpenChange={setCmdOpen} onLogTime={() => setLogOpen(true)} />
-      <LogTimeModal isOpen={logOpen} onOpenChange={setLogOpen} />
-    </div>
+    </>
   );
 }
 

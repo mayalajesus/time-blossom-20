@@ -13,6 +13,7 @@
         try {
           const activeMember = window.localStorage.getItem("time-blossom:active-member:v1") || "u1";
           const raw =
+            window.localStorage.getItem("time-blossom:account:v10") ||
             window.localStorage.getItem("time-blossom:account:v9") ||
             window.localStorage.getItem("time-blossom:workspace:v8");
           const snapshot = raw ? JSON.parse(raw) : null;
