@@ -136,7 +136,10 @@ system before they can track time.
   calendar trigger, and anchors the popover to that trigger so editing never
   overlaps adjacent columns. Selecting a date closes the calendar once, keeps
   the selected value in the field, and the popover flips or constrains itself
-  to the available visual viewport on small screens.
+  to the available visual viewport on small screens. Calendar surfaces are
+  compact, use short weekday labels and never become scroll containers in
+  either direction; responsive sizing and placement keep the complete grid
+  visible without document overflow.
 - Save valid inline changes automatically. Keep deletion as the only explicit
   destructive row action. Confirm deletion with HeroUI and offer a short
   HeroUI Toast `Undo` action that restores the complete entry.

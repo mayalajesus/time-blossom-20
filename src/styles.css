@@ -86,6 +86,71 @@ body {
   display: none;
 }
 
+/* Calendars are compact selection surfaces, never scroll containers. Keep
+   the HeroUI grid fluid so all seven days remain visible inside the popover. */
+.calendar-popover-content {
+  box-sizing: border-box;
+  max-width: calc(100vw - 1rem);
+  overflow: visible !important;
+}
+
+.calendar-no-scroll {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible !important;
+}
+
+.calendar-no-scroll .calendar__grid,
+.calendar-no-scroll .range-calendar__grid {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.report-calendar-compact {
+  width: 9.5rem;
+  max-width: 100%;
+  margin-inline: auto;
+  padding: 0 !important;
+}
+
+@media (max-width: 26rem), (max-height: 34rem) {
+  .calendar-popover-single {
+    width: min(13rem, calc(100vw - 1rem)) !important;
+  }
+
+  .calendar-no-scroll {
+    padding: 0.5rem;
+  }
+
+  .calendar-no-scroll .calendar__header,
+  .calendar-no-scroll .range-calendar__header {
+    padding-bottom: 0.5rem;
+  }
+
+  .calendar-no-scroll .calendar__header-cell,
+  .calendar-no-scroll .range-calendar__header-cell {
+    padding-bottom: 0.25rem;
+    font-size: 0.6875rem;
+  }
+
+  .calendar-no-scroll .calendar__cell,
+  .calendar-no-scroll .range-calendar__cell-button {
+    font-size: 0.75rem;
+  }
+
+  .report-calendar-compact {
+    width: 9rem;
+  }
+}
+
+@media (max-height: 40rem) {
+  .report-calendar-compact {
+    width: 8rem;
+  }
+}
+
 /* Keep grouped summaries and their expanded detail rows on one visual rhythm.
    The inner content can still grow for an accessible validation message, but
    ordinary rows never become shorter just because a group is collapsed. */

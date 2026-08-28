@@ -56,6 +56,7 @@ export function TrackerPeriodFilter({
   onChange: (period: TrackerPeriod) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isShortViewport, setIsShortViewport] = useState(false);
   const [rangeValue, setRangeValue] = useState<RangeValue<CalendarDate> | null>(() =>
     toCalendarRange(period),
   );
@@ -82,6 +83,16 @@ export function TrackerPeriodFilter({
   useEffect(() => {
     if (!isOpen) setRangeValue(toCalendarRange(period));
   }, [isOpen, period]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-height: 40rem)");
+    const updatePlacement = () => setIsShortViewport(mediaQuery.matches);
+
+    updatePlacement();
+    mediaQuery.addEventListener("change", updatePlacement);
+
+    return () => mediaQuery.removeEventListener("change", updatePlacement);
+  }, []);
 
   const handleRangeChange = (nextRange: RangeValue<CalendarDate>) => {
     setRangeValue(nextRange);
@@ -116,15 +127,21 @@ export function TrackerPeriodFilter({
           )}
         </span>
       </Popover.Trigger>
-      <Popover.Content placement="bottom start" className="max-w-[calc(100vw-2rem)] p-2">
+      <Popover.Content
+        placement={isShortViewport ? "top start" : "bottom start"}
+        shouldFlip
+        containerPadding={12}
+        offset={8}
+        className="calendar-popover-content calendar-popover-single w-[min(16rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-visible p-0"
+      >
         <Popover.Dialog>
           <I18nProvider locale="en-US">
             <RangeCalendar
               aria-label="Choose tracking date range"
-              firstDayOfWeek="mon"
+              firstDayOfWeek={weekStartsOn === 0 ? "sun" : "mon"}
               value={rangeValue}
               onChange={handleRangeChange}
-              className="p-2"
+              className="calendar-no-scroll w-full max-w-full p-3"
             >
               <RangeCalendar.Header className="flex items-center justify-between gap-2">
                 <RangeCalendar.NavButton slot="previous" aria-label="Previous month">
@@ -135,7 +152,7 @@ export function TrackerPeriodFilter({
                   <ChevronRight className="size-4" />
                 </RangeCalendar.NavButton>
               </RangeCalendar.Header>
-              <RangeCalendar.Grid className="mt-2">
+              <RangeCalendar.Grid className="mt-2 w-full max-w-full">
                 <RangeCalendar.GridHeader>
                   {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
                 </RangeCalendar.GridHeader>

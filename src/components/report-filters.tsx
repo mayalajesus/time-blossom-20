@@ -8,6 +8,7 @@ import {
   ListBox,
   Popover,
   RangeCalendar,
+  Select,
   TextField,
 } from "@heroui/react";
 import { CalendarDays, ChevronLeft, ChevronRight, Filter, RotateCcw, X } from "lucide-react";
@@ -246,6 +247,26 @@ function ReportPeriodPicker({
   const [calendarValue, setCalendarValue] = useState<RangeValue<CalendarDate> | null>(() =>
     toRangeValue(range),
   );
+  const [isCompactCalendar, setIsCompactCalendar] = useState(false);
+  const [isShortViewport, setIsShortViewport] = useState(false);
+
+  useEffect(() => {
+    const compactMediaQuery = window.matchMedia("(max-width: 639px)");
+    const shortMediaQuery = window.matchMedia("(max-height: 40rem)");
+    const updateCalendarLayout = () => {
+      setIsCompactCalendar(compactMediaQuery.matches || shortMediaQuery.matches);
+      setIsShortViewport(shortMediaQuery.matches);
+    };
+
+    updateCalendarLayout();
+    compactMediaQuery.addEventListener("change", updateCalendarLayout);
+    shortMediaQuery.addEventListener("change", updateCalendarLayout);
+
+    return () => {
+      compactMediaQuery.removeEventListener("change", updateCalendarLayout);
+      shortMediaQuery.removeEventListener("change", updateCalendarLayout);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) setCalendarValue(toRangeValue(range));
@@ -261,10 +282,16 @@ function ReportPeriodPicker({
         <span className="truncate">{formatReportPeriod(range)}</span>
         <ChevronRight className="ml-auto size-4 shrink-0 rotate-90 text-muted" />
       </Popover.Trigger>
-      <Popover.Content placement="bottom start" className="max-w-[calc(100vw-1rem)] p-0">
+      <Popover.Content
+        placement={isShortViewport ? "top start" : "bottom start"}
+        shouldFlip
+        containerPadding={12}
+        offset={8}
+        className="calendar-popover-content w-[min(44rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-visible p-0"
+      >
         <Popover.Dialog>
-          <div className="flex max-h-[min(34rem,calc(100dvh-2rem))] min-w-0 flex-col overflow-auto sm:flex-row">
-            <div className="flex w-44 shrink-0 flex-col border-b border-default p-2 sm:border-r sm:border-b-0">
+          <div className="flex min-w-0 flex-col sm:flex-row">
+            <div className="hidden w-44 shrink-0 flex-col border-b border-default p-2 sm:flex sm:border-r sm:border-b-0">
               <p className="px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase">
                 Date range
               </p>
@@ -283,7 +310,41 @@ function ReportPeriodPicker({
                 </Button>
               ))}
             </div>
-            <div className="overflow-auto p-3">
+            <div className="border-b border-default p-0 sm:hidden">
+              <Select
+                aria-label="Date range preset"
+                fullWidth
+                value={preset}
+                onChange={(nextPreset) => {
+                  if (!nextPreset || nextPreset === "custom") return;
+                  onChange(
+                    String(nextPreset) as ReportPeriodPreset,
+                    getReportPeriodRange(
+                      String(nextPreset) as ReportPeriodPreset,
+                      today,
+                      weekStartsOn,
+                    ),
+                  );
+                  setIsOpen(false);
+                }}
+              >
+                <Select.Trigger className="h-9 min-h-9">
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover className="w-[var(--trigger-width)] max-w-[calc(100vw-2rem)]">
+                  <ListBox aria-label="Date range presets">
+                    {reportPeriodPresets.map((option) => (
+                      <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
+                        {option.label}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ))}
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </div>
+            <div className={isCompactCalendar ? "min-w-0 p-1" : "min-w-0 p-3"}>
               <I18nProvider locale="en-US">
                 <RangeCalendar
                   aria-label="Choose report date range"
@@ -297,8 +358,12 @@ function ReportPeriodPicker({
                       setIsOpen(false);
                     }
                   }}
-                  visibleDuration={{ months: 2 }}
-                  className="p-1"
+                  visibleDuration={{ months: isCompactCalendar ? 1 : 2 }}
+                  className={
+                    isCompactCalendar
+                      ? "calendar-no-scroll report-calendar-compact max-w-full p-0"
+                      : "calendar-no-scroll w-full max-w-full p-1"
+                  }
                 >
                   <RangeCalendar.Header className="flex items-center justify-between gap-2">
                     <RangeCalendar.NavButton slot="previous" aria-label="Previous month">
@@ -309,7 +374,7 @@ function ReportPeriodPicker({
                       <ChevronRight className="size-4" />
                     </RangeCalendar.NavButton>
                   </RangeCalendar.Header>
-                  <RangeCalendar.Grid className="mt-2">
+                  <RangeCalendar.Grid className="mt-2 w-full max-w-full">
                     <RangeCalendar.GridHeader>
                       {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
                     </RangeCalendar.GridHeader>
@@ -317,14 +382,16 @@ function ReportPeriodPicker({
                       {(date) => <RangeCalendar.Cell date={date} />}
                     </RangeCalendar.GridBody>
                   </RangeCalendar.Grid>
-                  <RangeCalendar.Grid offset={{ months: 1 }} className="mt-3">
-                    <RangeCalendar.GridHeader>
-                      {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
-                    </RangeCalendar.GridHeader>
-                    <RangeCalendar.GridBody>
-                      {(date) => <RangeCalendar.Cell date={date} />}
-                    </RangeCalendar.GridBody>
-                  </RangeCalendar.Grid>
+                  {!isCompactCalendar ? (
+                    <RangeCalendar.Grid offset={{ months: 1 }} className="mt-3 w-full max-w-full">
+                      <RangeCalendar.GridHeader>
+                        {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
+                      </RangeCalendar.GridHeader>
+                      <RangeCalendar.GridBody>
+                        {(date) => <RangeCalendar.Cell date={date} />}
+                      </RangeCalendar.GridBody>
+                    </RangeCalendar.Grid>
+                  ) : null}
                 </RangeCalendar>
               </I18nProvider>
             </div>

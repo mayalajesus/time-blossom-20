@@ -1,7 +1,8 @@
 import { Calendar, DateField, IconCalendar, Popover } from "@heroui/react";
 import { DateInputGroup } from "@heroui/react/date-input-group";
 import { CalendarDate } from "@internationalized/date";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useStore } from "@/lib/store";
 
 function toCalendarDate(value: string): CalendarDate | null {
   const parts = value.split("-").map(Number);
@@ -36,8 +37,20 @@ export function HeroUIDatePicker({
   className?: string;
   compact?: boolean;
 }) {
+  const { settings } = useStore();
   const calendarValue = toCalendarDate(value);
   const [isOpen, setIsOpen] = useState(false);
+  const [isShortViewport, setIsShortViewport] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-height: 40rem)");
+    const updatePlacement = () => setIsShortViewport(mediaQuery.matches);
+
+    updatePlacement();
+    mediaQuery.addEventListener("change", updatePlacement);
+
+    return () => mediaQuery.removeEventListener("change", updatePlacement);
+  }, []);
 
   const closeCalendar = () => {
     setIsOpen(false);
@@ -135,26 +148,26 @@ export function HeroUIDatePicker({
 
         <Popover.Content
           data-tracker-date-picker-popover
-          placement="bottom start"
+          placement={isShortViewport ? "top start" : "bottom start"}
           shouldFlip
           containerPadding={12}
           offset={8}
-          className="max-h-[calc(100dvh-1.5rem)] max-w-[calc(100vw-1.5rem)] overflow-y-auto"
+          className="calendar-popover-content calendar-popover-single w-[min(16rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-visible p-0"
         >
           <Popover.Dialog>
             <Calendar
               aria-label={`Select ${label}`}
-              firstDayOfWeek="mon"
+              firstDayOfWeek={settings.weekStart === "sunday" ? "sun" : "mon"}
               value={calendarValue}
               onChange={commitDate}
-              className="p-3"
+              className="calendar-no-scroll w-full max-w-full p-3"
             >
               <Calendar.Header className="flex items-center justify-between gap-2">
                 <Calendar.NavButton slot="previous" aria-label="Previous month" />
                 <Calendar.Heading className="text-sm font-medium" />
                 <Calendar.NavButton slot="next" aria-label="Next month" />
               </Calendar.Header>
-              <Calendar.Grid className="mt-2">
+              <Calendar.Grid className="mt-2 w-full max-w-full">
                 <Calendar.GridHeader>
                   {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
                 </Calendar.GridHeader>
