@@ -1,46 +1,29 @@
-import {
-  Button,
-  Description,
-  Form,
-  Label,
-  ListBox,
-  Modal,
-  Radio,
-  RadioGroup,
-  Select,
-  toast,
-} from "@heroui/react";
-import { Download, Loader2 } from "lucide-react";
+import { Button, Description, Form, Label, Modal, Radio, RadioGroup, toast } from "@heroui/react";
+import { Download } from "lucide-react";
 import { useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
-
-type Phase = "idle" | "working" | "done";
+import {
+  exportReport,
+  type ReportExportFormat,
+  type ReportExportPayload,
+} from "@/lib/report-export";
 
 export function ExportModal({
   isOpen,
   onOpenChange,
   scope,
+  payload,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   scope: string;
+  payload: ReportExportPayload;
 }) {
-  const [format, setFormat] = useState("csv");
-  const [range, setRange] = useState("this-week");
-  const [phase, setPhase] = useState<Phase>("idle");
-
-  const run = () => {
-    setPhase("working");
-    window.setTimeout(() => {
-      setPhase("done");
-      toast("Export ready", {
-        description: `${scope}-${range}.${format} was generated (simulated).`,
-      });
-    }, 1400);
-  };
+  const [format, setFormat] = useState<ReportExportFormat>("csv");
+  const [hasExported, setHasExported] = useState(false);
 
   const close = (open: boolean) => {
-    if (!open) setPhase("idle");
+    if (!open) setHasExported(false);
     onOpenChange(open);
   };
 
@@ -56,64 +39,46 @@ export function ExportModal({
             <Form
               onSubmit={(event) => {
                 event.preventDefault();
-                run();
+                exportReport(format, payload);
+                setHasExported(true);
+                toast("Export started", {
+                  description:
+                    format === "pdf"
+                      ? "A print-ready report opened in a new window."
+                      : `The filtered ${format.toUpperCase()} report is downloading.`,
+                });
               }}
             >
               <Modal.Body className="flex flex-col gap-5">
-                <div className="flex flex-col gap-2">
-                  <Label>Date range</Label>
-                  <Select
-                    aria-label="Date range"
-                    fullWidth
-                    value={range}
-                    onChange={(key) => setRange(String(key ?? "this-week"))}
-                  >
-                    <Select.Trigger>
-                      <Select.Value />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                    <Select.Popover>
-                      <ListBox>
-                        {[
-                          { id: "this-week", label: "This week" },
-                          { id: "last-week", label: "Last week" },
-                          { id: "this-month", label: "This month" },
-                          { id: "all-time", label: "All time" },
-                        ].map((item) => (
-                          <ListBox.Item key={item.id} id={item.id} textValue={item.label}>
-                            <Label>{item.label}</Label>
-                            <ListBox.ItemIndicator />
-                          </ListBox.Item>
-                        ))}
-                      </ListBox>
-                    </Select.Popover>
-                  </Select>
-                  <Description>Choose the period included in the exported file.</Description>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-foreground">Included data</p>
+                  <Description>
+                    This export uses the current period, filters and report view (
+                    {payload.rows.length} rows).
+                  </Description>
                 </div>
-
                 <RadioGroup
                   value={format}
-                  onChange={(next: string) => setFormat(next)}
+                  onChange={(next: string) => setFormat(next as ReportExportFormat)}
                   orientation="horizontal"
                 >
                   <Label>Format</Label>
-                  {["csv", "pdf", "json"].map((f) => (
-                    <Radio key={f} value={f}>
+                  {(["csv", "xlsx", "pdf"] as const).map((item) => (
+                    <Radio key={item} value={item}>
                       <Radio.Content>
                         <Radio.Control>
                           <Radio.Indicator />
                         </Radio.Control>
-                        {f.toUpperCase()}
+                        {item.toUpperCase()}
                       </Radio.Content>
                     </Radio>
                   ))}
                 </RadioGroup>
-
-                {phase === "done" ? (
+                {hasExported ? (
                   <FormAlert
                     status="success"
-                    title="File generated"
-                    description="The download is simulated in this workspace."
+                    title="Export prepared"
+                    description="The file uses the same filtered dataset shown in this report."
                   />
                 ) : null}
               </Modal.Body>
@@ -121,13 +86,9 @@ export function ExportModal({
                 <Button slot="close" type="button" variant="secondary">
                   Close
                 </Button>
-                <Button type="submit" isDisabled={phase === "working"}>
-                  {phase === "working" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Download className="size-4" />
-                  )}
-                  {phase === "working" ? "Preparing…" : "Export"}
+                <Button type="submit">
+                  <Download className="size-4" />
+                  Export
                 </Button>
               </Modal.Footer>
             </Form>

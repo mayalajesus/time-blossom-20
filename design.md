@@ -179,11 +179,46 @@ system before they can track time.
 - Menus opened by three-dot action triggers use the shared HeroUI
   `ActionDropdown` pattern: compact rows, aligned icons, rounded hover and
   focus states, and responsive viewport-constrained popovers.
+- Reports is one sidebar section with an expandable submenu for `Detailed`,
+  `Summary`, `Weekly` and `Team`. The parent uses `aria-expanded` and
+  `aria-controls`; the active report view is highlighted and mirrored by the
+  page-level HeroUI selector. The same navigation works in the expanded,
+  collapsed and mobile sidebar layouts.
 - Action dropdowns do not display keyboard shortcut badges. HeroUI keeps the
   interaction keyboard-accessible through focus management, arrow navigation,
   `Enter`, `Space`, `Escape`, and click-away dismissal.
 - Destructive actions such as deleting or archiving use the HeroUI danger
   treatment; reversible and informational actions retain the default tone.
+
+## Reports
+
+- Reports are driven by one memoized pipeline: permission scope, period,
+  filters, lookup maps, totals and the selected view. The period is the primary
+  filter and is synchronized in the URL so a report can be reloaded without
+  losing context.
+- `Detailed` is a flat line-by-line table. `Summary` supports Project, Client,
+  Member, Task or Date grouping with an optional second level. `Weekly` is
+  always a complete week and can group by Project or Member. `Team` presents
+  member-level totals, billing mix, records, projects, clients, active-day
+  average and share.
+- Report presets are Today, Yesterday, This week, Last week, Last 2 weeks, This
+  month, Last month, This year, Last year and Custom range. Custom ranges use
+  the HeroUI `RangeCalendar`, normalize reversed selections and close after a
+  valid range is selected. Weekly normalizes any selection to one full week.
+- The filter bar supports Team, Client, Project, Task, Description and
+  Billability. Team is available only to Admins and Owners. Client and Project
+  filters support multiple selections and accent-insensitive search; `No
+  project` remains a first-class report category. Hidden filters keep their
+  values until `Clear filters` is used. Tags and approval Status are not shown
+  until the data model supports them.
+- Members are scoped to their own entries in Reports and exports. Admins and
+  Owners can analyze the full workspace. Detailed results are paginated at 50
+  rows, while summary, weekly and team aggregation is calculated once per
+  filter change. Empty results explain the state and provide a clear-filters
+  action.
+- CSV, XLSX and print-ready PDF exports receive the already filtered dataset
+  and active view, preventing screen/export divergence. Export columns use the
+  existing model only and retain overnight end-date indicators such as `+1`.
 
 ## Interaction and states
 

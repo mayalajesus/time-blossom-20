@@ -2,8 +2,12 @@ import {
   addDays,
   differenceInCalendarDays,
   endOfWeek,
+  endOfMonth,
+  endOfYear,
   format as formatDateFns,
+  startOfMonth,
   startOfWeek,
+  startOfYear,
 } from "date-fns";
 
 export type TrackerPeriodUnit = "day" | "week" | "custom";
@@ -13,6 +17,36 @@ export type TrackerPeriod = {
   startDate: string;
   endDate: string;
 };
+
+export type ReportPeriodPreset =
+  | "today"
+  | "yesterday"
+  | "this-week"
+  | "last-week"
+  | "last-two-weeks"
+  | "this-month"
+  | "last-month"
+  | "this-year"
+  | "last-year"
+  | "custom";
+
+export type DateRange = {
+  startDate: string;
+  endDate: string;
+};
+
+export const reportPeriodPresets: Array<{ id: ReportPeriodPreset; label: string }> = [
+  { id: "today", label: "Today" },
+  { id: "yesterday", label: "Yesterday" },
+  { id: "this-week", label: "This week" },
+  { id: "last-week", label: "Last week" },
+  { id: "last-two-weeks", label: "Last 2 weeks" },
+  { id: "this-month", label: "This month" },
+  { id: "last-month", label: "Last month" },
+  { id: "this-year", label: "This year" },
+  { id: "last-year", label: "Last year" },
+  { id: "custom", label: "Custom range" },
+];
 
 function nums(value: string, sep: string): number[] {
   return value.split(sep).map((p) => Number(p) || 0);
@@ -39,6 +73,14 @@ export function formatClock(seconds: number): string {
 
 export function formatHours(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)}h`;
+}
+
+export function normalizeSearch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase()
+    .trim();
 }
 
 export function formatDate(iso: string): string {
@@ -83,6 +125,67 @@ export function getWeekBounds(
     start: toIsoDate(startOfWeek(date, { weekStartsOn })),
     end: toIsoDate(endOfWeek(date, { weekStartsOn })),
   };
+}
+
+export function getMonthBounds(iso: string): DateRange {
+  const date = parseDateOnly(iso);
+  return {
+    startDate: toIsoDate(startOfMonth(date)),
+    endDate: toIsoDate(endOfMonth(date)),
+  };
+}
+
+export function getYearBounds(iso: string): DateRange {
+  const date = parseDateOnly(iso);
+  return {
+    startDate: toIsoDate(startOfYear(date)),
+    endDate: toIsoDate(endOfYear(date)),
+  };
+}
+
+export function getReportPeriodRange(
+  preset: ReportPeriodPreset,
+  today: string,
+  weekStartsOn: 0 | 1 = 1,
+): DateRange {
+  if (preset === "today") return { startDate: today, endDate: today };
+  if (preset === "yesterday") {
+    const date = shiftDate(today, -1);
+    return { startDate: date, endDate: date };
+  }
+
+  const currentWeek = getWeekBounds(today, weekStartsOn);
+  if (preset === "this-week") {
+    return { startDate: currentWeek.start, endDate: currentWeek.end };
+  }
+  if (preset === "last-week") {
+    const startDate = shiftDate(currentWeek.start, -7);
+    const previousWeek = getWeekBounds(startDate, weekStartsOn);
+    return { startDate: previousWeek.start, endDate: previousWeek.end };
+  }
+  if (preset === "last-two-weeks") {
+    return { startDate: shiftDate(currentWeek.start, -7), endDate: currentWeek.end };
+  }
+
+  const currentMonth = getMonthBounds(today);
+  if (preset === "this-month") return currentMonth;
+  if (preset === "last-month") {
+    const startDate = shiftDate(currentMonth.startDate, -1);
+    return getMonthBounds(startDate);
+  }
+
+  const currentYear = getYearBounds(today);
+  if (preset === "this-year") return currentYear;
+  if (preset === "last-year") {
+    const startDate = shiftDate(currentYear.startDate, -1);
+    return getYearBounds(startDate);
+  }
+
+  return { startDate: currentWeek.start, endDate: currentWeek.end };
+}
+
+export function formatReportPeriod(range: DateRange): string {
+  return formatDateRange(range.startDate, range.endDate);
 }
 
 export function shiftDate(iso: string, days: number): string {

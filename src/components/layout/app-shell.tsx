@@ -1,8 +1,10 @@
-import { Avatar, Button, Form, Input, Label, TextField } from "@heroui/react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Avatar, Button, Form, Input, Label, Popover, TextField } from "@heroui/react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   BarChart3,
   Building2,
+  ChevronDown,
+  ChevronRight,
   Clock,
   FolderKanban,
   Moon,
@@ -27,17 +29,42 @@ const nav = [
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
+const reportViews = [
+  { id: "summary", label: "Summary" },
+  { id: "detailed", label: "Detailed" },
+  { id: "weekly", label: "Weekly" },
+  { id: "team", label: "Team" },
+] as const;
+
+type ReportView = (typeof reportViews)[number]["id"];
+
+function getReportView(search: unknown): ReportView {
+  if (search && typeof search === "object" && "view" in search) {
+    const value = (search as { view?: unknown }).view;
+    if (reportViews.some((report) => report.id === value)) return value as ReportView;
+  }
+  return "detailed";
+}
+
 type ThemeMode = "system" | "light" | "dark";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { settings } = useStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>("system");
   const [systemDark, setSystemDark] = useState(false);
   const [query, setQuery] = useState("");
+  const reportsActive = location.pathname === "/reports";
+  const activeReportView = getReportView(location.search);
+  const [reportsOpen, setReportsOpen] = useState(reportsActive);
+
+  useEffect(() => {
+    setReportsOpen(reportsActive);
+  }, [location.pathname, reportsActive]);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -90,19 +117,110 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="mt-3 flex flex-1 flex-col gap-0.5">
-          {nav.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              activeProps={{ className: "bg-surface-secondary text-foreground" }}
-              aria-label={collapsed ? item.label : undefined}
-              title={collapsed ? item.label : undefined}
-              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
-            >
-              <item.icon className="size-4 shrink-0" />
-              {!collapsed && <span className="truncate">{item.label}</span>}
-            </Link>
-          ))}
+          {nav.map((item) =>
+            item.label === "Reports" ? (
+              <div key={item.to} className="relative">
+                {collapsed && (
+                  <Popover isOpen={reportsOpen} onOpenChange={setReportsOpen}>
+                    <Popover.Trigger>
+                      <Button
+                        aria-controls="reports-submenu-collapsed"
+                        aria-expanded={reportsOpen}
+                        aria-label="Reports"
+                        isIconOnly
+                        variant={reportsActive ? "secondary" : "ghost"}
+                        className={`w-full justify-center rounded-lg px-2.5 py-2 text-sm ${
+                          reportsActive ? "bg-surface-secondary text-foreground" : "text-muted"
+                        }`}
+                      >
+                        <item.icon className="size-4 shrink-0" />
+                      </Button>
+                    </Popover.Trigger>
+                    <Popover.Content
+                      placement="right top"
+                      className="w-44 max-w-[calc(100vw-1rem)] p-1"
+                    >
+                      <nav id="reports-submenu-collapsed" aria-label="Report views">
+                        {reportViews.map((view) => (
+                          <Link
+                            key={view.id}
+                            to="/reports"
+                            search={{ view: view.id }}
+                            className={`block rounded-lg px-3 py-2 text-sm transition-colors hover:bg-surface-secondary hover:text-foreground ${
+                              reportsActive && activeReportView === view.id
+                                ? "bg-surface-secondary text-foreground"
+                                : "text-muted"
+                            }`}
+                          >
+                            {view.label}
+                          </Link>
+                        ))}
+                      </nav>
+                    </Popover.Content>
+                  </Popover>
+                )}
+
+                {!collapsed && (
+                  <>
+                    <Button
+                      aria-controls="reports-submenu-expanded"
+                      aria-expanded={reportsOpen}
+                      aria-label={`${reportsOpen ? "Collapse" : "Expand"} Reports`}
+                      variant={reportsActive ? "secondary" : "ghost"}
+                      className={`w-full justify-start gap-2.5 rounded-lg px-2.5 py-2 text-sm hover:text-foreground ${
+                        reportsActive
+                          ? "bg-surface-secondary text-foreground"
+                          : "text-muted hover:bg-surface-secondary"
+                      }`}
+                      onPress={() => setReportsOpen((open) => !open)}
+                    >
+                      <item.icon className="size-4 shrink-0" />
+                      <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+                      {reportsOpen ? (
+                        <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
+                      ) : (
+                        <ChevronRight aria-hidden="true" className="size-4 shrink-0" />
+                      )}
+                    </Button>
+                    {reportsOpen && (
+                      <nav
+                        id="reports-submenu-expanded"
+                        aria-label="Report views"
+                        className="ml-6 border-l border-default pl-2"
+                      >
+                        {reportViews.map((view) => (
+                          <Link
+                            key={view.id}
+                            to="/reports"
+                            search={{ view: view.id }}
+                            className={`block rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-surface-secondary hover:text-foreground ${
+                              reportsActive && activeReportView === view.id
+                                ? "bg-surface-secondary text-foreground"
+                                : "text-muted"
+                            }`}
+                          >
+                            {view.label}
+                          </Link>
+                        ))}
+                      </nav>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : (
+              <Link
+                key={item.to}
+                to={item.to}
+                activeProps={{ className: "bg-surface-secondary text-foreground" }}
+                aria-label={collapsed ? item.label : undefined}
+                title={collapsed ? item.label : undefined}
+                className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
+              >
+                <item.icon className="size-4 shrink-0" />
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </Link>
+            ),
+          )}
         </nav>
 
         <div className="flex items-center gap-2 border-t border-default px-1 pt-3">
@@ -147,17 +265,63 @@ export function AppShell({ children }: { children: ReactNode }) {
           aria-label="Mobile navigation"
           className="no-scrollbar flex gap-1 overflow-x-auto border-b border-default px-4 py-2 md:hidden"
         >
-          {nav.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              activeProps={{ className: "bg-surface-secondary text-foreground" }}
-              className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
-            >
-              <item.icon aria-hidden="true" className="size-4" />
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          {nav.map((item) =>
+            item.label === "Reports" ? (
+              <div key={item.to} className="relative shrink-0">
+                <Button
+                  aria-controls="reports-submenu-mobile"
+                  aria-expanded={reportsOpen}
+                  variant={reportsActive ? "secondary" : "ghost"}
+                  className={`gap-2 rounded-lg px-3 py-2 text-sm hover:text-foreground ${
+                    reportsActive
+                      ? "bg-surface-secondary text-foreground"
+                      : "text-muted hover:bg-surface-secondary"
+                  }`}
+                  onPress={() => setReportsOpen((open) => !open)}
+                >
+                  <item.icon aria-hidden="true" className="size-4" />
+                  <span>{item.label}</span>
+                  {reportsOpen ? (
+                    <ChevronDown aria-hidden="true" className="size-4" />
+                  ) : (
+                    <ChevronRight aria-hidden="true" className="size-4" />
+                  )}
+                </Button>
+                {reportsOpen && (
+                  <nav
+                    id="reports-submenu-mobile"
+                    aria-label="Report views"
+                    className="absolute left-0 top-full z-20 mt-1 w-44 rounded-xl border border-default bg-surface p-1 shadow-lg"
+                  >
+                    {reportViews.map((view) => (
+                      <Link
+                        key={view.id}
+                        to="/reports"
+                        search={{ view: view.id }}
+                        className={`block rounded-lg px-3 py-2 text-sm transition-colors hover:bg-surface-secondary hover:text-foreground ${
+                          reportsActive && activeReportView === view.id
+                            ? "bg-surface-secondary text-foreground"
+                            : "text-muted"
+                        }`}
+                      >
+                        {view.label}
+                      </Link>
+                    ))}
+                  </nav>
+                )}
+              </div>
+            ) : (
+              <Link
+                key={item.to}
+                to={item.to}
+                activeProps={{ className: "bg-surface-secondary text-foreground" }}
+                className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
+              >
+                <item.icon aria-hidden="true" className="size-4" />
+                <span>{item.label}</span>
+              </Link>
+            ),
+          )}
         </nav>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">{children}</main>

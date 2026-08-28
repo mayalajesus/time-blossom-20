@@ -78,3 +78,23 @@ removed or demoted. In the local preview, Settings provides a `Preview identity`
 control for Marina (Owner), Caio (Admin) and Helena (Member). This control is a
 local role preview, not authentication. The Owner's own Team row is read-only:
 there is no action menu, and personal preferences are managed in Settings.
+
+## Reports
+
+Reports use one shared pipeline for period selection, permission scope, filters,
+aggregation and export. The four views have distinct purposes:
+
+- `Detailed` lists every filtered entry line by line.
+- `Summary` groups the same dataset by Project, Client, Member, Task or Date,
+  with an optional second grouping level.
+- `Weekly` always shows one complete week grouped by Project or Member.
+- `Team` compares tracked, billable, internal, records, projects, clients and
+  average active-day time per member.
+
+Available period presets are Today, Yesterday, This week, Last week, Last 2
+weeks, This month, Last month, This year, Last year and Custom range. Reports
+can filter by Team (Admin/Owner only), Client, Project, Task, Description and
+Billability. Tags and approval status are intentionally not offered because
+they are not part of the current time-entry model. Members see and export only
+their own records; Admins and Owners can use workspace scope. CSV, XLSX and
+print-ready PDF exports use the exact period, filters and view currently shown.
