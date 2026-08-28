@@ -141,9 +141,10 @@ function printableMarkup(payload: ReportExportPayload): string {
   const title = payload.displayTitle ?? humanizeTitle(payload.title);
   const subtitle = payload.subtitle ?? translate("Time Blossom · filtered report", locale);
   const workspaceName = payload.branding?.workspaceName?.trim() || "Time Blossom";
+  const defaultBrandMark = new URL("/brand/orbit-symbol.png", window.location.origin).href;
   const brandMark = payload.branding?.logoDataUrl
     ? `<img class="brand-logo" src="${escapeHtml(payload.branding.logoDataUrl)}" alt="" />`
-    : `<span class="brand-mark">TB</span>`;
+    : `<img class="brand-logo" src="${escapeHtml(defaultBrandMark)}" alt="" />`;
   const generatedAt = new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
@@ -168,8 +169,7 @@ function printableMarkup(payload: ReportExportPayload): string {
       .report { max-width: 1200px; margin: 0 auto; }
       .header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 15px; border-bottom: 2px solid #1f2937; }
       .brand { display: flex; align-items: center; gap: 9px; color: #0d8cf0; font-weight: 800; letter-spacing: .02em; }
-      .brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 7px; color: #fff; background: #0d8cf0; font-size: 11px; }
-      .brand-logo { display: block; width: 22px; height: 22px; border-radius: 7px; object-fit: cover; }
+      .brand-logo { display: block; width: 22px; height: 22px; border-radius: 7px; object-fit: contain; }
       h1 { margin: 13px 0 3px; color: #111827; font-size: 22px; line-height: 1.15; letter-spacing: -.02em; }
       .subtitle { margin: 0; color: #667085; font-size: 11px; }
       .generated { margin: 2px 0 0; color: #667085; font-size: 9px; text-align: right; }

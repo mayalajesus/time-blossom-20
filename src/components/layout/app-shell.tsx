@@ -1,28 +1,17 @@
 import {
   Button,
   Description,
+  Drawer,
   Form,
   I18nProvider as HeroI18nProvider,
   Input,
   Label,
   ListBox,
-  Popover,
   Select,
   TextField,
 } from "@heroui/react";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import {
-  BarChart3,
-  Building2,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  FolderKanban,
-  PanelLeft,
-  Puzzle,
-  Settings,
-  Users,
-} from "lucide-react";
+import { useLocation, useNavigate } from "@tanstack/react-router";
+import { Clock, Menu, PanelLeft } from "lucide-react";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { CommandMenu } from "@/components/command-menu";
 import { HeaderTimerControl } from "@/components/header-timer-control";
@@ -30,35 +19,9 @@ import { LogTimeModal } from "@/components/log-time-modal";
 import { ProfileMenu } from "@/components/profile-menu";
 import { FormAlert } from "@/components/form-feedback";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { SidebarNavigation } from "@/components/layout/sidebar-navigation";
 import { AppI18nProvider, useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
-
-const nav = [
-  { to: "/tracker", label: "Tracker", icon: Clock },
-  { to: "/projects", label: "Projects", icon: FolderKanban },
-  { to: "/clients", label: "Clients", icon: Building2 },
-  { to: "/team", label: "Team", icon: Users },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-  { to: "/integrations", label: "Integrations", icon: Puzzle },
-  { to: "/settings", label: "Settings", icon: Settings },
-] as const;
-
-const reportViews = [
-  { id: "summary", label: "Summary" },
-  { id: "detailed", label: "Detailed" },
-  { id: "weekly", label: "Weekly" },
-  { id: "team", label: "Team" },
-] as const;
-
-type ReportView = (typeof reportViews)[number]["id"];
-
-function getReportView(search: unknown): ReportView {
-  if (search && typeof search === "object" && "view" in search) {
-    const value = (search as { view?: unknown }).view;
-    if (reportViews.some((report) => report.id === value)) return value as ReportView;
-  }
-  return "detailed";
-}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { preferences, sessionStatus } = useStore();
@@ -107,13 +70,17 @@ function AppShellContent({ children }: { children: ReactNode }) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const reportsActive = location.pathname === "/reports";
-  const activeReportView = getReportView(location.search);
   const [reportsOpen, setReportsOpen] = useState(reportsActive);
 
   useEffect(() => {
     setReportsOpen(reportsActive);
   }, [location.pathname, reportsActive]);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -129,132 +96,36 @@ function AppShellContent({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-y-auto border-r border-default bg-surface p-3 md:flex ${
+        className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-default bg-surface p-2 md:flex ${
           collapsed ? "w-16" : "w-56"
         }`}
       >
-        <div className="flex items-center justify-between gap-2 px-1 py-2">
-          <WorkspaceSwitcher collapsed={collapsed} />
+        <div
+          className={`flex gap-1 px-1 py-2 ${collapsed ? "flex-col items-center" : "items-center"}`}
+        >
+          <div className={collapsed ? "flex w-10 justify-center" : "min-w-0 flex-1"}>
+            <ProfileMenu showName={!collapsed} showRole={!collapsed} />
+          </div>
           <Button
             aria-label={t("Toggle sidebar")}
             isIconOnly
             size="sm"
-            variant="tertiary"
+            variant="ghost"
+            className={`shrink-0 ${collapsed ? "size-10 min-w-10" : ""}`}
             onPress={() => setCollapsed((c) => !c)}
           >
-            <PanelLeft className="size-4" />
+            <PanelLeft aria-hidden="true" className="size-4" />
           </Button>
         </div>
 
-        <nav className="mt-3 flex flex-1 flex-col gap-0.5">
-          {nav.map((item) =>
-            item.label === "Reports" ? (
-              <div key={item.to} className="relative">
-                {collapsed && (
-                  <Popover isOpen={reportsOpen} onOpenChange={setReportsOpen}>
-                    <Popover.Trigger>
-                      <Button
-                        aria-controls="reports-submenu-collapsed"
-                        aria-expanded={reportsOpen}
-                        aria-label={t("Reports")}
-                        isIconOnly
-                        variant={reportsActive ? "secondary" : "ghost"}
-                        className={`w-full justify-center rounded-lg px-2.5 py-2 text-sm ${
-                          reportsActive ? "bg-surface-secondary text-foreground" : "text-muted"
-                        }`}
-                      >
-                        <item.icon className="size-4 shrink-0" />
-                      </Button>
-                    </Popover.Trigger>
-                    <Popover.Content
-                      placement="right top"
-                      className="w-44 max-w-[calc(100vw-1rem)] p-1"
-                    >
-                      <nav id="reports-submenu-collapsed" aria-label={t("Report views")}>
-                        {reportViews.map((view) => (
-                          <Link
-                            key={view.id}
-                            to="/reports"
-                            search={{ view: view.id }}
-                            className={`block rounded-lg px-3 py-2 text-sm transition-colors hover:bg-surface-secondary hover:text-foreground ${
-                              reportsActive && activeReportView === view.id
-                                ? "bg-surface-secondary text-foreground"
-                                : "text-muted"
-                            }`}
-                          >
-                            {t(view.label)}
-                          </Link>
-                        ))}
-                      </nav>
-                    </Popover.Content>
-                  </Popover>
-                )}
+        <SidebarNavigation
+          collapsed={collapsed}
+          reportsOpen={reportsOpen}
+          onReportsOpenChange={setReportsOpen}
+        />
 
-                {!collapsed && (
-                  <>
-                    <Button
-                      aria-controls="reports-submenu-expanded"
-                      aria-expanded={reportsOpen}
-                      aria-label={`${t(reportsOpen ? "Collapse" : "Expand")} ${t("Reports")}`}
-                      variant={reportsActive ? "secondary" : "ghost"}
-                      className={`w-full justify-start gap-2.5 rounded-lg px-2.5 py-2 text-sm hover:text-foreground ${
-                        reportsActive
-                          ? "bg-surface-secondary text-foreground"
-                          : "text-muted hover:bg-surface-secondary"
-                      }`}
-                      onPress={() => setReportsOpen((open) => !open)}
-                    >
-                      <item.icon className="size-4 shrink-0" />
-                      <span className="min-w-0 flex-1 truncate text-left">{t(item.label)}</span>
-                      {reportsOpen ? (
-                        <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
-                      ) : (
-                        <ChevronRight aria-hidden="true" className="size-4 shrink-0" />
-                      )}
-                    </Button>
-                    {reportsOpen && (
-                      <nav
-                        id="reports-submenu-expanded"
-                        aria-label={t("Report views")}
-                        className="ml-6 border-l border-default pl-2"
-                      >
-                        {reportViews.map((view) => (
-                          <Link
-                            key={view.id}
-                            to="/reports"
-                            search={{ view: view.id }}
-                            className={`block rounded-lg px-3 py-1.5 text-sm transition-colors hover:bg-surface-secondary hover:text-foreground ${
-                              reportsActive && activeReportView === view.id
-                                ? "bg-surface-secondary text-foreground"
-                                : "text-muted"
-                            }`}
-                          >
-                            {t(view.label)}
-                          </Link>
-                        ))}
-                      </nav>
-                    )}
-                  </>
-                )}
-              </div>
-            ) : (
-              <Link
-                key={item.to}
-                to={item.to}
-                activeProps={{ className: "bg-surface-secondary text-foreground" }}
-                aria-label={collapsed ? t(item.label) : undefined}
-                title={collapsed ? t(item.label) : undefined}
-                className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
-              >
-                <item.icon className="size-4 shrink-0" />
-                {!collapsed && <span className="truncate">{t(item.label)}</span>}
-              </Link>
-            ),
-          )}
-        </nav>
-
-        <div className="mt-3 border-t border-default pt-3">
-          <ProfileMenu showName={!collapsed} />
+        <div className="mt-3 shrink-0 border-t border-default px-1 pt-3">
+          <WorkspaceSwitcher collapsed={collapsed} popoverPlacement="footer" />
         </div>
       </aside>
 
@@ -263,99 +134,97 @@ function AppShellContent({ children }: { children: ReactNode }) {
           collapsed ? "md:pl-16" : "md:pl-56"
         }`}
       >
-        <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-default bg-background/80 px-4 py-3 backdrop-blur">
-          <Form
-            className="max-w-sm flex-1"
-            onSubmit={(e) => {
-              e.preventDefault();
-              navigate({ to: "/search", search: { q: query } });
-            }}
-          >
-            <TextField fullWidth name="global-search" value={query} onChange={setQuery}>
-              <Label className="sr-only">{t("Search")}</Label>
-              <Input placeholder={`${t("Search…")}  (Ctrl+K)`} />
-            </TextField>
-          </Form>
+        <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-default bg-background/80 px-3 py-2.5 backdrop-blur sm:gap-3 sm:px-4 sm:py-3">
+          <div className="md:hidden">
+            <Button
+              aria-label={t("Open navigation")}
+              isIconOnly
+              size="sm"
+              variant="tertiary"
+              onPress={() => setMobileNavOpen(true)}
+            >
+              <Menu aria-hidden="true" className="size-4" />
+            </Button>
+          </div>
+          <div className="min-w-0 flex-1">
+            <GlobalSearchForm
+              className="max-w-sm"
+              query={query}
+              onQueryChange={setQuery}
+              onSubmit={() => navigate({ to: "/search", search: { q: query } })}
+            />
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <HeaderTimerControl />
-            <div className="md:hidden">
-              <WorkspaceSwitcher compact />
-            </div>
-            <div className="md:hidden">
-              <ProfileMenu />
-            </div>
           </div>
         </header>
-
-        <nav
-          aria-label={t("Mobile navigation")}
-          className="no-scrollbar flex gap-1 overflow-x-auto border-b border-default px-4 py-2 md:hidden"
-        >
-          {nav.map((item) =>
-            item.label === "Reports" ? (
-              <div key={item.to} className="relative shrink-0">
-                <Button
-                  aria-controls="reports-submenu-mobile"
-                  aria-expanded={reportsOpen}
-                  variant={reportsActive ? "secondary" : "ghost"}
-                  className={`gap-2 rounded-lg px-3 py-2 text-sm hover:text-foreground ${
-                    reportsActive
-                      ? "bg-surface-secondary text-foreground"
-                      : "text-muted hover:bg-surface-secondary"
-                  }`}
-                  onPress={() => setReportsOpen((open) => !open)}
-                >
-                  <item.icon aria-hidden="true" className="size-4" />
-                  <span>{t(item.label)}</span>
-                  {reportsOpen ? (
-                    <ChevronDown aria-hidden="true" className="size-4" />
-                  ) : (
-                    <ChevronRight aria-hidden="true" className="size-4" />
-                  )}
-                </Button>
-                {reportsOpen && (
-                  <nav
-                    id="reports-submenu-mobile"
-                    aria-label={t("Report views")}
-                    className="absolute left-0 top-full z-20 mt-1 w-44 rounded-xl border border-default bg-surface p-1 shadow-lg"
-                  >
-                    {reportViews.map((view) => (
-                      <Link
-                        key={view.id}
-                        to="/reports"
-                        search={{ view: view.id }}
-                        className={`block rounded-lg px-3 py-2 text-sm transition-colors hover:bg-surface-secondary hover:text-foreground ${
-                          reportsActive && activeReportView === view.id
-                            ? "bg-surface-secondary text-foreground"
-                            : "text-muted"
-                        }`}
-                      >
-                        {t(view.label)}
-                      </Link>
-                    ))}
-                  </nav>
-                )}
-              </div>
-            ) : (
-              <Link
-                key={item.to}
-                to={item.to}
-                activeProps={{ className: "bg-surface-secondary text-foreground" }}
-                className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
-              >
-                <item.icon aria-hidden="true" className="size-4" />
-                <span>{t(item.label)}</span>
-              </Link>
-            ),
-          )}
-        </nav>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">{children}</main>
       </div>
 
+      <Drawer isOpen={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <Drawer.Backdrop>
+          <Drawer.Content placement="left" className="w-[min(18rem,calc(100vw-1rem))]">
+            <Drawer.Dialog className="flex h-full flex-col">
+              <Drawer.Header className="flex items-center gap-3 border-b border-default px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <ProfileMenu showName showRole />
+                </div>
+                <div className="sr-only">
+                  <Drawer.Heading className="text-base font-semibold">
+                    {t("Navigation")}
+                  </Drawer.Heading>
+                  <p className="mt-0.5 text-xs text-muted">{t("Time Blossom")}</p>
+                </div>
+                <Drawer.CloseTrigger aria-label={t("Close navigation")} />
+              </Drawer.Header>
+              <Drawer.Body className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+                <SidebarNavigation
+                  reportsOpen={reportsOpen}
+                  onReportsOpenChange={setReportsOpen}
+                  onNavigate={() => setMobileNavOpen(false)}
+                />
+              </Drawer.Body>
+              <Drawer.Footer className="shrink-0 border-t border-default px-3 py-3">
+                <WorkspaceSwitcher popoverPlacement="footer" />
+              </Drawer.Footer>
+            </Drawer.Dialog>
+          </Drawer.Content>
+        </Drawer.Backdrop>
+      </Drawer>
+
       <CommandMenu isOpen={cmdOpen} onOpenChange={setCmdOpen} onLogTime={() => setLogOpen(true)} />
       <LogTimeModal isOpen={logOpen} onOpenChange={setLogOpen} />
     </div>
+  );
+}
+
+function GlobalSearchForm({
+  className,
+  query,
+  onQueryChange,
+  onSubmit,
+}: {
+  className?: string;
+  query: string;
+  onQueryChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <Form
+      className={`min-w-0 ${className ?? ""}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <TextField fullWidth name="global-search" value={query} onChange={onQueryChange}>
+        <Label className="sr-only">{t("Search")}</Label>
+        <Input placeholder={`${t("Search…")}  (Ctrl+K)`} />
+      </TextField>
+    </Form>
   );
 }
 

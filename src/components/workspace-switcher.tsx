@@ -5,29 +5,6 @@ import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useStore, type WorkspaceSummary } from "@/lib/store";
 
-function WorkspaceMark({
-  workspace,
-  compact = false,
-}: {
-  workspace: WorkspaceSummary;
-  compact?: boolean;
-}) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`flex ${compact ? "size-8" : "size-9"} shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-xs font-semibold text-accent`}
-    >
-      {workspace.name
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0])
-        .join("")
-        .toUpperCase()}
-    </span>
-  );
-}
-
 function WorkspaceItem({ workspace, active }: { workspace: WorkspaceSummary; active: boolean }) {
   const { t } = useI18n();
   return (
@@ -36,7 +13,6 @@ function WorkspaceItem({ workspace, active }: { workspace: WorkspaceSummary; act
       textValue={`${workspace.name} ${workspace.ownerName} ${workspace.role}`}
       {...(active ? { className: "bg-surface-secondary" } : {})}
     >
-      <WorkspaceMark workspace={workspace} compact />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-medium">{workspace.name}</span>
@@ -48,17 +24,17 @@ function WorkspaceItem({ workspace, active }: { workspace: WorkspaceSummary; act
           {workspace.isOwned ? t("Owned by you") : workspace.ownerName} · {t(workspace.role)}
         </span>
       </span>
-      {active ? <Check aria-hidden="true" className="size-4 shrink-0 text-accent" /> : null}
+      {active ? <Check aria-hidden="true" className="size-4 shrink-0 text-foreground" /> : null}
     </Dropdown.Item>
   );
 }
 
 export function WorkspaceSwitcher({
   collapsed = false,
-  compact = false,
+  popoverPlacement = "bottom",
 }: {
   collapsed?: boolean;
-  compact?: boolean;
+  popoverPlacement?: "bottom" | "footer";
 }) {
   const { workspaces, activeWorkspaceId, currentWorkspace, timer, switchWorkspace, pauseTimer } =
     useStore();
@@ -109,25 +85,28 @@ export function WorkspaceSwitcher({
         <Dropdown.Trigger
           aria-label={t("Switch workspace")}
           className={
-            collapsed || compact
-              ? "touch-target-compact flex h-10 w-10 min-w-10 items-center justify-center rounded-xl p-0"
-              : "flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl px-1.5 py-1.5 text-left ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
+            collapsed
+              ? "touch-target-compact flex size-10 min-w-10 items-center justify-center rounded-xl p-0 ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
+              : "flex h-10 w-full min-w-0 items-center rounded-xl px-2 py-1.5 text-left ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
           }
         >
-          <WorkspaceMark workspace={currentSummary} compact={collapsed || compact} />
-          {!collapsed && !compact ? (
+          {!collapsed ? (
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold">{currentSummary.name}</span>
               <span className="block truncate text-xs text-muted">{t(currentSummary.role)}</span>
             </span>
           ) : null}
-          {!collapsed && !compact ? (
-            <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted" />
-          ) : null}
-          {collapsed || compact ? <span className="sr-only">{currentSummary.name}</span> : null}
+          {!collapsed ? (
+            <ChevronDown aria-hidden="true" className="ml-2 size-4 shrink-0 text-muted" />
+          ) : (
+            <Layers3 aria-hidden="true" className="size-4 text-muted" />
+          )}
+          {collapsed ? <span className="sr-only">{currentSummary.name}</span> : null}
         </Dropdown.Trigger>
         <Dropdown.Popover
-          placement={collapsed ? "right" : "bottom start"}
+          placement={
+            collapsed ? "right" : popoverPlacement === "footer" ? "top start" : "bottom start"
+          }
           className="w-72 max-w-[calc(100vw-1rem)] p-1"
         >
           <div className="px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted">
@@ -188,7 +167,7 @@ export function WorkspaceSwitcher({
                   )}
                 </p>
                 <div className="flex items-center gap-2 rounded-xl bg-surface-secondary p-3">
-                  <Layers3 aria-hidden="true" className="size-4 text-accent" />
+                  <Layers3 aria-hidden="true" className="size-4 text-muted" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{currentSummary.name}</p>
                     <Description>

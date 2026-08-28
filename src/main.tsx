@@ -38,10 +38,11 @@ function showBootError(rootElement: HTMLElement, copy: BootCopy) {
   card.className = "app-boot-card";
   card.setAttribute("aria-labelledby", "app-boot-error-title");
 
-  const mark = document.createElement("div");
+  const mark = document.createElement("img");
   mark.className = "app-boot-mark";
+  mark.src = "/brand/orbit-symbol.png";
+  mark.alt = "";
   mark.setAttribute("aria-hidden", "true");
-  mark.textContent = "TB";
 
   const title = document.createElement("h1");
   title.className = "app-boot-title";

@@ -175,8 +175,28 @@ system before they can track time.
 - Desktop uses a collapsible sidebar and a focused content column.
 - The desktop sidebar is fixed to the viewport; only the content column scrolls,
   while the collapsed state preserves the same fixed rail.
-- Small screens use a horizontally scrollable navigation strip and full-width
-  content with no accidental page overflow.
+- The sidebar is organized into `Workspace` (Tracker, Projects, Clients, Team
+  and Reports) and `Manage` (Integrations and Settings). Section labels are
+  quiet and disappear in the collapsed rail without removing accessible names.
+- The expanded desktop sidebar is 224px wide and keeps its navigation hierarchy
+  intentionally light. The profile avatar/menu is anchored at the top, while
+  workspace selection is anchored in the footer. The global HeroUI search
+  remains in the header at every responsive size, preserving one predictable
+  location.
+- Small screens replace the horizontal navigation strip with a left HeroUI
+  Drawer. The header keeps only menu, search and timer access; the Drawer
+  mirrors the desktop hierarchy with profile at the top, grouped navigation in
+  the middle and workspace selection in the footer.
+- Navigation links use a calm `bg-surface-secondary` active state, visible
+  focus, truncation for long labels and consistent HeroUI radius and density.
+  The workspace logo and workspace initials/avatar are never shown in the
+  sidebar; a generic workspace icon is used only as a compact footer switcher
+  control, while the optional logo remains reserved for report PDFs. The
+  profile avatar remains the only identity avatar in the sidebar and is placed
+  at the top; workspace controls use neutral system color rather than accent
+  color. The collapse/expand control is neutral at rest and only gains a
+  background on hover or visible focus. When no profile photo exists, the
+  identity avatar uses the system gradient fallback rather than initials.
 - Prefer one clear primary action per surface. Secondary actions should remain
   contextual and visually quiet.
 - Menus opened by three-dot action triggers use the shared HeroUI
@@ -185,8 +205,9 @@ system before they can track time.
 - Reports is one sidebar section with an expandable submenu for `Detailed`,
   `Summary`, `Weekly` and `Team`. The parent uses `aria-expanded` and
   `aria-controls`; the active report view is highlighted and mirrored by the
-  page-level HeroUI selector. The same navigation works in the expanded,
-  collapsed and mobile sidebar layouts.
+  page-level HeroUI selector. Reports is highlighted only on `/reports`; its
+  previously opened state never marks unrelated pages. The same navigation
+  works in the expanded, collapsed and mobile Drawer layouts.
 - Action dropdowns do not display keyboard shortcut badges. HeroUI keeps the
   interaction keyboard-accessible through focus management, arrow navigation,
   `Enter`, `Space`, `Escape`, and click-away dismissal.
@@ -326,10 +347,11 @@ project` remains a first-class report category. Hidden filters keep their
 - Clients, projects, members, entries, tracking defaults, preferences and
   integrations belong to the active workspace. New workspaces start empty and
   the creator receives the `Owner` membership for that workspace.
-- The sidebar workspace switcher uses an initials mark only. The optional
-  workspace logo is not shown in the sidebar and is used exclusively for PDF
-  report branding. The avatar menu places `Workspaces` immediately above
-  `Settings`.
+- The sidebar workspace switcher does not show a workspace logo or initials
+  avatar. It uses the workspace name and role in the footer when expanded and
+  a generic workspace icon when compact. The optional logo is used exclusively
+  for PDF report branding. The profile avatar/menu is placed at the top, and
+  its menu places `Workspaces` immediately above `Settings`.
 - Owners can edit, archive and restore their own workspaces. Archived
   workspaces are read-only. Members can leave a workspace owned by someone
   else; an Owner must archive rather than leave. Switching away from a running

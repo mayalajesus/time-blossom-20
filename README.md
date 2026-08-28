@@ -91,7 +91,8 @@ there is no action menu, and personal preferences are managed in Settings.
   their `Owner`; workspace roles and access are specific to each membership.
 - The workspace switcher is available from the sidebar, and `Workspaces` is
   available in the avatar menu immediately above `Settings`. The sidebar uses
-  initials only; the optional workspace logo is reserved for report PDFs.
+  a generic workspace icon without a logo or initials avatar; the optional
+  workspace logo is reserved for report PDFs.
 - Owners can edit, archive and restore their own workspaces. Archived
   workspaces are read-only. Members of another owner's workspace can leave it;
   an Owner must archive their workspace instead.

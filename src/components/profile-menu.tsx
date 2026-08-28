@@ -5,7 +5,13 @@ import { ProfileAvatar } from "@/components/profile-avatar";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 
-export function ProfileMenu({ showName = false }: { showName?: boolean }) {
+export function ProfileMenu({
+  showName = false,
+  showRole = false,
+}: {
+  showName?: boolean;
+  showRole?: boolean;
+}) {
   const { currentMember, preferences, signOut } = useStore();
   const { t, error } = useI18n();
   const navigate = useNavigate();
@@ -39,14 +45,19 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
         aria-label={t("Open account menu for {name}", { name: currentMember.name })}
         className={
           showName
-            ? "flex h-11 w-full min-w-0 items-center justify-start gap-3 rounded-xl px-2 py-2 ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
-            : "h-9 w-9 min-w-9 rounded-full p-0 ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
+            ? "flex h-11 w-full min-w-0 items-center justify-start gap-3 rounded-xl px-2 py-2 text-left ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
+            : "flex h-10 w-10 min-w-10 items-center justify-center rounded-full p-0 ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
         }
       >
         <ProfileAvatar member={currentMember} avatarUrl={preferences.avatarUrl} />
         {showName ? (
-          <span className="min-w-0 truncate text-left text-sm text-muted">
-            {currentMember.name}
+          <span className="min-w-0 truncate">
+            <span className="block truncate text-sm font-medium text-foreground">
+              {currentMember.name}
+            </span>
+            {showRole ? (
+              <span className="block truncate text-xs text-muted">{t(currentMember.role)}</span>
+            ) : null}
           </span>
         ) : null}
       </Dropdown.Trigger>

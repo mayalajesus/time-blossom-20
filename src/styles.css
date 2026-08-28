@@ -12,6 +12,16 @@ body {
   color: var(--foreground, #1f2937);
 }
 
+.profile-avatar-fallback {
+  background: radial-gradient(
+    circle at 30% 20%,
+    #d8f7ff 0%,
+    #85d9e8 34%,
+    #5d76e8 68%,
+    #9a43e8 100%
+  );
+}
+
 html,
 body {
   overflow-x: hidden;
@@ -59,16 +69,10 @@ body {
 }
 
 .app-boot-mark {
-  display: grid;
-  width: 3rem;
-  height: 3rem;
-  place-items: center;
-  border-radius: 0.875rem;
-  background: var(--accent, #0b93f6);
-  color: var(--accent-foreground, #ffffff);
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  display: block;
+  width: 3.25rem;
+  height: 3.25rem;
+  object-fit: contain;
 }
 
 .app-boot-title {
@@ -197,16 +201,6 @@ body {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
-}
-
-.profile-avatar-fallback {
-  background: radial-gradient(
-    circle at 30% 20%,
-    #d8f7ff 0%,
-    #85d9e8 34%,
-    #5d76e8 68%,
-    #9a43e8 100%
-  );
 }
 
 /* Calendars are compact selection surfaces, never scroll containers. Keep
