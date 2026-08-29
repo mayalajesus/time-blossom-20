@@ -351,3 +351,242 @@ body {
     width: 8rem;
   }
 }
+
+/* Workspace switcher: keep the trigger and popover as quiet, layered
+   surfaces. HeroUI owns the menu interaction states; these rules only tune
+   density, contrast and responsive bounds. */
+.workspace-switcher-card {
+  min-width: 0;
+  width: 100%;
+  gap: 0;
+  padding: 0.25rem;
+  border: 0;
+  border-radius: 1.125rem;
+  background: var(--surface-secondary);
+  box-shadow: 0 0.625rem 1.5rem rgb(0 0 0 / 0.1);
+}
+
+.workspace-switcher-card-collapsed {
+  width: 3rem;
+  min-width: 3rem;
+  height: 3rem;
+  padding: 0.25rem;
+  background: transparent;
+  box-shadow: none;
+}
+
+.workspace-switcher-trigger {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.875rem;
+  padding: 0.5rem 0.625rem;
+  color: var(--foreground);
+  text-align: start;
+  outline: none;
+}
+
+.workspace-switcher-mark,
+.workspace-switcher-item-mark {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9375rem;
+  color: var(--muted);
+}
+
+.workspace-switcher-mark {
+  width: 2.25rem;
+  height: 2.25rem;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-secondary));
+  color: color-mix(in srgb, var(--accent) 72%, var(--foreground));
+}
+
+.workspace-switcher-item-mark {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.75rem;
+  background: var(--surface-tertiary);
+  color: var(--muted);
+}
+
+.workspace-switcher-item-active .workspace-switcher-item-mark {
+  background: var(--accent-soft, var(--surface-tertiary));
+  color: var(--accent);
+}
+
+.workspace-switcher-meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.2;
+}
+
+.workspace-switcher-role {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-switcher-name {
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-switcher-role {
+  font-size: 0.6875rem;
+  line-height: 0.875rem;
+}
+
+.workspace-switcher-chevron {
+  transition: transform 150ms ease;
+}
+
+.workspace-switcher-trigger[aria-expanded="true"] .workspace-switcher-chevron {
+  transform: rotate(180deg);
+}
+
+.workspace-switcher-trigger[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-secondary));
+}
+
+.workspace-switcher-trigger-collapsed {
+  width: 2.5rem;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  justify-content: center;
+  padding: 0;
+}
+
+.workspace-switcher-trigger-collapsed .workspace-switcher-mark {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.875rem;
+  background: var(--surface-tertiary);
+  box-shadow: none;
+  color: var(--accent);
+}
+
+.workspace-switcher-trigger:hover {
+  background: color-mix(in srgb, var(--surface-tertiary) 72%, transparent);
+}
+
+.workspace-switcher-trigger-collapsed:hover .workspace-switcher-mark {
+  background: var(--accent-soft, var(--surface-tertiary));
+}
+
+.workspace-switcher-trigger-collapsed:hover,
+.workspace-switcher-trigger-collapsed[aria-expanded="true"] {
+  background: transparent;
+}
+
+.workspace-switcher-trigger-collapsed[aria-expanded="true"] .workspace-switcher-mark {
+  background: var(--accent-soft, var(--surface-tertiary));
+  color: var(--accent);
+}
+
+.workspace-switcher-trigger:focus-visible,
+.workspace-switcher-trigger[data-focus-visible="true"] {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.workspace-switcher-popover {
+  width: min(20rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  max-height: min(26rem, calc(100vh - 1.5rem));
+  overflow-y: auto;
+  border: 0;
+  border-radius: 1.5rem;
+  padding: 0.375rem;
+  outline: none;
+  box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 0.22);
+}
+
+.workspace-switcher-popover-collapsed {
+  width: min(20rem, calc(100vw - 5rem));
+  max-width: calc(100vw - 5rem);
+}
+
+.workspace-switcher-popover [data-slot="dropdown-menu"] {
+  gap: 0.125rem;
+  padding: 0.125rem;
+}
+
+.workspace-switcher-group-heading {
+  min-height: auto;
+  margin: 0.125rem 0 0;
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.75rem 0.375rem;
+  color: var(--muted);
+  cursor: default;
+  opacity: 1;
+}
+
+.workspace-switcher-group-heading[data-disabled="true"] {
+  opacity: 1;
+}
+
+.workspace-switcher-group-heading [data-slot="label"] {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+.workspace-switcher-section + .workspace-switcher-section {
+  margin-top: 0.375rem;
+}
+
+.workspace-switcher-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 3.5rem;
+  border-radius: 1rem;
+  padding: 0.75rem;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.workspace-switcher-item[data-hovered="true"],
+.workspace-switcher-item:hover {
+  background: color-mix(in srgb, var(--surface-tertiary) 80%, transparent);
+}
+
+.workspace-switcher-item-active {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-secondary));
+  color: var(--foreground);
+}
+
+@media (max-width: 26rem) {
+  .workspace-switcher-popover {
+    width: calc(100vw - 1rem);
+    max-width: calc(100vw - 1rem);
+    border-radius: 1.25rem;
+  }
+
+  .workspace-switcher-popover-collapsed {
+    width: calc(100vw - 4.5rem);
+    max-width: calc(100vw - 4.5rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-switcher-item {
+    transition: none;
+  }
+}

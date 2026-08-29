@@ -1,5 +1,4 @@
 import { Button, Card, Description, Dropdown, Label, Modal, toast } from "@heroui/react";
-import { useNavigate } from "@tanstack/react-router";
 import { Check, ChevronDown, Layers3 } from "lucide-react";
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -12,8 +11,11 @@ function WorkspaceItem({ workspace, active }: { workspace: WorkspaceSummary; act
     <Dropdown.Item
       id={workspace.id}
       textValue={`${workspace.name} ${workspace.ownerName} ${workspace.role}`}
-      {...(active ? { className: "bg-surface-secondary" } : {})}
+      className={`workspace-switcher-item${active ? " workspace-switcher-item-active" : ""}`}
     >
+      <span className="workspace-switcher-item-mark" aria-hidden="true">
+        <Layers3 className="size-4" />
+      </span>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
           <span className="truncate font-medium">{workspace.name}</span>
@@ -40,7 +42,6 @@ export function WorkspaceSwitcher({
   const { workspaces, activeWorkspaceId, currentWorkspace, timer, switchWorkspace, pauseTimer } =
     useStore();
   const { t, error } = useI18n();
-  const navigate = useNavigate();
   const [switchOpen, setSwitchOpen] = useState(false);
   const [pendingWorkspaceId, setPendingWorkspaceId] = useState<string | null>(null);
 
@@ -79,78 +80,90 @@ export function WorkspaceSwitcher({
   };
 
   const pendingWorkspace = workspaces.find((workspace) => workspace.id === pendingWorkspaceId);
+  const triggerClassName = `workspace-switcher-trigger${collapsed ? " workspace-switcher-trigger-collapsed" : ""}`;
+  const triggerContent = (
+    <>
+      <span className="workspace-switcher-mark" aria-hidden="true">
+        <Layers3 className="size-4" />
+      </span>
+      {!collapsed ? (
+        <span className="workspace-switcher-meta min-w-0 flex-1">
+          <span className="workspace-switcher-name">{currentSummary.name}</span>
+          <span className="workspace-switcher-role">{t(currentSummary.role)}</span>
+        </span>
+      ) : null}
+      {!collapsed ? (
+        <ChevronDown
+          aria-hidden="true"
+          className="workspace-switcher-chevron size-4 shrink-0 text-muted"
+        />
+      ) : null}
+      {collapsed ? <span className="sr-only">{currentSummary.name}</span> : null}
+    </>
+  );
+  const workspaceMenu = (
+    <Dropdown.Menu aria-label={t("Workspaces")} onAction={(key) => requestSwitch(String(key))}>
+      {own.length > 0 ? (
+        <Dropdown.Section aria-label={t("Your workspaces")} className="workspace-switcher-section">
+          <Dropdown.Item
+            id="owned-heading"
+            isDisabled
+            textValue={t("Your workspaces")}
+            className="workspace-switcher-group-heading"
+          >
+            <Label>{t("Your workspaces")}</Label>
+          </Dropdown.Item>
+          {own.map((workspace) => (
+            <WorkspaceItem
+              key={workspace.id}
+              workspace={workspace}
+              active={workspace.id === activeWorkspaceId}
+            />
+          ))}
+        </Dropdown.Section>
+      ) : null}
+      {shared.length > 0 ? (
+        <Dropdown.Section aria-label={t("Shared with you")} className="workspace-switcher-section">
+          <Dropdown.Item
+            id="shared-heading"
+            isDisabled
+            textValue={t("Shared with you")}
+            className="workspace-switcher-group-heading"
+          >
+            <Label>{t("Shared with you")}</Label>
+          </Dropdown.Item>
+          {shared.map((workspace) => (
+            <WorkspaceItem
+              key={workspace.id}
+              workspace={workspace}
+              active={workspace.id === activeWorkspaceId}
+            />
+          ))}
+        </Dropdown.Section>
+      ) : null}
+    </Dropdown.Menu>
+  );
 
   return (
     <>
       <Card
         variant="secondary"
-        className={collapsed ? "size-10 min-w-10 p-0" : "w-full min-w-0 p-1.5"}
+        className={`workspace-switcher-card${collapsed ? " workspace-switcher-card-collapsed" : ""}`}
       >
         <Dropdown>
-          <Dropdown.Trigger
-            aria-label={t("Switch workspace")}
-            className={
-              collapsed
-                ? "touch-target-compact flex size-10 min-w-10 items-center justify-center rounded-lg p-0 ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
-                : "flex h-10 w-full min-w-0 items-center rounded-lg px-2 py-1.5 text-left ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
-            }
-          >
-            {!collapsed ? (
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{currentSummary.name}</span>
-                <span className="block truncate text-xs text-muted">{t(currentSummary.role)}</span>
-              </span>
-            ) : null}
-            {!collapsed ? (
-              <ChevronDown aria-hidden="true" className="ml-2 size-4 shrink-0 text-muted" />
-            ) : (
-              <Layers3 aria-hidden="true" className="size-4 text-muted" />
-            )}
-            {collapsed ? <span className="sr-only">{currentSummary.name}</span> : null}
+          <Dropdown.Trigger aria-label={t("Switch workspace")} className={triggerClassName}>
+            {triggerContent}
           </Dropdown.Trigger>
           <Dropdown.Popover
             placement={
               collapsed ? "right" : popoverPlacement === "footer" ? "top start" : "bottom start"
             }
-            className="w-72 max-w-[calc(100vw-1rem)] p-1"
+            shouldFlip
+            containerPadding={12}
+            offset={8}
+            className={`workspace-switcher-popover${collapsed ? " workspace-switcher-popover-collapsed" : ""}`}
           >
-            <div className="px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted">
-              {t("Switch workspace")}
-            </div>
-            <Dropdown.Menu onAction={(key) => requestSwitch(String(key))}>
-              {own.length > 0 ? (
-                <>
-                  <Dropdown.Item id="owned-heading" isDisabled textValue={t("Your workspaces")}>
-                    <Label className="text-xs uppercase tracking-[0.1em] text-muted">
-                      {t("Your workspaces")}
-                    </Label>
-                  </Dropdown.Item>
-                  {own.map((workspace) => (
-                    <WorkspaceItem
-                      key={workspace.id}
-                      workspace={workspace}
-                      active={workspace.id === activeWorkspaceId}
-                    />
-                  ))}
-                </>
-              ) : null}
-              {shared.length > 0 ? (
-                <>
-                  <Dropdown.Item id="shared-heading" isDisabled textValue={t("Shared with you")}>
-                    <Label className="text-xs uppercase tracking-[0.1em] text-muted">
-                      {t("Shared with you")}
-                    </Label>
-                  </Dropdown.Item>
-                  {shared.map((workspace) => (
-                    <WorkspaceItem
-                      key={workspace.id}
-                      workspace={workspace}
-                      active={workspace.id === activeWorkspaceId}
-                    />
-                  ))}
-                </>
-              ) : null}
-            </Dropdown.Menu>
+            {workspaceMenu}
           </Dropdown.Popover>
         </Dropdown>
       </Card>
