@@ -97,44 +97,49 @@ export function TimerCard() {
         <span className="min-w-0 whitespace-nowrap font-mono text-2xl tabular-nums text-foreground sm:justify-self-end lg:col-span-1 lg:justify-self-end">
           {formatClock(elapsed)}
         </span>
-        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:col-span-2 sm:justify-end lg:col-span-1 lg:flex-nowrap lg:justify-end">
+        <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:col-span-2 sm:justify-end lg:col-span-1 lg:justify-end">
           {timer.status === "idle" ? (
             <Button
-              className="min-w-0 flex-1 sm:flex-none lg:shrink-0"
+              aria-label={t("Start")}
+              isIconOnly
+              className="size-9 min-w-9 shrink-0"
               size="sm"
               onPress={() => {
                 const result = startTimer(task, projectId, billable);
                 setTimerError(result.success ? null : result.error);
               }}
             >
-              <Play className="size-4" />
-              {t("Start")}
+              <Play aria-hidden="true" className="size-4" />
             </Button>
           ) : (
             <>
               {timer.status === "running" ? (
                 <Button
-                  className="min-w-0 flex-1 sm:flex-none lg:shrink-0"
+                  aria-label={t("Pause")}
+                  isIconOnly
+                  className="size-9 min-w-9 shrink-0"
                   size="sm"
                   variant="secondary"
                   onPress={pauseTimer}
                 >
-                  <Pause className="size-4" />
-                  {t("Pause")}
+                  <Pause aria-hidden="true" className="size-4" />
                 </Button>
               ) : (
                 <Button
-                  className="min-w-0 flex-1 sm:flex-none lg:shrink-0"
+                  aria-label={t("Resume")}
+                  isIconOnly
+                  className="size-9 min-w-9 shrink-0"
                   size="sm"
                   variant="secondary"
                   onPress={resumeTimer}
                 >
-                  <Play className="size-4" />
-                  {t("Resume")}
+                  <Play aria-hidden="true" className="size-4" />
                 </Button>
               )}
               <Button
-                className="min-w-0 flex-1 sm:flex-none lg:shrink-0"
+                aria-label={t("Stop")}
+                isIconOnly
+                className="size-9 min-w-9 shrink-0"
                 size="sm"
                 onPress={() => {
                   stopTimer();
@@ -143,8 +148,7 @@ export function TimerCard() {
                   setProjectId(null);
                 }}
               >
-                <Square className="size-4" />
-                {t("Stop")}
+                <Square aria-hidden="true" className="size-4" />
               </Button>
             </>
           )}

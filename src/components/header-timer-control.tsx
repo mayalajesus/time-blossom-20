@@ -37,13 +37,17 @@ export function HeaderTimerControl() {
       ) : null}
       <Button
         aria-label={actionLabel}
-        className="h-8 min-w-8 shrink-0 px-0 sm:h-9 sm:min-w-0 sm:px-3"
+        isIconOnly
+        className="size-9 min-w-9 shrink-0"
         size="sm"
         variant={isRunning ? "secondary" : "primary"}
         onPress={handleAction}
       >
-        {isRunning ? <Pause className="size-4" /> : <Play className="size-4" />}
-        <span className="hidden sm:inline">{actionLabel}</span>
+        {isRunning ? (
+          <Pause aria-hidden="true" className="size-4" />
+        ) : (
+          <Play aria-hidden="true" className="size-4" />
+        )}
       </Button>
     </div>
   );
