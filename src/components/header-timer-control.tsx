@@ -29,10 +29,8 @@ export function HeaderTimerControl() {
   };
 
   return (
-    <div className="header-timer-widget" data-header-timer-control data-status={timer.status}>
-      <span className="header-timer-status-dot" aria-hidden="true" />
+    <div className="flex items-center gap-2" data-header-timer-control data-status={timer.status}>
       <span
-        className="header-timer-readout"
         aria-atomic="true"
         aria-live="polite"
         aria-label={`${t("Timer")}: ${formatClock(elapsed)}`}
@@ -42,7 +40,6 @@ export function HeaderTimerControl() {
       <Button
         aria-label={actionLabel}
         isIconOnly
-        className="header-timer-action"
         size="sm"
         variant={isRunning ? "secondary" : "primary"}
         onPress={handleAction}

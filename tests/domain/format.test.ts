@@ -24,10 +24,14 @@ describe("time domain formatting", () => {
 
   it("parses the supported manual duration formats", () => {
     expect(parseDurationInput("2:45")).toBe(9_900);
+    expect(parseDurationInput("40s")).toBe(40);
+    expect(parseDurationInput("00:00:49")).toBe(49);
+    expect(parseDurationInput("1h30m20s")).toBe(5_420);
     expect(parseDurationInput("825")).toBe(30_300);
     expect(parseDurationInput("1,5h")).toBe(5_400);
     expect(parseDurationInput("0s")).toBeNull();
     expect(parseDurationInput("2:75")).toBeNull();
+    expect(parseDurationInput("0:00:60")).toBeNull();
   });
 
   it("uses the configured first day for week ranges", () => {

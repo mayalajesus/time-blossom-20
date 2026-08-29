@@ -14,13 +14,16 @@ export function AuthPage({
   children: ReactNode;
 }) {
   return (
-    <main className="auth-page flex min-h-screen items-center justify-center bg-background px-4 py-8 text-foreground sm:px-6 sm:py-10">
-      <section className="auth-page__content mx-auto w-full max-w-md">
+    <main
+      data-page="auth"
+      className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-10"
+    >
+      <section className="mx-auto w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          <p className="mt-2 text-sm text-muted">{description}</p>
+          <h1>{title}</h1>
+          <p className="mt-2">{description}</p>
         </div>
-        <div className="auth-page__form space-y-5">{children}</div>
+        <div className="space-y-5">{children}</div>
       </section>
     </main>
   );
@@ -90,11 +93,8 @@ export function AuthFooter({
   action: string;
 }) {
   return (
-    <p className="text-center text-sm text-muted">
-      {prompt}{" "}
-      <RouterLink className="font-medium text-link underline-offset-4 hover:underline" to={to}>
-        {action}
-      </RouterLink>
+    <p className="text-center">
+      {prompt} <RouterLink to={to}>{action}</RouterLink>
     </p>
   );
 }
@@ -118,7 +118,7 @@ export function GoogleAuthButton({
   const { t } = useI18n();
   return (
     <Button
-      className="auth-page__google-button w-full"
+      className="w-full"
       variant="secondary"
       type="button"
       isDisabled={isDisabled}

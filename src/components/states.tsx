@@ -16,8 +16,8 @@ export function LoadingState({ label, className }: { label?: string; className?:
       aria-label={loadingLabel}
     >
       <div className="flex min-h-24 flex-col items-center justify-center gap-3 px-4 py-6 text-center">
-        <Spinner aria-hidden="true" className="motion-reduce:animate-none" />
-        <span className="text-sm text-muted">{loadingLabel}</span>
+        <Spinner aria-hidden="true" />
+        <span>{loadingLabel}</span>
       </div>
     </Card>
   );
@@ -44,12 +44,10 @@ export function EmptyBlock({
 }) {
   return (
     <Card className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-      <div className="flex size-11 items-center justify-center rounded-full bg-surface-secondary text-muted">
-        {icon}
-      </div>
+      <div className="flex size-11 items-center justify-center">{icon}</div>
       <div className="space-y-1">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="max-w-sm text-sm text-muted">{description}</p>
+        <p>{title}</p>
+        <p className="max-w-sm">{description}</p>
       </div>
       {action}
     </Card>

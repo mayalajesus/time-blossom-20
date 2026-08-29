@@ -258,39 +258,30 @@ function WorkspacesPage() {
     const isCurrent = workspace.id === activeWorkspaceId;
     const canEdit = workspace.isOwned && workspace.status === "active";
     return (
-      <Card
-        key={workspace.id}
-        className={`flex min-h-44 min-w-0 flex-col p-4 ${isCurrent ? "ring-1 ring-focus/60" : ""}`}
-      >
+      <Card key={workspace.id} className="flex min-h-44 min-w-0 flex-col p-4">
         <div className="flex min-w-0 items-start gap-3">
           <WorkspaceLogo workspace={workspace} />
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="truncate font-semibold text-foreground">{workspace.name}</h2>
-                <p className="mt-1 truncate text-sm text-muted">
+                <h2 className="truncate">{workspace.name}</h2>
+                <p className="mt-1 truncate">
                   {workspace.isOwned
                     ? t("Owned by you")
                     : t("Owned by {name}", { name: workspace.ownerName })}
                 </p>
               </div>
-              {isCurrent ? (
-                <span className="shrink-0 rounded-full bg-surface-secondary px-2 py-1 text-xs text-accent">
-                  {t("Current")}
-                </span>
-              ) : null}
+              {isCurrent ? <span className="shrink-0 px-2 py-1">{t("Current")}</span> : null}
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
-              <span className="rounded-full bg-surface-secondary px-2 py-1">
-                {t(workspace.role)}
-              </span>
-              <span className="rounded-full bg-surface-secondary px-2 py-1">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="px-2 py-1">{t(workspace.role)}</span>
+              <span className="px-2 py-1">
                 {workspace.status === "archived" ? t("Archived") : t("Active")}
               </span>
             </div>
           </div>
         </div>
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-separator pt-4">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-4">
           <Button
             size="sm"
             variant={isCurrent ? "secondary" : "primary"}
@@ -362,14 +353,12 @@ function WorkspacesPage() {
         <section aria-labelledby="owned-workspaces-heading" className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 id="owned-workspaces-heading" className="font-medium text-foreground">
-                {t("Your workspaces")}
-              </h2>
-              <p className="mt-1 text-sm text-muted">
+              <h2 id="owned-workspaces-heading">{t("Your workspaces")}</h2>
+              <p className="mt-1">
                 {t("Up to 5 workspaces created by you, including archived ones.")}
               </p>
             </div>
-            <span className="text-sm tabular-nums text-muted">{owned.length}/5</span>
+            <span>{owned.length}/5</span>
           </div>
           <div className="grid gap-4 md:grid-cols-2">{owned.map(renderWorkspace)}</div>
         </section>
@@ -378,12 +367,8 @@ function WorkspacesPage() {
       {shared.length > 0 ? (
         <section aria-labelledby="shared-workspaces-heading" className="space-y-3">
           <div>
-            <h2 id="shared-workspaces-heading" className="font-medium text-foreground">
-              {t("Shared with you")}
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              {t("Workspaces where you collaborate with another owner.")}
-            </p>
+            <h2 id="shared-workspaces-heading">{t("Shared with you")}</h2>
+            <p className="mt-1">{t("Workspaces where you collaborate with another owner.")}</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">{shared.map(renderWorkspace)}</div>
         </section>
@@ -455,7 +440,7 @@ function WorkspacesPage() {
                 </Modal.Heading>
               </Modal.Header>
               <Modal.Body>
-                <p className="text-sm text-muted">
+                <p>
                   {confirmation?.kind === "archive"
                     ? t("Archived workspaces become read-only until the Owner restores them.")
                     : confirmation?.kind === "restore"
@@ -499,7 +484,7 @@ function WorkspacesPage() {
                 <Modal.Heading>{t("Pause timer before switching?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
-                <p className="text-sm text-muted">
+                <p>
                   {t(
                     "Pause the active timer before opening another workspace. It will remain paused in its original workspace.",
                   )}
@@ -631,12 +616,10 @@ function WorkspaceFormModal({
                   </Description>
                 </div>
                 {workspaceSettings ? (
-                  <div className="space-y-5 border-t border-separator pt-5">
+                  <div className="space-y-5 pt-5">
                     <div>
-                      <h2 className="font-medium text-foreground">{t("Workspace settings")}</h2>
-                      <p className="mt-1 text-sm text-muted">
-                        {t("Defaults shared by everyone in the workspace.")}
-                      </p>
+                      <h2>{t("Workspace settings")}</h2>
+                      <p className="mt-1">{t("Defaults shared by everyone in the workspace.")}</p>
                     </div>
                     <Switch
                       aria-label={t("Billable by default")}

@@ -36,15 +36,13 @@ function ForgotPasswordPage() {
       <AuthError message={error} />
       {sent ? (
         <div className="space-y-4" role="status">
-          <p className="text-sm text-foreground">
-            {t("If an account exists for this email, a reset link is on its way.")}
-          </p>
+          <p>{t("If an account exists for this email, a reset link is on its way.")}</p>
           <Button className="w-full" onPress={() => navigate({ to: "/login" })}>
             {t("Back to sign in")}
           </Button>
         </div>
       ) : (
-        <Form className="auth-page__fields space-y-4" onSubmit={submit}>
+        <Form className="space-y-4" onSubmit={submit}>
           <AuthField
             id="reset-email"
             label={t("Email")}

@@ -30,7 +30,7 @@ test("all primary routes reload into the designed app shell", async ({ page }) =
 test("authentication routes reload into a structured page", async ({ page }) => {
   for (const route of publicRoutes) {
     await page.goto(route);
-    await expect(page.locator("main.auth-page"), route).toBeVisible();
+    await expect(page.locator('main[data-page="auth"]'), route).toBeVisible();
     await expect(page.locator("body")).not.toContainText("Cannot find module");
     await expect(page.locator("body")).not.toContainText("Unexpected token");
   }

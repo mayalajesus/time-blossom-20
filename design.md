@@ -280,12 +280,38 @@ system before they can track time.
 - The period popover shows one compact seven-column HeroUI calendar grid at a
   time. Presets remain alongside it on larger screens without duplicate month
   panels or calendar scrolling.
-- The filter bar supports Team, Client, Project, Task, Description and
+- The filter bar supports Team, Client, Project, Description and
   Billability. Team is available only to Admins and Owners. Client and Project
   filters support multiple selections and accent-insensitive search; `No
 project` remains a first-class report category. Hidden filters keep their
   values until `Clear filters` is used. Tags and approval Status are not shown
   until the data model supports them.
+- The report filter bar is one official HeroUI `Toolbar` composition rather
+  than a large enclosing card. The period uses the official `DateRangePicker`
+  anatomy (`DateField.Group`, date segments, `DateRangePicker.Trigger` and
+  `DateRangePicker.Popover`) so its calendar is anchored to the field instead
+  of a hand-positioned panel. Team, Client, Project and Billability are all
+  HeroUI `Select` controls; multi-select popovers keep their search field and
+  `ListBox` inside the Select composition. No Button or div is used to imitate
+  a Select. `Clear filters` is an icon-only HeroUI ghost action with an
+  accessible label and remains disabled when there are no active selections,
+  while Description remains a standard HeroUI text field for free-text
+  matching.
+- `ButtonGroup` is reserved for related previous/next controls in Weekly. The
+  toolbar and each HeroUI control use their official defaults; local classes
+  only provide structural layout for wrapping and the bounded option list.
+  Presets and categorical options use HeroUI `ListBox`/`Select` primitives.
+  Task remains available as a report column and Summary grouping dimension,
+  but is intentionally not a toolbar filter. Report views are selected from
+  the Reports submenu in the sidebar; the report toolbar contains only the
+  period and data filters, with no duplicate view or filter-visibility
+  dropdown.
+- Period navigation, data filters and reset share one compact filter bar. The
+  period context comes first, followed by Team, Client, Project, Description
+  and Billability; the controls wrap between themselves on narrow screens,
+  never inside a control. Date and option popovers use the official HeroUI
+  overlay components, remain viewport-constrained, preserve keyboard focus and
+  do not move the report content when opened.
 - Members are scoped to their own entries in Reports and exports. Admins and
   Owners can analyze the full workspace. Detailed results are paginated at 50
   rows, while summary, weekly and team aggregation is calculated once per

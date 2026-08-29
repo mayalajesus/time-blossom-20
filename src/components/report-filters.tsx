@@ -1,19 +1,20 @@
 import {
   Button,
-  Checkbox,
+  ButtonGroup,
   Description,
+  DateField,
+  DateRangePicker,
   I18nProvider,
   Input,
   Label,
   ListBox,
-  Popover,
   RangeCalendar,
   Select,
   TextField,
+  Toolbar,
 } from "@heroui/react";
-import { CalendarDays, ChevronLeft, ChevronRight, Filter, RotateCcw, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import type { Selection } from "@react-types/shared";
+import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { CalendarDate } from "@internationalized/date";
 import type { RangeValue } from "@react-types/shared";
 import { useI18n } from "@/lib/i18n";
@@ -27,36 +28,17 @@ import {
 } from "@/lib/format";
 import type { Client, Member, Project } from "@/lib/mock-data";
 
-export type ReportFilterKey =
-  "member" | "client" | "project" | "task" | "description" | "billability";
+export type ReportFilterKey = "member" | "client" | "project" | "description" | "billability";
 
 export type ReportFilterValues = {
   memberIds: string[];
   clientIds: string[];
   projectIds: string[];
-  task: string;
   description: string;
   billability: "all" | "billable" | "internal";
 };
 
 export type ReportFilterOption = { id: string; label: string; description?: string };
-
-const filterLabels: Record<ReportFilterKey, string> = {
-  member: "Team",
-  client: "Client",
-  project: "Project",
-  task: "Task",
-  description: "Description",
-  billability: "Billability",
-};
-
-const defaultVisibleFilters: ReportFilterKey[] = [
-  "member",
-  "client",
-  "project",
-  "task",
-  "billability",
-];
 
 function toCalendarDate(value: string): CalendarDate | null {
   const parts = value.split("-").map(Number);
@@ -84,7 +66,7 @@ function toRangeValue(range: DateRange): RangeValue<CalendarDate> | null {
   return start && end ? { start, end } : null;
 }
 
-function fromRangeValue(value: RangeValue<CalendarDate>): DateRange | null {
+function fromRangeValue(value: RangeValue<CalendarDate> | null): DateRange | null {
   if (!value?.start || !value.end) return null;
   const first = value.start.toString();
   const second = value.end.toString();
@@ -113,6 +95,7 @@ function ReportMultiSelect({
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const normalizedQuery = normalizeSearch(query);
   const filteredOptions = useMemo(
     () =>
@@ -127,53 +110,55 @@ function ReportMultiSelect({
   );
 
   useEffect(() => {
-    if (!isOpen) setQuery("");
+    if (!isOpen) {
+      setQuery("");
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => searchRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
   }, [isOpen]);
 
   return (
-    <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
-      <Popover.Trigger
-        render={(triggerProps) => {
-          const buttonProps = Object.fromEntries(
-            Object.entries(triggerProps).filter(([, value]) => value !== undefined),
-          );
-          return (
-            <Button
-              {...buttonProps}
-              variant="secondary"
-              aria-label={t("{label} filter", { label })}
-              className="min-w-32 max-w-48 justify-between gap-2 text-sm"
-            >
-              <span className="truncate">{selectedLabel(options, values, label)}</span>
-              <ChevronRight className="size-4 shrink-0 rotate-90 text-muted" />
-            </Button>
-          );
-        }}
-      />
-      <Popover.Content placement="bottom start" className="w-64 max-w-[calc(100vw-1rem)] p-2">
-        <Popover.Dialog>
-          <div className="flex flex-col gap-2">
-            <TextField
-              name={`report-${label.toLowerCase()}-search`}
-              value={query}
-              onChange={setQuery}
-            >
-              <Label className="sr-only">
-                {t("Search {label} options", { label: label.toLowerCase() })}
-              </Label>
-              <Input placeholder={t("Search {label}...", { label: label.toLowerCase() })} />
-            </TextField>
-            <ListBox
-              aria-label={t("{label} options", { label })}
-              selectionMode="multiple"
-              selectedKeys={new Set(values)}
-              onSelectionChange={(keys: Selection) => {
-                onChange(
-                  keys === "all" ? options.map((option) => option.id) : [...keys].map(String),
-                );
+    <Select<object, "multiple">
+      aria-label={t("{label} filter", { label })}
+      selectionMode="multiple"
+      value={values}
+      isOpen={isOpen}
+      onOpenChange={(nextIsOpen) => {
+        setIsOpen(nextIsOpen);
+        if (!nextIsOpen) setQuery("");
+      }}
+      onChange={(keys) => {
+        const visibleIds = new Set(filteredOptions.map((option) => option.id));
+        const selectedVisibleIds = keys.map(String);
+        onChange(values.filter((value) => !visibleIds.has(value)).concat(selectedVisibleIds));
+      }}
+    >
+      <Select.Trigger>
+        <Select.Value>{() => selectedLabel(options, values, label)}</Select.Value>
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <div className="flex min-w-0 flex-col gap-2">
+          <TextField
+            name={`report-${label.toLowerCase()}-search`}
+            value={query}
+            onChange={setQuery}
+          >
+            <Label className="sr-only">
+              {t("Search {label} options", { label: label.toLowerCase() })}
+            </Label>
+            <Input
+              ref={searchRef}
+              placeholder={t("Search {label}...", { label: label.toLowerCase() })}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") event.stopPropagation();
               }}
-              className="max-h-64 overflow-y-auto"
-            >
+            />
+          </TextField>
+          <div className="max-h-64 overflow-y-auto">
+            <ListBox aria-label={t("{label} options", { label })}>
               {filteredOptions.map((option) => (
                 <ListBox.Item
                   key={option.id}
@@ -181,10 +166,8 @@ function ReportMultiSelect({
                   textValue={`${option.label} ${option.description ?? ""}`}
                 >
                   <div className="flex min-w-0 flex-col">
-                    <Label className="truncate">{option.label}</Label>
-                    {option.description ? (
-                      <Description className="truncate">{option.description}</Description>
-                    ) : null}
+                    <Label>{option.label}</Label>
+                    {option.description ? <Description>{option.description}</Description> : null}
                   </div>
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
@@ -196,9 +179,9 @@ function ReportMultiSelect({
               ) : null}
             </ListBox>
           </div>
-        </Popover.Dialog>
-      </Popover.Content>
-    </Popover>
+        </div>
+      </Select.Popover>
+    </Select>
   );
 }
 
@@ -215,45 +198,28 @@ function ReportSingleSelect({
 }) {
   const { t } = useI18n();
   return (
-    <Popover>
-      <Popover.Trigger
-        render={(triggerProps) => {
-          const buttonProps = Object.fromEntries(
-            Object.entries(triggerProps).filter(([, value]) => value !== undefined),
-          );
-          return (
-            <Button
-              {...buttonProps}
-              variant="secondary"
-              aria-label={t("{label} filter", { label })}
-              className="min-w-32 max-w-44 justify-between gap-2 text-sm"
-            >
-              <span className="truncate">
-                {options.find((option) => option.id === value)?.label ?? label}
-              </span>
-              <ChevronRight className="size-4 shrink-0 rotate-90 text-muted" />
-            </Button>
-          );
-        }}
-      />
-      <Popover.Content placement="bottom start" className="w-48 max-w-[calc(100vw-1rem)] p-1">
-        <Popover.Dialog>
-          <ListBox aria-label={t("{label} options", { label })} selectedKeys={new Set([value])}>
-            {options.map((option) => (
-              <ListBox.Item
-                key={option.id}
-                id={option.id}
-                textValue={option.label}
-                onAction={() => onChange(option.id)}
-              >
-                <Label>{option.label}</Label>
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
-            ))}
-          </ListBox>
-        </Popover.Dialog>
-      </Popover.Content>
-    </Popover>
+    <Select
+      aria-label={t("{label} filter", { label })}
+      value={value}
+      onChange={(key) => {
+        if (key !== null) onChange(String(key));
+      }}
+    >
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox aria-label={t("{label} options", { label })}>
+          {options.map((option) => (
+            <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
+              <Label>{option.label}</Label>
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
   );
 }
 
@@ -275,69 +241,67 @@ function ReportPeriodPicker({
   const [calendarValue, setCalendarValue] = useState<RangeValue<CalendarDate> | null>(() =>
     toRangeValue(range),
   );
-  const [isShortViewport, setIsShortViewport] = useState(false);
-
-  useEffect(() => {
-    const shortMediaQuery = window.matchMedia("(max-height: 40rem)");
-    const updateCalendarLayout = () => {
-      setIsShortViewport(shortMediaQuery.matches);
-    };
-
-    updateCalendarLayout();
-    shortMediaQuery.addEventListener("change", updateCalendarLayout);
-
-    return () => {
-      shortMediaQuery.removeEventListener("change", updateCalendarLayout);
-    };
-  }, []);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) setCalendarValue(toRangeValue(range));
   }, [isOpen, range]);
 
   return (
-    <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
-      <Popover.Trigger
-        render={(triggerProps) => {
-          const buttonProps = Object.fromEntries(
-            Object.entries(triggerProps).filter(([, value]) => value !== undefined),
-          );
-          return (
-            <Button
-              {...buttonProps}
-              variant="secondary"
-              aria-label={t("Date range: {range}", { range: formatReportPeriod(range, locale) })}
-              className="min-w-56 max-w-full gap-2 text-sm font-medium"
-            >
-              <CalendarDays className="size-4 shrink-0 text-muted" />
-              <span className="truncate">{formatReportPeriod(range, locale)}</span>
-              <ChevronRight className="ml-auto size-4 shrink-0 rotate-90 text-muted" />
-            </Button>
-          );
+    <I18nProvider locale={locale}>
+      <DateRangePicker
+        aria-label={t("Date range: {range}", { range: formatReportPeriod(range, locale) })}
+        value={calendarValue}
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
+        onChange={(nextValue) => {
+          setCalendarValue(nextValue);
+          const nextRange = fromRangeValue(nextValue);
+          if (nextRange) {
+            onChange("custom", nextRange);
+            setIsOpen(false);
+          }
         }}
-      />
-      <Popover.Content
-        placement={isShortViewport ? "top start" : "bottom start"}
-        shouldFlip
-        containerPadding={12}
-        offset={8}
-        className="calendar-popover-content w-[min(28rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-visible p-1"
       >
-        <Popover.Dialog>
+        <Label className="sr-only">{t("Report period")}</Label>
+        <DateField.Group aria-label={t("Selected report period")}>
+          <DateField.Input slot="start">
+            {(segment) => <DateField.Segment segment={segment} />}
+          </DateField.Input>
+          <DateRangePicker.RangeSeparator>–</DateRangePicker.RangeSeparator>
+          <DateField.Input slot="end">
+            {(segment) => <DateField.Segment segment={segment} />}
+          </DateField.Input>
+          <DateField.Suffix>
+            <DateRangePicker.Trigger
+              ref={triggerRef}
+              aria-label={t("Open {label} calendar", { label: t("Date range") })}
+            >
+              <DateRangePicker.TriggerIndicator />
+            </DateRangePicker.Trigger>
+          </DateField.Suffix>
+        </DateField.Group>
+
+        <DateRangePicker.Popover
+          placement="bottom start"
+          triggerRef={triggerRef}
+          shouldFlip
+          containerPadding={12}
+          offset={8}
+        >
           <div className="flex min-w-0 flex-col sm:flex-row">
-            <div className="hidden w-36 shrink-0 flex-col border-b border-separator p-2 sm:flex sm:border-r sm:border-b-0">
-              <p className="px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase">
-                {t("Date range")}
-              </p>
+            <div className="hidden w-36 shrink-0 flex-col p-2 sm:flex">
+              <p className="px-2 py-2">{t("Date range")}</p>
               {reportPeriodPresets.map((option) => (
                 <Button
                   key={option.id}
                   size="sm"
                   variant={preset === option.id ? "secondary" : "ghost"}
-                  className="justify-start rounded-lg px-2.5 text-sm"
                   onPress={() => {
                     if (option.id === "custom") return;
-                    onChange(option.id, getReportPeriodRange(option.id, today, weekStartsOn));
+                    const nextRange = getReportPeriodRange(option.id, today, weekStartsOn);
+                    setCalendarValue(toRangeValue(nextRange));
+                    onChange(option.id, nextRange);
                     setIsOpen(false);
                   }}
                 >
@@ -345,29 +309,28 @@ function ReportPeriodPicker({
                 </Button>
               ))}
             </div>
-            <div className="border-b border-separator p-0 sm:hidden">
+            <div className="p-0 sm:hidden">
               <Select
                 aria-label={t("Date range preset")}
                 fullWidth
                 value={preset}
                 onChange={(nextPreset) => {
                   if (!nextPreset || nextPreset === "custom") return;
-                  onChange(
+                  const nextRange = getReportPeriodRange(
                     String(nextPreset) as ReportPeriodPreset,
-                    getReportPeriodRange(
-                      String(nextPreset) as ReportPeriodPreset,
-                      today,
-                      weekStartsOn,
-                    ),
+                    today,
+                    weekStartsOn,
                   );
+                  setCalendarValue(toRangeValue(nextRange));
+                  onChange(String(nextPreset) as ReportPeriodPreset, nextRange);
                   setIsOpen(false);
                 }}
               >
-                <Select.Trigger className="h-9 min-h-9">
+                <Select.Trigger>
                   <Select.Value />
                   <Select.Indicator />
                 </Select.Trigger>
-                <Select.Popover className="w-[var(--trigger-width)] max-w-[calc(100vw-2rem)]">
+                <Select.Popover>
                   <ListBox aria-label={t("Date range presets")}>
                     {reportPeriodPresets.map((option) => (
                       <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
@@ -380,46 +343,34 @@ function ReportPeriodPicker({
               </Select>
             </div>
             <div className="min-w-0 flex-1 p-3 sm:w-64 sm:flex-none">
-              <I18nProvider locale={locale}>
-                <RangeCalendar
-                  aria-label={t("Choose report date range")}
-                  firstDayOfWeek={weekStartsOn === 0 ? "sun" : "mon"}
-                  value={calendarValue}
-                  onChange={(nextValue) => {
-                    setCalendarValue(nextValue);
-                    const nextRange = fromRangeValue(nextValue);
-                    if (nextRange) {
-                      onChange("custom", nextRange);
-                      setIsOpen(false);
-                    }
-                  }}
-                  visibleDuration={{ months: 1 }}
-                  className="calendar-no-scroll report-period-calendar mx-auto w-64 max-w-full p-0"
-                >
-                  <RangeCalendar.Header className="flex items-center justify-between gap-2">
-                    <RangeCalendar.NavButton slot="previous" aria-label={t("Previous month")}>
-                      <ChevronLeft className="size-4" />
-                    </RangeCalendar.NavButton>
-                    <RangeCalendar.Heading className="text-sm font-medium" />
-                    <RangeCalendar.NavButton slot="next" aria-label={t("Next month")}>
-                      <ChevronRight className="size-4" />
-                    </RangeCalendar.NavButton>
-                  </RangeCalendar.Header>
-                  <RangeCalendar.Grid className="mt-2 w-full max-w-full">
-                    <RangeCalendar.GridHeader>
-                      {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
-                    </RangeCalendar.GridHeader>
-                    <RangeCalendar.GridBody>
-                      {(date) => <RangeCalendar.Cell date={date} />}
-                    </RangeCalendar.GridBody>
-                  </RangeCalendar.Grid>
-                </RangeCalendar>
-              </I18nProvider>
+              <RangeCalendar
+                aria-label={t("Choose report date range")}
+                firstDayOfWeek={weekStartsOn === 0 ? "sun" : "mon"}
+                visibleDuration={{ months: 1 }}
+              >
+                <RangeCalendar.Header>
+                  <RangeCalendar.NavButton slot="previous" aria-label={t("Previous month")}>
+                    <ChevronLeft className="size-4" />
+                  </RangeCalendar.NavButton>
+                  <RangeCalendar.Heading />
+                  <RangeCalendar.NavButton slot="next" aria-label={t("Next month")}>
+                    <ChevronRight className="size-4" />
+                  </RangeCalendar.NavButton>
+                </RangeCalendar.Header>
+                <RangeCalendar.Grid>
+                  <RangeCalendar.GridHeader>
+                    {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
+                  </RangeCalendar.GridHeader>
+                  <RangeCalendar.GridBody>
+                    {(date) => <RangeCalendar.Cell date={date} />}
+                  </RangeCalendar.GridBody>
+                </RangeCalendar.Grid>
+              </RangeCalendar>
             </div>
           </div>
-        </Popover.Dialog>
-      </Popover.Content>
-    </Popover>
+        </DateRangePicker.Popover>
+      </DateRangePicker>
+    </I18nProvider>
   );
 }
 
@@ -438,7 +389,6 @@ export function ReportFiltersBar({
   onPeriodChange,
   onPeriodShift,
   onChange,
-  onVisibleFiltersChange,
   onClear,
 }: {
   preset: ReportPeriodPreset;
@@ -455,206 +405,156 @@ export function ReportFiltersBar({
   onPeriodChange: (preset: ReportPeriodPreset, range: DateRange) => void;
   onPeriodShift?: (direction: -1 | 1) => void;
   onChange: (patch: Partial<ReportFilterValues>) => void;
-  onVisibleFiltersChange: (filters: ReportFilterKey[]) => void;
   onClear: () => void;
 }) {
   const { t } = useI18n();
   const visible = showTeam ? visibleFilters : visibleFilters.filter((key) => key !== "member");
-  const memberOptions = members
-    .filter((member) => member.status === "active")
-    .map((member) => ({ id: member.id, label: member.name, description: member.email }));
-  const clientOptions = clients.map((client) => ({
-    id: client.id,
-    label: client.name,
-    description: client.contact,
-  }));
-  const projectOptions = [
-    { id: "none", label: "No project", description: "No client" },
-    ...projects.map((project) => ({
-      id: project.id,
-      label: project.name,
-      description:
-        clients.find((client) => client.id === project.clientId)?.name ?? t("Unknown client"),
-    })),
-  ];
-  const filterOptions = (Object.keys(filterLabels) as ReportFilterKey[]).filter(
-    (key) => showTeam || key !== "member",
+  const memberOptions = useMemo(
+    () =>
+      members
+        .filter((member) => member.status === "active")
+        .map((member) => ({ id: member.id, label: member.name, description: member.email })),
+    [members],
   );
+  const clientOptions = useMemo(
+    () =>
+      clients.map((client) => ({
+        id: client.id,
+        label: client.name,
+        description: client.contact,
+      })),
+    [clients],
+  );
+  const clientNameById = useMemo(
+    () => new Map(clients.map((client) => [client.id, client.name])),
+    [clients],
+  );
+  const projectOptions = useMemo(
+    () => [
+      { id: "none", label: "No project", description: "No client" },
+      ...projects.map((project) => ({
+        id: project.id,
+        label: project.name,
+        description: clientNameById.get(project.clientId) ?? t("Unknown client"),
+      })),
+    ],
+    [clientNameById, projects, t],
+  );
+  const activeFilterCount = [
+    values.memberIds.length > 0,
+    values.clientIds.length > 0,
+    values.projectIds.length > 0,
+    values.description.trim().length > 0,
+    values.billability !== "all",
+  ].filter(Boolean).length;
+  const hasActiveFilters = activeFilterCount > 0;
+  const dataFilterControls: ReactElement[] = [];
+
+  if (visible.includes("member") && showTeam) {
+    dataFilterControls.push(
+      <ReportMultiSelect
+        key="member"
+        label={t("Team")}
+        options={memberOptions}
+        values={values.memberIds}
+        onChange={(memberIds) => onChange({ memberIds })}
+      />,
+    );
+  }
+  if (visible.includes("client")) {
+    dataFilterControls.push(
+      <ReportMultiSelect
+        key="client"
+        label={t("Client")}
+        options={clientOptions}
+        values={values.clientIds}
+        onChange={(clientIds) => onChange({ clientIds })}
+      />,
+    );
+  }
+  if (visible.includes("project")) {
+    dataFilterControls.push(
+      <ReportMultiSelect
+        key="project"
+        label={t("Project")}
+        options={projectOptions}
+        values={values.projectIds}
+        onChange={(projectIds) => onChange({ projectIds })}
+      />,
+    );
+  }
+  if (visible.includes("billability")) {
+    dataFilterControls.push(
+      <ReportSingleSelect
+        key="billability"
+        label={t("Billability")}
+        value={values.billability}
+        options={[
+          { id: "all", label: t("All billability") },
+          { id: "billable", label: t("Billable") },
+          { id: "internal", label: t("Internal") },
+        ]}
+        onChange={(billability) =>
+          onChange({ billability: billability as ReportFilterValues["billability"] })
+        }
+      />,
+    );
+  }
 
   return (
-    <div className="space-y-3">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1">
-          {weeklyNavigation ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              isIconOnly
-              aria-label={t("Previous {unit}", { unit: t("week") })}
-              onPress={() => onPeriodShift?.(-1)}
-            >
-              <ChevronLeft className="size-4" />
-            </Button>
-          ) : null}
-          <ReportPeriodPicker
-            preset={preset}
-            range={range}
-            today={today}
-            weekStartsOn={weekStartsOn}
-            onChange={onPeriodChange}
-          />
-          {weeklyNavigation ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              isIconOnly
-              aria-label={t("Next {unit}", { unit: t("week") })}
-              onPress={() => onPeriodShift?.(1)}
-            >
-              <ChevronRight className="size-4" />
-            </Button>
-          ) : null}
-        </div>
-        <Button variant="ghost" size="sm" onPress={onClear}>
-          <RotateCcw className="size-4" />
-          {t("Clear filters")}
-        </Button>
-      </div>
-
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <Popover>
-          <Popover.Trigger
-            render={(triggerProps) => {
-              const buttonProps = Object.fromEntries(
-                Object.entries(triggerProps).filter(([, value]) => value !== undefined),
-              );
-              return (
-                <Button
-                  {...buttonProps}
-                  variant="secondary"
-                  aria-label={t("Choose report filters")}
-                  className="shrink-0 gap-2 text-sm font-medium"
-                >
-                  <Filter className="size-4" />
-                  {t("Filters")}
-                </Button>
-              );
-            }}
-          />
-          <Popover.Content placement="bottom start" className="w-64 max-w-[calc(100vw-1rem)] p-2">
-            <Popover.Dialog>
-              <p className="px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase">
-                {t("Show filters")}
-              </p>
-              <div className="space-y-1">
-                {filterOptions.map((key) => (
-                  <Checkbox
-                    key={key}
-                    isSelected={visibleFilters.includes(key)}
-                    onChange={(selected) => {
-                      const next = selected
-                        ? [...visibleFilters, key]
-                        : visibleFilters.filter((current) => current !== key);
-                      onVisibleFiltersChange(next);
-                    }}
-                  >
-                    <Checkbox.Content>
-                      <Checkbox.Control>
-                        <Checkbox.Indicator />
-                      </Checkbox.Control>
-                      <Label>{t(filterLabels[key])}</Label>
-                    </Checkbox.Content>
-                  </Checkbox>
-                ))}
-              </div>
-            </Popover.Dialog>
-          </Popover.Content>
-        </Popover>
-
-        {visible.includes("member") && showTeam ? (
-          <ReportMultiSelect
-            label={t("Team")}
-            options={memberOptions}
-            values={values.memberIds}
-            onChange={(memberIds) => onChange({ memberIds })}
-          />
-        ) : null}
-        {visible.includes("client") ? (
-          <ReportMultiSelect
-            label={t("Client")}
-            options={clientOptions}
-            values={values.clientIds}
-            onChange={(clientIds) => onChange({ clientIds })}
-          />
-        ) : null}
-        {visible.includes("project") ? (
-          <ReportMultiSelect
-            label={t("Project")}
-            options={projectOptions}
-            values={values.projectIds}
-            onChange={(projectIds) => onChange({ projectIds })}
-          />
-        ) : null}
-        {visible.includes("task") ? (
-          <TextField
-            className="w-44"
-            name="report-task-filter"
-            value={values.task}
-            onChange={(task) => onChange({ task })}
-          >
-            <Label className="sr-only">{t("Task filter")}</Label>
-            <Input placeholder={t("Task")} />
-          </TextField>
-        ) : null}
-        {visible.includes("description") ? (
-          <TextField
-            className="w-48"
-            name="report-description-filter"
-            value={values.description}
-            onChange={(description) => onChange({ description })}
-          >
-            <Label className="sr-only">{t("Description filter")}</Label>
-            <Input placeholder={t("Description")} />
-          </TextField>
-        ) : null}
-        {visible.includes("billability") ? (
-          <ReportSingleSelect
-            label={t("Billability")}
-            value={values.billability}
-            options={[
-              { id: "all", label: t("All billability") },
-              { id: "billable", label: t("Billable") },
-              { id: "internal", label: t("Internal") },
-            ]}
-            onChange={(billability) =>
-              onChange({ billability: billability as ReportFilterValues["billability"] })
-            }
-          />
-        ) : null}
-        {visible.length === 0 ? (
+    <Toolbar
+      orientation="horizontal"
+      isAttached
+      aria-label={t("Report filters")}
+      className="w-full max-w-full flex-wrap"
+    >
+      {weeklyNavigation ? (
+        <ButtonGroup variant="tertiary" size="sm" aria-label={t("Report period navigation")}>
           <Button
-            variant="ghost"
-            size="sm"
-            onPress={() => onVisibleFiltersChange(defaultVisibleFilters)}
-          >
-            {t("Add filters")}
-          </Button>
-        ) : null}
-        {values.memberIds.length + values.clientIds.length + values.projectIds.length > 0 ||
-        values.task ||
-        values.description ||
-        values.billability !== "all" ? (
-          <Button
-            variant="ghost"
             isIconOnly
-            size="sm"
-            aria-label={t("Clear active report filters")}
-            onPress={onClear}
+            aria-label={t("Previous {unit}", { unit: t("week") })}
+            onPress={() => onPeriodShift?.(-1)}
           >
-            <X className="size-4" />
+            <ChevronLeft className="size-4" />
           </Button>
-        ) : null}
-      </div>
-    </div>
+          <Button
+            isIconOnly
+            aria-label={t("Next {unit}", { unit: t("week") })}
+            onPress={() => onPeriodShift?.(1)}
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+        </ButtonGroup>
+      ) : null}
+      <ReportPeriodPicker
+        preset={preset}
+        range={range}
+        today={today}
+        weekStartsOn={weekStartsOn}
+        onChange={onPeriodChange}
+      />
+
+      {dataFilterControls}
+      {visible.includes("description") ? (
+        <TextField
+          name="report-description-filter"
+          value={values.description}
+          onChange={(description) => onChange({ description })}
+        >
+          <Label className="sr-only">{t("Description filter")}</Label>
+          <Input placeholder={t("Description")} />
+        </TextField>
+      ) : null}
+      <Button
+        variant="ghost"
+        size="sm"
+        isIconOnly
+        aria-label={t("Clear filters")}
+        isDisabled={!hasActiveFilters}
+        onPress={onClear}
+      >
+        <RotateCcw className="size-4" />
+      </Button>
+    </Toolbar>
   );
 }

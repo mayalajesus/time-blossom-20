@@ -23,8 +23,8 @@ function AuthCallbackPage() {
         role="status"
         aria-live="polite"
       >
-        <Spinner aria-label={t("Loading data")} className="motion-reduce:animate-none" />
-        <p className="text-sm text-muted">{t("Finishing sign in")}</p>
+        <Spinner aria-label={t("Loading data")} />
+        <p>{t("Finishing sign in")}</p>
       </div>
     </AuthPage>
   );

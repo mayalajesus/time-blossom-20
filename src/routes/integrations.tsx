@@ -69,14 +69,12 @@ function IntegrationsPage() {
       <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-surface-secondary p-2">
+            <div className="flex size-10 items-center justify-center p-2">
               <Trello className="size-5" />
             </div>
             <div className="space-y-1">
-              <p className="font-medium text-foreground">Trello</p>
-              <p className="text-sm text-muted">
-                {t("Import cards from your boards and start timers straight from a card.")}
-              </p>
+              <p>Trello</p>
+              <p>{t("Import cards from your boards and start timers straight from a card.")}</p>
               <Chip color={connected ? "success" : "default"} size="sm" variant="soft">
                 {t(trello.status)}
               </Chip>
@@ -86,20 +84,20 @@ function IntegrationsPage() {
             <Button
               aria-label={t("Connect Trello")}
               aria-pressed={toggleSelected}
-              className="h-7 w-12 min-w-12 justify-start rounded-full p-1 data-[pressed=true]:justify-end"
+              className="h-7 w-12 min-w-12 justify-start p-1"
               isIconOnly
               variant="tertiary"
               onPress={() => connect(!toggleSelected)}
             >
-              <span className="size-5 rounded-full bg-foreground shadow-sm" />
+              <span className="size-5" />
             </Button>
           ) : null}
         </div>
 
         {connected ? (
-          <div className="mt-6 space-y-4 border-t border-separator pt-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-              <span className="text-muted">
+          <div className="mt-6 space-y-4 pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span>
                 {trello.workspace} · {trello.board} · {t("last sync")}{" "}
                 {trello.lastSync ?? t("never")}
               </span>
@@ -114,10 +112,10 @@ function IntegrationsPage() {
                 </Button>
               ) : null}
             </div>
-            <ul className="divide-y divide-separator overflow-hidden rounded-2xl bg-surface-secondary/40">
+            <ul className="overflow-hidden">
               {trello.cards.map((card) => (
                 <li key={card} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <p className="text-sm text-foreground">{card}</p>
+                  <p>{card}</p>
                   <Chip size="sm" variant="soft">
                     {trello.board}
                   </Chip>

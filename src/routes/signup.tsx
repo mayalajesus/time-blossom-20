@@ -1,4 +1,4 @@
-import { Button, Form } from "@heroui/react";
+import { Button, Form, Separator } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -66,9 +66,7 @@ function SignupPage() {
       <AuthError message={error} />
       {created ? (
         <div className="space-y-4" role="status">
-          <p className="text-sm text-foreground">
-            {t("Check your email to confirm your account before signing in.")}
-          </p>
+          <p>{t("Check your email to confirm your account before signing in.")}</p>
           <Button
             className="w-full"
             onPress={() =>
@@ -80,7 +78,7 @@ function SignupPage() {
         </div>
       ) : (
         <>
-          <Form className="auth-page__fields space-y-4" onSubmit={submit}>
+          <Form className="space-y-4" onSubmit={submit}>
             <AuthField
               id="signup-email"
               label={t("Email")}
@@ -137,10 +135,10 @@ function SignupPage() {
               {busy ? t("Creating account…") : t("Create account")}
             </Button>
           </Form>
-          <div className="flex items-center gap-3 text-xs text-muted" role="separator">
-            <span className="h-px flex-1 bg-separator" />
+          <div className="flex items-center gap-3" role="separator">
+            <Separator className="flex-1" />
             {t("or")}
-            <span className="h-px flex-1 bg-separator" />
+            <Separator className="flex-1" />
           </div>
           <GoogleAuthButton
             onPress={async () => {

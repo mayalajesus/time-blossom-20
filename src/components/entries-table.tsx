@@ -69,24 +69,20 @@ export function EntriesTable({
               <Table.Row key={entry.id}>
                 <Table.Cell>
                   <div className="flex flex-col">
-                    <span className="font-medium text-foreground">{entry.task}</span>
-                    {entry.description ? (
-                      <span className="text-xs text-muted">{entry.description}</span>
-                    ) : null}
+                    <span>{entry.task}</span>
+                    {entry.description ? <span>{entry.description}</span> : null}
                   </div>
                 </Table.Cell>
                 <Table.Cell>{projectName(entry.projectId)}</Table.Cell>
                 {showMember ? <Table.Cell>{memberName(entry.userId)}</Table.Cell> : null}
                 {showDate ? <Table.Cell>{formatDate(entry.date, locale)}</Table.Cell> : null}
-                <Table.Cell className="tabular-nums text-muted">
+                <Table.Cell>
                   {entry.start} – {entry.end}
                   {getEntryEndDayOffset(entry) > 0 ? (
-                    <sup className="ml-1 text-[10px]">+{getEntryEndDayOffset(entry)}</sup>
+                    <sup className="ml-1">+{getEntryEndDayOffset(entry)}</sup>
                   ) : null}
                 </Table.Cell>
-                <Table.Cell className="tabular-nums font-medium">
-                  {formatDuration(entry.seconds, locale)}
-                </Table.Cell>
+                <Table.Cell>{formatDuration(entry.seconds, locale)}</Table.Cell>
                 <Table.Cell>
                   <Chip color={entry.billable ? "success" : "default"} size="sm" variant="soft">
                     {entry.billable ? t("Billable") : t("Internal")}
@@ -153,7 +149,7 @@ export function EntriesTable({
                 <Modal.Heading>{t("Delete time entry?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
-                <p className="text-sm text-muted">
+                <p>
                   {t(
                     "This removes {task}. You can undo it from the confirmation toast for 20 seconds.",
                     {

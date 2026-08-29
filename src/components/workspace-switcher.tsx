@@ -11,23 +11,23 @@ function WorkspaceItem({ workspace, active }: { workspace: WorkspaceSummary; act
     <Dropdown.Item
       id={workspace.id}
       textValue={`${workspace.name} ${workspace.ownerName} ${workspace.role}`}
-      className={`workspace-switcher-item${active ? " workspace-switcher-item-active" : ""}`}
+      aria-current={active ? "true" : undefined}
     >
-      <span className="workspace-switcher-item-mark" aria-hidden="true">
+      <span aria-hidden="true">
         <Layers3 className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate font-medium">{workspace.name}</span>
+          <span className="truncate">{workspace.name}</span>
           {workspace.status === "archived" ? (
-            <span className="shrink-0 text-[0.65rem] text-muted">{t("Archived")}</span>
+            <span className="shrink-0">{t("Archived")}</span>
           ) : null}
         </span>
-        <span className="block truncate text-xs text-muted">
+        <span className="block truncate">
           {workspace.isOwned ? t("Owned by you") : workspace.ownerName} · {t(workspace.role)}
         </span>
       </span>
-      {active ? <Check aria-hidden="true" className="size-4 shrink-0 text-foreground" /> : null}
+      {active ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}
     </Dropdown.Item>
   );
 }
@@ -80,37 +80,26 @@ export function WorkspaceSwitcher({
   };
 
   const pendingWorkspace = workspaces.find((workspace) => workspace.id === pendingWorkspaceId);
-  const triggerClassName = `workspace-switcher-trigger${collapsed ? " workspace-switcher-trigger-collapsed" : ""}`;
   const triggerContent = (
     <>
-      <span className="workspace-switcher-mark" aria-hidden="true">
+      <span aria-hidden="true">
         <Layers3 className="size-4" />
       </span>
       {!collapsed ? (
-        <span className="workspace-switcher-meta min-w-0 flex-1">
-          <span className="workspace-switcher-name">{currentSummary.name}</span>
-          <span className="workspace-switcher-role">{t(currentSummary.role)}</span>
+        <span className="min-w-0 flex-1">
+          <span>{currentSummary.name}</span>
+          <span>{t(currentSummary.role)}</span>
         </span>
       ) : null}
-      {!collapsed ? (
-        <ChevronDown
-          aria-hidden="true"
-          className="workspace-switcher-chevron size-4 shrink-0 text-muted"
-        />
-      ) : null}
+      {!collapsed ? <ChevronDown aria-hidden="true" className="size-4 shrink-0" /> : null}
       {collapsed ? <span className="sr-only">{currentSummary.name}</span> : null}
     </>
   );
   const workspaceMenu = (
     <Dropdown.Menu aria-label={t("Workspaces")} onAction={(key) => requestSwitch(String(key))}>
       {own.length > 0 ? (
-        <Dropdown.Section aria-label={t("Your workspaces")} className="workspace-switcher-section">
-          <Dropdown.Item
-            id="owned-heading"
-            isDisabled
-            textValue={t("Your workspaces")}
-            className="workspace-switcher-group-heading"
-          >
+        <Dropdown.Section aria-label={t("Your workspaces")}>
+          <Dropdown.Item id="owned-heading" isDisabled textValue={t("Your workspaces")}>
             <Label>{t("Your workspaces")}</Label>
           </Dropdown.Item>
           {own.map((workspace) => (
@@ -123,13 +112,8 @@ export function WorkspaceSwitcher({
         </Dropdown.Section>
       ) : null}
       {shared.length > 0 ? (
-        <Dropdown.Section aria-label={t("Shared with you")} className="workspace-switcher-section">
-          <Dropdown.Item
-            id="shared-heading"
-            isDisabled
-            textValue={t("Shared with you")}
-            className="workspace-switcher-group-heading"
-          >
+        <Dropdown.Section aria-label={t("Shared with you")}>
+          <Dropdown.Item id="shared-heading" isDisabled textValue={t("Shared with you")}>
             <Label>{t("Shared with you")}</Label>
           </Dropdown.Item>
           {shared.map((workspace) => (
@@ -146,12 +130,16 @@ export function WorkspaceSwitcher({
 
   return (
     <>
-      <Card
-        variant="secondary"
-        className={`workspace-switcher-card${collapsed ? " workspace-switcher-card-collapsed" : ""}`}
-      >
+      <Card variant="secondary" className="p-1">
         <Dropdown>
-          <Dropdown.Trigger aria-label={t("Switch workspace")} className={triggerClassName}>
+          <Dropdown.Trigger
+            aria-label={t("Switch workspace")}
+            className={
+              collapsed
+                ? "flex h-10 w-10 items-center justify-center p-0"
+                : "flex min-w-0 items-center gap-2"
+            }
+          >
             {triggerContent}
           </Dropdown.Trigger>
           <Dropdown.Popover
@@ -161,7 +149,7 @@ export function WorkspaceSwitcher({
             shouldFlip
             containerPadding={12}
             offset={8}
-            className={`workspace-switcher-popover${collapsed ? " workspace-switcher-popover-collapsed" : ""}`}
+            className="max-w-[calc(100vw-1rem)]"
           >
             {workspaceMenu}
           </Dropdown.Popover>
@@ -178,7 +166,7 @@ export function WorkspaceSwitcher({
                 <Modal.Heading>{t("Pause timer before switching?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body className="space-y-3">
-                <p className="text-sm text-muted">
+                <p>
                   {t(
                     "Your active timer is running in {workspace}. Pause it before opening another workspace.",
                     {
@@ -186,10 +174,10 @@ export function WorkspaceSwitcher({
                     },
                   )}
                 </p>
-                <div className="flex items-center gap-2 rounded-xl bg-surface-secondary p-3">
-                  <Layers3 aria-hidden="true" className="size-4 text-muted" />
+                <div className="flex items-center gap-2 p-3">
+                  <Layers3 aria-hidden="true" className="size-4" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{currentSummary.name}</p>
+                    <p className="truncate">{currentSummary.name}</p>
                     <Description>
                       {t("The timer will remain paused in its original workspace.")}
                     </Description>

@@ -204,10 +204,8 @@ function TeamPage() {
                         <Avatar.Fallback>{member.initials}</Avatar.Fallback>
                       </Avatar>
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium text-foreground">
-                          {invited ? member.email : member.name}
-                        </span>
-                        <span className="truncate text-xs text-muted">
+                        <span className="truncate">{invited ? member.email : member.name}</span>
+                        <span className="truncate">
                           {invited
                             ? t("Invitation pending")
                             : removed
@@ -227,7 +225,7 @@ function TeamPage() {
                       {invited ? t("Invited") : removed ? t("Removed") : t("Active")}
                     </Chip>
                   </Table.Cell>
-                  <Table.Cell className="tabular-nums">
+                  <Table.Cell>
                     {invited ? "—" : formatDuration(secondsFor(member.id), locale)}
                   </Table.Cell>
                   <Table.Cell>
@@ -450,7 +448,7 @@ function TeamPage() {
                 {cancelError ? (
                   <FormAlert title={t("Could not cancel invitation")} description={cancelError} />
                 ) : null}
-                <p className="text-sm text-muted">
+                <p>
                   {t("The pending invitation for {email} will be removed from the team list.", {
                     email: pendingCancel?.email ?? t("this member"),
                   })}
@@ -490,7 +488,7 @@ function TeamPage() {
                 {removeError ? (
                   <FormAlert title={t("Could not remove member")} description={removeError} />
                 ) : null}
-                <p className="text-sm text-muted">
+                <p>
                   {t(
                     "Removing {name} revokes workspace access and removes them from current project assignments. Their tracked time and reports remain available. Restoring access later will not reassign projects automatically.",
                     {

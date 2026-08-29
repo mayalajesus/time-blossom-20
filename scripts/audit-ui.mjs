@@ -4,12 +4,7 @@ import process from "node:process";
 
 const root = process.cwd();
 const sourceRoot = join(root, "src");
-const forbiddenClasses = [
-  "surface-card",
-  "surface-card-interactive",
-  "field-control",
-  "hero-menu-surface",
-];
+const chartFile = "src/components/ui/chart.tsx";
 const legacyImports = [
   "@radix-ui/",
   "class-variance-authority",
@@ -21,6 +16,9 @@ const legacyImports = [
   "sonner",
   "vaul",
 ];
+const forbiddenVisualClasses =
+  /\b(?:bg|border|ring|shadow|rounded|font|leading|tracking|hover|focus|transition|animate|backdrop|opacity|divide|decoration|fill|stroke|outline|text)-(?!center\b|left\b|right\b|start\b|end\b|wrap\b|nowrap\b)/;
+const appUiRoots = ["src/components/", "src/routes/", "src/main.tsx"];
 
 async function filesIn(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -38,12 +36,9 @@ async function filesIn(directory) {
 const violations = [];
 const sourceFiles = await filesIn(sourceRoot);
 const packageJson = JSON.parse(await readFile(join(root, "package.json")));
+const packageNames = Object.keys({ ...packageJson.dependencies, ...packageJson.devDependencies });
 
 for (const dependency of legacyImports) {
-  const packageNames = Object.keys({
-    ...packageJson.dependencies,
-    ...packageJson.devDependencies,
-  });
   const isPresent = packageNames.some((name) =>
     dependency.endsWith("/") ? name.startsWith(dependency) : name === dependency,
   );
@@ -53,30 +48,71 @@ for (const dependency of legacyImports) {
 for (const path of sourceFiles) {
   const content = await readFile(path, "utf8");
   const file = relative(root, path).replaceAll("\\", "/");
+  const isChartException = file === chartFile;
+  const isAppUiFile = appUiRoots.some((rootPath) => file === rootPath || file.startsWith(rootPath));
 
-  if (content.includes("@/components/ui") || content.includes("src/components/ui")) {
-    violations.push(`${file}: import from src/components/ui`);
+  if (
+    content.includes("@heroui-pro/") ||
+    content.includes("hero-ui-pro") ||
+    content.includes("heroui-pro")
+  ) {
+    violations.push(`${file}: HeroUI Pro is forbidden`);
+  }
+
+  if (content.includes("@/components/ui/") && !content.includes("@/components/ui/chart")) {
+    violations.push(
+      `${file}: only the approved chart helper may be imported from src/components/ui`,
+    );
   }
 
   for (const dependency of legacyImports) {
     if (
       new RegExp(
-        `(?:from|import\\s*\\(|require\\s*\\()\\s*[\\\"']${dependency.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}`,
+        `(?:from|import\\s*\\(|require\\s*\\()\\s*[\\"']${dependency.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&")}`,
       ).test(content)
     ) {
       violations.push(`${file}: legacy UI dependency ${dependency}`);
     }
   }
 
-  for (const className of forbiddenClasses) {
-    if (content.includes(className)) violations.push(`${file}: duplicated UI class ${className}`);
+  if (content.includes('from "recharts"') || content.includes("from 'recharts'")) {
+    if (!isChartException && file !== "src/routes/reports.tsx") {
+      violations.push(`${file}: Recharts is allowed only in the chart helper and reports route`);
+    }
   }
 
-  if (!file.endsWith(".tsx")) continue;
+  if (!isChartException && /\bstyle\s*=|<style\b|dangerouslySetInnerHTML/.test(content)) {
+    violations.push(`${file}: inline or authored styles are forbidden outside the chart exception`);
+  }
+
+  const contentForClassAudit =
+    file === "src/components/layout/app-shell.tsx"
+      ? content.replaceAll("bg-background", "")
+      : content;
+  if (!isChartException && isAppUiFile && forbiddenVisualClasses.test(contentForClassAudit)) {
+    violations.push(`${file}: visual utility class outside the approved chart exception`);
+  }
+
+  if (file.endsWith(".css")) {
+    const themeOverride = /--background\s*:\s*#060607\s*;/gi;
+    const contentWithoutApprovedThemeOverride = content.replace(themeOverride, "");
+    if (/--[a-zA-Z0-9_-]+\s*:/.test(contentWithoutApprovedThemeOverride)) {
+      violations.push(`${file}: authored design token or theme variable`);
+    }
+    if (
+      /\b(?:background|background-color|color|border|box-shadow|font|text-shadow)\s*:/.test(
+        contentWithoutApprovedThemeOverride,
+      )
+    ) {
+      violations.push(`${file}: authored visual CSS property`);
+    }
+  }
+
+  if (!file.endsWith(".tsx") || isChartException) continue;
 
   const nativeTags = content.match(/<(button|select|textarea|a|img)\b[\s\S]*?>/g) ?? [];
   for (const tag of nativeTags) {
-    violations.push(`${file}: visible native control ${tag.split(/\s|>/, 1)[0]}`);
+    violations.push(`${file}: native interactive/visual element ${tag.split(/\s|>/, 1)[0]}`);
   }
 
   const nativeInputs = content.match(/<input\b[\s\S]*?>/g) ?? [];
@@ -89,12 +125,18 @@ for (const path of sourceFiles) {
 }
 
 try {
-  const legacyDirectory = await stat(join(sourceRoot, "components", "ui"));
-  if (legacyDirectory.isDirectory()) {
-    violations.push("src/components/ui: legacy component directory still exists");
+  const uiDirectory = await stat(join(sourceRoot, "components", "ui"));
+  if (uiDirectory.isDirectory()) {
+    const uiFiles = (await filesIn(join(sourceRoot, "components", "ui"))).map((path) =>
+      relative(root, path).replaceAll("\\", "/"),
+    );
+    for (const file of uiFiles) {
+      if (file !== chartFile)
+        violations.push(`${file}: only chart.tsx is allowed in src/components/ui`);
+    }
   }
 } catch {
-  // The legacy directory is intentionally absent.
+  // The chart exception is optional when no chart is present.
 }
 
 if (violations.length > 0) {
@@ -103,6 +145,6 @@ if (violations.length > 0) {
   process.exitCode = 1;
 } else {
   console.log(
-    "UI audit passed: active UI uses HeroUI components and approved technical exceptions only.",
+    "UI audit passed: HeroUI Core is the product UI system; shadcn/ui chart helper is the only approved exception.",
   );
 }

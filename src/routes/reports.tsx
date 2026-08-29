@@ -6,8 +6,6 @@ import {
   Label,
   ListBox,
   Popover,
-  ProgressBar,
-  ProgressCircle,
   Select,
   Table,
   TextField,
@@ -15,6 +13,19 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, ChevronRight, Download, FileBarChart, RotateCcw } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  PolarAngleAxis,
+  RadialBar,
+  RadialBarChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { DataTable } from "@/components/data-table";
 import { ExportModal } from "@/components/export-modal";
 import {
@@ -24,6 +35,7 @@ import {
 } from "@/components/report-filters";
 import { PageHeader } from "@/components/page-header";
 import { EmptyBlock, CardsSkeleton } from "@/components/states";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import type { Client, Member, Project, TimeEntry } from "@/lib/mock-data";
 import {
   formatDate,
@@ -78,13 +90,7 @@ const weeklyOptions: Array<{ id: WeeklyDimension; label: string }> = [
   { id: "member", label: "Member" },
 ];
 
-const defaultVisibleFilters: ReportFilterKey[] = [
-  "member",
-  "client",
-  "project",
-  "task",
-  "billability",
-];
+const defaultVisibleFilters: ReportFilterKey[] = ["member", "client", "project", "billability"];
 
 const detailedColumnOptions: Array<{ id: DetailedColumn; label: string }> = [
   { id: "date", label: "Date" },
@@ -116,7 +122,6 @@ type ReportSearch = {
   members?: string;
   clients?: string;
   projects?: string;
-  task?: string;
   description?: string;
   billability?: ReportFilterValues["billability"];
   visible?: string;
@@ -317,7 +322,6 @@ export const Route = createFileRoute("/reports")({
     members: asCsv(search["members"]),
     clients: asCsv(search["clients"]),
     projects: asCsv(search["projects"]),
-    task: asText(search["task"]),
     description: asText(search["description"]),
     billability:
       search["billability"] === "billable" || search["billability"] === "internal"
@@ -356,7 +360,6 @@ function ReportsPage() {
     members: rawSearch.members ?? "",
     clients: rawSearch.clients ?? "",
     projects: rawSearch.projects ?? "",
-    task: rawSearch.task ?? "",
     description: rawSearch.description ?? "",
     billability: rawSearch.billability ?? "all",
     visible: rawSearch.visible ?? defaultVisibleFilters.join(","),
@@ -403,21 +406,13 @@ function ReportsPage() {
       memberIds: parseIds(search.members),
       clientIds: parseIds(search.clients),
       projectIds: parseIds(search.projects),
-      task: search.task,
       description: search.description,
       billability: search.billability,
     }),
-    [
-      search.billability,
-      search.clients,
-      search.description,
-      search.members,
-      search.projects,
-      search.task,
-    ],
+    [search.billability, search.clients, search.description, search.members, search.projects],
   );
   const visibleFilters = parseIds(search.visible).filter((key): key is ReportFilterKey =>
-    ["member", "client", "project", "task", "description", "billability"].includes(key),
+    ["member", "client", "project", "description", "billability"].includes(key),
   );
 
   const updateSearch = (patch: Partial<ReportSearch>) => {
@@ -444,15 +439,6 @@ function ReportsPage() {
     });
   };
 
-  const changeView = (nextView: ReportView) => {
-    if (nextView === "weekly") {
-      const week = getWeekBounds(today, weekStartsOn);
-      updateSearch({ view: nextView, preset: "this-week", start: week.start, end: week.end });
-      return;
-    }
-    updateSearch({ view: nextView });
-  };
-
   const scopedEntries = can("view-all-reports")
     ? entries
     : entries.filter((entry) => entry.userId === currentUserId);
@@ -462,7 +448,6 @@ function ReportsPage() {
     [projects],
   );
   const clientMap = useMemo(() => new Map(clients.map((client) => [client.id, client])), [clients]);
-  const normalizedTask = normalizeSearch(filterValues.task);
   const normalizedDescription = normalizeSearch(filterValues.description);
 
   const filteredEntries = useMemo(() => {
@@ -481,7 +466,6 @@ function ReportsPage() {
         (entry) =>
           selectedProjectIds.size === 0 || selectedProjectIds.has(entry.projectId ?? "none"),
       )
-      .filter((entry) => !normalizedTask || normalizeSearch(entry.task).includes(normalizedTask))
       .filter(
         (entry) =>
           !normalizedDescription ||
@@ -496,7 +480,6 @@ function ReportsPage() {
   }, [
     filterValues,
     normalizedDescription,
-    normalizedTask,
     projectMap,
     range.endDate,
     range.startDate,
@@ -552,7 +535,6 @@ function ReportsPage() {
               search.projects
                 ? t("{count} projects", { count: parseIds(search.projects).length })
                 : "",
-              search.task ? `${t("Task")}: ${search.task}` : "",
               search.description ? `${t("Description")}: ${search.description}` : "",
               search.billability !== "all" ? t(search.billability) : "",
             ]
@@ -581,7 +563,6 @@ function ReportsPage() {
       search.description,
       search.members,
       search.projects,
-      search.task,
       search.view,
       t,
       total,
@@ -741,7 +722,6 @@ function ReportsPage() {
       members: "",
       clients: "",
       projects: "",
-      task: "",
       description: "",
       billability: "all",
     });
@@ -753,30 +733,6 @@ function ReportsPage() {
         description={description}
         actions={
           <div className="flex items-center gap-2">
-            <Select
-              aria-label={t("Report view")}
-              className="w-36"
-              value={search.view}
-              onChange={(key) => {
-                if (key) changeView(String(key) as ReportView);
-              }}
-            >
-              <Label className="sr-only">{t("Report view")}</Label>
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox aria-label={t("Report views")}>
-                  {reportViews.map((report) => (
-                    <ListBox.Item key={report.id} id={report.id} textValue={report.label}>
-                      <Label>{t(report.label)}</Label>
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
             <Button variant="secondary" onPress={() => setExportOpen(true)}>
               <Download className="size-4" />
               {t("Export")}
@@ -805,18 +761,15 @@ function ReportsPage() {
             members: encodeIds(next.memberIds),
             clients: encodeIds(next.clientIds),
             projects: encodeIds(next.projectIds),
-            task: next.task,
             description: next.description,
             billability: next.billability,
           });
         }}
-        onVisibleFiltersChange={(filters) => updateSearch({ visible: encodeIds(filters) })}
         onClear={() =>
           updateSearch({
             members: "",
             clients: "",
             projects: "",
-            task: "",
             description: "",
             billability: "all",
           })
@@ -922,13 +875,9 @@ function ReportOverview({
     <Card className="overflow-hidden">
       <Card.Content className="grid grid-cols-2 gap-px p-0 sm:grid-cols-4">
         {metrics.map((metric) => (
-          <div key={metric.label} className="min-w-0 bg-surface px-4 py-3">
-            <p className="truncate text-[0.68rem] font-medium tracking-[0.12em] text-muted uppercase">
-              {metric.label}
-            </p>
-            <p className="mt-1 truncate text-lg font-semibold tabular-nums text-foreground">
-              {metric.value}
-            </p>
+          <div key={metric.label} className="min-w-0 px-4 py-3">
+            <p className="truncate">{metric.label}</p>
+            <p className="mt-1 truncate">{metric.value}</p>
           </div>
         ))}
       </Card.Content>
@@ -940,7 +889,7 @@ function ReportChartCard({ title, children }: { title: string; children: ReactNo
   return (
     <Card className="min-w-0">
       <Card.Header className="px-4 pb-0 pt-4">
-        <Card.Title className="text-sm font-medium">{title}</Card.Title>
+        <Card.Title>{title}</Card.Title>
       </Card.Header>
       <Card.Content className="min-w-0 px-3 pb-3 pt-2">{children}</Card.Content>
     </Card>
@@ -949,49 +898,7 @@ function ReportChartCard({ title, children }: { title: string; children: ReactNo
 
 function ChartEmpty() {
   const { t } = useI18n();
-  return (
-    <div className="flex h-48 items-center justify-center text-sm text-muted">
-      {t("No chart data")}
-    </div>
-  );
-}
-
-function ReportMetricBar({
-  label,
-  seconds,
-  maxSeconds,
-  color = "accent",
-}: {
-  label: string;
-  seconds: number;
-  maxSeconds: number;
-  color?: "accent" | "default" | "success";
-}) {
-  const { locale, t } = useI18n();
-  const percentage = maxSeconds > 0 ? Math.round((seconds / maxSeconds) * 100) : 0;
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-3 text-xs">
-        <span className="min-w-0 truncate text-muted">{label}</span>
-        <span className="shrink-0 font-medium tabular-nums text-foreground">
-          {formatDuration(seconds, locale)}
-        </span>
-      </div>
-      <ProgressBar
-        aria-label={t("{label}: {value}", {
-          label,
-          value: formatDuration(seconds, locale),
-        })}
-        value={percentage}
-        color={color}
-        size="sm"
-      >
-        <ProgressBar.Track>
-          <ProgressBar.Fill />
-        </ProgressBar.Track>
-      </ProgressBar>
-    </div>
-  );
+  return <div className="flex h-48 items-center justify-center">{t("No chart data")}</div>;
 }
 
 function ReportMetricRing({
@@ -1007,35 +914,80 @@ function ReportMetricRing({
 }) {
   const { locale, t } = useI18n();
   const percentage = total > 0 ? Math.round((seconds / total) * 100) : 0;
+  const chartColor = `var(--${color})`;
+  const config = { value: { label, color: chartColor } };
   return (
-    <div className="flex min-w-0 items-center gap-4">
-      <div className="relative shrink-0">
-        <ProgressCircle
-          aria-label={t("{label}: {value}", {
-            label,
-            value: `${percentage}%`,
-          })}
-          value={percentage}
-          maxValue={100}
-          color={color}
-          size="lg"
-        >
-          <ProgressCircle.Track>
-            <ProgressCircle.TrackCircle />
-            <ProgressCircle.FillCircle />
-          </ProgressCircle.Track>
-        </ProgressCircle>
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs font-semibold tabular-nums text-foreground">
+    <div
+      className="flex min-w-0 items-center gap-4"
+      aria-label={t("{label}: {value}", {
+        label,
+        value: `${percentage}%`,
+      })}
+    >
+      <div className="relative size-28 shrink-0">
+        <ChartContainer className="size-28" config={config}>
+          <RadialBarChart
+            accessibilityLayer
+            data={[{ name: label, value: percentage }]}
+            innerRadius="65%"
+            outerRadius="100%"
+            startAngle={90}
+            endAngle={-270}
+          >
+            <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+            <RadialBar background dataKey="value" fill={chartColor} isAnimationActive={false} />
+          </RadialBarChart>
+        </ChartContainer>
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
           {percentage}%
         </span>
       </div>
-      <div className="min-w-0 space-y-1">
-        <p className="truncate text-sm font-medium text-foreground">{label}</p>
-        <p className="truncate text-xs tabular-nums text-muted">
+      <div className="min-w-0">
+        <p className="truncate">{label}</p>
+        <p className="truncate">
           {formatDuration(seconds, locale)} {t("of tracked time")}
         </p>
       </div>
     </div>
+  );
+}
+
+type BillabilityChartItem = {
+  name: string;
+  value: number;
+  color: "default" | "success";
+};
+
+function BillabilityChart({ data }: { data: BillabilityChartItem[] }) {
+  const config = Object.fromEntries(
+    data.map((item) => [item.name, { label: item.name, color: `var(--${item.color})` }]),
+  );
+  return (
+    <ChartContainer className="mx-auto h-56 w-full max-w-sm" config={config}>
+      <PieChart accessibilityLayer>
+        <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+        <Pie data={data} dataKey="value" nameKey="name" innerRadius="55%" outerRadius="80%">
+          {data.map((item) => (
+            <Cell key={item.name} fill={`var(--${item.color})`} />
+          ))}
+        </Pie>
+      </PieChart>
+    </ChartContainer>
+  );
+}
+
+function TopGroupsChart({ data }: { data: Array<{ label: string; seconds: number }> }) {
+  const config = { seconds: { label: "Tracked", color: "var(--accent)" } };
+  return (
+    <ChartContainer className="h-64 w-full" config={config}>
+      <BarChart accessibilityLayer data={data} layout="vertical" margin={{ left: 0, right: 8 }}>
+        <CartesianGrid horizontal={false} />
+        <XAxis type="number" dataKey="seconds" hide />
+        <YAxis dataKey="label" type="category" axisLine={false} tickLine={false} width={96} />
+        <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+        <Bar dataKey="seconds" fill="var(--accent)" isAnimationActive={false} />
+      </BarChart>
+    </ChartContainer>
   );
 }
 
@@ -1066,40 +1018,14 @@ function SummaryInsights({
         {billabilityData.length === 0 ? (
           <ChartEmpty />
         ) : (
-          <div className="flex min-h-48 flex-wrap items-center gap-6 py-3">
+          <div className="grid min-h-48 items-center gap-4 py-3 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
             <ReportMetricRing label={t("Billable")} seconds={billable} total={total} />
-            <div className="min-w-40 flex-1 space-y-3">
-              {billabilityData.map((item) => (
-                <ReportMetricBar
-                  key={item.name}
-                  label={item.name}
-                  seconds={item.value}
-                  maxSeconds={Math.max(total, 1)}
-                  color={item.color}
-                />
-              ))}
-              <p className="text-xs text-muted">
-                {t("{value} total tracked", { value: formatDuration(total, locale) })}
-              </p>
-            </div>
+            <BillabilityChart data={billabilityData} />
           </div>
         )}
       </ReportChartCard>
       <ReportChartCard title={t("Top groups")}>
-        {groupData.length === 0 ? (
-          <ChartEmpty />
-        ) : (
-          <div className="space-y-4 py-3">
-            {groupData.map((item) => (
-              <ReportMetricBar
-                key={item.label}
-                label={item.label}
-                seconds={item.seconds}
-                maxSeconds={Math.max(groupData[0]?.seconds ?? 0, 1)}
-              />
-            ))}
-          </div>
-        )}
+        {groupData.length === 0 ? <ChartEmpty /> : <TopGroupsChart data={groupData} />}
       </ReportChartCard>
       <span className="sr-only">
         {t("Total tracked: {value}", { value: formatDuration(total, locale) })}
@@ -1160,7 +1086,7 @@ function DetailedReport({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted">{t("Choose the columns you need for this view.")}</p>
+        <p>{t("Choose the columns you need for this view.")}</p>
         <ReportColumnPicker columns={columns} onChange={onChangeColumns} />
       </div>
       <DataTable
@@ -1168,17 +1094,13 @@ function DetailedReport({
         minWidth="min-w-[900px]"
         scrollHint={t("Scroll horizontally to see all columns")}
         footer={
-          <div className="flex w-full flex-wrap items-center justify-between gap-3 text-sm">
-            <span className="font-medium text-muted">
-              {t("Total · {count} entries", { count: entries.length })}
-            </span>
-            <span className="whitespace-nowrap font-semibold tabular-nums">
-              {formatDuration(totalSeconds, locale)}
-            </span>
-            <span className="whitespace-nowrap tabular-nums text-muted">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <span>{t("Total · {count} entries", { count: entries.length })}</span>
+            <span className="whitespace-nowrap">{formatDuration(totalSeconds, locale)}</span>
+            <span className="whitespace-nowrap">
               {formatDuration(billableSeconds, locale)} {t("billable")}
             </span>
-            <span className="whitespace-nowrap tabular-nums text-muted">
+            <span className="whitespace-nowrap">
               {formatDuration(totalSeconds - billableSeconds, locale)} {t("internal")}
             </span>
           </div>
@@ -1212,52 +1134,46 @@ function DetailedReport({
           {pageEntries.map((entry) => (
             <Table.Row key={entry.id}>
               {columns.includes("date") ? (
-                <Table.Cell className="whitespace-nowrap text-muted">
+                <Table.Cell className="whitespace-nowrap">
                   {formatDate(entry.date, locale)}
                 </Table.Cell>
               ) : null}
               {columns.includes("task") ? (
-                <Table.Cell className="font-medium">
+                <Table.Cell>
                   <div className="truncate">{entry.task}</div>
                 </Table.Cell>
               ) : null}
               {columns.includes("projectClient") ? (
                 <Table.Cell>
-                  <div className="truncate font-medium">
-                    {projectNameFor(projects, entry.projectId)}
-                  </div>
-                  <div className="truncate text-xs text-muted">
+                  <div className="truncate">{projectNameFor(projects, entry.projectId)}</div>
+                  <div className="truncate">
                     {clientNameFor(clients, projects, entry.projectId)}
                   </div>
                 </Table.Cell>
               ) : null}
               {columns.includes("start") ? (
-                <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
-                  {entry.start}
-                </Table.Cell>
+                <Table.Cell className="whitespace-nowrap">{entry.start}</Table.Cell>
               ) : null}
               {columns.includes("end") ? (
-                <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
-                  {endLabel(entry)}
-                </Table.Cell>
+                <Table.Cell className="whitespace-nowrap">{endLabel(entry)}</Table.Cell>
               ) : null}
               {columns.includes("duration") ? (
-                <Table.Cell className="whitespace-nowrap font-medium tabular-nums">
+                <Table.Cell className="whitespace-nowrap">
                   {formatDuration(entry.seconds, locale)}
                 </Table.Cell>
               ) : null}
               {columns.includes("billability") ? (
-                <Table.Cell className="whitespace-nowrap text-muted">
+                <Table.Cell className="whitespace-nowrap">
                   {entry.billable ? t("Billable") : t("Internal")}
                 </Table.Cell>
               ) : null}
               {columns.includes("member") ? (
-                <Table.Cell className="whitespace-nowrap text-muted">
+                <Table.Cell className="whitespace-nowrap">
                   {nameForMember(members, entry.userId)}
                 </Table.Cell>
               ) : null}
               {columns.includes("description") ? (
-                <Table.Cell className="text-muted">
+                <Table.Cell>
                   <div className="truncate">{entry.description ?? "—"}</div>
                 </Table.Cell>
               ) : null}
@@ -1293,9 +1209,7 @@ function ReportColumnPicker({
       />
       <Popover.Content placement="bottom end" className="w-64 max-w-[calc(100vw-1rem)] p-2">
         <Popover.Dialog>
-          <p className="px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase">
-            {t("Visible columns")}
-          </p>
+          <p className="px-2 py-2">{t("Visible columns")}</p>
           <div className="space-y-1">
             {detailedColumnOptions.map((column) => {
               const checked = columns.includes(column.id);
@@ -1426,7 +1340,7 @@ function SummaryRow({
   const childrenId = `summary-children-${path.replace(/[^a-z0-9_-]/gi, "-")}`;
   return (
     <Table.Row>
-      <Table.Cell style={{ paddingInlineStart: `${16 + level * 24}px` }}>
+      <Table.Cell aria-level={level + 1}>
         <div className="flex min-w-0 items-center gap-2">
           {expandable ? (
             <Button
@@ -1446,7 +1360,7 @@ function SummaryRow({
           ) : (
             <span className="size-8" />
           )}
-          <span className="truncate font-medium">{group.label}</span>
+          <span className="truncate">{group.label}</span>
           {expandable ? (
             <span id={childrenId} className="sr-only">
               {t("{count} nested report groups", { count: group.children?.length ?? 0 })}
@@ -1454,19 +1368,15 @@ function SummaryRow({
           ) : null}
         </div>
       </Table.Cell>
-      <Table.Cell className="whitespace-nowrap font-medium tabular-nums">
-        {formatDuration(group.seconds, locale)}
-      </Table.Cell>
-      <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
+      <Table.Cell className="whitespace-nowrap">{formatDuration(group.seconds, locale)}</Table.Cell>
+      <Table.Cell className="whitespace-nowrap">
         {formatDuration(group.billable, locale)}
       </Table.Cell>
-      <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
+      <Table.Cell className="whitespace-nowrap">
         {formatDuration(group.seconds - group.billable, locale)}
       </Table.Cell>
-      <Table.Cell className="tabular-nums text-muted">{group.records}</Table.Cell>
-      <Table.Cell className="tabular-nums text-muted">
-        {total ? `${Math.round((group.seconds / total) * 100)}%` : "0%"}
-      </Table.Cell>
+      <Table.Cell>{group.records}</Table.Cell>
+      <Table.Cell>{total ? `${Math.round((group.seconds / total) * 100)}%` : "0%"}</Table.Cell>
     </Table.Row>
   );
 }
@@ -1617,21 +1527,13 @@ function WeeklyReport({
         <Table.Body>
           {rows.map((row) => (
             <Table.Row key={row.key}>
-              <Table.Cell className="font-medium">{row.label}</Table.Cell>
+              <Table.Cell>{row.label}</Table.Cell>
               {dates.map((date) => (
-                <Table.Cell key={date} className="tabular-nums text-muted">
-                  {formatDuration(row.byDate[date] ?? 0, locale)}
-                </Table.Cell>
+                <Table.Cell key={date}>{formatDuration(row.byDate[date] ?? 0, locale)}</Table.Cell>
               ))}
-              <Table.Cell className="font-medium tabular-nums">
-                {formatDuration(row.seconds, locale)}
-              </Table.Cell>
-              <Table.Cell className="tabular-nums text-muted">
-                {formatDuration(row.billable, locale)}
-              </Table.Cell>
-              <Table.Cell className="tabular-nums text-muted">
-                {formatDuration(row.seconds - row.billable, locale)}
-              </Table.Cell>
+              <Table.Cell>{formatDuration(row.seconds, locale)}</Table.Cell>
+              <Table.Cell>{formatDuration(row.billable, locale)}</Table.Cell>
+              <Table.Cell>{formatDuration(row.seconds - row.billable, locale)}</Table.Cell>
             </Table.Row>
           ))}
         </Table.Body>
@@ -1650,16 +1552,18 @@ function WeeklyTrendChart({ entries, dates }: { entries: TimeEntry[]; dates: str
   }));
   return (
     <ReportChartCard title={t("Tracked by day")}>
-      <div className="grid gap-3 py-3 sm:grid-cols-2 lg:grid-cols-4">
-        {data.map((item) => (
-          <ReportMetricBar
-            key={item.label}
-            label={item.label}
-            seconds={item.seconds}
-            maxSeconds={Math.max(...data.map((day) => day.seconds), 1)}
-          />
-        ))}
-      </div>
+      <ChartContainer
+        className="h-64 w-full"
+        config={{ seconds: { label: t("Tracked"), color: "var(--accent)" } }}
+      >
+        <BarChart accessibilityLayer data={data} margin={{ left: 0, right: 8 }}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+          <YAxis hide />
+          <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+          <Bar dataKey="seconds" fill="var(--accent)" isAnimationActive={false} />
+        </BarChart>
+      </ChartContainer>
     </ReportChartCard>
   );
 }
@@ -1753,28 +1657,22 @@ function TeamReport({
           {rows.map((row) => (
             <Table.Row key={row.member.id}>
               <Table.Cell>
-                <div className="font-medium">{row.member.name}</div>
-                <div className="text-xs text-muted">{row.member.email}</div>
+                <div>{row.member.name}</div>
+                <div>{row.member.email}</div>
               </Table.Cell>
-              <Table.Cell className="font-medium tabular-nums">
-                {formatDuration(row.seconds, locale)}
-              </Table.Cell>
-              <Table.Cell className="tabular-nums text-muted">
-                {formatDuration(row.billable, locale)}
-              </Table.Cell>
-              <Table.Cell className="tabular-nums text-muted">
-                {formatDuration(row.seconds - row.billable, locale)}
-              </Table.Cell>
-              <Table.Cell className="tabular-nums text-muted">{row.records}</Table.Cell>
-              <Table.Cell className="tabular-nums text-muted">{row.projectCount}</Table.Cell>
-              <Table.Cell className="tabular-nums text-muted">{row.clientCount}</Table.Cell>
-              <Table.Cell className="tabular-nums text-muted">
+              <Table.Cell>{formatDuration(row.seconds, locale)}</Table.Cell>
+              <Table.Cell>{formatDuration(row.billable, locale)}</Table.Cell>
+              <Table.Cell>{formatDuration(row.seconds - row.billable, locale)}</Table.Cell>
+              <Table.Cell>{row.records}</Table.Cell>
+              <Table.Cell>{row.projectCount}</Table.Cell>
+              <Table.Cell>{row.clientCount}</Table.Cell>
+              <Table.Cell>
                 {formatDuration(
                   row.activeDays ? Math.round(row.seconds / row.activeDays) : 0,
                   locale,
                 )}
               </Table.Cell>
-              <Table.Cell className="tabular-nums text-muted">
+              <Table.Cell>
                 {total ? `${Math.round((row.seconds / total) * 100)}%` : "0%"}
               </Table.Cell>
             </Table.Row>
@@ -1796,25 +1694,27 @@ function TeamComparisonChart({ rows }: { rows: TeamRow[] }) {
   return (
     <ReportChartCard title={t("Tracked by member")}>
       <div className="grid gap-5 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="space-y-4">
-          {data.map((item) => (
-            <ReportMetricBar
-              key={item.label}
-              label={item.label}
-              seconds={item.seconds}
-              maxSeconds={Math.max(data[0]?.seconds ?? 0, 1)}
-            />
-          ))}
-        </div>
+        <ChartContainer
+          className="h-64 w-full"
+          config={{ seconds: { label: t("Tracked"), color: "var(--accent)" } }}
+        >
+          <BarChart accessibilityLayer data={data} layout="vertical" margin={{ left: 0, right: 8 }}>
+            <CartesianGrid horizontal={false} />
+            <XAxis type="number" dataKey="seconds" hide />
+            <YAxis dataKey="label" type="category" axisLine={false} tickLine={false} width={96} />
+            <ChartTooltip content={<ChartTooltipContent hideLabel />} />
+            <Bar dataKey="seconds" fill="var(--accent)" isAnimationActive={false} />
+          </BarChart>
+        </ChartContainer>
         {data[0] ? (
-          <div className="flex items-center gap-4 border-t border-divider pt-4 lg:block lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+          <div className="flex items-center gap-4 lg:block">
             <ReportMetricRing
               label={t("Top member")}
               seconds={data[0].seconds}
               total={totalSeconds}
               color="accent"
             />
-            <p className="mt-2 text-xs tabular-nums text-muted">
+            <p className="mt-2">
               {data[0].share}% · {formatDuration(data[0].seconds, locale)}
             </p>
           </div>

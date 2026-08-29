@@ -3,7 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f5f6f8" />
     <script>
       (() => {
         const root = document.documentElement;
@@ -32,10 +31,6 @@
         root.lang = language;
         root.classList.toggle("dark", dark);
         root.classList.toggle("light", !dark);
-        root.style.colorScheme = dark ? "dark" : "light";
-        document
-          .querySelector('meta[name="theme-color"]')
-          ?.setAttribute("content", dark ? "#050505" : "#f5f6f8");
       })();
     </script>
     <meta
@@ -59,8 +54,8 @@
   </head>
   <body>
     <div id="root">
-      <main class="app-boot-screen">
-        <span class="app-boot-spinner" role="status" aria-label="Loading Time Blossom…"></span>
+      <main class="flex min-h-screen items-center justify-center p-4" aria-busy="true">
+        <span role="status" aria-label="Loading Time Blossom…"></span>
       </main>
     </div>
     <script type="module" src="/src/main.tsx"></script>

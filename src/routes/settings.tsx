@@ -217,8 +217,8 @@ function SettingsPage() {
 
       <Card id="account" className="scroll-mt-24 space-y-5 p-5">
         <div>
-          <h2 className="font-medium text-foreground">{t("Account")}</h2>
-          <p className="mt-1 text-sm text-muted">{t("Manage your profile and account details.")}</p>
+          <h2>{t("Account")}</h2>
+          <p className="mt-1">{t("Manage your profile and account details.")}</p>
         </div>
 
         {accountError ? (
@@ -228,7 +228,7 @@ function SettingsPage() {
         <div className="flex flex-wrap items-center gap-4">
           <ProfileAvatar member={currentMember} avatarUrl={preferences.avatarUrl} size="lg" />
           <div className="min-w-0">
-            <p className="truncate font-medium text-foreground">{currentMember.name}</p>
+            <p className="truncate">{currentMember.name}</p>
             <input
               ref={avatarInputRef}
               accept="image/jpeg,image/png,image/webp,image/gif"
@@ -260,7 +260,7 @@ function SettingsPage() {
         </div>
 
         <Form
-          className="space-y-4 border-t border-separator pt-5"
+          className="space-y-4 pt-5"
           onSubmit={(event) => {
             event.preventDefault();
             void saveAccount();
@@ -319,7 +319,7 @@ function SettingsPage() {
             <FieldError />
           </TextField>
 
-          <div className="flex justify-end border-t border-separator pt-4">
+          <div className="flex justify-end pt-4">
             <Button type="submit" isDisabled={!(accountEmail || currentMember.email).trim()}>
               {t("Save account")}
             </Button>
@@ -329,10 +329,8 @@ function SettingsPage() {
 
       <Card id="personal-preferences" className="scroll-mt-24 space-y-5 p-5">
         <div>
-          <h2 className="font-medium text-foreground">{t("Personal preferences")}</h2>
-          <p className="mt-1 text-sm text-muted">
-            {t("These preferences apply only to your account.")}
-          </p>
+          <h2>{t("Personal preferences")}</h2>
+          <p className="mt-1">{t("These preferences apply only to your account.")}</p>
         </div>
 
         {preferenceError ? (
@@ -387,7 +385,7 @@ function SettingsPage() {
               </Tabs.List>
             </Tabs.ListContainer>
             {themeOptions.map((option) => (
-              <Tabs.Panel key={option.id} className="pt-3 text-sm text-muted" id={option.id}>
+              <Tabs.Panel key={option.id} className="pt-3" id={option.id}>
                 {t(option.hint)}
               </Tabs.Panel>
             ))}

@@ -50,23 +50,21 @@ function InviteAcceptPage() {
       ) : null}
       {configured && accepted ? (
         <div className="space-y-4" role="status">
-          <p className="text-sm text-foreground">{t("Your invitation has been accepted.")}</p>
+          <p>{t("Your invitation has been accepted.")}</p>
           <Button className="w-full" onPress={() => window.location.assign("/tracker")}>
             {t("Open workspace")}
           </Button>
         </div>
       ) : configured && session ? (
         <div className="space-y-4">
-          <p className="text-sm text-muted">{t("Your invitation is ready to be accepted.")}</p>
+          <p>{t("Your invitation is ready to be accepted.")}</p>
           <Button className="w-full" isDisabled={busy} onPress={() => void accept()}>
             {busy ? t("Accepting invitation…") : t("Accept invitation")}
           </Button>
         </div>
       ) : configured ? (
         <div className="space-y-4">
-          <p className="text-sm text-muted">
-            {t("Sign in or create your account to accept this invitation.")}
-          </p>
+          <p>{t("Sign in or create your account to accept this invitation.")}</p>
           <div className="grid gap-2 sm:grid-cols-2">
             <Button
               className="w-full"

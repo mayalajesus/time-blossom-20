@@ -96,7 +96,7 @@ function ProjectsPage() {
       clientId,
       billable: projectBillable,
       status: "active",
-      color: "bg-accent",
+      color: "accent",
       lastActivity: getLocalToday(),
       memberIds: assignedMemberIds,
     });
@@ -191,7 +191,7 @@ function ProjectsPage() {
               variant="secondary"
               onChange={(key) => setFilter(String(key ?? "all"))}
             >
-              <Select.Trigger className="h-9 w-full rounded-3xl px-3">
+              <Select.Trigger className="h-9 w-full px-3">
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
@@ -263,11 +263,11 @@ function ProjectsPage() {
                   <RouterLink
                     to="/projects/$projectId"
                     params={{ projectId: project.id }}
-                    className="block w-full truncate text-left font-medium text-foreground"
+                    className="block w-full truncate text-left"
                   >
                     {project.name}
                   </RouterLink>
-                  <span className="mt-0.5 block w-full truncate text-sm text-muted">
+                  <span className="mt-0.5 block w-full truncate">
                     {clientName(project.clientId)}
                   </span>
                 </div>
@@ -344,18 +344,14 @@ function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="mt-auto flex items-end justify-between gap-4 pt-4 text-sm">
+              <div className="mt-auto flex items-end justify-between gap-4 pt-4">
                 <div className="min-w-0">
-                  <p className="text-xs text-muted">{t("Tracked")}</p>
-                  <p className="truncate tabular-nums font-medium text-foreground">
-                    {formatDuration(projectSeconds(project.id), locale)}
-                  </p>
+                  <p>{t("Tracked")}</p>
+                  <p className="truncate">{formatDuration(projectSeconds(project.id), locale)}</p>
                 </div>
                 <div className="min-w-0 text-right">
-                  <p className="text-xs text-muted">{t("Last activity")}</p>
-                  <p className="truncate text-foreground">
-                    {formatDate(project.lastActivity, locale)}
-                  </p>
+                  <p>{t("Last activity")}</p>
+                  <p className="truncate">{formatDate(project.lastActivity, locale)}</p>
                 </div>
               </div>
             </Card>
@@ -384,7 +380,7 @@ function ProjectsPage() {
                 {statusError ? (
                   <FormAlert title={t("Could not archive project")} description={statusError} />
                 ) : null}
-                <p className="text-sm text-muted">
+                <p>
                   {t(
                     "{name} will leave Active and Inactive lists. Existing time entries will remain available in reports and history.",
                     {
@@ -554,7 +550,7 @@ function ProjectsPage() {
                 {memberError ? (
                   <FormAlert title={t("Could not update members")} description={memberError} />
                 ) : null}
-                <p className="text-sm text-muted">
+                <p>
                   {t("Select the active members who can track time on {name}.", {
                     name: pendingMembers?.name ?? t("this project"),
                   })}

@@ -10,7 +10,8 @@ useful without enterprise-style clutter.
 
 - React 19, TypeScript and Vite.
 - Vite and file-based TanStack Router routes under `src/routes`.
-- HeroUI for product UI, Tailwind CSS for layout and tokens, Lucide for icons.
+- HeroUI for product UI, Tailwind CSS only for layout and sizing utilities, and
+  Lucide only for decorative icons.
 - The frontend keeps a local preview adapter for development and QA. The
   Supabase adapter is the production path; never expose administrative keys in
   browser code.
@@ -32,32 +33,90 @@ such as `node_modules`, `dist`, `.output` or `.wrangler`.
 ## UI rules
 
 - Preserve the Today → choose task → start → work → stop flow.
-- Use HeroUI's official components as the only visual source of truth for
-  active product controls and surfaces. Use `Card` for route-level surfaces,
-  `PageHeader` for page introductions and `DataTable` for standard tables.
-  Shared components such as `ActionDropdown`, `ProjectSelect` and
-  `TrackerPeriodFilter` are thin compositions of HeroUI primitives, not a
-  second visual system.
-- Keep the border policy intentionally quiet: surfaces and cards use contrast,
-  spacing and elevation; visible borders are reserved for fields, table
-  separators, focus, validation and boundaries that need explicit separation.
-- Do not add CSS classes that recreate a HeroUI field, card, menu, focus ring,
-  radius or state. Use the official HeroUI component variants and keep local
-  classes limited to layout, sizing, truncation and responsive behavior.
+- For every new or modified UI, use only the official React components
+  exported by `@heroui/react`. The complete allowed catalog is the official
+  HeroUI React component catalog: Accordion, Alert, AlertDialog, Autocomplete,
+  Avatar, Badge, Breadcrumbs, Button, ButtonGroup, Calendar, Card, Checkbox,
+  CheckboxGroup, Chip, CloseButton, ColorArea, ColorField, ColorPicker,
+  ColorSlider, ColorSwatch, ColorSwatchPicker, ComboBox, DateField, DatePicker,
+  DateRangePicker, Description, Disclosure, DisclosureGroup, Drawer, Dropdown,
+  ErrorMessage, FieldError, Fieldset, Form, Input, InputGroup, InputOTP, Kbd,
+  Label, Link, ListBox, Meter, Modal, NumberField, Pagination, Popover,
+  ProgressBar, ProgressCircle, RadioGroup, RangeCalendar, ScrollShadow,
+  SearchField, Select, Separator, Skeleton, Slider, Spinner, Surface, Switch,
+  Table, Tabs, TagGroup, TextArea, TextField, TimeField, Toast, ToggleButton,
+  ToggleButtonGroup, Toolbar, Tooltip and Typography. The installed package
+  version and the official API are the source of truth; inspect them before
+  choosing a component.
+- HeroUI Pro is not part of this project. Do not import, install, copy,
+  recreate or approximate any HeroUI Pro component. If a required experience
+  is unavailable in the Core catalog above, stop and report the limitation.
+- Use HeroUI components with their default visual appearance. `className` may
+  be used only for layout, spacing, dimensions, positioning, overflow and
+  responsive behavior. Do not use visual utility classes such as `bg-*`,
+  `text-*`, `border-*`, `ring-*`, `shadow-*`, `rounded-*`, `font-*`,
+  `leading-*`, `hover:*`, `focus:*`, `transition-*` or animation classes.
+  The official `bg-background` utility is allowed only on the root `Surface` so
+  the app canvas follows the documented HeroUI background token.
+- Do not use `style`, CSS modules, custom visual CSS selectors or arbitrary
+  design tokens. The documented HeroUI dark-theme background override
+  `--background: #060607` is the one approved product theme exception;
+  documented HeroUI `size`, `variant` and `color` props are allowed only when
+  supported by the installed API and semantically required. Never invent values
+  or reproduce component visuals with CSS.
+- Application-specific components are allowed only as organized, typed
+  compositions of HeroUI components and application behavior/data. They must
+  not implement a second visual system, expose look-alike primitives or add
+  visual styling.
+- Do not create wrappers, aliases, replacement primitives, visual helper
+  components or custom markup intended to look like HeroUI. Do not use Radix,
+  another component library or `src/components/ui` for active product UI. The
+  only exception is the official shadcn/ui chart pattern in
+  `src/components/ui/chart.tsx`, backed by Recharts, for chart visualizations
+  only. Do not add other shadcn/ui components or use HeroUI Pro.
+- Do not replace HeroUI controls with native `<button>`, `<input>`, `<select>`,
+  `<textarea>` or equivalent interactive markup. Native markup is allowed only
+  for non-interactive semantic structure and for browser APIs that are hidden
+  behind an explicitly approved HeroUI control.
+- If HeroUI does not provide the required component or behavior, stop and ask
+  for a decision. Never approximate it with custom CSS or an invented element.
+- Do not introduce new visual styles, style files or visual abstractions. Do
+  not refactor existing custom UI merely to satisfy a new feature unless that
+  migration is explicitly requested. Preserve existing behavior while keeping
+  all new and changed UI inside this contract.
 - Every primary screen needs loading, populated, empty and error treatment.
 - Loading uses the shared HeroUI Spinner; empty states are reserved for real
   zero-data conditions.
 - Keep keyboard focus visible, icon buttons labelled and responsive layouts free
   of accidental horizontal overflow.
-- Standard read-only tables must use `DataTable`, which owns the HeroUI table
-  variant and horizontal `ScrollContainer`. The Tracker may use its semantic
-  fixed-column table for inline editing, but its local styles may only control
-  geometry and scrolling. Never allow a data table to overflow the page body.
-- Do not import from `src/components/ui` or add another component library for
-  active product UI. Hidden file inputs are allowed only as the technical
-  browser API behind a visible HeroUI upload button. Native markup in boot/error
-  fallbacks and generated PDF/print HTML is explicitly out of the app shell.
-- Use motion only for small state changes, menus, dialogs and item transitions.
+- Hidden file inputs are allowed only as the technical browser API behind a
+  visible HeroUI upload button. Native markup in boot/error fallbacks and
+  generated PDF/print HTML is explicitly out of the app shell.
+- Do not add animation or motion to new or modified UI unless the user
+  explicitly requests it.
+
+## HeroUI compliance gate
+
+Before completing any UI task, review the diff against this contract. Every
+user-facing control must use its corresponding HeroUI component (`Select` for
+selects, `Button` for buttons, `Input` for text inputs, `TextArea` for text
+areas, and so on). The changed code must not introduce a custom visual
+component, a custom HeroUI look-alike, a styling override on a HeroUI
+component, a new UI stylesheet or a native interactive control. If compliance
+is uncertain, do not guess: report the conflict and ask for confirmation.
+
+Full-migration completion additionally requires that all project-authored
+visual CSS and visual utility classes have been removed or reduced to layout
+and sizing only, that existing custom visual primitives have been replaced by
+direct HeroUI Core components or behavior-only compositions, and that the app
+passes its functional, accessibility and build checks without regressions.
+
+Run the project checks before handing off:
+
+```bash
+bun run lint
+bun run build
+```
 
 ## Change hygiene
 

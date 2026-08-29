@@ -105,7 +105,7 @@ export interface WorkspaceData {
   trello: TrelloState;
 }
 
-type PersistedAccount = {
+export type PersistedAccount = {
   version: 10;
   identities: UserIdentity[];
   workspaces: WorkspaceData[];
@@ -173,6 +173,10 @@ function isValidClock(value: unknown): value is string {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
 }
 
 function isThemeMode(value: unknown): value is ThemeMode {
@@ -291,6 +295,7 @@ function isValidEntry(value: unknown, projects: Project[]): value is TimeEntry {
   const entry = value as Partial<TimeEntry>;
   if (
     typeof entry.id !== "string" ||
+    !entry.id.trim() ||
     typeof entry.date !== "string" ||
     typeof entry.start !== "string" ||
     typeof entry.end !== "string" ||
@@ -479,7 +484,64 @@ function migrateAccountSnapshot(value: unknown): PersistedAccount | null {
     workspaces: raw.workspaces,
     preferencesByUserId,
   };
-  return isValidAccount(migrated) ? migrated : null;
+  const repaired = repairDuplicateEntryIds(migrated);
+  return isValidAccount(repaired) ? repaired : null;
+}
+
+/**
+ * Older local snapshots could contain duplicate entry IDs because the in-memory
+ * counter restarted after a full page reload. Repair only the later copies so
+ * the first existing record keeps its original identity and history.
+ */
+export function repairDuplicateEntryIds(value: unknown): unknown {
+  if (!isRecord(value) || value["version"] !== 10 || !Array.isArray(value["workspaces"])) {
+    return value;
+  }
+
+  const workspaces = value["workspaces"];
+  if (
+    !workspaces.every((workspace) => isRecord(workspace) && Array.isArray(workspace["entries"]))
+  ) {
+    return value;
+  }
+
+  let replacementNumber = 0;
+  let changed = false;
+  const repairedWorkspaces = workspaces.map((workspace) => {
+    const record = workspace as Record<string, unknown>;
+    const entries = record["entries"] as unknown[];
+    const originalIds = new Set<string>();
+    const usedIds = new Set<string>();
+    for (const entry of entries) {
+      if (isRecord(entry) && typeof entry["id"] === "string" && entry["id"].trim()) {
+        originalIds.add(entry["id"]);
+      }
+    }
+    let workspaceChanged = false;
+    const repairedEntries = entries.map((entry) => {
+      if (!isRecord(entry) || typeof entry["id"] !== "string") return entry;
+
+      const id = entry["id"];
+      if (id.trim() && !usedIds.has(id)) {
+        usedIds.add(id);
+        return entry;
+      }
+
+      let replacementId = "";
+      do {
+        replacementId = `t-migrated-${++replacementNumber}`;
+      } while (originalIds.has(replacementId) || usedIds.has(replacementId));
+
+      usedIds.add(replacementId);
+      changed = true;
+      workspaceChanged = true;
+      return { ...entry, id: replacementId };
+    });
+
+    return workspaceChanged ? { ...record, entries: repairedEntries } : workspace;
+  });
+
+  return changed ? { ...value, workspaces: repairedWorkspaces } : value;
 }
 
 export function makeSeedAccount(): PersistedAccount {
@@ -569,6 +631,7 @@ export function isValidAccount(value: unknown): value is PersistedAccount {
     return false;
   if (workspaceIds.size !== workspaces.length) return false;
   return workspaces.every((data) => {
+    const entryIds = new Set<string>();
     if (!data || typeof data !== "object") return false;
     const workspace = data.workspace;
     if (
@@ -634,12 +697,20 @@ export function isValidAccount(value: unknown): value is PersistedAccount {
       )
     )
       return false;
-    return data.entries.every(
-      (entry) =>
-        identityIds.has(entry.userId) &&
-        membershipIds.has(entry.userId) &&
-        isValidEntry(entry, data.projects),
-    );
+    if (
+      !data.entries.every(
+        (entry) =>
+          identityIds.has(entry.userId) &&
+          membershipIds.has(entry.userId) &&
+          isValidEntry(entry, data.projects),
+      )
+    )
+      return false;
+    for (const entry of data.entries) {
+      if (entryIds.has(entry.id)) return false;
+      entryIds.add(entry.id);
+    }
+    return true;
   });
 }
 
@@ -650,12 +721,18 @@ function readPersistedAccount(): PersistedAccount {
       const raw = window.localStorage.getItem(key);
       if (!raw) continue;
       const parsed: unknown = JSON.parse(raw);
-      if (isValidAccount(parsed)) return parsed;
+      const repaired = repairDuplicateEntryIds(parsed);
+      if (isValidAccount(repaired)) {
+        if (repaired !== parsed)
+          window.localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(repaired));
+        return repaired;
+      }
       const migrated = migrateAccountSnapshot(parsed) ?? normalizeLegacyAccount(parsed);
-      if (migrated) {
-        window.localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(migrated));
+      const repairedMigrated = repairDuplicateEntryIds(migrated);
+      if (repairedMigrated && isValidAccount(repairedMigrated)) {
+        window.localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(repairedMigrated));
         if (key !== ACCOUNT_STORAGE_KEY) window.localStorage.removeItem(key);
-        return migrated;
+        return repairedMigrated;
       }
     }
   } catch {
@@ -801,7 +878,14 @@ function initialsFromName(name: string): string {
 }
 
 let idCounter = 100;
-const nextId = (prefix: string) => `${prefix}${++idCounter}`;
+const nextId = (prefix: string, existingIds: Iterable<string> = []) => {
+  const usedIds = new Set(existingIds);
+  let candidate = "";
+  do {
+    candidate = `${prefix}${++idCounter}`;
+  } while (usedIds.has(candidate));
+  return candidate;
+};
 const inviteEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface StoreValue {
@@ -1146,7 +1230,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const endTimestamp = startTimestamp === null ? null : startTimestamp + total * 1000;
         setEntries((list) => [
           {
-            id: nextId("t"),
+            id: nextId(
+              "t",
+              list.map((entry) => entry.id),
+            ),
             date: startedDate,
             start: current.startClock,
             end: finish.end,
@@ -1174,7 +1261,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Stop the active timer before adding time manually." };
       const validation = validateEntry(entry);
       if (!validation.success) return validation;
-      setEntries((list) => [{ ...entry, id: nextId("t") }, ...list]);
+      setEntries((list) => [
+        {
+          ...entry,
+          id: nextId(
+            "t",
+            list.map((current) => current.id),
+          ),
+        },
+        ...list,
+      ]);
       return { success: true };
     };
 
@@ -1253,7 +1349,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...project,
           name: project.name.trim(),
           memberIds: [...new Set([...project.memberIds, activeMemberId])],
-          id: nextId("p"),
+          id: nextId(
+            "p",
+            list.map((current) => current.id),
+          ),
         },
         ...list,
       ]);
@@ -1289,7 +1388,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Only Admins and the Owner can manage clients." };
       if (!client.name.trim()) return { success: false, error: "A client name is required." };
       setClients((list) => [
-        { id: nextId("c"), name: client.name.trim(), contact: client.contact.trim() },
+        {
+          id: nextId(
+            "c",
+            list.map((current) => current.id),
+          ),
+          name: client.name.trim(),
+          contact: client.contact.trim(),
+        },
         ...list,
       ]);
       return { success: true };
@@ -1350,7 +1456,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         (identity) => identity.email.toLowerCase() === normalizedEmail,
       );
       const identity = existingIdentity ?? {
-        id: nextId("u"),
+        id: nextId(
+          "u",
+          account.identities.map((current) => current.id),
+        ),
         name: displayNameFromInviteEmail(normalizedEmail),
         email: normalizedEmail,
         initials: initialsFromName(displayNameFromInviteEmail(normalizedEmail)),
@@ -1617,7 +1726,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         )
       )
         return { success: false, error: "A workspace with this name already exists." };
-      const id = nextId("w");
+      const id = nextId(
+        "w",
+        account.workspaces.map((data) => data.workspace.id),
+      );
       const workspace: WorkspaceData = {
         workspace: {
           id,

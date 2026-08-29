@@ -1,4 +1,4 @@
-import { Button, Form, Link } from "@heroui/react";
+import { Button, Form, Link, Separator } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -51,7 +51,7 @@ function LoginPage() {
   return (
     <AuthPage title={t("Sign in")} description={t("Access your time tracking workspace.")}>
       <AuthError message={error} />
-      <Form className="auth-page__fields space-y-4" onSubmit={submit}>
+      <Form className="space-y-4" onSubmit={submit}>
         <AuthField
           id="login-email"
           label={t("Email")}
@@ -84,18 +84,16 @@ function LoginPage() {
           validate={(value) => (value ? null : t("Password is required"))}
         />
         <div className="flex justify-end">
-          <Link className="text-sm" href="/forgot-password">
-            {t("Forgot password?")}
-          </Link>
+          <Link href="/forgot-password">{t("Forgot password?")}</Link>
         </div>
         <Button className="w-full" type="submit" isDisabled={busy}>
           {busy ? t("Signing in…") : t("Sign in")}
         </Button>
       </Form>
-      <div className="flex items-center gap-3 text-xs text-muted" role="separator">
-        <span className="h-px flex-1 bg-separator" />
+      <div className="flex items-center gap-3" role="separator">
+        <Separator className="flex-1" />
         {t("or")}
-        <span className="h-px flex-1 bg-separator" />
+        <Separator className="flex-1" />
       </div>
       <GoogleAuthButton onPress={google} isDisabled={busy} />
       <AuthFooter prompt={t("Don't have an account?")} to="/signup" action={t("Create account")} />

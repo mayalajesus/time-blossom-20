@@ -116,18 +116,15 @@ export function DataTable({
   }, [minWidth]);
 
   return (
-    <section ref={regionRef} className="data-table-region" aria-label={label}>
+    <section ref={regionRef} className="min-w-0 max-w-full" aria-label={label}>
       {scrollHint ? (
-        <p
-          id={descriptionId}
-          className={`table-scroll-hint ${isScrollable ? "" : "sr-only"}`.trim()}
-        >
+        <p id={descriptionId} className={isScrollable ? "" : "sr-only"}>
           {scrollHint}
         </p>
       ) : null}
       <Table className={className ?? ""}>
         <Table.ScrollContainer
-          className="data-table-scroll-container"
+          className="min-w-0 max-w-full"
           tabIndex={isScrollable ? 0 : undefined}
           aria-describedby={scrollHint ? descriptionId : undefined}
         >
@@ -139,7 +136,7 @@ export function DataTable({
           </Table.Content>
         </Table.ScrollContainer>
         {pagination || footer ? (
-          <Table.Footer className="data-table-footer">
+          <Table.Footer>
             {footer}
             {pagination ? <DataTablePagination {...pagination} /> : null}
           </Table.Footer>

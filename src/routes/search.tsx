@@ -78,7 +78,7 @@ function SearchPage() {
                   key={item.id}
                   to="/projects/$projectId"
                   params={{ projectId: item.id }}
-                  className="block px-4 py-3 text-sm hover:bg-surface-secondary"
+                  className="block px-4 py-3"
                 >
                   {item.name}
                 </RouterLink>
@@ -88,11 +88,7 @@ function SearchPage() {
           {c.length > 0 && (
             <Section title={t("Clients")}>
               {c.map((item) => (
-                <RouterLink
-                  key={item.id}
-                  to="/clients"
-                  className="block px-4 py-3 text-sm hover:bg-surface-secondary"
-                >
+                <RouterLink key={item.id} to="/clients" className="block px-4 py-3">
                   {item.name}
                 </RouterLink>
               ))}
@@ -101,11 +97,7 @@ function SearchPage() {
           {m.length > 0 && (
             <Section title={t("Team")}>
               {m.map((item) => (
-                <RouterLink
-                  key={item.id}
-                  to="/team"
-                  className="block px-4 py-3 text-sm hover:bg-surface-secondary"
-                >
+                <RouterLink key={item.id} to="/team" className="block px-4 py-3">
                   {item.name}
                 </RouterLink>
               ))}
@@ -114,11 +106,7 @@ function SearchPage() {
           {e.length > 0 && (
             <Section title={t("Time entries")}>
               {e.slice(0, 10).map((item) => (
-                <RouterLink
-                  key={item.id}
-                  to="/tracker"
-                  className="block px-4 py-3 text-sm hover:bg-surface-secondary"
-                >
+                <RouterLink key={item.id} to="/tracker" className="block px-4 py-3">
                   {item.task}
                 </RouterLink>
               ))}
@@ -133,8 +121,8 @@ function SearchPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">{title}</p>
-      <Card className="divide-y divide-separator overflow-hidden">{children}</Card>
+      <p className="mb-2">{title}</p>
+      <Card className="overflow-hidden">{children}</Card>
     </div>
   );
 }

@@ -13,7 +13,7 @@ export function ProfileAvatar({
   return (
     <Avatar size={size}>
       {avatarUrl ? <Avatar.Image alt={member.name} src={avatarUrl} /> : null}
-      <Avatar.Fallback aria-hidden="true" className="profile-avatar-fallback" />
+      <Avatar.Fallback aria-hidden="true" />
     </Avatar>
   );
 }

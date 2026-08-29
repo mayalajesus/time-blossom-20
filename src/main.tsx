@@ -30,31 +30,28 @@ function showBootError(rootElement: HTMLElement, copy: BootCopy) {
   rootElement.replaceChildren();
 
   const screen = document.createElement("main");
-  screen.className = "app-boot-screen app-boot-screen--error";
+  screen.className = "flex min-h-screen items-center justify-center p-4";
   screen.setAttribute("role", "alert");
   screen.setAttribute("aria-live", "assertive");
 
   const card = document.createElement("section");
-  card.className = "app-boot-card";
+  card.className = "flex w-full max-w-md flex-col items-center gap-3 p-6 text-center";
   card.setAttribute("aria-labelledby", "app-boot-error-title");
 
   const mark = document.createElement("img");
-  mark.className = "app-boot-mark";
+  mark.className = "size-12 object-contain";
   mark.src = "/brand/orbit-symbol.png";
   mark.alt = "";
   mark.setAttribute("aria-hidden", "true");
 
   const title = document.createElement("h1");
-  title.className = "app-boot-title";
   title.id = "app-boot-error-title";
   title.textContent = copy.errorTitle;
 
   const description = document.createElement("p");
-  description.className = "app-boot-message";
   description.textContent = copy.errorDescription;
 
   const retry = document.createElement("button");
-  retry.className = "app-boot-retry";
   retry.type = "button";
   retry.textContent = copy.retry;
   retry.addEventListener("click", () => window.location.reload());
@@ -71,9 +68,7 @@ if (!rootElement) {
 }
 
 const copy = bootCopy[getBootLocale()];
-rootElement
-  .querySelector<HTMLElement>(".app-boot-spinner")
-  ?.setAttribute("aria-label", copy.loading);
+rootElement.querySelector<HTMLElement>("[role=status]")?.setAttribute("aria-label", copy.loading);
 
 Promise.all([
   import("react"),
@@ -90,12 +85,11 @@ Promise.all([
       react.createElement(
         "main",
         {
-          className: "app-boot-screen",
+          className: "flex min-h-screen items-center justify-center p-4",
         },
         react.createElement(heroui.Spinner, {
           size: "lg",
           "aria-label": copy.loading,
-          className: "motion-reduce:animate-none",
         }),
       ),
     );

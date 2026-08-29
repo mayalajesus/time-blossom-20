@@ -50,19 +50,15 @@ export function ProfileMenu({
         aria-label={t("Open account menu for {name}", { name: currentMember.name })}
         className={
           showName
-            ? "flex h-11 w-full min-w-0 items-center justify-start gap-3 rounded-xl px-2 py-2 text-left ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
-            : "flex h-10 w-10 min-w-10 items-center justify-center rounded-full p-0 ring-offset-2 focus-visible:ring-2 focus-visible:ring-focus"
+            ? "flex h-11 w-full min-w-0 items-center justify-start gap-3 px-2 py-2 text-left"
+            : "flex h-10 w-10 min-w-10 items-center justify-center p-0"
         }
       >
         <ProfileAvatar member={currentMember} avatarUrl={preferences.avatarUrl} />
         {showName ? (
           <span className="min-w-0 truncate">
-            <span className="block truncate text-sm font-medium text-foreground">
-              {currentMember.name}
-            </span>
-            {showRole ? (
-              <span className="block truncate text-xs text-muted">{t(currentMember.role)}</span>
-            ) : null}
+            <span className="block truncate">{currentMember.name}</span>
+            {showRole ? <span className="block truncate">{t(currentMember.role)}</span> : null}
           </span>
         ) : null}
       </Dropdown.Trigger>
@@ -70,10 +66,10 @@ export function ProfileMenu({
         placement={showName ? "right" : "bottom"}
         className="w-64 max-w-[calc(100vw-1.5rem)] p-1"
       >
-        <div className="border-b border-separator px-3 py-2">
-          <p className="truncate text-sm font-medium text-foreground">{currentMember.name}</p>
-          <p className="truncate text-xs text-muted">{currentMember.email}</p>
-          <Description className="mt-1 text-xs">{t(currentMember.role)}</Description>
+        <div className="px-3 py-2">
+          <p className="truncate">{currentMember.name}</p>
+          <p className="truncate">{currentMember.email}</p>
+          <Description className="mt-1">{t(currentMember.role)}</Description>
         </div>
         <Dropdown.Menu onAction={(key) => handleAction(String(key))}>
           <Dropdown.Item id="workspaces">
@@ -88,7 +84,7 @@ export function ProfileMenu({
             <SlidersHorizontal className="size-4" />
             <Label>{t("Personal preferences")}</Label>
           </Dropdown.Item>
-          <Dropdown.Item id="sign-out" className="text-danger">
+          <Dropdown.Item id="sign-out" variant="danger">
             <LogOut className="size-4" />
             <Label>{t("Sign out")}</Label>
           </Dropdown.Item>

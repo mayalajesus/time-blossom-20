@@ -115,18 +115,12 @@ export function TrackerPeriodFilter({
         <Button
           variant="ghost"
           aria-label={t("Open period calendar: {label}", { label: translatedLabel })}
-          className="flex h-8 w-[11rem] min-w-[11rem] max-w-[11rem] shrink-0 items-center justify-center rounded-lg px-2 text-center outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
+          className="flex h-8 w-[11rem] min-w-[11rem] max-w-[11rem] shrink-0 items-center justify-center px-2 text-center"
         >
-          <span className="flex min-w-0 max-w-full items-center justify-center gap-1 whitespace-nowrap text-sm font-medium text-foreground">
+          <span className="flex min-w-0 max-w-full items-center justify-center gap-1 whitespace-nowrap">
             <span className="min-w-0 truncate">{displayLabel}</span>
             {periodMeta && (
-              <span
-                className={
-                  period.unit === "week"
-                    ? "shrink-0 font-normal text-muted"
-                    : "min-w-0 truncate font-normal text-muted"
-                }
-              >
+              <span className={period.unit === "week" ? "shrink-0" : "min-w-0 truncate"}>
                 • {periodMeta}
               </span>
             )}
@@ -138,7 +132,7 @@ export function TrackerPeriodFilter({
         shouldFlip
         containerPadding={12}
         offset={8}
-        className="calendar-popover-content calendar-popover-single w-[min(16rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-visible p-0"
+        className="w-[min(16rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-visible p-0"
       >
         <Popover.Dialog>
           <I18nProvider locale={locale}>
@@ -147,13 +141,13 @@ export function TrackerPeriodFilter({
               firstDayOfWeek={weekStartsOn === 0 ? "sun" : "mon"}
               value={rangeValue}
               onChange={handleRangeChange}
-              className="calendar-no-scroll w-full max-w-full p-3"
+              className="w-full max-w-full p-3"
             >
               <RangeCalendar.Header className="flex items-center justify-between gap-2">
                 <RangeCalendar.NavButton slot="previous" aria-label={t("Previous month")}>
                   <ChevronLeft className="size-4" />
                 </RangeCalendar.NavButton>
-                <RangeCalendar.Heading className="text-sm font-medium" />
+                <RangeCalendar.Heading />
                 <RangeCalendar.NavButton slot="next" aria-label={t("Next month")}>
                   <ChevronRight className="size-4" />
                 </RangeCalendar.NavButton>

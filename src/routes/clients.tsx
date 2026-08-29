@@ -134,19 +134,17 @@ function ClientsPage() {
           <Table.Header>
             <Table.Column isRowHeader>{t("Client")}</Table.Column>
             <Table.Column>{t("Contact")}</Table.Column>
-            <Table.Column className="text-center">{t("Projects")}</Table.Column>
-            <Table.Column className="text-center">{t("Tracked")}</Table.Column>
+            <Table.Column>{t("Projects")}</Table.Column>
+            <Table.Column>{t("Tracked")}</Table.Column>
             <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
           </Table.Header>
           <Table.Body>
             {clients.map((client) => (
               <Table.Row key={client.id}>
-                <Table.Cell className="font-medium">{client.name}</Table.Cell>
-                <Table.Cell className="text-muted">{client.contact || "—"}</Table.Cell>
-                <Table.Cell className="text-center">{projectCountFor(client.id)}</Table.Cell>
-                <Table.Cell className="text-center tabular-nums">
-                  {formatDuration(secondsFor(client.id), locale)}
-                </Table.Cell>
+                <Table.Cell>{client.name}</Table.Cell>
+                <Table.Cell>{client.contact || "—"}</Table.Cell>
+                <Table.Cell>{projectCountFor(client.id)}</Table.Cell>
+                <Table.Cell>{formatDuration(secondsFor(client.id), locale)}</Table.Cell>
                 <Table.Cell>
                   {can("manage-clients") ? (
                     <div className="flex justify-end">
@@ -288,7 +286,7 @@ function ClientsPage() {
                     )}
                   />
                 ) : (
-                  <p className="text-sm text-muted">
+                  <p>
                     {t(
                       "This permanently removes {name}. Tracked time entries without a direct client relationship remain unchanged.",
                       {

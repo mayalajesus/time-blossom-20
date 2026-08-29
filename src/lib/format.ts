@@ -211,27 +211,23 @@ export function parseDurationInput(value: string): number | null {
   const normalized = value.trim().toLowerCase().replace(/\s+/g, "");
   if (!normalized) return null;
 
-  const secondsWithUnit = normalized.match(/^(\d+)s$/);
-  if (secondsWithUnit) {
-    const seconds = Number(secondsWithUnit[1]);
-    return seconds > 0 ? seconds : null;
+  const unitValue = normalized.match(/^(?:(\d+(?:[.,]\d+)?)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+  if (unitValue && (unitValue[1] || unitValue[2] || unitValue[3])) {
+    const hours = Number((unitValue[1] ?? "0").replace(",", "."));
+    const minutes = Number(unitValue[2] ?? "0");
+    const seconds = Number(unitValue[3] ?? "0");
+    const total = Math.round(hours * 3600 + minutes * 60 + seconds);
+    return Number.isSafeInteger(total) && total > 0 ? total : null;
   }
 
-  const hoursWithUnit = normalized.match(/^(\d+(?:[.,]\d+)?)h$/);
-  if (hoursWithUnit) {
-    const hours = hoursWithUnit[1];
-    if (!hours) return null;
-    const seconds = Math.round(Number(hours.replace(",", ".")) * 3600);
-    return seconds > 0 ? seconds : null;
-  }
-
-  const clockValue = normalized.match(/^(\d{1,5}):(\d{2})$/);
+  const clockValue = normalized.match(/^(\d{1,5}):(\d{2})(?::(\d{2}))?$/);
   if (clockValue) {
     const hours = Number(clockValue[1]);
     const minutes = Number(clockValue[2]);
-    if (minutes > 59) return null;
-    const total = (hours * 60 + minutes) * 60;
-    return total > 0 ? total : null;
+    const seconds = Number(clockValue[3] ?? "0");
+    if (minutes > 59 || seconds > 59) return null;
+    const total = hours * 3600 + minutes * 60 + seconds;
+    return Number.isSafeInteger(total) && total > 0 ? total : null;
   }
 
   const decimalHours = normalized.match(/^(\d+)[.,](\d{1,2})$/);

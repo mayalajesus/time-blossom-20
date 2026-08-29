@@ -74,7 +74,7 @@ export function ExportModal({
             >
               <Modal.Body className="flex flex-col gap-5">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">{t("Included data")}</p>
+                  <p>{t("Included data")}</p>
                   <Description>
                     {t(
                       "This export uses the current period, filters and report view ({count} rows).",

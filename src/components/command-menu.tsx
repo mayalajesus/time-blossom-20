@@ -176,7 +176,7 @@ export function CommandMenu({
       <Modal.Backdrop>
         <Modal.Container placement="top" size="sm">
           <Modal.Dialog>
-            <div className="border-b border-separator px-3 py-2">
+            <div className="px-3 py-2">
               <TextField fullWidth name="command-search" value={query} onChange={setQuery}>
                 <Label className="sr-only">{t("Command menu search")}</Label>
                 <Input
@@ -188,9 +188,7 @@ export function CommandMenu({
             </div>
             <div className="max-h-[52vh] overflow-y-auto p-2">
               {filtered.length === 0 ? (
-                <p className="px-3 py-8 text-center text-sm text-muted">
-                  {t("No results for “{query}”.", { query })}
-                </p>
+                <p className="px-3 py-8 text-center">{t("No results for “{query}”.", { query })}</p>
               ) : (
                 <ListBox
                   aria-label={t("Commands")}
@@ -211,9 +209,7 @@ export function CommandMenu({
                           isDisabled
                           textValue={group}
                         >
-                          <Label className="text-xs tracking-wide text-muted uppercase">
-                            {t(group)}
-                          </Label>
+                          <Label>{t(group)}</Label>
                         </ListBox.Item>
                         {filtered
                           .filter((c) => c.group === group)
@@ -230,7 +226,7 @@ export function CommandMenu({
                 </ListBox>
               )}
             </div>
-            <div className="flex items-center justify-between border-t border-separator px-4 py-2 text-xs text-muted">
+            <div className="flex items-center justify-between px-4 py-2">
               <span>{t("Navigate with arrow keys")}</span>
               <span className="flex items-center gap-1">
                 <Kbd>esc</Kbd> {t("to close")}

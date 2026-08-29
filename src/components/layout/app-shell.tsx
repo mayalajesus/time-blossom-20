@@ -11,6 +11,9 @@ import {
   Link,
   ListBox,
   Select,
+  Separator,
+  Spinner,
+  Surface,
   TextField,
 } from "@heroui/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
@@ -60,10 +63,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.classList.toggle("dark", dark);
     root.classList.toggle("light", !dark);
-    root.style.colorScheme = dark ? "dark" : "light";
-    document
-      .querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-      ?.setAttribute("content", dark ? "#050505" : "#f5f6f8");
   }, [dark]);
 
   useEffect(() => {
@@ -74,24 +73,29 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (configured && (authLoading || (!session && !isPublicAuthPath))) {
     const loadingLabel = document.documentElement.lang === "pt-BR" ? "Carregando" : "Loading";
     return (
-      <main className="app-boot-screen">
-        <span className="app-boot-spinner" role="status" aria-label={loadingLabel} />
-      </main>
+      <Surface
+        variant="transparent"
+        className="flex min-h-screen items-center justify-center bg-background p-4"
+      >
+        <Spinner role="status" aria-label={loadingLabel} />
+      </Surface>
     );
   }
 
   return (
-    <AppI18nProvider locale={preferences.language}>
-      <HeroI18nProvider locale={preferences.language}>
-        {isPublicAuthPath ? (
-          children
-        ) : sessionStatus === "signed-out" ? (
-          <SignedOutScreen />
-        ) : (
-          <AppShellContent>{children}</AppShellContent>
-        )}
-      </HeroI18nProvider>
-    </AppI18nProvider>
+    <Surface variant="transparent" className="min-h-screen bg-background">
+      <AppI18nProvider locale={preferences.language}>
+        <HeroI18nProvider locale={preferences.language}>
+          {isPublicAuthPath ? (
+            children
+          ) : sessionStatus === "signed-out" ? (
+            <SignedOutScreen />
+          ) : (
+            <AppShellContent>{children}</AppShellContent>
+          )}
+        </HeroI18nProvider>
+      </AppI18nProvider>
+    </Surface>
   );
 }
 
@@ -128,12 +132,12 @@ function AppShellContent({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <Link className="skip-link" href="#main-content">
+      <Link className="sr-only" href="#main-content">
         {t("Skip to content")}
       </Link>
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen">
         <aside
-          className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-hidden bg-surface p-2 md:flex ${
+          className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-hidden p-2 md:flex ${
             collapsed ? "w-16" : "w-56"
           }`}
         >
@@ -164,42 +168,42 @@ function AppShellContent({ children }: { children: ReactNode }) {
           <div className={`mt-3 shrink-0 ${collapsed ? "flex justify-center" : "px-1"}`}>
             <WorkspaceSwitcher collapsed={collapsed} popoverPlacement="footer" />
           </div>
+          <Separator orientation="vertical" className="absolute right-0 top-0 h-full" />
         </aside>
 
-        <div
-          className={`min-h-screen min-w-0 transition-[padding] duration-200 ${
-            collapsed ? "md:pl-16" : "md:pl-56"
-          }`}
-        >
-          <header className="sticky top-0 z-10 flex items-center gap-2 bg-background/80 px-3 py-2.5 backdrop-blur sm:gap-3 sm:px-4 sm:py-3">
-            <div className="md:hidden">
-              <Button
-                aria-label={t("Open navigation")}
-                isIconOnly
-                size="sm"
-                variant="tertiary"
-                onPress={() => setMobileNavOpen(true)}
-              >
-                <Menu aria-hidden="true" className="size-4" />
-              </Button>
+        <div className={`min-h-screen min-w-0 ${collapsed ? "md:pl-16" : "md:pl-56"}`}>
+          <header className="sticky top-0 z-10">
+            <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
+              <div className="md:hidden">
+                <Button
+                  aria-label={t("Open navigation")}
+                  isIconOnly
+                  size="sm"
+                  variant="tertiary"
+                  onPress={() => setMobileNavOpen(true)}
+                >
+                  <Menu aria-hidden="true" className="size-4" />
+                </Button>
+              </div>
+              <div className="min-w-0 flex-1">
+                <GlobalSearchForm
+                  className="max-w-sm"
+                  query={query}
+                  onQueryChange={setQuery}
+                  onSubmit={() => navigate({ to: "/search", search: { q: query } })}
+                />
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <HeaderTimerControl />
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <GlobalSearchForm
-                className="max-w-sm"
-                query={query}
-                onQueryChange={setQuery}
-                onSubmit={() => navigate({ to: "/search", search: { q: query } })}
-              />
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              <HeaderTimerControl />
-            </div>
+            <Separator />
           </header>
 
           <main
             id="main-content"
             tabIndex={-1}
-            className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 outline-none md:px-8"
+            className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8"
           >
             {children}
           </main>
@@ -215,10 +219,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
                     <ProfileMenu showName showRole />
                   </div>
                   <div className="sr-only">
-                    <Drawer.Heading className="text-base font-semibold">
-                      {t("Navigation")}
-                    </Drawer.Heading>
-                    <p className="mt-0.5 text-xs text-muted">{t("Time Blossom")}</p>
+                    <Drawer.Heading>{t("Navigation")}</Drawer.Heading>
+                    <p className="mt-0.5">{t("Time Blossom")}</p>
                   </div>
                   <Drawer.CloseTrigger aria-label={t("Close navigation")} />
                 </Drawer.Header>
@@ -271,9 +273,9 @@ function GlobalSearchForm({
     >
       <TextField fullWidth name="global-search" value={query} onChange={onQueryChange}>
         <Label className="sr-only">{t("Search")}</Label>
-        <div className="header-search-shell">
-          <Input className="header-search-input" placeholder={t("Search…")} />
-          <Kbd aria-hidden="true" className="header-search-shortcut">
+        <div className="relative min-w-0">
+          <Input placeholder={t("Search…")} />
+          <Kbd aria-hidden="true" className="absolute right-2 top-1/2 -translate-y-1/2">
             Ctrl K
           </Kbd>
         </div>
@@ -301,13 +303,13 @@ function SignedOutScreen() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
+    <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <Card className="w-full max-w-md p-6 text-center">
-        <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-surface-secondary text-accent">
+        <div className="mx-auto flex size-12 items-center justify-center">
           <Clock aria-hidden="true" className="size-6" />
         </div>
-        <h1 className="mt-4 text-xl font-semibold">{t("You are signed out")}</h1>
-        <p className="mt-2 text-sm text-muted">{t("Choose an account to continue.")}</p>
+        <h1 className="mt-4">{t("You are signed out")}</h1>
+        <p className="mt-2">{t("Choose an account to continue.")}</p>
 
         {sessionError ? (
           <div className="mt-5 text-left">
@@ -351,7 +353,7 @@ function SignedOutScreen() {
             </Button>
           </div>
         ) : (
-          <p className="mt-5 text-sm text-muted">{t("No accounts available.")}</p>
+          <p className="mt-5">{t("No accounts available.")}</p>
         )}
       </Card>
     </main>

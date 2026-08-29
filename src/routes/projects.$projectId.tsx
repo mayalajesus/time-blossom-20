@@ -54,10 +54,7 @@ function ProjectDetail() {
 
   return (
     <div className="space-y-6">
-      <RouterLink
-        to="/projects"
-        className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
-      >
+      <RouterLink to="/projects" className="inline-flex items-center gap-1">
         <ArrowLeft className="size-4" />
         {t("Projects")}
       </RouterLink>

@@ -22,10 +22,7 @@ export function ActionDropdown({
 }) {
   return (
     <Dropdown>
-      <Dropdown.Trigger
-        aria-label={ariaLabel}
-        className="h-8 w-8 min-w-8 shrink-0 rounded-full p-0"
-      >
+      <Dropdown.Trigger aria-label={ariaLabel} className="h-8 w-8 min-w-8 shrink-0 p-0">
         <MoreHorizontal className="size-4" />
       </Dropdown.Trigger>
       <Dropdown.Popover placement="bottom end" className="max-w-[calc(100vw-1.5rem)] min-w-48">
@@ -35,7 +32,7 @@ export function ActionDropdown({
               key={item.id}
               id={item.id}
               {...(item.isDisabled ? { isDisabled: true } : {})}
-              {...(item.tone === "danger" ? { className: "text-danger" } : {})}
+              {...(item.tone === "danger" ? { variant: "danger" as const } : {})}
             >
               {item.icon}
               <Label>{item.label}</Label>

@@ -55,11 +55,7 @@ function isNavigationItemActive(pathname: string, item: NavigationItem) {
 }
 
 function SectionLabel({ children }: { children: string }) {
-  return (
-    <div className="px-3 pb-1 pt-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted">
-      {children}
-    </div>
-  );
+  return <div className="px-3 pb-1 pt-2">{children}</div>;
 }
 
 function NavigationLink({
@@ -79,9 +75,9 @@ function NavigationLink({
     <RouterLink
       to={item.to}
       aria-current={active ? "page" : undefined}
-      className={`flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface hover:bg-surface-secondary hover:text-foreground ${
-        active ? "bg-surface-secondary text-foreground" : "text-muted"
-      } ${collapsed ? "w-10 justify-center px-2.5" : ""}`}
+      className={`flex min-w-0 items-center gap-3 px-3 py-2.5 ${
+        collapsed ? "w-10 justify-center px-2.5" : ""
+      }`}
       {...(collapsed ? { "aria-label": t(item.label) } : {})}
       {...(onNavigate ? { onClick: () => onNavigate() } : {})}
     >
@@ -119,9 +115,7 @@ function ReportsNavigation({
             to="/reports"
             search={{ view: view.id }}
             aria-current={active ? "page" : undefined}
-            className={`block rounded-xl px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface hover:bg-surface-secondary hover:text-foreground ${
-              active ? "bg-surface-secondary text-foreground" : "text-muted"
-            }`}
+            className="block px-3 py-2"
             {...(onNavigate ? { onClick: () => onNavigate() } : {})}
           >
             {t(view.label)}
@@ -141,9 +135,7 @@ function ReportsNavigation({
             aria-label={t("Reports")}
             isIconOnly
             variant={reportsActive ? "secondary" : "ghost"}
-            className={`mx-auto block h-10 min-h-10 w-10 rounded-xl px-2.5 py-0 text-sm focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-              reportsActive ? "bg-surface-secondary text-foreground" : "text-muted"
-            }`}
+            className="mx-auto block h-10 min-h-10 w-10 px-2.5 py-0"
           >
             <span className="flex size-5 shrink-0 items-center justify-center">
               <BarChart3 aria-hidden="true" className="size-4" />
@@ -152,7 +144,7 @@ function ReportsNavigation({
         </Popover.Trigger>
         <Popover.Content
           placement="right top"
-          className="w-44 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl p-1"
+          className="w-44 max-w-[calc(100vw-1rem)] overflow-hidden p-1"
         >
           <div id="reports-submenu-collapsed">{reportLinks}</div>
         </Popover.Content>
@@ -167,11 +159,7 @@ function ReportsNavigation({
         aria-expanded={reportsOpen}
         aria-label={`${t(reportsOpen ? "Collapse" : "Expand")} ${t("Reports")}`}
         variant={reportsActive ? "secondary" : "ghost"}
-        className={`h-10 min-h-10 w-full justify-start gap-3 rounded-xl px-3 py-0 text-sm font-normal focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface hover:text-foreground ${
-          reportsActive
-            ? "bg-surface-secondary text-foreground"
-            : "text-muted hover:bg-surface-secondary"
-        }`}
+        className="h-10 min-h-10 w-full justify-start gap-3 px-3 py-0"
         onPress={() => onReportsOpenChange(!reportsOpen)}
       >
         <span className="flex size-5 shrink-0 items-center justify-center">
@@ -185,7 +173,7 @@ function ReportsNavigation({
         )}
       </Button>
       {reportsOpen ? (
-        <div id="reports-submenu-expanded" className="ml-6 mt-1 border-l border-separator pl-2">
+        <div id="reports-submenu-expanded" className="ml-6 mt-1 pl-2">
           {reportLinks}
         </div>
       ) : null}
@@ -223,7 +211,7 @@ export function SidebarNavigation({
 
       {!collapsed ? <SectionLabel>{t("Manage")}</SectionLabel> : null}
       <div
-        className={`${collapsed ? "mt-3 flex flex-col items-center gap-0.5 border-t border-separator pt-3" : "space-y-0.5"}`}
+        className={`${collapsed ? "mt-3 flex flex-col items-center gap-0.5 pt-3" : "space-y-0.5"}`}
       >
         {managementNavigation.map((item) => (
           <NavigationLink key={item.to} item={item} collapsed={collapsed} onNavigate={onNavigate} />

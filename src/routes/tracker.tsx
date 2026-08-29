@@ -84,7 +84,7 @@ function TrackerPage() {
       <TimerCard />
 
       <section className="space-y-4" aria-labelledby="tracker-period-heading">
-        <div className="flex flex-col gap-3 border-b border-separator pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-1">
             <Button
               isIconOnly
@@ -97,10 +97,7 @@ function TrackerPage() {
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <h2
-              id="tracker-period-heading"
-              className="min-w-0 px-1 text-sm font-medium text-foreground"
-            >
+            <h2 id="tracker-period-heading" className="min-w-0 px-1">
               <TrackerPeriodFilter
                 period={period}
                 today={today}
@@ -123,7 +120,7 @@ function TrackerPage() {
               <Button
                 size="sm"
                 variant="tertiary"
-                className="shrink-0 px-2 text-xs"
+                className="shrink-0 px-2"
                 onPress={() =>
                   setPeriod({
                     unit: "week",
@@ -137,7 +134,7 @@ function TrackerPage() {
             )}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
-            <span className="text-sm tabular-nums text-muted">
+            <span>
               {formatDuration(periodTotal, locale)} {t("tracked")}
             </span>
             <Button

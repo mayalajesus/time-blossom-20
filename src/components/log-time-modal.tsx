@@ -100,7 +100,7 @@ export function LogTimeModal({
   const timeError =
     timeMode === "duration"
       ? parsedDurationSeconds === null
-        ? t("Use H:MM, HHMM, HMM, 2h or Ns (for example, 2:45, 825 or 45s)")
+        ? t("Use H:MM, H:MM:SS, HHMM, HMM, 2h or Ns (for example, 2:45, 00:00:49 or 45s)")
         : undefined
       : entrySeconds <= 0
         ? t("End time must be after start time")
@@ -185,7 +185,7 @@ export function LogTimeModal({
                 submit();
               }}
             >
-              <Modal.Body className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain flex flex-col gap-4">
+              <Modal.Body className="min-h-0 flex-1 overflow-y-auto overscroll-contain flex flex-col gap-4">
                 {saveError ? (
                   <FormAlert title={t("Could not save entry")} description={error(saveError)} />
                 ) : null}
@@ -304,12 +304,12 @@ export function LogTimeModal({
                       onChange={setDuration}
                       validate={(value) =>
                         parseDurationInput(value) === null
-                          ? t("Use H:MM, HHMM, HMM, 2h or Ns")
+                          ? t("Use H:MM, H:MM:SS, HHMM, HMM, 2h or Ns")
                           : null
                       }
                     >
                       <Label>{t("Duration")}</Label>
-                      <Input placeholder={t("e.g. 2:45 or 825")} />
+                      <Input placeholder={t("e.g. 2:45, 00:00:49 or 45s")} />
                       <FieldError />
                     </TextField>
                   )}

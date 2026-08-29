@@ -37,10 +37,10 @@ export function TimerCard() {
   };
 
   return (
-    <Card className="tracker-timer-card p-2 sm:p-2.5">
-      <div className="tracker-timer-layout grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(11rem,13rem)] lg:grid-cols-[minmax(0,1fr)_minmax(11rem,13rem)_auto] lg:items-center">
+    <Card className="p-2 sm:p-2.5">
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(11rem,13rem)] lg:grid-cols-[minmax(0,1fr)_minmax(11rem,13rem)_auto] lg:items-center">
         <TextField
-          className="tracker-timer-task-field min-w-0 sm:col-span-1 lg:col-span-1"
+          className="min-w-0 sm:col-span-1 lg:col-span-1"
           fullWidth
           name="timer-task"
           value={active ? activeTask : task}
@@ -55,7 +55,6 @@ export function TimerCard() {
         >
           <Label className="sr-only">{t("What are you working on?")}</Label>
           <Input
-            className="tracker-timer-input"
             placeholder={t("What are you working on?")}
             onBlur={() => {
               if (!active) return;
@@ -72,11 +71,10 @@ export function TimerCard() {
           />
         </TextField>
 
-        <div className="tracker-timer-project-field min-w-0 sm:col-span-1 lg:col-span-1">
+        <div className="min-w-0 sm:col-span-1 lg:col-span-1">
           <Label className="sr-only">{t("Project")}</Label>
           <ProjectSelect
             ariaLabel={t("Project")}
-            triggerClassName="tracker-timer-project-trigger"
             value={(active ? timer.projectId : projectId) ?? "none"}
             allowArchivedId={active ? timer.projectId : null}
             onChange={(value) => {
@@ -96,24 +94,22 @@ export function TimerCard() {
           />
         </div>
 
-        <div className="tracker-timer-controls flex min-w-0 items-center gap-2 sm:col-span-2 lg:col-span-1">
-          <div className="tracker-timer-readout" data-status={timer.status}>
-            <span className="tracker-timer-status-dot" aria-hidden="true" />
+        <div className="flex min-w-0 items-center gap-2 sm:col-span-2 lg:col-span-1">
+          <div className="flex min-w-0 items-center gap-2" data-status={timer.status}>
             <span
               aria-atomic="true"
               aria-live="polite"
               aria-label={`${t("Timer")}: ${formatClock(elapsed)}`}
-              className="tracker-timer-readout-value"
             >
               {formatClock(elapsed)}
             </span>
           </div>
-          <div className="tracker-timer-actions flex min-w-0 shrink-0 items-center gap-1.5">
+          <div className="flex min-w-0 shrink-0 items-center gap-1.5">
             {timer.status === "idle" ? (
               <Button
                 aria-label={t("Start")}
                 isIconOnly
-                className="tracker-timer-action size-9 min-w-9 shrink-0"
+                className="size-9 min-w-9 shrink-0"
                 size="sm"
                 onPress={() => {
                   const result = startTimer(task, projectId, billable);
@@ -128,7 +124,7 @@ export function TimerCard() {
                   <Button
                     aria-label={t("Pause")}
                     isIconOnly
-                    className="tracker-timer-action size-9 min-w-9 shrink-0"
+                    className="size-9 min-w-9 shrink-0"
                     size="sm"
                     variant="secondary"
                     onPress={pauseTimer}
@@ -139,7 +135,7 @@ export function TimerCard() {
                   <Button
                     aria-label={t("Resume")}
                     isIconOnly
-                    className="tracker-timer-action size-9 min-w-9 shrink-0"
+                    className="size-9 min-w-9 shrink-0"
                     size="sm"
                     variant="secondary"
                     onPress={resumeTimer}
@@ -150,7 +146,7 @@ export function TimerCard() {
                 <Button
                   aria-label={t("Stop")}
                   isIconOnly
-                  className="tracker-timer-action tracker-timer-stop size-9 min-w-9 shrink-0"
+                  className="size-9 min-w-9 shrink-0"
                   size="sm"
                   variant="tertiary"
                   onPress={() => {
@@ -168,7 +164,7 @@ export function TimerCard() {
 
           <ToggleButton
             aria-label={t("Billable")}
-            className="tracker-timer-billable size-9 min-w-9 shrink-0 data-[selected=true]:bg-success-soft data-[selected=true]:text-success-soft-foreground"
+            className="size-9 min-w-9 shrink-0"
             isIconOnly
             isSelected={active ? timer.billable : billable}
             size="md"
