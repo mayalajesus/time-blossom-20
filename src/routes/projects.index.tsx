@@ -10,6 +10,7 @@ import {
   ListBox,
   Modal,
   Select,
+  Separator,
   Switch,
   TextField,
   Typography,
@@ -258,20 +259,17 @@ function ProjectsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((project) => (
-            <Card key={project.id} className="flex min-h-[160px] min-w-0 flex-col p-4">
-              <div className="flex min-w-0 items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
+            <Card key={project.id} className="min-h-[160px] min-w-0">
+              <Card.Header className="flex-row items-start justify-between gap-3 p-0">
+                <Card.Title className="min-w-0 flex-1 truncate">
                   <RouterLink
                     to="/projects/$projectId"
                     params={{ projectId: project.id }}
-                    className="block w-full truncate text-left"
+                    className="block w-full truncate"
                   >
                     {project.name}
                   </RouterLink>
-                  <span className="mt-0.5 block w-full truncate">
-                    {clientName(project.clientId)}
-                  </span>
-                </div>
+                </Card.Title>
                 <div className="flex shrink-0 items-center gap-2">
                   <Chip color={project.billable ? "success" : "default"} size="sm" variant="soft">
                     {project.billable ? t("Billable") : t("Internal")}
@@ -343,9 +341,17 @@ function ProjectsPage() {
                     />
                   ) : null}
                 </div>
-              </div>
+              </Card.Header>
 
-              <div className="mt-auto flex items-end justify-between gap-4 pt-4">
+              <Card.Content className="min-w-0 p-0">
+                <Card.Description className="truncate">
+                  {clientName(project.clientId)}
+                </Card.Description>
+              </Card.Content>
+
+              <Separator />
+
+              <Card.Footer className="mt-auto justify-between gap-4 p-0">
                 <div className="min-w-0">
                   <Typography type="body-xs" color="muted" weight="semibold">
                     {t("Tracked")}
@@ -362,7 +368,7 @@ function ProjectsPage() {
                     {formatDate(project.lastActivity, locale)}
                   </Typography>
                 </div>
-              </div>
+              </Card.Footer>
             </Card>
           ))}
         </div>
