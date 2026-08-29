@@ -7,8 +7,8 @@ import {
   ChevronRight,
   Clock,
   FolderKanban,
+  Layers3,
   Puzzle,
-  Settings,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -29,7 +29,7 @@ const workspaceNavigation: NavigationItem[] = [
 
 const managementNavigation: NavigationItem[] = [
   { to: "/integrations", label: "Integrations", icon: Puzzle },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/workspaces", label: "Workspaces", icon: Layers3 },
 ];
 
 const reportViews = [
@@ -251,10 +251,12 @@ export function SidebarNavigation({
           />
         </div>
 
-        {!collapsed ? <SectionLabel>{t("Manage")}</SectionLabel> : null}
-        <div
-          className={`${collapsed ? "mt-3 flex flex-col items-center gap-0.5 pt-3" : "space-y-0.5"}`}
-        >
+        {!collapsed ? (
+          <SectionLabel>{t("Manage")}</SectionLabel>
+        ) : (
+          <Separator className="mx-auto my-2 w-10" />
+        )}
+        <div className={`${collapsed ? "flex flex-col items-center gap-0.5" : "space-y-0.5"}`}>
           {managementNavigation.map((item) => (
             <NavigationLink
               key={item.to}
