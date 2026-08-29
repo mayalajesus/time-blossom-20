@@ -1,7 +1,7 @@
 import {
   Avatar,
   Button,
-  Card,
+  Chip,
   Description,
   FieldError,
   Form,
@@ -11,15 +11,27 @@ import {
   Modal,
   Select,
   Switch,
+  Table,
   TextField,
+  Toolbar,
   Typography,
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Archive, ArchiveRestore, ExternalLink, Layers3, Pencil, Plus, Upload } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ExternalLink,
+  Layers3,
+  LogOut,
+  Pencil,
+  Plus,
+  Upload,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { FormAlert } from "@/components/form-feedback";
+import { DataTable } from "@/components/data-table";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { PageHeader } from "@/components/page-header";
 import { EmptyBlock } from "@/components/states";
@@ -255,83 +267,108 @@ function WorkspacesPage() {
     setConfirmation(null);
   };
 
-  const renderWorkspace = (workspace: WorkspaceSummary) => {
+  const renderWorkspaceRow = (workspace: WorkspaceSummary) => {
     const isCurrent = workspace.id === activeWorkspaceId;
     const canEdit = workspace.isOwned && workspace.status === "active";
+    const ownerLabel = workspace.isOwned
+      ? t("Owned by you")
+      : t("Owned by {name}", { name: workspace.ownerName });
+
     return (
-      <Card key={workspace.id} className="flex min-h-44 min-w-0 flex-col p-4">
-        <div className="flex min-w-0 items-start gap-3">
-          <WorkspaceLogo workspace={workspace} />
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <Typography type="body-sm" weight="semibold" truncate>
-                  {workspace.name}
-                </Typography>
-                <Typography type="body-xs" color="muted" truncate className="mt-1">
-                  {workspace.isOwned
-                    ? t("Owned by you")
-                    : t("Owned by {name}", { name: workspace.ownerName })}
-                </Typography>
-              </div>
-              {isCurrent ? <span className="shrink-0 px-2 py-1">{t("Current")}</span> : null}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="px-2 py-1">{t(workspace.role)}</span>
-              <span className="px-2 py-1">
-                {workspace.status === "archived" ? t("Archived") : t("Active")}
-              </span>
+      <Table.Row key={workspace.id}>
+        <Table.Cell>
+          <div className="flex min-w-0 items-center gap-3">
+            <WorkspaceLogo workspace={workspace} size="sm" />
+            <div className="flex min-w-0 items-center gap-2">
+              <Typography type="body-sm" weight="semibold" truncate>
+                {workspace.name}
+              </Typography>
+              {isCurrent ? (
+                <Chip size="sm" variant="soft">
+                  {t("Current")}
+                </Chip>
+              ) : null}
             </div>
           </div>
-        </div>
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-4">
-          <Button
+        </Table.Cell>
+        <Table.Cell>
+          <Typography type="body-sm" color="muted" truncate>
+            {ownerLabel}
+          </Typography>
+        </Table.Cell>
+        <Table.Cell>
+          <Typography type="body-sm">{t(workspace.role)}</Typography>
+        </Table.Cell>
+        <Table.Cell>
+          <Chip
+            color={workspace.status === "active" ? "success" : "default"}
             size="sm"
-            variant={isCurrent ? "secondary" : "primary"}
-            onPress={() => openWorkspace(workspace.id)}
+            variant="soft"
           >
-            <ExternalLink className="size-4" />
-            {t("Open")}
-          </Button>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+            {workspace.status === "archived" ? t("Archived") : t("Active")}
+          </Chip>
+        </Table.Cell>
+        <Table.Cell>
+          <Toolbar
+            aria-label={t("Actions for {name}", { name: workspace.name })}
+            className="ml-auto"
+          >
+            <Button
+              isIconOnly
+              size="sm"
+              variant="ghost"
+              aria-label={t("Open {name}", { name: workspace.name })}
+              onPress={() => openWorkspace(workspace.id)}
+            >
+              <ExternalLink aria-hidden="true" />
+            </Button>
             {canEdit ? (
-              <Button size="sm" variant="tertiary" onPress={() => openEdit(workspace)}>
-                <Pencil className="size-4" />
-                {t("Edit workspace")}
+              <Button
+                isIconOnly
+                size="sm"
+                variant="ghost"
+                aria-label={t("Edit {name}", { name: workspace.name })}
+                onPress={() => openEdit(workspace)}
+              >
+                <Pencil aria-hidden="true" />
               </Button>
             ) : null}
             {workspace.isOwned && workspace.status === "active" ? (
               <Button
+                isIconOnly
                 size="sm"
-                variant="tertiary"
+                variant="ghost"
+                aria-label={t("Archive {name}", { name: workspace.name })}
                 onPress={() => setConfirmation({ kind: "archive", workspace })}
               >
-                <Archive className="size-4" />
-                {t("Archive")}
+                <Archive aria-hidden="true" />
               </Button>
             ) : null}
             {workspace.isOwned && workspace.status === "archived" ? (
               <Button
+                isIconOnly
                 size="sm"
-                variant="tertiary"
+                variant="ghost"
+                aria-label={t("Restore {name}", { name: workspace.name })}
                 onPress={() => setConfirmation({ kind: "restore", workspace })}
               >
-                <ArchiveRestore className="size-4" />
-                {t("Restore")}
+                <ArchiveRestore aria-hidden="true" />
               </Button>
             ) : null}
             {!workspace.isOwned ? (
               <Button
+                isIconOnly
                 size="sm"
-                variant="tertiary"
+                variant="ghost"
+                aria-label={t("Leave {name}", { name: workspace.name })}
                 onPress={() => setConfirmation({ kind: "leave", workspace })}
               >
-                {t("Leave")}
+                <LogOut aria-hidden="true" />
               </Button>
             ) : null}
-          </div>
-        </div>
-      </Card>
+          </Toolbar>
+        </Table.Cell>
+      </Table.Row>
     );
   };
 
@@ -342,7 +379,7 @@ function WorkspacesPage() {
         description={t("Create focused spaces for your work or open one shared with you.")}
         actions={
           <Button onPress={openCreate}>
-            <Plus className="size-4" />
+            <Plus aria-hidden="true" />
             {t("New workspace")}
           </Button>
         }
@@ -352,45 +389,27 @@ function WorkspacesPage() {
         <FormAlert title={t("Workspace action unavailable")} description={pageError} />
       ) : null}
 
-      {owned.length > 0 ? (
-        <section aria-labelledby="owned-workspaces-heading" className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <Typography type="h2" weight="semibold" id="owned-workspaces-heading">
-                {t("Your workspaces")}
-              </Typography>
-              <Typography type="body-sm" color="muted" className="mt-1">
-                {t("Up to 5 workspaces created by you, including archived ones.")}
-              </Typography>
-            </div>
-            <span>{owned.length}/5</span>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">{owned.map(renderWorkspace)}</div>
+      {workspaces.length > 0 ? (
+        <section aria-label={t("Workspace list")}>
+          <DataTable label={t("Workspaces")} minWidth="min-w-[760px]">
+            <Table.Header>
+              <Table.Column isRowHeader>{t("Workspace")}</Table.Column>
+              <Table.Column>{t("Owner")}</Table.Column>
+              <Table.Column>{t("Role")}</Table.Column>
+              <Table.Column>{t("Status")}</Table.Column>
+              <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
+            </Table.Header>
+            <Table.Body>{[...owned, ...shared].map(renderWorkspaceRow)}</Table.Body>
+          </DataTable>
         </section>
-      ) : null}
-
-      {shared.length > 0 ? (
-        <section aria-labelledby="shared-workspaces-heading" className="space-y-3">
-          <div>
-            <Typography type="h2" weight="semibold" id="shared-workspaces-heading">
-              {t("Shared with you")}
-            </Typography>
-            <Typography type="body-sm" color="muted" className="mt-1">
-              {t("Workspaces where you collaborate with another owner.")}
-            </Typography>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">{shared.map(renderWorkspace)}</div>
-        </section>
-      ) : null}
-
-      {owned.length === 0 && shared.length === 0 ? (
+      ) : (
         <EmptyBlock
           icon={<Layers3 className="size-5" />}
           title={t("No workspaces yet")}
           description={t("Create a workspace to keep your projects, clients and time separate.")}
           action={<Button onPress={openCreate}>{t("New workspace")}</Button>}
         />
-      ) : null}
+      )}
 
       <WorkspaceFormModal
         isOpen={createOpen}
