@@ -198,7 +198,11 @@ system before they can track time.
   the middle and workspace selection in the footer.
 - Navigation links use a calm `bg-surface-secondary` active state, visible
   focus, truncation for long labels and consistent HeroUI radius and density.
-  The workspace logo and workspace initials/avatar are never shown in the
+- The workspace switcher is a compact HeroUI Card anchored in the sidebar
+  footer, without a separator rule. Its name and role remain the only visible
+  context in the expanded state; the collapsed state uses the same neutral
+  card geometry with a generic workspace icon. The workspace logo and
+  workspace initials/avatar are never shown in the
   sidebar; a generic workspace icon is used only as a compact footer switcher
   control, while the optional logo remains reserved for report PDFs. The
   profile avatar remains the only identity avatar in the sidebar and is placed

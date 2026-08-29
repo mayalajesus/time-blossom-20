@@ -157,7 +157,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
             onReportsOpenChange={setReportsOpen}
           />
 
-          <div className="mt-3 shrink-0 border-t border-default px-1 pt-3">
+          <div className="mt-3 shrink-0 px-1">
             <WorkspaceSwitcher collapsed={collapsed} popoverPlacement="footer" />
           </div>
         </aside>
