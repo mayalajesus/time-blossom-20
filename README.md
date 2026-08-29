@@ -136,4 +136,9 @@ can filter by Team (Admin/Owner only), Client, Project, Task, Description and
 Billability. Tags and approval status are intentionally not offered because
 they are not part of the current time-entry model. Members see and export only
 their own records; Admins and Owners can use workspace scope. CSV, XLSX and
-print-ready PDF exports use the exact period, filters and view currently shown.
+the downloadable PDF export uses the exact period, filters and view currently
+shown, including workspace branding when configured. Summary, Weekly and Team
+use complementary lightweight HeroUI visualizations: circular progress for
+proportions and concentration, and progress bars for ranked comparisons and
+daily activity. Detailed remains table-first, keeping each report useful
+without loading a heavy charting layer.

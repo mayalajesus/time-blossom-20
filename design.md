@@ -277,6 +277,9 @@ system before they can track time.
   month, Last month, This year, Last year and Custom range. Custom ranges use
   the HeroUI `RangeCalendar`, normalize reversed selections and close after a
   valid range is selected. Weekly normalizes any selection to one full week.
+- The period popover shows one compact seven-column HeroUI calendar grid at a
+  time. Presets remain alongside it on larger screens without duplicate month
+  panels or calendar scrolling.
 - The filter bar supports Team, Client, Project, Task, Description and
   Billability. Team is available only to Admins and Owners. Client and Project
   filters support multiple selections and accent-insensitive search; `No
@@ -288,13 +291,21 @@ project` remains a first-class report category. Hidden filters keep their
   rows, while summary, weekly and team aggregation is calculated once per
   filter change. Empty results explain the state and provide a clear-filters
   action.
-- CSV, XLSX and print-ready PDF exports receive the already filtered dataset
+- CSV, XLSX and downloadable PDF exports receive the already filtered dataset
   and active view, preventing screen/export divergence. Export columns use the
   existing model only and retain overnight end-date indicators such as `+1`.
   PDF output is a clean, light, print-oriented document with Time Blossom
   branding, report context, active-filter metadata, totals and a paginated
-  table whose header repeats across printed pages. The print window remains
-  available so the user can choose the browser's `Save as PDF` destination.
+  table whose header repeats across printed pages. PDF generation is loaded
+  only when requested and downloads directly, without opening a print dialog.
+- Summary, Weekly and Team use a small set of complementary, accessible HeroUI
+  visualizations: `ProgressCircle` communicates proportions and concentration,
+  while `ProgressBar` communicates ranked comparisons and daily activity.
+  Detailed remains table-first with no chart. These primitives keep the
+  dashboard light while giving each report a distinct visual reading instead
+  of repeating one chart pattern. The report toolbar uses HeroUI `Button`,
+  `Select`, `Popover`, `ListBox`, `Checkbox`, `Input` and `RangeCalendar`
+  defaults consistently.
 
 ## Interaction and states
 

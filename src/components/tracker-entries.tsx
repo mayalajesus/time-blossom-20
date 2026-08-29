@@ -65,6 +65,7 @@ type EntryDraft = {
 };
 
 const trackerCellClass = "overflow-hidden";
+const trackerDurationCellClass = "overflow-hidden text-center";
 const trackerActionCellClass = "whitespace-nowrap !px-2";
 const trackerActionLayoutClass = "grid grid-cols-[2rem_2rem] items-center justify-end gap-1";
 const trackerActionButtonClass = "size-8 min-w-8 shrink-0 !p-0";
@@ -256,7 +257,9 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
           </Table.Column>
           <Table.Column className="w-[12%] whitespace-nowrap text-center">{t("End")}</Table.Column>
           <Table.Column className="w-[13%] whitespace-nowrap">{t("Date")}</Table.Column>
-          <Table.Column className="w-[14%] whitespace-nowrap">{t("Duration")}</Table.Column>
+          <Table.Column className="w-[10%] whitespace-nowrap text-center">
+            {t("Duration")}
+          </Table.Column>
           <Table.Column className="w-[10%]" aria-label={t("Actions")} />
         </Table.Header>
         <Table.Body>
@@ -438,7 +441,7 @@ function TrackerGroupSummaryRow({
           {formatDate(group.date, locale)}
         </span>
       </Table.Cell>
-      <Table.Cell className={summaryCellClass}>
+      <Table.Cell className={`${summaryCellClass} text-center`}>
         <span className={`${summaryTextClass} font-medium tabular-nums text-foreground`}>
           {formatDuration(group.totalSeconds, locale)}
         </span>
@@ -1117,7 +1120,7 @@ function TrackerEntryRow({
         )}
       </Table.Cell>
 
-      <Table.Cell className={trackerCellClass}>
+      <Table.Cell className={trackerDurationCellClass}>
         {activeField === "duration" ? (
           <TextField
             className="inline-flex min-w-0"

@@ -24,12 +24,14 @@ export function ExportModal({
   const [format, setFormat] = useState<ReportExportFormat>("csv");
   const [hasExported, setHasExported] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
   const { t, error } = useI18n();
 
   const close = (open: boolean) => {
     if (!open) {
       setHasExported(false);
       setExportError("");
+      setIsExporting(false);
     }
     onOpenChange(open);
   };
@@ -45,24 +47,29 @@ export function ExportModal({
               <Modal.Heading>{t("Export {scope}", { scope })}</Modal.Heading>
             </Modal.Header>
             <Form
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
-                const result = exportReport(format, payload);
-                if (!result.success) {
-                  setHasExported(false);
-                  setExportError(error(result.error));
-                  return;
+                setIsExporting(true);
+                try {
+                  const result = await exportReport(format, payload);
+                  if (!result.success) {
+                    setHasExported(false);
+                    setExportError(error(result.error));
+                    return;
+                  }
+                  setHasExported(true);
+                  setExportError("");
+                  toast(t("Export complete"), {
+                    description:
+                      format === "pdf"
+                        ? t("The PDF report has been downloaded.")
+                        : t("The filtered {format} report is downloading.", {
+                            format: format.toUpperCase(),
+                          }),
+                  });
+                } finally {
+                  setIsExporting(false);
                 }
-                setHasExported(true);
-                setExportError("");
-                toast(t("Export started"), {
-                  description:
-                    format === "pdf"
-                      ? t("A print-ready report opened for printing or saving as PDF.")
-                      : t("The filtered {format} report is downloading.", {
-                          format: format.toUpperCase(),
-                        }),
-                });
               }}
             >
               <Modal.Body className="flex flex-col gap-5">
@@ -104,7 +111,7 @@ export function ExportModal({
                     description={
                       format === "pdf"
                         ? t(
-                            "The print window is ready. Choose Save as PDF in the browser print dialog.",
+                            "The PDF report was downloaded with the current filters and workspace branding.",
                           )
                         : t("The file uses the same filtered dataset shown in this report.")
                     }
@@ -122,7 +129,7 @@ export function ExportModal({
                 <Button slot="close" type="button" variant="secondary">
                   {t("Close")}
                 </Button>
-                <Button type="submit">
+                <Button type="submit" isDisabled={isExporting}>
                   <Download className="size-4" />
                   {t("Export")}
                 </Button>

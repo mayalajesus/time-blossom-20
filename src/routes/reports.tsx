@@ -1,7 +1,20 @@
-import { Button, Label, ListBox, Select, Table } from "@heroui/react";
+import {
+  Button,
+  Card,
+  Checkbox,
+  Input,
+  Label,
+  ListBox,
+  Popover,
+  ProgressBar,
+  ProgressCircle,
+  Select,
+  Table,
+  TextField,
+} from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, ChevronRight, Download, FileBarChart, RotateCcw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { DataTable } from "@/components/data-table";
 import { ExportModal } from "@/components/export-modal";
 import {
@@ -9,7 +22,7 @@ import {
   type ReportFilterKey,
   type ReportFilterValues,
 } from "@/components/report-filters";
-import { PageHeader, StatCard } from "@/components/page-header";
+import { PageHeader } from "@/components/page-header";
 import { EmptyBlock, CardsSkeleton } from "@/components/states";
 import type { Client, Member, Project, TimeEntry } from "@/lib/mock-data";
 import {
@@ -41,6 +54,16 @@ const reportViews = [
 type ReportView = (typeof reportViews)[number]["id"];
 type GroupDimension = "project" | "client" | "member" | "task" | "date";
 type WeeklyDimension = "project" | "member";
+type DetailedColumn =
+  | "date"
+  | "member"
+  | "projectClient"
+  | "task"
+  | "description"
+  | "start"
+  | "end"
+  | "duration"
+  | "billability";
 
 const groupOptions: Array<{ id: GroupDimension; label: string }> = [
   { id: "project", label: "Project" },
@@ -63,6 +86,28 @@ const defaultVisibleFilters: ReportFilterKey[] = [
   "billability",
 ];
 
+const detailedColumnOptions: Array<{ id: DetailedColumn; label: string }> = [
+  { id: "date", label: "Date" },
+  { id: "task", label: "Task" },
+  { id: "projectClient", label: "Project / client" },
+  { id: "start", label: "Start" },
+  { id: "end", label: "End" },
+  { id: "duration", label: "Duration" },
+  { id: "billability", label: "Billability" },
+  { id: "member", label: "Member" },
+  { id: "description", label: "Description" },
+];
+
+const defaultDetailedColumns: DetailedColumn[] = [
+  "date",
+  "task",
+  "projectClient",
+  "start",
+  "end",
+  "duration",
+  "billability",
+];
+
 type ReportSearch = {
   view?: ReportView;
   preset?: ReportPeriodPreset;
@@ -78,6 +123,7 @@ type ReportSearch = {
   group?: GroupDimension;
   subgroup?: GroupDimension | "none";
   weeklyGroup?: WeeklyDimension;
+  columns?: string;
   page?: number;
 };
 
@@ -106,6 +152,15 @@ function isGroupDimension(value: unknown): value is GroupDimension {
 
 function isWeeklyDimension(value: unknown): value is WeeklyDimension {
   return weeklyOptions.some((option) => option.id === value);
+}
+
+function isDetailedColumn(value: string): value is DetailedColumn {
+  return detailedColumnOptions.some((column) => column.id === value);
+}
+
+function parseDetailedColumns(value: string): DetailedColumn[] {
+  const columns = value.split(",").filter(isDetailedColumn);
+  return columns.length > 0 ? [...new Set(columns)] : defaultDetailedColumns;
 }
 
 function asText(value: unknown): string {
@@ -255,7 +310,7 @@ function buildGroups(
 
 export const Route = createFileRoute("/reports")({
   validateSearch: (search: Record<string, unknown>): ReportSearch => ({
-    view: isReportView(search["view"]) ? search["view"] : "detailed",
+    view: isReportView(search["view"]) ? search["view"] : "summary",
     preset: isPeriodPreset(search["preset"]) ? search["preset"] : "this-month",
     start: asText(search["start"]),
     end: asText(search["end"]),
@@ -276,6 +331,7 @@ export const Route = createFileRoute("/reports")({
         ? search["subgroup"]
         : "none",
     weeklyGroup: isWeeklyDimension(search["weeklyGroup"]) ? search["weeklyGroup"] : "project",
+    columns: asCsv(search["columns"]),
     page:
       Number.isInteger(search["page"]) && Number(search["page"]) > 0 ? Number(search["page"]) : 1,
   }),
@@ -293,7 +349,7 @@ export const Route = createFileRoute("/reports")({
 function ReportsPage() {
   const rawSearch = Route.useSearch();
   const search: Required<ReportSearch> = {
-    view: rawSearch.view ?? "detailed",
+    view: rawSearch.view ?? "summary",
     preset: rawSearch.preset ?? "this-month",
     start: rawSearch.start ?? "",
     end: rawSearch.end ?? "",
@@ -307,6 +363,7 @@ function ReportsPage() {
     group: rawSearch.group ?? "project",
     subgroup: rawSearch.subgroup ?? "none",
     weeklyGroup: rawSearch.weeklyGroup ?? "project",
+    columns: rawSearch.columns ?? defaultDetailedColumns.join(","),
     page: rawSearch.page ?? 1,
   };
   const navigate = Route.useNavigate();
@@ -326,7 +383,13 @@ function ReportsPage() {
   const [exportOpen, setExportOpen] = useState(false);
 
   const weekStartsOn = settings.weekStart === "sunday" ? 0 : 1;
-  const requestedRange = makeRange(search.preset, search.start, search.end, today, weekStartsOn);
+  const requestedRange =
+    search.view === "weekly" && !search.start && !search.end && search.preset === "this-month"
+      ? (() => {
+          const week = getWeekBounds(today, weekStartsOn);
+          return { startDate: week.start, endDate: week.end };
+        })()
+      : makeRange(search.preset, search.start, search.end, today, weekStartsOn);
   const range =
     search.view === "weekly"
       ? (() => {
@@ -379,6 +442,15 @@ function ReportsPage() {
       start: shiftDate(range.startDate, direction * 7),
       end: shiftDate(range.endDate, direction * 7),
     });
+  };
+
+  const changeView = (nextView: ReportView) => {
+    if (nextView === "weekly") {
+      const week = getWeekBounds(today, weekStartsOn);
+      updateSearch({ view: nextView, preset: "this-week", start: week.start, end: week.end });
+      return;
+    }
+    updateSearch({ view: nextView });
   };
 
   const scopedEntries = can("view-all-reports")
@@ -686,7 +758,7 @@ function ReportsPage() {
               className="w-36"
               value={search.view}
               onChange={(key) => {
-                if (key) updateSearch({ view: String(key) as ReportView });
+                if (key) changeView(String(key) as ReportView);
               }}
             >
               <Label className="sr-only">{t("Report view")}</Label>
@@ -770,11 +842,15 @@ function ReportsPage() {
               members={members}
               projects={projects}
               clients={clients}
+              columns={parseDetailedColumns(search.columns)}
+              onChangeColumns={(columns) => updateSearch({ columns: encodeIds(columns) })}
             />
           ) : search.view === "summary" ? (
             <SummaryReport
               groups={groups}
               total={total}
+              billable={billable}
+              internal={internal}
               primary={search.group}
               secondary={search.subgroup}
               expanded={summaryExpanded}
@@ -836,12 +912,198 @@ function ReportOverview({
   records: number;
 }) {
   const { locale, t } = useI18n();
+  const metrics = [
+    { label: t("Tracked"), value: formatDuration(total, locale) },
+    { label: t("Billable"), value: formatDuration(billable, locale) },
+    { label: t("Internal"), value: formatDuration(internal, locale) },
+    { label: t("Entries"), value: String(records) },
+  ];
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <StatCard label={t("Tracked")} value={formatDuration(total, locale)} />
-      <StatCard label={t("Billable")} value={formatDuration(billable, locale)} />
-      <StatCard label={t("Internal")} value={formatDuration(internal, locale)} />
-      <StatCard label={t("Entries")} value={String(records)} />
+    <Card className="overflow-hidden">
+      <Card.Content className="grid grid-cols-2 gap-px p-0 sm:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="min-w-0 bg-surface px-4 py-3">
+            <p className="truncate text-[0.68rem] font-medium tracking-[0.12em] text-muted uppercase">
+              {metric.label}
+            </p>
+            <p className="mt-1 truncate text-lg font-semibold tabular-nums text-foreground">
+              {metric.value}
+            </p>
+          </div>
+        ))}
+      </Card.Content>
+    </Card>
+  );
+}
+
+function ReportChartCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Card className="min-w-0">
+      <Card.Header className="px-4 pb-0 pt-4">
+        <Card.Title className="text-sm font-medium">{title}</Card.Title>
+      </Card.Header>
+      <Card.Content className="min-w-0 px-3 pb-3 pt-2">{children}</Card.Content>
+    </Card>
+  );
+}
+
+function ChartEmpty() {
+  const { t } = useI18n();
+  return (
+    <div className="flex h-48 items-center justify-center text-sm text-muted">
+      {t("No chart data")}
+    </div>
+  );
+}
+
+function ReportMetricBar({
+  label,
+  seconds,
+  maxSeconds,
+  color = "accent",
+}: {
+  label: string;
+  seconds: number;
+  maxSeconds: number;
+  color?: "accent" | "default" | "success";
+}) {
+  const { locale, t } = useI18n();
+  const percentage = maxSeconds > 0 ? Math.round((seconds / maxSeconds) * 100) : 0;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="min-w-0 truncate text-muted">{label}</span>
+        <span className="shrink-0 font-medium tabular-nums text-foreground">
+          {formatDuration(seconds, locale)}
+        </span>
+      </div>
+      <ProgressBar
+        aria-label={t("{label}: {value}", {
+          label,
+          value: formatDuration(seconds, locale),
+        })}
+        value={percentage}
+        color={color}
+        size="sm"
+      >
+        <ProgressBar.Track>
+          <ProgressBar.Fill />
+        </ProgressBar.Track>
+      </ProgressBar>
+    </div>
+  );
+}
+
+function ReportMetricRing({
+  label,
+  seconds,
+  total,
+  color = "success",
+}: {
+  label: string;
+  seconds: number;
+  total: number;
+  color?: "accent" | "default" | "success" | "warning";
+}) {
+  const { locale, t } = useI18n();
+  const percentage = total > 0 ? Math.round((seconds / total) * 100) : 0;
+  return (
+    <div className="flex min-w-0 items-center gap-4">
+      <div className="relative shrink-0">
+        <ProgressCircle
+          aria-label={t("{label}: {value}", {
+            label,
+            value: `${percentage}%`,
+          })}
+          value={percentage}
+          maxValue={100}
+          color={color}
+          size="lg"
+        >
+          <ProgressCircle.Track>
+            <ProgressCircle.TrackCircle />
+            <ProgressCircle.FillCircle />
+          </ProgressCircle.Track>
+        </ProgressCircle>
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs font-semibold tabular-nums text-foreground">
+          {percentage}%
+        </span>
+      </div>
+      <div className="min-w-0 space-y-1">
+        <p className="truncate text-sm font-medium text-foreground">{label}</p>
+        <p className="truncate text-xs tabular-nums text-muted">
+          {formatDuration(seconds, locale)} {t("of tracked time")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SummaryInsights({
+  groups,
+  total,
+  billable,
+  internal,
+}: {
+  groups: ReportGroup[];
+  total: number;
+  billable: number;
+  internal: number;
+}) {
+  const { locale, t } = useI18n();
+  const billabilityData = [
+    { name: t("Billable"), value: billable, color: "success" as const },
+    { name: t("Internal"), value: internal, color: "default" as const },
+  ].filter((item) => item.value > 0);
+  const groupData = groups.slice(0, 6).map((group) => ({
+    label: group.label.length > 18 ? `${group.label.slice(0, 17)}…` : group.label,
+    seconds: group.seconds,
+  }));
+
+  return (
+    <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+      <ReportChartCard title={t("Billability mix")}>
+        {billabilityData.length === 0 ? (
+          <ChartEmpty />
+        ) : (
+          <div className="flex min-h-48 flex-wrap items-center gap-6 py-3">
+            <ReportMetricRing label={t("Billable")} seconds={billable} total={total} />
+            <div className="min-w-40 flex-1 space-y-3">
+              {billabilityData.map((item) => (
+                <ReportMetricBar
+                  key={item.name}
+                  label={item.name}
+                  seconds={item.value}
+                  maxSeconds={Math.max(total, 1)}
+                  color={item.color}
+                />
+              ))}
+              <p className="text-xs text-muted">
+                {t("{value} total tracked", { value: formatDuration(total, locale) })}
+              </p>
+            </div>
+          </div>
+        )}
+      </ReportChartCard>
+      <ReportChartCard title={t("Top groups")}>
+        {groupData.length === 0 ? (
+          <ChartEmpty />
+        ) : (
+          <div className="space-y-4 py-3">
+            {groupData.map((item) => (
+              <ReportMetricBar
+                key={item.label}
+                label={item.label}
+                seconds={item.seconds}
+                maxSeconds={Math.max(groupData[0]?.seconds ?? 0, 1)}
+              />
+            ))}
+          </div>
+        )}
+      </ReportChartCard>
+      <span className="sr-only">
+        {t("Total tracked: {value}", { value: formatDuration(total, locale) })}
+      </span>
     </div>
   );
 }
@@ -871,6 +1133,8 @@ function DetailedReport({
   members,
   projects,
   clients,
+  columns,
+  onChangeColumns,
 }: {
   entries: TimeEntry[];
   page: number;
@@ -879,6 +1143,8 @@ function DetailedReport({
   members: Member[];
   projects: Project[];
   clients: Client[];
+  columns: DetailedColumn[];
+  onChangeColumns: (columns: DetailedColumn[]) => void;
 }) {
   const { locale, t } = useI18n();
   if (entries.length === 0) return <EmptyReport onClear={onClear} />;
@@ -886,112 +1152,186 @@ function DetailedReport({
   const pageCount = Math.max(1, Math.ceil(entries.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const pageEntries = entries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const visibleColumns = detailedColumnOptions.filter((column) => columns.includes(column.id));
+  const totalSeconds = entries.reduce((sum, entry) => sum + entry.seconds, 0);
+  const billableSeconds = entries
+    .filter((entry) => entry.billable)
+    .reduce((sum, entry) => sum + entry.seconds, 0);
   return (
-    <DataTable
-      label={t("Detailed report table")}
-      minWidth="min-w-[1180px]"
-      scrollHint={t("Scroll horizontally to see all columns")}
-      footer={
-        <div className="flex w-full flex-wrap items-center justify-between gap-3 text-sm">
-          <span className="font-medium text-muted">
-            {t("Total · {count} entries", { count: entries.length })}
-          </span>
-          <span className="whitespace-nowrap font-semibold tabular-nums">
-            {formatDuration(
-              entries.reduce((sum, entry) => sum + entry.seconds, 0),
-              locale,
-            )}
-          </span>
-          <span className="whitespace-nowrap tabular-nums text-muted">
-            {formatDuration(
-              entries
-                .filter((entry) => entry.billable)
-                .reduce((sum, entry) => sum + entry.seconds, 0),
-              locale,
-            )}{" "}
-            {t("billable")}
-          </span>
-        </div>
-      }
-      pagination={{
-        page: currentPage,
-        totalPages: pageCount,
-        onPageChange,
-        summary: (
-          <span>
-            {t("{count} entries · page {page} of {pages}", {
-              count: entries.length,
-              page: currentPage,
-              pages: pageCount,
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted">{t("Choose the columns you need for this view.")}</p>
+        <ReportColumnPicker columns={columns} onChange={onChangeColumns} />
+      </div>
+      <DataTable
+        label={t("Detailed report table")}
+        minWidth="min-w-[900px]"
+        scrollHint={t("Scroll horizontally to see all columns")}
+        footer={
+          <div className="flex w-full flex-wrap items-center justify-between gap-3 text-sm">
+            <span className="font-medium text-muted">
+              {t("Total · {count} entries", { count: entries.length })}
+            </span>
+            <span className="whitespace-nowrap font-semibold tabular-nums">
+              {formatDuration(totalSeconds, locale)}
+            </span>
+            <span className="whitespace-nowrap tabular-nums text-muted">
+              {formatDuration(billableSeconds, locale)} {t("billable")}
+            </span>
+            <span className="whitespace-nowrap tabular-nums text-muted">
+              {formatDuration(totalSeconds - billableSeconds, locale)} {t("internal")}
+            </span>
+          </div>
+        }
+        pagination={{
+          page: currentPage,
+          totalPages: pageCount,
+          onPageChange,
+          summary: (
+            <span>
+              {t("{count} entries · page {page} of {pages}", {
+                count: entries.length,
+                page: currentPage,
+                pages: pageCount,
+              })}
+            </span>
+          ),
+          previousLabel: t("Previous"),
+          nextLabel: t("Next"),
+          ariaLabel: t("Report pages"),
+        }}
+      >
+        <Table.Header>
+          {visibleColumns.map((column, index) => (
+            <Table.Column key={column.id} isRowHeader={index === 0}>
+              {t(column.label)}
+            </Table.Column>
+          ))}
+        </Table.Header>
+        <Table.Body>
+          {pageEntries.map((entry) => (
+            <Table.Row key={entry.id}>
+              {columns.includes("date") ? (
+                <Table.Cell className="whitespace-nowrap text-muted">
+                  {formatDate(entry.date, locale)}
+                </Table.Cell>
+              ) : null}
+              {columns.includes("task") ? (
+                <Table.Cell className="font-medium">
+                  <div className="truncate">{entry.task}</div>
+                </Table.Cell>
+              ) : null}
+              {columns.includes("projectClient") ? (
+                <Table.Cell>
+                  <div className="truncate font-medium">
+                    {projectNameFor(projects, entry.projectId)}
+                  </div>
+                  <div className="truncate text-xs text-muted">
+                    {clientNameFor(clients, projects, entry.projectId)}
+                  </div>
+                </Table.Cell>
+              ) : null}
+              {columns.includes("start") ? (
+                <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
+                  {entry.start}
+                </Table.Cell>
+              ) : null}
+              {columns.includes("end") ? (
+                <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
+                  {endLabel(entry)}
+                </Table.Cell>
+              ) : null}
+              {columns.includes("duration") ? (
+                <Table.Cell className="whitespace-nowrap font-medium tabular-nums">
+                  {formatDuration(entry.seconds, locale)}
+                </Table.Cell>
+              ) : null}
+              {columns.includes("billability") ? (
+                <Table.Cell className="whitespace-nowrap text-muted">
+                  {entry.billable ? t("Billable") : t("Internal")}
+                </Table.Cell>
+              ) : null}
+              {columns.includes("member") ? (
+                <Table.Cell className="whitespace-nowrap text-muted">
+                  {nameForMember(members, entry.userId)}
+                </Table.Cell>
+              ) : null}
+              {columns.includes("description") ? (
+                <Table.Cell className="text-muted">
+                  <div className="truncate">{entry.description ?? "—"}</div>
+                </Table.Cell>
+              ) : null}
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </DataTable>
+    </div>
+  );
+}
+
+function ReportColumnPicker({
+  columns,
+  onChange,
+}: {
+  columns: DetailedColumn[];
+  onChange: (columns: DetailedColumn[]) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <Popover>
+      <Popover.Trigger
+        render={(triggerProps) => {
+          const buttonProps = Object.fromEntries(
+            Object.entries(triggerProps).filter(([, value]) => value !== undefined),
+          );
+          return (
+            <Button {...buttonProps} variant="secondary" size="sm" aria-label={t("Choose columns")}>
+              {t("Columns")}
+            </Button>
+          );
+        }}
+      />
+      <Popover.Content placement="bottom end" className="w-64 max-w-[calc(100vw-1rem)] p-2">
+        <Popover.Dialog>
+          <p className="px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase">
+            {t("Visible columns")}
+          </p>
+          <div className="space-y-1">
+            {detailedColumnOptions.map((column) => {
+              const checked = columns.includes(column.id);
+              return (
+                <Checkbox
+                  key={column.id}
+                  isSelected={checked}
+                  isDisabled={checked && columns.length === 1}
+                  onChange={(selected) => {
+                    const next = selected
+                      ? [...columns, column.id]
+                      : columns.filter((current) => current !== column.id);
+                    onChange([...new Set(next)]);
+                  }}
+                >
+                  <Checkbox.Content>
+                    <Checkbox.Control>
+                      <Checkbox.Indicator />
+                    </Checkbox.Control>
+                    <Label>{t(column.label)}</Label>
+                  </Checkbox.Content>
+                </Checkbox>
+              );
             })}
-          </span>
-        ),
-        previousLabel: t("Previous"),
-        nextLabel: t("Next"),
-        ariaLabel: t("Report pages"),
-      }}
-    >
-      <Table.Header>
-        {[
-          "Date",
-          "Member",
-          "Project",
-          "Client",
-          "Task",
-          "Description",
-          "Start",
-          "End",
-          "Duration",
-          "Billability",
-        ].map((label, index) => (
-          <Table.Column key={label} isRowHeader={index === 0}>
-            {t(label)}
-          </Table.Column>
-        ))}
-      </Table.Header>
-      <Table.Body>
-        {pageEntries.map((entry) => (
-          <Table.Row key={entry.id}>
-            <Table.Cell className="whitespace-nowrap text-muted">
-              {formatDate(entry.date, locale)}
-            </Table.Cell>
-            <Table.Cell className="whitespace-nowrap text-muted">
-              {nameForMember(members, entry.userId)}
-            </Table.Cell>
-            <Table.Cell className="font-medium">
-              {projectNameFor(projects, entry.projectId)}
-            </Table.Cell>
-            <Table.Cell className="text-muted">
-              {clientNameFor(clients, projects, entry.projectId)}
-            </Table.Cell>
-            <Table.Cell className="max-w-48 font-medium">
-              <div className="truncate">{entry.task}</div>
-            </Table.Cell>
-            <Table.Cell className="max-w-56 text-muted">
-              <div className="truncate">{entry.description ?? "—"}</div>
-            </Table.Cell>
-            <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
-              {entry.start}
-            </Table.Cell>
-            <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
-              {endLabel(entry)}
-            </Table.Cell>
-            <Table.Cell className="whitespace-nowrap font-medium tabular-nums">
-              {formatDuration(entry.seconds, locale)}
-            </Table.Cell>
-            <Table.Cell className="whitespace-nowrap text-muted">
-              {entry.billable ? t("Billable") : t("Internal")}
-            </Table.Cell>
-          </Table.Row>
-        ))}
-      </Table.Body>
-    </DataTable>
+          </div>
+        </Popover.Dialog>
+      </Popover.Content>
+    </Popover>
   );
 }
 
 function SummaryReport({
   groups,
   total,
+  billable,
+  internal,
   primary,
   secondary,
   expanded,
@@ -1002,6 +1342,8 @@ function SummaryReport({
 }: {
   groups: ReportGroup[];
   total: number;
+  billable: number;
+  internal: number;
   primary: GroupDimension;
   secondary: GroupDimension | "none";
   expanded: Record<string, boolean>;
@@ -1014,6 +1356,7 @@ function SummaryReport({
   if (groups.length === 0) return <EmptyReport onClear={onClear} />;
   return (
     <div className="space-y-4">
+      <SummaryInsights groups={groups} total={total} billable={billable} internal={internal} />
       <div className="flex flex-wrap items-center gap-2">
         <GroupSelect
           label="Group by"
@@ -1045,12 +1388,13 @@ function SummaryReport({
           ))}
         </Table.Header>
         <Table.Body>
-          {flattenSummaryRows(groups, expanded).map(({ group, level }) => (
+          {flattenSummaryRows(groups, expanded).map(({ group, level, path }) => (
             <SummaryRow
-              key={`${level}-${group.key}`}
+              key={path}
               group={group}
               total={total}
               level={level}
+              path={path}
               expanded={expanded}
               onToggle={onToggle}
             />
@@ -1065,18 +1409,21 @@ function SummaryRow({
   group,
   total,
   level,
+  path,
   expanded,
   onToggle,
 }: {
   group: ReportGroup;
   total: number;
   level: number;
+  path: string;
   expanded: Record<string, boolean>;
   onToggle: (key: string) => void;
 }) {
   const { locale, t } = useI18n();
   const expandable = Boolean(group.children?.length);
-  const isOpen = Boolean(expanded[group.key]);
+  const isOpen = Boolean(expanded[path]);
+  const childrenId = `summary-children-${path.replace(/[^a-z0-9_-]/gi, "-")}`;
   return (
     <Table.Row>
       <Table.Cell style={{ paddingInlineStart: `${16 + level * 24}px` }}>
@@ -1091,7 +1438,8 @@ function SummaryRow({
                 label: group.label,
               })}
               aria-expanded={isOpen}
-              onPress={() => onToggle(group.key)}
+              aria-controls={childrenId}
+              onPress={() => onToggle(path)}
             >
               {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
             </Button>
@@ -1099,6 +1447,11 @@ function SummaryRow({
             <span className="size-8" />
           )}
           <span className="truncate font-medium">{group.label}</span>
+          {expandable ? (
+            <span id={childrenId} className="sr-only">
+              {t("{count} nested report groups", { count: group.children?.length ?? 0 })}
+            </span>
+          ) : null}
         </div>
       </Table.Cell>
       <Table.Cell className="whitespace-nowrap font-medium tabular-nums">
@@ -1122,11 +1475,21 @@ function flattenSummaryRows(
   groups: ReportGroup[],
   expanded: Record<string, boolean>,
   level = 0,
-): Array<{ group: ReportGroup; level: number }> {
+  parentPath = "",
+): Array<{ group: ReportGroup; level: number; path: string }> {
   return groups.flatMap((group) => [
-    { group, level },
-    ...(expanded[group.key] && group.children
-      ? flattenSummaryRows(group.children, expanded, level + 1)
+    {
+      group,
+      level,
+      path: parentPath ? `${parentPath}/${group.key}` : group.key,
+    },
+    ...(expanded[parentPath ? `${parentPath}/${group.key}` : group.key] && group.children
+      ? flattenSummaryRows(
+          group.children,
+          expanded,
+          level + 1,
+          parentPath ? `${parentPath}/${group.key}` : group.key,
+        )
       : []),
   ]);
 }
@@ -1236,6 +1599,7 @@ function WeeklyReport({
           }}
         />
       </div>
+      <WeeklyTrendChart entries={entries} dates={dates} />
       <DataTable
         label={t("Weekly report table")}
         minWidth="min-w-[940px]"
@@ -1273,6 +1637,30 @@ function WeeklyReport({
         </Table.Body>
       </DataTable>
     </div>
+  );
+}
+
+function WeeklyTrendChart({ entries, dates }: { entries: TimeEntry[]; dates: string[] }) {
+  const { locale, t } = useI18n();
+  const data = dates.map((date) => ({
+    label: formatDate(date, locale),
+    seconds: entries
+      .filter((entry) => entry.date === date)
+      .reduce((sum, entry) => sum + entry.seconds, 0),
+  }));
+  return (
+    <ReportChartCard title={t("Tracked by day")}>
+      <div className="grid gap-3 py-3 sm:grid-cols-2 lg:grid-cols-4">
+        {data.map((item) => (
+          <ReportMetricBar
+            key={item.label}
+            label={item.label}
+            seconds={item.seconds}
+            maxSeconds={Math.max(...data.map((day) => day.seconds), 1)}
+          />
+        ))}
+      </div>
+    </ReportChartCard>
   );
 }
 
@@ -1337,59 +1725,101 @@ function TeamReport({
   const rows = buildTeamRows(entries, members, projects, clients, scopeToMember);
   if (rows.length === 0) return <EmptyReport onClear={onClear} />;
   return (
-    <DataTable
-      label={t("Team report table")}
-      minWidth="min-w-[1040px]"
-      scrollHint={t("Scroll horizontally to see all columns")}
-    >
-      <Table.Header>
-        {[
-          "Member",
-          "Tracked",
-          "Billable",
-          "Internal",
-          "Records",
-          "Projects",
-          "Clients",
-          "Average/day",
-          "Share",
-        ].map((label, index) => (
-          <Table.Column key={label} isRowHeader={index === 0}>
-            {t(label)}
-          </Table.Column>
-        ))}
-      </Table.Header>
-      <Table.Body>
-        {rows.map((row) => (
-          <Table.Row key={row.member.id}>
-            <Table.Cell>
-              <div className="font-medium">{row.member.name}</div>
-              <div className="text-xs text-muted">{row.member.email}</div>
-            </Table.Cell>
-            <Table.Cell className="font-medium tabular-nums">
-              {formatDuration(row.seconds, locale)}
-            </Table.Cell>
-            <Table.Cell className="tabular-nums text-muted">
-              {formatDuration(row.billable, locale)}
-            </Table.Cell>
-            <Table.Cell className="tabular-nums text-muted">
-              {formatDuration(row.seconds - row.billable, locale)}
-            </Table.Cell>
-            <Table.Cell className="tabular-nums text-muted">{row.records}</Table.Cell>
-            <Table.Cell className="tabular-nums text-muted">{row.projectCount}</Table.Cell>
-            <Table.Cell className="tabular-nums text-muted">{row.clientCount}</Table.Cell>
-            <Table.Cell className="tabular-nums text-muted">
-              {formatDuration(
-                row.activeDays ? Math.round(row.seconds / row.activeDays) : 0,
-                locale,
-              )}
-            </Table.Cell>
-            <Table.Cell className="tabular-nums text-muted">
-              {total ? `${Math.round((row.seconds / total) * 100)}%` : "0%"}
-            </Table.Cell>
-          </Table.Row>
-        ))}
-      </Table.Body>
-    </DataTable>
+    <div className="space-y-4">
+      <TeamComparisonChart rows={rows} />
+      <DataTable
+        label={t("Team report table")}
+        minWidth="min-w-[1040px]"
+        scrollHint={t("Scroll horizontally to see all columns")}
+      >
+        <Table.Header>
+          {[
+            "Member",
+            "Tracked",
+            "Billable",
+            "Internal",
+            "Records",
+            "Projects",
+            "Clients",
+            "Average/day",
+            "Share",
+          ].map((label, index) => (
+            <Table.Column key={label} isRowHeader={index === 0}>
+              {t(label)}
+            </Table.Column>
+          ))}
+        </Table.Header>
+        <Table.Body>
+          {rows.map((row) => (
+            <Table.Row key={row.member.id}>
+              <Table.Cell>
+                <div className="font-medium">{row.member.name}</div>
+                <div className="text-xs text-muted">{row.member.email}</div>
+              </Table.Cell>
+              <Table.Cell className="font-medium tabular-nums">
+                {formatDuration(row.seconds, locale)}
+              </Table.Cell>
+              <Table.Cell className="tabular-nums text-muted">
+                {formatDuration(row.billable, locale)}
+              </Table.Cell>
+              <Table.Cell className="tabular-nums text-muted">
+                {formatDuration(row.seconds - row.billable, locale)}
+              </Table.Cell>
+              <Table.Cell className="tabular-nums text-muted">{row.records}</Table.Cell>
+              <Table.Cell className="tabular-nums text-muted">{row.projectCount}</Table.Cell>
+              <Table.Cell className="tabular-nums text-muted">{row.clientCount}</Table.Cell>
+              <Table.Cell className="tabular-nums text-muted">
+                {formatDuration(
+                  row.activeDays ? Math.round(row.seconds / row.activeDays) : 0,
+                  locale,
+                )}
+              </Table.Cell>
+              <Table.Cell className="tabular-nums text-muted">
+                {total ? `${Math.round((row.seconds / total) * 100)}%` : "0%"}
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </DataTable>
+    </div>
+  );
+}
+
+function TeamComparisonChart({ rows }: { rows: TeamRow[] }) {
+  const { locale, t } = useI18n();
+  const totalSeconds = rows.reduce((sum, row) => sum + row.seconds, 0);
+  const data = rows.slice(0, 8).map((row) => ({
+    label: row.member.name.length > 16 ? `${row.member.name.slice(0, 15)}…` : row.member.name,
+    seconds: row.seconds,
+    share: totalSeconds ? Math.round((row.seconds / totalSeconds) * 100) : 0,
+  }));
+  return (
+    <ReportChartCard title={t("Tracked by member")}>
+      <div className="grid gap-5 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="space-y-4">
+          {data.map((item) => (
+            <ReportMetricBar
+              key={item.label}
+              label={item.label}
+              seconds={item.seconds}
+              maxSeconds={Math.max(data[0]?.seconds ?? 0, 1)}
+            />
+          ))}
+        </div>
+        {data[0] ? (
+          <div className="flex items-center gap-4 border-t border-divider pt-4 lg:block lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+            <ReportMetricRing
+              label={t("Top member")}
+              seconds={data[0].seconds}
+              total={totalSeconds}
+              color="accent"
+            />
+            <p className="mt-2 text-xs tabular-nums text-muted">
+              {data[0].share}% · {formatDuration(data[0].seconds, locale)}
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </ReportChartCard>
   );
 }

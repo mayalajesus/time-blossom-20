@@ -309,6 +309,16 @@ body {
   min-width: 0;
 }
 
+.report-period-calendar .range-calendar__grid {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.report-period-calendar .range-calendar__header-cell,
+.report-period-calendar .range-calendar__cell,
+.report-period-calendar .range-calendar__cell-button {
+  min-width: 0;
+}
+
 @media (max-width: 26rem), (max-height: 34rem) {
   .calendar-popover-single {
     width: min(13rem, calc(100vw - 1rem)) !important;

@@ -132,16 +132,24 @@ function ReportMultiSelect({
 
   return (
     <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
-      <Popover.Trigger>
-        <Button
-          variant="ghost"
-          aria-label={t("{label} filter", { label })}
-          className="flex h-9 min-w-32 max-w-48 items-center justify-between gap-2 px-3 text-sm text-foreground"
-        >
-          <span className="truncate">{selectedLabel(options, values, label)}</span>
-          <ChevronRight className="size-4 shrink-0 rotate-90 text-muted" />
-        </Button>
-      </Popover.Trigger>
+      <Popover.Trigger
+        render={(triggerProps) => {
+          const buttonProps = Object.fromEntries(
+            Object.entries(triggerProps).filter(([, value]) => value !== undefined),
+          );
+          return (
+            <Button
+              {...buttonProps}
+              variant="secondary"
+              aria-label={t("{label} filter", { label })}
+              className="min-w-32 max-w-48 justify-between gap-2 text-sm"
+            >
+              <span className="truncate">{selectedLabel(options, values, label)}</span>
+              <ChevronRight className="size-4 shrink-0 rotate-90 text-muted" />
+            </Button>
+          );
+        }}
+      />
       <Popover.Content placement="bottom start" className="w-64 max-w-[calc(100vw-1rem)] p-2">
         <Popover.Dialog>
           <div className="flex flex-col gap-2">
@@ -208,18 +216,26 @@ function ReportSingleSelect({
   const { t } = useI18n();
   return (
     <Popover>
-      <Popover.Trigger>
-        <Button
-          variant="ghost"
-          aria-label={t("{label} filter", { label })}
-          className="flex h-9 min-w-32 max-w-44 items-center justify-between gap-2 px-3 text-sm text-foreground"
-        >
-          <span className="truncate">
-            {options.find((option) => option.id === value)?.label ?? label}
-          </span>
-          <ChevronRight className="size-4 shrink-0 rotate-90 text-muted" />
-        </Button>
-      </Popover.Trigger>
+      <Popover.Trigger
+        render={(triggerProps) => {
+          const buttonProps = Object.fromEntries(
+            Object.entries(triggerProps).filter(([, value]) => value !== undefined),
+          );
+          return (
+            <Button
+              {...buttonProps}
+              variant="secondary"
+              aria-label={t("{label} filter", { label })}
+              className="min-w-32 max-w-44 justify-between gap-2 text-sm"
+            >
+              <span className="truncate">
+                {options.find((option) => option.id === value)?.label ?? label}
+              </span>
+              <ChevronRight className="size-4 shrink-0 rotate-90 text-muted" />
+            </Button>
+          );
+        }}
+      />
       <Popover.Content placement="bottom start" className="w-48 max-w-[calc(100vw-1rem)] p-1">
         <Popover.Dialog>
           <ListBox aria-label={t("{label} options", { label })} selectedKeys={new Set([value])}>
@@ -259,23 +275,18 @@ function ReportPeriodPicker({
   const [calendarValue, setCalendarValue] = useState<RangeValue<CalendarDate> | null>(() =>
     toRangeValue(range),
   );
-  const [isCompactCalendar, setIsCompactCalendar] = useState(false);
   const [isShortViewport, setIsShortViewport] = useState(false);
 
   useEffect(() => {
-    const compactMediaQuery = window.matchMedia("(max-width: 639px)");
     const shortMediaQuery = window.matchMedia("(max-height: 40rem)");
     const updateCalendarLayout = () => {
-      setIsCompactCalendar(compactMediaQuery.matches || shortMediaQuery.matches);
       setIsShortViewport(shortMediaQuery.matches);
     };
 
     updateCalendarLayout();
-    compactMediaQuery.addEventListener("change", updateCalendarLayout);
     shortMediaQuery.addEventListener("change", updateCalendarLayout);
 
     return () => {
-      compactMediaQuery.removeEventListener("change", updateCalendarLayout);
       shortMediaQuery.removeEventListener("change", updateCalendarLayout);
     };
   }, []);
@@ -286,35 +297,44 @@ function ReportPeriodPicker({
 
   return (
     <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
-      <Popover.Trigger>
-        <Button
-          variant="ghost"
-          aria-label={t("Date range: {range}", { range: formatReportPeriod(range, locale) })}
-          className="flex h-10 min-w-56 max-w-full items-center gap-2 px-3 text-sm font-medium text-foreground"
-        >
-          <CalendarDays className="size-4 shrink-0 text-muted" />
-          <span className="truncate">{formatReportPeriod(range, locale)}</span>
-          <ChevronRight className="ml-auto size-4 shrink-0 rotate-90 text-muted" />
-        </Button>
-      </Popover.Trigger>
+      <Popover.Trigger
+        render={(triggerProps) => {
+          const buttonProps = Object.fromEntries(
+            Object.entries(triggerProps).filter(([, value]) => value !== undefined),
+          );
+          return (
+            <Button
+              {...buttonProps}
+              variant="secondary"
+              aria-label={t("Date range: {range}", { range: formatReportPeriod(range, locale) })}
+              className="min-w-56 max-w-full gap-2 text-sm font-medium"
+            >
+              <CalendarDays className="size-4 shrink-0 text-muted" />
+              <span className="truncate">{formatReportPeriod(range, locale)}</span>
+              <ChevronRight className="ml-auto size-4 shrink-0 rotate-90 text-muted" />
+            </Button>
+          );
+        }}
+      />
       <Popover.Content
         placement={isShortViewport ? "top start" : "bottom start"}
         shouldFlip
         containerPadding={12}
         offset={8}
-        className="calendar-popover-content w-[min(44rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-visible p-0"
+        className="calendar-popover-content w-[min(28rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-visible p-1"
       >
         <Popover.Dialog>
           <div className="flex min-w-0 flex-col sm:flex-row">
-            <div className="hidden w-44 shrink-0 flex-col border-b border-separator p-2 sm:flex sm:border-r sm:border-b-0">
+            <div className="hidden w-36 shrink-0 flex-col border-b border-separator p-2 sm:flex sm:border-r sm:border-b-0">
               <p className="px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase">
                 {t("Date range")}
               </p>
               {reportPeriodPresets.map((option) => (
                 <Button
                   key={option.id}
+                  size="sm"
                   variant={preset === option.id ? "secondary" : "ghost"}
-                  className="justify-start rounded-lg px-2.5 py-2 text-sm"
+                  className="justify-start rounded-lg px-2.5 text-sm"
                   onPress={() => {
                     if (option.id === "custom") return;
                     onChange(option.id, getReportPeriodRange(option.id, today, weekStartsOn));
@@ -359,7 +379,7 @@ function ReportPeriodPicker({
                 </Select.Popover>
               </Select>
             </div>
-            <div className={isCompactCalendar ? "min-w-0 p-1" : "min-w-0 p-3"}>
+            <div className="min-w-0 flex-1 p-3 sm:w-64 sm:flex-none">
               <I18nProvider locale={locale}>
                 <RangeCalendar
                   aria-label={t("Choose report date range")}
@@ -373,12 +393,8 @@ function ReportPeriodPicker({
                       setIsOpen(false);
                     }
                   }}
-                  visibleDuration={{ months: isCompactCalendar ? 1 : 2 }}
-                  className={
-                    isCompactCalendar
-                      ? "calendar-no-scroll report-calendar-compact max-w-full p-0"
-                      : "calendar-no-scroll w-full max-w-full p-1"
-                  }
+                  visibleDuration={{ months: 1 }}
+                  className="calendar-no-scroll report-period-calendar mx-auto w-64 max-w-full p-0"
                 >
                   <RangeCalendar.Header className="flex items-center justify-between gap-2">
                     <RangeCalendar.NavButton slot="previous" aria-label={t("Previous month")}>
@@ -397,16 +413,6 @@ function ReportPeriodPicker({
                       {(date) => <RangeCalendar.Cell date={date} />}
                     </RangeCalendar.GridBody>
                   </RangeCalendar.Grid>
-                  {!isCompactCalendar ? (
-                    <RangeCalendar.Grid offset={{ months: 1 }} className="mt-3 w-full max-w-full">
-                      <RangeCalendar.GridHeader>
-                        {(day) => <RangeCalendar.HeaderCell>{day}</RangeCalendar.HeaderCell>}
-                      </RangeCalendar.GridHeader>
-                      <RangeCalendar.GridBody>
-                        {(date) => <RangeCalendar.Cell date={date} />}
-                      </RangeCalendar.GridBody>
-                    </RangeCalendar.Grid>
-                  ) : null}
                 </RangeCalendar>
               </I18nProvider>
             </div>
@@ -517,16 +523,24 @@ export function ReportFiltersBar({
 
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Popover>
-          <Popover.Trigger>
-            <Button
-              variant="ghost"
-              aria-label={t("Choose report filters")}
-              className="flex h-9 shrink-0 items-center gap-2 px-3 text-sm font-medium text-foreground"
-            >
-              <Filter className="size-4" />
-              {t("Filters")}
-            </Button>
-          </Popover.Trigger>
+          <Popover.Trigger
+            render={(triggerProps) => {
+              const buttonProps = Object.fromEntries(
+                Object.entries(triggerProps).filter(([, value]) => value !== undefined),
+              );
+              return (
+                <Button
+                  {...buttonProps}
+                  variant="secondary"
+                  aria-label={t("Choose report filters")}
+                  className="shrink-0 gap-2 text-sm font-medium"
+                >
+                  <Filter className="size-4" />
+                  {t("Filters")}
+                </Button>
+              );
+            }}
+          />
           <Popover.Content placement="bottom start" className="w-64 max-w-[calc(100vw-1rem)] p-2">
             <Popover.Dialog>
               <p className="px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase">
