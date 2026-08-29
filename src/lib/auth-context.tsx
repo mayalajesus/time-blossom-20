@@ -1,6 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { resetSessionDefaultAvatar } from "./default-avatar";
 
 interface AuthContextValue {
   configured: boolean;
@@ -27,7 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "SIGNED_IN") resetSessionDefaultAvatar();
       if (mounted) setSession(nextSession);
     });
     return () => {

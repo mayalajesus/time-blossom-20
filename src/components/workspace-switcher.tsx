@@ -158,7 +158,7 @@ export function WorkspaceSwitcher({
 
   return (
     <>
-      <Card variant="secondary" className="w-full p-0.5">
+      <Card variant="secondary" className={collapsed ? "w-10 p-0" : "w-full p-0.5"}>
         <Dropdown>
           <Dropdown.Trigger
             aria-label={t("Switch workspace")}

@@ -145,7 +145,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
             className={`flex gap-1 px-1 py-2 ${collapsed ? "flex-col items-center" : "items-center"}`}
           >
             <div className={collapsed ? "flex w-10 justify-center" : "min-w-0 flex-1"}>
-              <ProfileMenu showName={!collapsed} showRole={!collapsed} />
+              <ProfileMenu showName={!collapsed} />
             </div>
             <Button
               aria-label={t("Toggle sidebar")}
@@ -218,7 +218,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
               <Drawer.Dialog className="flex h-full flex-col">
                 <Drawer.Header className="flex items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <ProfileMenu showName showRole />
+                    <ProfileMenu showName />
                   </div>
                   <div className="sr-only">
                     <Drawer.Heading>{t("Navigation")}</Drawer.Heading>

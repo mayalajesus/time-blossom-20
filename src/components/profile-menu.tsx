@@ -6,14 +6,9 @@ import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { signOut as signOutRemote } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
+import { resetSessionDefaultAvatar } from "@/lib/default-avatar";
 
-export function ProfileMenu({
-  showName = false,
-  showRole = false,
-}: {
-  showName?: boolean;
-  showRole?: boolean;
-}) {
+export function ProfileMenu({ showName = false }: { showName?: boolean }) {
   const { currentMember, preferences, signOut } = useStore();
   const { configured } = useAuth();
   const { t, error } = useI18n();
@@ -37,6 +32,7 @@ export function ProfileMenu({
         if (!result.success) {
           toast(t("Could not sign out: {error}", { error: error(result.error) }));
         } else {
+          resetSessionDefaultAvatar();
           void navigate({ to: "/login", replace: true });
         }
         break;
@@ -60,11 +56,6 @@ export function ProfileMenu({
             <Typography type="body-sm" weight="semibold" truncate>
               {currentMember.name}
             </Typography>
-            {showRole ? (
-              <Typography type="body-xs" color="muted" truncate>
-                {t(currentMember.role)}
-              </Typography>
-            ) : null}
           </span>
         ) : null}
       </Dropdown.Trigger>

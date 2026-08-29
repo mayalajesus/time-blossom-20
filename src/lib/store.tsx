@@ -23,6 +23,7 @@ import {
   hasPermission,
   type Permission,
 } from "./permissions";
+import { resetSessionDefaultAvatar } from "./default-avatar";
 
 export type TimerStatus = "idle" | "running" | "paused";
 
@@ -1957,6 +1958,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const signOut = (): StoreResult => {
       if (timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before signing out." };
+      resetSessionDefaultAvatar();
       try {
         window.localStorage.setItem(SESSION_STORAGE_KEY, "signed-out");
       } catch {
@@ -1973,6 +1975,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!member) return { success: false, error: "Choose an active account." };
       if (timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before changing accounts." };
+      resetSessionDefaultAvatar();
       try {
         window.localStorage.setItem(ACTIVE_MEMBER_STORAGE_KEY, memberId);
         window.localStorage.removeItem(SESSION_STORAGE_KEY);
