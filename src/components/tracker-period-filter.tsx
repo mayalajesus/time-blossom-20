@@ -13,6 +13,7 @@ import {
   parseDateOnly,
   type TrackerPeriod,
 } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 
 function toCalendarDate(value: string): CalendarDate | null {
   const parts = value.split("-").map(Number);
@@ -55,24 +56,26 @@ export function TrackerPeriodFilter({
   weekStartsOn: 0 | 1;
   onChange: (period: TrackerPeriod) => void;
 }) {
+  const { locale, t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [isShortViewport, setIsShortViewport] = useState(false);
   const [rangeValue, setRangeValue] = useState<RangeValue<CalendarDate> | null>(() =>
     toCalendarRange(period),
   );
-  const label = formatTrackerPeriodLabel(period, today, weekStartsOn);
+  const label = formatTrackerPeriodLabel(period, today, weekStartsOn, locale);
+  const translatedLabel = t(label);
   const displayLabel =
     period.unit === "custom"
-      ? formatCompactDateRange(period.startDate, period.endDate)
+      ? formatCompactDateRange(period.startDate, period.endDate, locale)
       : period.unit === "week"
         ? period.startDate === getWeekBounds(today, weekStartsOn).start
-          ? label
-          : formatCompactDateRange(period.startDate, period.endDate)
-        : label;
+          ? translatedLabel
+          : formatCompactDateRange(period.startDate, period.endDate, locale)
+        : translatedLabel;
   const rangeLabel =
     period.unit === "week"
-      ? formatWeekRange(period.startDate, period.endDate)
-      : formatDateRange(period.startDate, period.endDate);
+      ? formatWeekRange(period.startDate, period.endDate, locale)
+      : formatDateRange(period.startDate, period.endDate, locale);
   const periodMeta =
     period.unit === "week"
       ? `W${getISOWeek(parseDateOnly(period.startDate))}`
@@ -108,26 +111,28 @@ export function TrackerPeriodFilter({
 
   return (
     <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
-      <Button
-        variant="ghost"
-        aria-label={`Open period calendar: ${label}`}
-        className="flex h-8 w-[11rem] min-w-[11rem] max-w-[11rem] shrink-0 items-center justify-center rounded-lg px-2 text-center outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
-      >
-        <span className="flex min-w-0 max-w-full items-center justify-center gap-1 whitespace-nowrap text-sm font-medium text-foreground">
-          <span className="min-w-0 truncate">{displayLabel}</span>
-          {periodMeta && (
-            <span
-              className={
-                period.unit === "week"
-                  ? "shrink-0 font-normal text-muted"
-                  : "min-w-0 truncate font-normal text-muted"
-              }
-            >
-              • {periodMeta}
-            </span>
-          )}
-        </span>
-      </Button>
+      <Popover.Trigger>
+        <Button
+          variant="ghost"
+          aria-label={t("Open period calendar: {label}", { label: translatedLabel })}
+          className="flex h-8 w-[11rem] min-w-[11rem] max-w-[11rem] shrink-0 items-center justify-center rounded-lg px-2 text-center outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <span className="flex min-w-0 max-w-full items-center justify-center gap-1 whitespace-nowrap text-sm font-medium text-foreground">
+            <span className="min-w-0 truncate">{displayLabel}</span>
+            {periodMeta && (
+              <span
+                className={
+                  period.unit === "week"
+                    ? "shrink-0 font-normal text-muted"
+                    : "min-w-0 truncate font-normal text-muted"
+                }
+              >
+                • {periodMeta}
+              </span>
+            )}
+          </span>
+        </Button>
+      </Popover.Trigger>
       <Popover.Content
         placement={isShortViewport ? "top start" : "bottom start"}
         shouldFlip
@@ -136,20 +141,20 @@ export function TrackerPeriodFilter({
         className="calendar-popover-content calendar-popover-single w-[min(16rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-visible p-0"
       >
         <Popover.Dialog>
-          <I18nProvider locale="en-US">
+          <I18nProvider locale={locale}>
             <RangeCalendar
-              aria-label="Choose tracking date range"
+              aria-label={t("Choose tracking date range")}
               firstDayOfWeek={weekStartsOn === 0 ? "sun" : "mon"}
               value={rangeValue}
               onChange={handleRangeChange}
               className="calendar-no-scroll w-full max-w-full p-3"
             >
               <RangeCalendar.Header className="flex items-center justify-between gap-2">
-                <RangeCalendar.NavButton slot="previous" aria-label="Previous month">
+                <RangeCalendar.NavButton slot="previous" aria-label={t("Previous month")}>
                   <ChevronLeft className="size-4" />
                 </RangeCalendar.NavButton>
                 <RangeCalendar.Heading className="text-sm font-medium" />
-                <RangeCalendar.NavButton slot="next" aria-label="Next month">
+                <RangeCalendar.NavButton slot="next" aria-label={t("Next month")}>
                   <ChevronRight className="size-4" />
                 </RangeCalendar.NavButton>
               </RangeCalendar.Header>

@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
+import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { ProjectSelect } from "@/components/project-select";
 import { useI18n } from "@/lib/i18n";
 import { useStore, type StoreResult } from "@/lib/store";
@@ -169,6 +170,7 @@ export function LogTimeModal({
 
   return (
     <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+      <ModalTriggerRegistration />
       <Modal.Backdrop>
         <Modal.Container size="sm">
           <Modal.Dialog className="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col overflow-hidden">

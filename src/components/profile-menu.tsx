@@ -68,9 +68,9 @@ export function ProfileMenu({
       </Dropdown.Trigger>
       <Dropdown.Popover
         placement={showName ? "right" : "bottom"}
-        className="w-64 max-w-[calc(100vw-1.5rem)] p-1"
+        className="hero-menu-surface w-64 max-w-[calc(100vw-1.5rem)] p-1"
       >
-        <div className="border-b border-default px-3 py-2">
+        <div className="border-b border-separator px-3 py-2">
           <p className="truncate text-sm font-medium text-foreground">{currentMember.name}</p>
           <p className="truncate text-xs text-muted">{currentMember.email}</p>
           <Description className="mt-1 text-xs">{t(currentMember.role)}</Description>

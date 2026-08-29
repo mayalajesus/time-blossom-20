@@ -2,7 +2,9 @@ import { Button, Chip, Modal, Table, toast } from "@heroui/react";
 import { CircleDollarSign, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
+import { DataTable } from "@/components/data-table";
 import { LogTimeModal } from "@/components/log-time-modal";
+import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { useStore } from "@/lib/store";
 import { formatDate, formatDuration, getEntryEndDayOffset } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
@@ -49,92 +51,86 @@ export function EntriesTable({
 
   return (
     <>
-      <Table>
-        <Table.ScrollContainer>
-          <Table.Content aria-label={t("Time entries")} className="min-w-[720px]">
-            <Table.Header>
-              <Table.Column isRowHeader>{t("Task")}</Table.Column>
-              <Table.Column>{t("Project")}</Table.Column>
-              {showMember ? <Table.Column>{t("Member")}</Table.Column> : null}
-              {showDate ? <Table.Column>{t("Date")}</Table.Column> : null}
-              <Table.Column>{t("Time")}</Table.Column>
-              <Table.Column>{t("Duration")}</Table.Column>
-              <Table.Column>{t("Billable")}</Table.Column>
-              <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
-            </Table.Header>
-            <Table.Body>
-              {entries.map((entry) => {
-                const isOwnEntry = entry.userId === currentUserId;
-                return (
-                  <Table.Row key={entry.id}>
-                    <Table.Cell>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-foreground">{entry.task}</span>
-                        {entry.description ? (
-                          <span className="text-xs text-muted">{entry.description}</span>
-                        ) : null}
-                      </div>
-                    </Table.Cell>
-                    <Table.Cell>{projectName(entry.projectId)}</Table.Cell>
-                    {showMember ? <Table.Cell>{memberName(entry.userId)}</Table.Cell> : null}
-                    {showDate ? <Table.Cell>{formatDate(entry.date, locale)}</Table.Cell> : null}
-                    <Table.Cell className="tabular-nums text-muted">
-                      {entry.start} – {entry.end}
-                      {getEntryEndDayOffset(entry) > 0 ? (
-                        <sup className="ml-1 text-[10px]">+{getEntryEndDayOffset(entry)}</sup>
-                      ) : null}
-                    </Table.Cell>
-                    <Table.Cell className="tabular-nums font-medium">
-                      {formatDuration(entry.seconds, locale)}
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Chip color={entry.billable ? "success" : "default"} size="sm" variant="soft">
-                        {entry.billable ? t("Billable") : t("Internal")}
-                      </Chip>
-                    </Table.Cell>
-                    <Table.Cell>
-                      {isOwnEntry ? (
-                        <div className="flex justify-end gap-1">
-                          <ActionDropdown
-                            ariaLabel={t("Entry actions")}
-                            items={[
-                              {
-                                id: "edit",
-                                label: t("Edit entry"),
-                                icon: <Pencil className="size-4" />,
-                              },
-                              {
-                                id: "billable",
-                                label: entry.billable
-                                  ? t("Mark as internal")
-                                  : t("Mark as billable"),
-                                icon: <CircleDollarSign className="size-4" />,
-                              },
-                              {
-                                id: "delete",
-                                label: t("Delete entry"),
-                                icon: <Trash2 className="size-4" />,
-                                tone: "danger",
-                              },
-                            ]}
-                            onAction={(key) => {
-                              if (key === "billable") {
-                                updateEntry(entry.id, { billable: !entry.billable });
-                              }
-                              if (key === "edit") setEditingEntry(entry);
-                              if (key === "delete") setPendingDelete(entry);
-                            }}
-                          />
-                        </div>
-                      ) : null}
-                    </Table.Cell>
-                  </Table.Row>
-                );
-              })}
-            </Table.Body>
-          </Table.Content>
-        </Table.ScrollContainer>
-      </Table>
+      <DataTable label={t("Time entries")} minWidth="min-w-[720px]">
+        <Table.Header>
+          <Table.Column isRowHeader>{t("Task")}</Table.Column>
+          <Table.Column>{t("Project")}</Table.Column>
+          {showMember ? <Table.Column>{t("Member")}</Table.Column> : null}
+          {showDate ? <Table.Column>{t("Date")}</Table.Column> : null}
+          <Table.Column>{t("Time")}</Table.Column>
+          <Table.Column>{t("Duration")}</Table.Column>
+          <Table.Column>{t("Billable")}</Table.Column>
+          <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
+        </Table.Header>
+        <Table.Body>
+          {entries.map((entry) => {
+            const isOwnEntry = entry.userId === currentUserId;
+            return (
+              <Table.Row key={entry.id}>
+                <Table.Cell>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-foreground">{entry.task}</span>
+                    {entry.description ? (
+                      <span className="text-xs text-muted">{entry.description}</span>
+                    ) : null}
+                  </div>
+                </Table.Cell>
+                <Table.Cell>{projectName(entry.projectId)}</Table.Cell>
+                {showMember ? <Table.Cell>{memberName(entry.userId)}</Table.Cell> : null}
+                {showDate ? <Table.Cell>{formatDate(entry.date, locale)}</Table.Cell> : null}
+                <Table.Cell className="tabular-nums text-muted">
+                  {entry.start} – {entry.end}
+                  {getEntryEndDayOffset(entry) > 0 ? (
+                    <sup className="ml-1 text-[10px]">+{getEntryEndDayOffset(entry)}</sup>
+                  ) : null}
+                </Table.Cell>
+                <Table.Cell className="tabular-nums font-medium">
+                  {formatDuration(entry.seconds, locale)}
+                </Table.Cell>
+                <Table.Cell>
+                  <Chip color={entry.billable ? "success" : "default"} size="sm" variant="soft">
+                    {entry.billable ? t("Billable") : t("Internal")}
+                  </Chip>
+                </Table.Cell>
+                <Table.Cell>
+                  {isOwnEntry ? (
+                    <div className="flex justify-end gap-1">
+                      <ActionDropdown
+                        ariaLabel={t("Entry actions")}
+                        items={[
+                          {
+                            id: "edit",
+                            label: t("Edit entry"),
+                            icon: <Pencil className="size-4" />,
+                          },
+                          {
+                            id: "billable",
+                            label: entry.billable ? t("Mark as internal") : t("Mark as billable"),
+                            icon: <CircleDollarSign className="size-4" />,
+                          },
+                          {
+                            id: "delete",
+                            label: t("Delete entry"),
+                            icon: <Trash2 className="size-4" />,
+                            tone: "danger",
+                          },
+                        ]}
+                        onAction={(key) => {
+                          if (key === "billable") {
+                            updateEntry(entry.id, { billable: !entry.billable });
+                          }
+                          if (key === "edit") setEditingEntry(entry);
+                          if (key === "delete") setPendingDelete(entry);
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </Table.Cell>
+              </Table.Row>
+            );
+          })}
+        </Table.Body>
+      </DataTable>
       <LogTimeModal
         entry={editingEntry}
         isOpen={editingEntry !== null}
@@ -148,6 +144,7 @@ export function EntriesTable({
           if (!open) setPendingDelete(null);
         }}
       >
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>

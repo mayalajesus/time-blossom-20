@@ -18,7 +18,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Mail, Send, Trash2, UserRoundCheck } from "lucide-react";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
+import { DataTable } from "@/components/data-table";
 import { FormAlert } from "@/components/form-feedback";
+import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { PageHeader } from "@/components/page-header";
 import { TableSkeleton } from "@/components/states";
 import { formatDuration } from "@/lib/format";
@@ -173,167 +175,157 @@ function TeamPage() {
       {loading ? (
         <TableSkeleton rows={4} />
       ) : (
-        <Table>
-          <Table.ScrollContainer>
-            <Table.Content aria-label={t("Team members")} className="min-w-[680px]">
-              <Table.Header>
-                <Table.Column isRowHeader>{t("Member")}</Table.Column>
-                <Table.Column>{t("Role")}</Table.Column>
-                <Table.Column>{t("Status")}</Table.Column>
-                <Table.Column>{t("Tracked")}</Table.Column>
-                <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
-              </Table.Header>
-              <Table.Body>
-                {orderedMembers.map((member) => {
-                  const invited = member.status === "invited";
-                  const removed = member.status === "removed";
-                  const isCurrentMember = member.id === currentMember?.id;
-                  const canManageTarget =
-                    !isCurrentMember &&
-                    can("manage-members") &&
-                    (currentMember?.role === "Owner" || member.role === "Member");
-                  const canChangeRole =
-                    canManageTarget &&
-                    (currentMember?.role === "Owner" ||
-                      (currentMember?.role === "Admin" && member.status === "active"));
-                  return (
-                    <Table.Row key={member.id}>
-                      <Table.Cell>
-                        <div className="flex min-w-0 items-center gap-3">
-                          <Avatar size="sm">
-                            <Avatar.Fallback>{member.initials}</Avatar.Fallback>
-                          </Avatar>
-                          <div className="flex min-w-0 flex-col">
-                            <span className="truncate font-medium text-foreground">
-                              {invited ? member.email : member.name}
-                            </span>
-                            <span className="truncate text-xs text-muted">
-                              {invited
-                                ? t("Invitation pending")
-                                : removed
-                                  ? t("Access removed")
-                                  : member.email}
-                            </span>
-                          </div>
-                        </div>
-                      </Table.Cell>
-                      <Table.Cell>{t(member.role)}</Table.Cell>
-                      <Table.Cell>
-                        <Chip
-                          color={invited ? "warning" : removed ? "default" : "success"}
-                          size="sm"
-                          variant="soft"
-                        >
-                          {invited ? t("Invited") : removed ? t("Removed") : t("Active")}
-                        </Chip>
-                      </Table.Cell>
-                      <Table.Cell className="tabular-nums">
-                        {invited ? "—" : formatDuration(secondsFor(member.id), locale)}
-                      </Table.Cell>
-                      <Table.Cell>
-                        {invited && canManageTarget ? (
-                          <div className="flex justify-end">
-                            <ActionDropdown
-                              ariaLabel={t("Actions for invitation to {email}", {
-                                email: member.email,
-                              })}
-                              items={[
-                                ...(canChangeRole
-                                  ? [
-                                      {
-                                        id: "role",
-                                        label:
-                                          member.role === "Admin"
-                                            ? t("Make member")
-                                            : t("Make admin"),
-                                        icon: <UserRoundCheck className="size-4" />,
-                                      },
-                                    ]
-                                  : []),
-                                {
-                                  id: "resend",
-                                  label: t("Resend invite"),
-                                  icon: <Mail className="size-4" />,
-                                },
-                                {
-                                  id: "cancel",
-                                  label: t("Cancel invite"),
-                                  icon: <Trash2 className="size-4" />,
-                                  tone: "danger",
-                                },
-                              ]}
-                              onAction={(key) => {
-                                if (key === "role") manageRole(member);
-                                if (key === "resend") handleResend(member);
-                                if (key === "cancel") {
-                                  setCancelError(null);
-                                  setPendingCancel(member);
-                                }
-                              }}
-                            />
-                          </div>
-                        ) : removed && canManageTarget ? (
-                          <div className="flex justify-end">
-                            <ActionDropdown
-                              ariaLabel={t("Actions for {name}", { name: member.name })}
-                              items={[
-                                {
-                                  id: "restore",
-                                  label: t("Restore access"),
-                                  icon: <UserRoundCheck className="size-4" />,
-                                },
-                              ]}
-                              onAction={(key) => {
-                                if (key === "restore") handleRestore(member);
-                              }}
-                            />
-                          </div>
-                        ) : member.status === "active" && canManageTarget ? (
-                          <div className="flex justify-end">
-                            <ActionDropdown
-                              ariaLabel={t("Actions for {name}", { name: member.name })}
-                              items={[
-                                ...(canChangeRole
-                                  ? [
-                                      {
-                                        id: "role",
-                                        label:
-                                          member.role === "Admin"
-                                            ? t("Make member")
-                                            : t("Make admin"),
-                                        icon: <UserRoundCheck className="size-4" />,
-                                      },
-                                    ]
-                                  : []),
-                                {
-                                  id: "remove",
-                                  label: t("Remove from team"),
-                                  icon: <Trash2 className="size-4" />,
-                                  tone: "danger",
-                                },
-                              ]}
-                              onAction={(key) => {
-                                if (key === "role") manageRole(member);
-                                if (key === "remove") {
-                                  setRemoveError(null);
-                                  setPendingRemove(member);
-                                }
-                              }}
-                            />
-                          </div>
-                        ) : isCurrentMember ? (
-                          <span className="sr-only">
-                            {t("No actions available for your account")}
-                          </span>
-                        ) : null}
-                      </Table.Cell>
-                    </Table.Row>
-                  );
-                })}
-              </Table.Body>
-            </Table.Content>
-          </Table.ScrollContainer>
-        </Table>
+        <DataTable label={t("Team members")} minWidth="min-w-[680px]">
+          <Table.Header>
+            <Table.Column isRowHeader>{t("Member")}</Table.Column>
+            <Table.Column>{t("Role")}</Table.Column>
+            <Table.Column>{t("Status")}</Table.Column>
+            <Table.Column>{t("Tracked")}</Table.Column>
+            <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
+          </Table.Header>
+          <Table.Body>
+            {orderedMembers.map((member) => {
+              const invited = member.status === "invited";
+              const removed = member.status === "removed";
+              const isCurrentMember = member.id === currentMember?.id;
+              const canManageTarget =
+                !isCurrentMember &&
+                can("manage-members") &&
+                (currentMember?.role === "Owner" || member.role === "Member");
+              const canChangeRole =
+                canManageTarget &&
+                (currentMember?.role === "Owner" ||
+                  (currentMember?.role === "Admin" && member.status === "active"));
+              return (
+                <Table.Row key={member.id}>
+                  <Table.Cell>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar size="sm">
+                        <Avatar.Fallback>{member.initials}</Avatar.Fallback>
+                      </Avatar>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate font-medium text-foreground">
+                          {invited ? member.email : member.name}
+                        </span>
+                        <span className="truncate text-xs text-muted">
+                          {invited
+                            ? t("Invitation pending")
+                            : removed
+                              ? t("Access removed")
+                              : member.email}
+                        </span>
+                      </div>
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell>{t(member.role)}</Table.Cell>
+                  <Table.Cell>
+                    <Chip
+                      color={invited ? "warning" : removed ? "default" : "success"}
+                      size="sm"
+                      variant="soft"
+                    >
+                      {invited ? t("Invited") : removed ? t("Removed") : t("Active")}
+                    </Chip>
+                  </Table.Cell>
+                  <Table.Cell className="tabular-nums">
+                    {invited ? "—" : formatDuration(secondsFor(member.id), locale)}
+                  </Table.Cell>
+                  <Table.Cell>
+                    {invited && canManageTarget ? (
+                      <div className="flex justify-end">
+                        <ActionDropdown
+                          ariaLabel={t("Actions for invitation to {email}", {
+                            email: member.email,
+                          })}
+                          items={[
+                            ...(canChangeRole
+                              ? [
+                                  {
+                                    id: "role",
+                                    label:
+                                      member.role === "Admin" ? t("Make member") : t("Make admin"),
+                                    icon: <UserRoundCheck className="size-4" />,
+                                  },
+                                ]
+                              : []),
+                            {
+                              id: "resend",
+                              label: t("Resend invite"),
+                              icon: <Mail className="size-4" />,
+                            },
+                            {
+                              id: "cancel",
+                              label: t("Cancel invite"),
+                              icon: <Trash2 className="size-4" />,
+                              tone: "danger",
+                            },
+                          ]}
+                          onAction={(key) => {
+                            if (key === "role") manageRole(member);
+                            if (key === "resend") handleResend(member);
+                            if (key === "cancel") {
+                              setCancelError(null);
+                              setPendingCancel(member);
+                            }
+                          }}
+                        />
+                      </div>
+                    ) : removed && canManageTarget ? (
+                      <div className="flex justify-end">
+                        <ActionDropdown
+                          ariaLabel={t("Actions for {name}", { name: member.name })}
+                          items={[
+                            {
+                              id: "restore",
+                              label: t("Restore access"),
+                              icon: <UserRoundCheck className="size-4" />,
+                            },
+                          ]}
+                          onAction={(key) => {
+                            if (key === "restore") handleRestore(member);
+                          }}
+                        />
+                      </div>
+                    ) : member.status === "active" && canManageTarget ? (
+                      <div className="flex justify-end">
+                        <ActionDropdown
+                          ariaLabel={t("Actions for {name}", { name: member.name })}
+                          items={[
+                            ...(canChangeRole
+                              ? [
+                                  {
+                                    id: "role",
+                                    label:
+                                      member.role === "Admin" ? t("Make member") : t("Make admin"),
+                                    icon: <UserRoundCheck className="size-4" />,
+                                  },
+                                ]
+                              : []),
+                            {
+                              id: "remove",
+                              label: t("Remove from team"),
+                              icon: <Trash2 className="size-4" />,
+                              tone: "danger",
+                            },
+                          ]}
+                          onAction={(key) => {
+                            if (key === "role") manageRole(member);
+                            if (key === "remove") {
+                              setRemoveError(null);
+                              setPendingRemove(member);
+                            }
+                          }}
+                        />
+                      </div>
+                    ) : isCurrentMember ? (
+                      <span className="sr-only">{t("No actions available for your account")}</span>
+                    ) : null}
+                  </Table.Cell>
+                </Table.Row>
+              );
+            })}
+          </Table.Body>
+        </DataTable>
       )}
 
       <Modal
@@ -343,6 +335,7 @@ function TeamPage() {
           if (!open) resetInviteForm();
         }}
       >
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>
@@ -406,7 +399,7 @@ function TeamPage() {
                         <Select.Value />
                         <Select.Indicator />
                       </Select.Trigger>
-                      <Select.Popover>
+                      <Select.Popover className="hero-menu-surface">
                         <ListBox>
                           {inviteRoles.map((option) => (
                             <ListBox.Item key={option} id={option} textValue={option}>
@@ -445,6 +438,7 @@ function TeamPage() {
           }
         }}
       >
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>
@@ -484,6 +478,7 @@ function TeamPage() {
           }
         }}
       >
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>

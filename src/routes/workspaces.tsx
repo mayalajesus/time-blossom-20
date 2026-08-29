@@ -17,6 +17,7 @@ import { Archive, ArchiveRestore, ExternalLink, Layers3, Pencil, Plus, Upload } 
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { FormAlert } from "@/components/form-feedback";
+import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { PageHeader } from "@/components/page-header";
 import { EmptyBlock } from "@/components/states";
 import { useI18n } from "@/lib/i18n";
@@ -264,8 +265,8 @@ function WorkspacesPage() {
     return (
       <article
         key={workspace.id}
-        className={`flex min-h-44 min-w-0 flex-col rounded-2xl border bg-surface p-4 transition-colors ${
-          isCurrent ? "border-focus/60" : "border-default"
+        className={`surface-card surface-card-interactive flex min-h-44 min-w-0 flex-col p-4 ${
+          isCurrent ? "ring-1 ring-focus/60" : ""
         }`}
       >
         <div className="flex min-w-0 items-start gap-3">
@@ -296,7 +297,7 @@ function WorkspacesPage() {
             </div>
           </div>
         </div>
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-separator pt-4">
           <Button
             size="sm"
             variant={isCurrent ? "secondary" : "primary"}
@@ -446,6 +447,7 @@ function WorkspacesPage() {
       />
 
       <Modal isOpen={Boolean(confirmation)} onOpenChange={(open) => !open && setConfirmation(null)}>
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>
@@ -495,6 +497,7 @@ function WorkspacesPage() {
       </Modal>
 
       <Modal isOpen={switchOpen} onOpenChange={setSwitchOpen}>
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>
@@ -562,6 +565,7 @@ function WorkspaceFormModal({
   const { t } = useI18n();
   return (
     <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+      <ModalTriggerRegistration />
       <Modal.Backdrop>
         <Modal.Container size="sm">
           <Modal.Dialog>
@@ -635,7 +639,7 @@ function WorkspaceFormModal({
                   </Description>
                 </div>
                 {workspaceSettings ? (
-                  <div className="space-y-5 border-t border-default pt-5">
+                  <div className="space-y-5 border-t border-separator pt-5">
                     <div>
                       <h2 className="font-medium text-foreground">{t("Workspace settings")}</h2>
                       <p className="mt-1 text-sm text-muted">
@@ -668,7 +672,7 @@ function WorkspaceFormModal({
                           <Select.Value />
                           <Select.Indicator />
                         </Select.Trigger>
-                        <Select.Popover>
+                        <Select.Popover className="hero-menu-surface">
                           <ListBox>
                             {(["monday", "sunday"] as const).map((day) => (
                               <ListBox.Item

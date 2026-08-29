@@ -84,7 +84,7 @@ function TrackerPage() {
       <TimerCard />
 
       <section className="space-y-4" aria-labelledby="tracker-period-heading">
-        <div className="flex flex-col gap-3 border-b border-default pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-b border-separator pb-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-1">
             <Button
               isIconOnly

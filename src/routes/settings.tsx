@@ -1,6 +1,9 @@
 import {
   Button,
   Description,
+  FieldError,
+  Form,
+  Input,
   Label,
   ListBox,
   Select,
@@ -211,10 +214,7 @@ function SettingsPage() {
         description={t("Manage your account and personal preferences.")}
       />
 
-      <section
-        id="account"
-        className="scroll-mt-24 space-y-5 rounded-2xl border border-default bg-surface p-5"
-      >
+      <section id="account" className="surface-card scroll-mt-24 space-y-5 p-5">
         <div>
           <h2 className="font-medium text-foreground">{t("Account")}</h2>
           <p className="mt-1 text-sm text-muted">{t("Manage your profile and account details.")}</p>
@@ -258,71 +258,75 @@ function SettingsPage() {
           </div>
         </div>
 
-        <form
-          noValidate
-          className="space-y-4 border-t border-default pt-5"
+        <Form
+          className="space-y-4 border-t border-separator pt-5"
           onSubmit={(event) => {
             event.preventDefault();
-            saveAccount();
+            void saveAccount();
           }}
         >
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="account-email">{t("Email")}</Label>
-            <input
-              className="input input--full-width input--primary"
-              required
-              id="account-email"
-              name="account-email"
-              type="email"
-              value={accountEmail}
-              onChange={(event) => {
-                setAccountEmail(event.target.value);
-                setAccountError(null);
-              }}
-            />
-          </div>
+          <TextField
+            isRequired
+            fullWidth
+            name="account-email"
+            type="email"
+            value={accountEmail}
+            validate={(value) =>
+              /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : t("Enter a valid email address")
+            }
+            onChange={(value) => {
+              setAccountEmail(value);
+              setAccountError(null);
+            }}
+          >
+            <Label>{t("Email")}</Label>
+            <Input placeholder="name@company.com" />
+            <FieldError />
+          </TextField>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="account-password">{t("Password")}</Label>
-            <input
-              className="input input--full-width input--primary"
-              id="account-password"
-              name="account-password"
-              type="password"
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-                setAccountError(null);
-              }}
-            />
-          </div>
+          <TextField
+            fullWidth
+            name="account-password"
+            type="password"
+            value={password}
+            validate={(value) =>
+              value && value.length < 8 ? t("Password must be at least 8 characters.") : null
+            }
+            onChange={(value) => {
+              setPassword(value);
+              setAccountError(null);
+            }}
+          >
+            <Label>{t("Password")}</Label>
+            <Input placeholder={t("Leave blank to keep your current password.")} />
+            <FieldError />
+          </TextField>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="account-password-confirmation">{t("Confirm password")}</Label>
-            <input
-              className="input input--full-width input--primary"
-              id="account-password-confirmation"
-              name="account-password-confirmation"
-              type="password"
-              value={passwordConfirmation}
-              onChange={(event) => {
-                setPasswordConfirmation(event.target.value);
-                setAccountError(null);
-              }}
-            />
-          </div>
-          <div className="flex justify-end border-t border-default pt-4">
+          <TextField
+            fullWidth
+            name="account-password-confirmation"
+            type="password"
+            value={passwordConfirmation}
+            validate={(value) => (value !== password ? t("Passwords do not match.") : null)}
+            onChange={(value) => {
+              setPasswordConfirmation(value);
+              setAccountError(null);
+            }}
+          >
+            <Label>{t("Confirm password")}</Label>
+            <Input placeholder={t("Repeat your new password.")} />
+            <FieldError />
+          </TextField>
+
+          <div className="flex justify-end border-t border-separator pt-4">
             <Button type="submit" isDisabled={!(accountEmail || currentMember.email).trim()}>
               {t("Save account")}
             </Button>
           </div>
-        </form>
+        </Form>
       </section>
 
-      <div
-        id="personal-preferences"
-        className="scroll-mt-24 space-y-5 rounded-2xl border border-default bg-surface p-5"
-      >
+      <section id="personal-preferences" className="surface-card scroll-mt-24 space-y-5 p-5">
         <div>
           <h2 className="font-medium text-foreground">{t("Personal preferences")}</h2>
           <p className="mt-1 text-sm text-muted">
@@ -350,7 +354,7 @@ function SettingsPage() {
               <Select.Value />
               <Select.Indicator />
             </Select.Trigger>
-            <Select.Popover>
+            <Select.Popover className="hero-menu-surface">
               <ListBox>
                 {localeOptions.map((option) => (
                   <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
@@ -408,7 +412,7 @@ function SettingsPage() {
             </Switch.Content>
           </Switch>
         ))}
-      </div>
+      </section>
     </div>
   );
 }

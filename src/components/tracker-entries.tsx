@@ -1,8 +1,10 @@
-import { Button, FieldError, Input, Label, Modal, TextField, toast } from "@heroui/react";
-import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Button, FieldError, Input, Label, Modal, Table, TextField, toast } from "@heroui/react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronDown, Play, Trash2 } from "lucide-react";
 import { ActionDropdown } from "@/components/action-dropdown";
+import { DataTable } from "@/components/data-table";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
+import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { ProjectSelect } from "@/components/project-select";
 import { useStore } from "@/lib/store";
 import {
@@ -62,10 +64,8 @@ type EntryDraft = {
   billable: boolean;
 };
 
-const trackerCellClass =
-  "tracker-table-cell border-b border-default px-4 py-3 align-middle overflow-hidden";
-const trackerActionCellClass =
-  "tracker-actions-cell border-b border-default px-2 py-2 align-middle whitespace-nowrap";
+const trackerCellClass = "overflow-hidden";
+const trackerActionCellClass = "whitespace-nowrap !px-2";
 const trackerActionLayoutClass = "grid grid-cols-[2rem_2rem] items-center justify-end gap-1";
 const trackerActionButtonClass = "size-8 min-w-8 shrink-0 !p-0";
 
@@ -185,9 +185,11 @@ function groupEntries(days: TrackerDay[]): TrackerGroup[] {
 }
 
 export function TrackerEntries({ days }: { days: TrackerDay[] }) {
-  const { locale, t } = useI18n();
+  const { deleteEntry, restoreEntry } = useStore();
+  const { locale, t, error } = useI18n();
   const [activeCell, setActiveCell] = useState<ActiveCell>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
+  const [pendingDelete, setPendingDelete] = useState<TimeEntry | null>(null);
   const entryIds = useMemo(
     () => new Set(days.flatMap((day) => day.entries.map((entry) => entry.id))),
     [days],
@@ -217,108 +219,125 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
     });
   };
 
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    const deletedEntry = pendingDelete;
+    deleteEntry(deletedEntry.id);
+    setPendingDelete(null);
+    setActiveCell(null);
+    toast(t("Time entry deleted"), {
+      actionProps: {
+        children: t("Undo"),
+        onPress: () => {
+          const result = restoreEntry(deletedEntry);
+          if (!result.success)
+            toast(t("Could not restore entry"), { description: error(result.error) });
+        },
+      },
+      timeout: 20_000,
+    });
+  };
+
   return (
-    <div
-      className="overflow-x-auto rounded-xl border border-default"
-      aria-label={t("Time entries for selected period")}
-    >
-      <table className="tracker-table w-full min-w-[1040px] table-fixed border-collapse bg-surface text-left">
-        <caption className="sr-only">{t("Time entries for selected period")}</caption>
-        <colgroup>
-          <col className="w-[21%]" />
-          <col className="w-[18%]" />
-          <col className="w-[12%]" />
-          <col className="w-[12%]" />
-          <col className="w-[13%]" />
-          <col className="w-[14%]" />
-          <col className="w-[10%]" />
-        </colgroup>
-        <thead className="border-b border-default bg-surface-secondary/40">
-          <tr>
-            <th
-              scope="col"
-              className="whitespace-nowrap px-4 py-2 text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
-            >
-              {t("Task")}
-            </th>
-            <th
-              scope="col"
-              className="whitespace-nowrap px-4 py-2 text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
-            >
-              {t("Project / client")}
-            </th>
-            <th
-              scope="col"
-              className="whitespace-nowrap px-4 py-2 text-center text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
-            >
-              {t("Start")}
-            </th>
-            <th
-              scope="col"
-              className="whitespace-nowrap px-4 py-2 text-center text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
-            >
-              {t("End")}
-            </th>
-            <th
-              scope="col"
-              className="whitespace-nowrap px-4 py-2 text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
-            >
-              {t("Date")}
-            </th>
-            <th
-              scope="col"
-              className="whitespace-nowrap px-4 py-2 text-[10px] font-medium tracking-[0.12em] text-muted uppercase"
-            >
-              {t("Duration")}
-            </th>
-            <th scope="col" aria-label={t("Actions")} />
-          </tr>
-        </thead>
-        <tbody>
-          {groups.map((group) => {
+    <>
+      <DataTable
+        label={t("Time entries for selected period")}
+        scrollHint={t("Scroll horizontally to see all columns")}
+        minWidth="min-w-[1040px] lg:min-w-0"
+        contentClassName="table-fixed"
+      >
+        <Table.Header>
+          <Table.Column isRowHeader className="w-[21%] whitespace-nowrap">
+            {t("Task")}
+          </Table.Column>
+          <Table.Column className="w-[18%] whitespace-nowrap">{t("Project / client")}</Table.Column>
+          <Table.Column className="w-[12%] whitespace-nowrap text-center">
+            {t("Start")}
+          </Table.Column>
+          <Table.Column className="w-[12%] whitespace-nowrap text-center">{t("End")}</Table.Column>
+          <Table.Column className="w-[13%] whitespace-nowrap">{t("Date")}</Table.Column>
+          <Table.Column className="w-[14%] whitespace-nowrap">{t("Duration")}</Table.Column>
+          <Table.Column className="w-[10%]" aria-label={t("Actions")} />
+        </Table.Header>
+        <Table.Body>
+          {groups.flatMap((group) => {
             const isGrouped = group.entries.length > 1;
             const isExpanded = expandedGroups.has(group.id);
 
             if (!isGrouped) {
               const entry = group.entries[0];
-              if (!entry) return null;
-              return (
-                <TrackerEntryRow
-                  key={entry.id}
-                  entry={entry}
-                  activeField={activeCell?.entryId === entry.id ? activeCell.field : null}
-                  onActivate={(field) => setActiveCell({ entryId: entry.id, field })}
-                  onDeactivate={() => setActiveCell(null)}
-                />
-              );
+              return entry
+                ? [
+                    <TrackerEntryRow
+                      key={entry.id}
+                      entry={entry}
+                      activeField={activeCell?.entryId === entry.id ? activeCell.field : null}
+                      onActivate={(field) => setActiveCell({ entryId: entry.id, field })}
+                      onDeactivate={() => setActiveCell(null)}
+                      onRequestDelete={setPendingDelete}
+                    />,
+                  ]
+                : [];
             }
 
-            return (
-              <Fragment key={group.id}>
-                <TrackerGroupSummaryRow
-                  group={group}
-                  isExpanded={isExpanded}
-                  onToggle={() => toggleGroup(group.id)}
-                />
-                {isExpanded
-                  ? group.entries.map((entry, index) => (
-                      <TrackerEntryRow
-                        key={entry.id}
-                        entry={entry}
-                        rowId={index === 0 ? `${group.id}-details` : undefined}
-                        isGroupedDetail
-                        activeField={activeCell?.entryId === entry.id ? activeCell.field : null}
-                        onActivate={(field) => setActiveCell({ entryId: entry.id, field })}
-                        onDeactivate={() => setActiveCell(null)}
-                      />
-                    ))
-                  : null}
-              </Fragment>
-            );
+            return [
+              <TrackerGroupSummaryRow
+                key={group.id}
+                group={group}
+                isExpanded={isExpanded}
+                onToggle={() => toggleGroup(group.id)}
+              />,
+              ...(isExpanded
+                ? group.entries.map((entry, index) => (
+                    <TrackerEntryRow
+                      key={entry.id}
+                      entry={entry}
+                      rowId={index === 0 ? `${group.id}-details` : undefined}
+                      activeField={activeCell?.entryId === entry.id ? activeCell.field : null}
+                      onActivate={(field) => setActiveCell({ entryId: entry.id, field })}
+                      onDeactivate={() => setActiveCell(null)}
+                      onRequestDelete={setPendingDelete}
+                    />
+                  ))
+                : []),
+            ];
           })}
-        </tbody>
-      </table>
-    </div>
+        </Table.Body>
+      </DataTable>
+      <Modal
+        isOpen={Boolean(pendingDelete)}
+        onOpenChange={(isOpen) => !isOpen && setPendingDelete(null)}
+      >
+        <ModalTriggerRegistration />
+        <Modal.Backdrop>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.CloseTrigger />
+              <Modal.Header>
+                <Modal.Heading>{t("Delete time entry?")}</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                <p className="text-sm text-muted">
+                  {pendingDelete
+                    ? t("Delete “{task}”? This action cannot be undone.", {
+                        task: pendingDelete.task,
+                      })
+                    : null}
+                </p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button slot="close" variant="secondary">
+                  {t("Keep entry")}
+                </Button>
+                <Button variant="secondary" className="text-danger" onPress={confirmDelete}>
+                  {t("Delete entry")}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+    </>
   );
 }
 
@@ -338,8 +357,7 @@ function TrackerGroupSummaryRow({
   const clientName = project
     ? (clients.find((client) => client.id === project.clientId)?.name ?? t("Unknown client"))
     : t("No client");
-  const summaryCellClass =
-    "cursor-pointer border-b border-default bg-surface px-4 py-3 align-middle overflow-hidden";
+  const summaryCellClass = "cursor-pointer overflow-hidden";
   const summaryTextClass = "block min-w-0 truncate whitespace-nowrap";
   const toggleLabel = t(
     `${isExpanded ? "Collapse" : "Expand"} {count} entries for {task}; {type}`,
@@ -356,19 +374,19 @@ function TrackerGroupSummaryRow({
     if (!result.success) toast(t("Could not start timer"), { description: error(result.error) });
   };
 
-  const handleSummaryClick = (event: React.MouseEvent<HTMLTableRowElement>) => {
+  const handleSummaryClick = (event: React.MouseEvent) => {
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest("[data-tracker-action], [data-tracker-group-toggle]")) return;
     onToggle();
   };
 
   return (
-    <tr
+    <Table.Row
       data-tracker-group={group.id}
       onClick={handleSummaryClick}
-      className="tracker-data-row tracker-group-summary-row group/summary bg-surface transition-colors hover:bg-surface-secondary/45"
+      className="tracker-data-row tracker-group-summary-row group/summary"
     >
-      <td className={`${summaryCellClass} min-w-0`}>
+      <Table.Cell className={`${summaryCellClass} min-w-0`}>
         <div className="flex min-h-[3.5rem] min-w-0 flex-col justify-center">
           <Button
             size="sm"
@@ -398,34 +416,34 @@ function TrackerGroupSummaryRow({
             })}
           </span>
         </div>
-      </td>
-      <td className={summaryCellClass}>
+      </Table.Cell>
+      <Table.Cell className={summaryCellClass}>
         <span className="flex min-w-0 flex-col">
           <span className={`${summaryTextClass} text-sm text-foreground`}>{projectName}</span>
           <span className={`${summaryTextClass} text-xs text-muted`}>{clientName}</span>
         </span>
-      </td>
-      <td className={`${summaryCellClass} text-center`}>
+      </Table.Cell>
+      <Table.Cell className={`${summaryCellClass} text-center`}>
         <span className={`${summaryTextClass} text-center tabular-nums text-muted`}>
           {group.start}
         </span>
-      </td>
-      <td className={`${summaryCellClass} text-center`}>
+      </Table.Cell>
+      <Table.Cell className={`${summaryCellClass} text-center`}>
         <span className={`${summaryTextClass} text-center tabular-nums text-muted`}>
           <EndTimeValue startDate={group.date} end={group.end} endDate={group.endDate} />
         </span>
-      </td>
-      <td className={summaryCellClass}>
+      </Table.Cell>
+      <Table.Cell className={summaryCellClass}>
         <span className={`${summaryTextClass} tabular-nums text-muted`}>
           {formatDate(group.date, locale)}
         </span>
-      </td>
-      <td className={summaryCellClass}>
+      </Table.Cell>
+      <Table.Cell className={summaryCellClass}>
         <span className={`${summaryTextClass} font-medium tabular-nums text-foreground`}>
           {formatDuration(group.totalSeconds, locale)}
         </span>
-      </td>
-      <td className={`${trackerActionCellClass} bg-surface`}>
+      </Table.Cell>
+      <Table.Cell className={trackerActionCellClass}>
         <div className={trackerActionLayoutClass} data-tracker-action>
           <Button
             isIconOnly
@@ -449,35 +467,33 @@ function TrackerGroupSummaryRow({
             onAction={(key) => key === "toggle" && onToggle()}
           />
         </div>
-      </td>
-    </tr>
+      </Table.Cell>
+    </Table.Row>
   );
 }
 
 function TrackerEntryRow({
   entry,
   rowId,
-  isGroupedDetail = false,
   activeField,
   onActivate,
   onDeactivate,
+  onRequestDelete,
 }: {
   entry: TimeEntry;
   rowId?: string | undefined;
-  isGroupedDetail?: boolean;
   activeField: TrackerEditableField | null;
   onActivate: (field: TrackerEditableField) => void;
   onDeactivate: () => void;
+  onRequestDelete: (entry: TimeEntry) => void;
 }) {
-  const { projects, clients, timer, startTimer, updateEntry, deleteEntry, restoreEntry } =
-    useStore();
+  const { projects, clients, timer, startTimer, updateEntry } = useStore();
   const { locale, t, error } = useI18n();
   const rowRef = useRef<HTMLTableRowElement | null>(null);
   const focusRef = useRef<HTMLInputElement | null>(null);
   const savedDraftRef = useRef<EntryDraft>(toDraft(entry));
   const [draft, setDraft] = useState<EntryDraft>(() => toDraft(entry));
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (activeField) return;
@@ -765,24 +781,6 @@ function TrackerEntryRow({
     return () => document.removeEventListener("pointerdown", handleOutsidePointer, true);
   });
 
-  const confirmDelete = () => {
-    const deletedEntry = entry;
-    deleteEntry(entry.id);
-    setDeleteDialogOpen(false);
-    onDeactivate();
-    toast(t("Time entry deleted"), {
-      actionProps: {
-        children: t("Undo"),
-        onPress: () => {
-          const result = restoreEntry(deletedEntry);
-          if (!result.success)
-            toast(t("Could not restore entry"), { description: error(result.error) });
-        },
-      },
-      timeout: 20_000,
-    });
-  };
-
   const startAgain = () => {
     if (timer.status !== "idle") return;
     const result = startTimer(entry.task, entry.projectId, entry.billable);
@@ -790,7 +788,7 @@ function TrackerEntryRow({
   };
 
   const actionCell = (
-    <td className={trackerActionCellClass}>
+    <Table.Cell className={trackerActionCellClass}>
       <div className={trackerActionLayoutClass} data-tracker-action>
         <Button
           isIconOnly
@@ -812,10 +810,10 @@ function TrackerEntryRow({
               tone: "danger",
             },
           ]}
-          onAction={(key) => key === "delete" && setDeleteDialogOpen(true)}
+          onAction={(key) => key === "delete" && onRequestDelete(entry)}
         />
       </div>
-    </td>
+    </Table.Cell>
   );
 
   const errorFor = (field: TrackerEditableField) =>
@@ -873,318 +871,287 @@ function TrackerEntryRow({
   const timeInputClass = `${compactInputClass} !w-[5.75rem] !min-w-[5.75rem] shrink-0 text-center tabular-nums`;
   const durationInputClass = `${compactInputClass} !w-[5.25rem] !min-w-[5.25rem] !max-w-full`;
   return (
-    <Fragment>
-      <tr
-        id={rowId}
-        ref={rowRef}
-        data-tracker-entry="true"
-        className={`tracker-data-row tracker-entry-row group ${isGroupedDetail ? "bg-surface-secondary/45" : "bg-surface"} transition-colors hover:bg-surface-secondary/70`}
-      >
-        <td className={`${trackerCellClass} min-w-0`}>
-          <div className="flex min-w-0 items-center gap-2">
-            {activeField === "task" ? (
-              <TextField
-                className="min-w-0 flex-1"
-                fullWidth
-                name={`task-${entry.id}`}
-                value={draft.task}
-                isInvalid={Boolean(validationMessage)}
-                onChange={(value) =>
-                  setDraft((current) => ({
-                    ...current,
-                    task: value,
-                  }))
-                }
-              >
-                <Label className="sr-only">{t("Task")}</Label>
-                <Input
-                  ref={focusRef}
-                  className={compactInputClass}
-                  onBlur={() => {
-                    if (commitField("task", draft.task)) onDeactivate();
-                  }}
-                  onKeyDown={(event) => handleTextKeyDown(event, "task")}
-                />
-                <FieldError>{validationMessage}</FieldError>
-              </TextField>
-            ) : (
-              <div className="min-w-0 flex-[0_1_auto]">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  fullWidth
-                  className={taskButtonClass}
-                  data-tracker-field="task"
-                  onPress={() => onActivate("task")}
-                >
-                  <span className="truncate text-sm font-medium text-foreground">{entry.task}</span>
-                </Button>
-              </div>
-            )}
-            <Button
-              isIconOnly
-              size="sm"
-              variant="ghost"
-              aria-label={t("Billable: {value}", {
-                value: entry.billable ? t("yes") : t("no"),
-              })}
-              aria-pressed={entry.billable}
-              data-tracker-field="billable"
-              className="size-4 min-w-4 !rounded-full !p-0"
-              onPress={() => {
-                const next = !entry.billable;
-                if (commitField("billable", next)) onDeactivate();
-              }}
-            >
-              <span
-                className={`size-2 rounded-full ${entry.billable ? "bg-success" : "bg-muted"}`}
-                aria-hidden="true"
-              />
-            </Button>
-          </div>
-          {activeField === "description" ? (
+    <Table.Row
+      {...(rowId ? { id: rowId } : {})}
+      ref={rowRef}
+      data-tracker-entry="true"
+      className="tracker-data-row tracker-entry-row group"
+    >
+      <Table.Cell className={`${trackerCellClass} min-w-0`}>
+        <div className="flex min-w-0 items-center gap-2">
+          {activeField === "task" ? (
             <TextField
-              className="min-w-0"
+              className="min-w-0 flex-1"
               fullWidth
-              name={`description-${entry.id}`}
-              value={draft.description}
+              name={`task-${entry.id}`}
+              value={draft.task}
               isInvalid={Boolean(validationMessage)}
               onChange={(value) =>
                 setDraft((current) => ({
                   ...current,
-                  description: value,
+                  task: value,
                 }))
               }
             >
-              <Label className="sr-only">{t("Description")}</Label>
+              <Label className="sr-only">{t("Task")}</Label>
               <Input
                 ref={focusRef}
                 className={compactInputClass}
-                placeholder={t("Add a note")}
                 onBlur={() => {
-                  if (commitField("description", draft.description)) onDeactivate();
+                  if (commitField("task", draft.task)) onDeactivate();
                 }}
-                onKeyDown={(event) => handleTextKeyDown(event, "description")}
+                onKeyDown={(event) => handleTextKeyDown(event, "task")}
               />
               <FieldError>{validationMessage}</FieldError>
             </TextField>
           ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              fullWidth
-              aria-label={t(entry.description ? "Edit description" : "Add description")}
-              className={`${descriptionButtonClass} mt-0.5 !h-6 !min-h-6 !justify-start text-xs text-muted ${entry.description ? "" : "text-transparent"}`}
-              data-tracker-field="description"
-              onPress={() => onActivate("description")}
-            >
-              {entry.description || "·"}
-            </Button>
+            <div className="min-w-0 flex-[0_1_auto]">
+              <Button
+                size="sm"
+                variant="ghost"
+                fullWidth
+                className={taskButtonClass}
+                data-tracker-field="task"
+                onPress={() => onActivate("task")}
+              >
+                <span className="truncate text-sm font-medium text-foreground">{entry.task}</span>
+              </Button>
+            </div>
           )}
-        </td>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            aria-label={t("Billable: {value}", {
+              value: entry.billable ? t("yes") : t("no"),
+            })}
+            aria-pressed={entry.billable}
+            data-tracker-field="billable"
+            className="size-4 min-w-4 !rounded-full !p-0"
+            onPress={() => {
+              const next = !entry.billable;
+              if (commitField("billable", next)) onDeactivate();
+            }}
+          >
+            <span
+              className={`size-2 rounded-full ${entry.billable ? "bg-success" : "bg-muted"}`}
+              aria-hidden="true"
+            />
+          </Button>
+        </div>
+        {activeField === "description" ? (
+          <TextField
+            className="min-w-0"
+            fullWidth
+            name={`description-${entry.id}`}
+            value={draft.description}
+            isInvalid={Boolean(validationMessage)}
+            onChange={(value) =>
+              setDraft((current) => ({
+                ...current,
+                description: value,
+              }))
+            }
+          >
+            <Label className="sr-only">{t("Description")}</Label>
+            <Input
+              ref={focusRef}
+              className={compactInputClass}
+              placeholder={t("Add a note")}
+              onBlur={() => {
+                if (commitField("description", draft.description)) onDeactivate();
+              }}
+              onKeyDown={(event) => handleTextKeyDown(event, "description")}
+            />
+            <FieldError>{validationMessage}</FieldError>
+          </TextField>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            fullWidth
+            aria-label={t(entry.description ? "Edit description" : "Add description")}
+            className={`${descriptionButtonClass} mt-0.5 !h-6 !min-h-6 !justify-start text-xs text-muted ${entry.description ? "" : "text-transparent"}`}
+            data-tracker-field="description"
+            onPress={() => onActivate("description")}
+          >
+            {entry.description || "·"}
+          </Button>
+        )}
+      </Table.Cell>
 
-        <td className={trackerCellClass}>
-          {activeField === "project" ? (
-            <>
-              <ProjectSelect
-                ariaLabel={t("Project")}
-                value={draft.projectId ?? "none"}
-                allowArchivedId={entry.projectId}
-                onChange={(value) => {
-                  const next = value === "none" || value === "all" ? null : value;
-                  setDraft((current) => ({ ...current, projectId: next }));
-                  if (commitField("project", next)) onDeactivate();
-                }}
-              />
-              <span className="mt-1 block truncate text-[11px] text-muted">
-                {selectedClientName}
+      <Table.Cell className={trackerCellClass}>
+        {activeField === "project" ? (
+          <>
+            <ProjectSelect
+              ariaLabel={t("Project")}
+              value={draft.projectId ?? "none"}
+              allowArchivedId={entry.projectId}
+              onChange={(value) => {
+                const next = value === "none" || value === "all" ? null : value;
+                setDraft((current) => ({ ...current, projectId: next }));
+                if (commitField("project", next)) onDeactivate();
+              }}
+            />
+            <span className="mt-1 block truncate text-[11px] text-muted">{selectedClientName}</span>
+            {errorFor("project")}
+          </>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            fullWidth
+            className={projectButtonClass}
+            data-tracker-field="project"
+            onPress={() => onActivate("project")}
+          >
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="block w-full min-w-0 truncate text-sm text-foreground">
+                {projectName}
               </span>
-              {errorFor("project")}
-            </>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              fullWidth
-              className={projectButtonClass}
-              data-tracker-field="project"
-              onPress={() => onActivate("project")}
-            >
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="block w-full min-w-0 truncate text-sm text-foreground">
-                  {projectName}
-                </span>
-                <span className="block w-full min-w-0 truncate text-xs text-muted">
-                  {clientName}
-                </span>
-              </span>
-            </Button>
-          )}
-        </td>
+              <span className="block w-full min-w-0 truncate text-xs text-muted">{clientName}</span>
+            </span>
+          </Button>
+        )}
+      </Table.Cell>
 
-        <td className={`${trackerCellClass} text-center`}>
-          {activeField === "start" ? (
-            <TextField
-              className="inline-flex min-w-0"
-              name={`start-${entry.id}`}
-              value={draft.start}
+      <Table.Cell className={`${trackerCellClass} text-center`}>
+        {activeField === "start" ? (
+          <TextField
+            className="inline-flex min-w-0"
+            name={`start-${entry.id}`}
+            value={draft.start}
+            isInvalid={Boolean(validationMessage)}
+            onChange={(value) => setDraft((current) => ({ ...current, start: value }))}
+          >
+            <Label className="sr-only">{t("Start time")}</Label>
+            <Input
+              ref={focusRef}
+              className={timeInputClass}
+              variant="secondary"
+              type="time"
+              onBlur={() => commitTime(draft.start, draft.end)}
+              onKeyDown={handleTimeKeyDown}
+            />
+            <FieldError>{validationMessage}</FieldError>
+          </TextField>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            className={timeSlotClass}
+            data-tracker-field="start"
+            aria-label={t("Start time: {time}", { time: entry.start })}
+            onPress={() => onActivate("start")}
+          >
+            {entry.start}
+          </Button>
+        )}
+      </Table.Cell>
+
+      <Table.Cell className={`${trackerCellClass} text-center`}>
+        {activeField === "end" ? (
+          <TextField
+            className="inline-flex min-w-0"
+            name={`end-${entry.id}`}
+            value={draft.end}
+            isInvalid={Boolean(validationMessage)}
+            onChange={(value) => setDraft((current) => ({ ...current, end: value }))}
+          >
+            <Label className="sr-only">
+              {t("End time")}
+              {getDayOffset(draft.date, draft.endDate) > 0 ? `, ${t("next day")}` : ""}
+            </Label>
+            <Input
+              ref={focusRef}
+              className={timeInputClass}
+              variant="secondary"
+              type="time"
+              onBlur={() => commitTime(draft.start, draft.end)}
+              onKeyDown={handleTimeKeyDown}
+            />
+            <FieldError>{validationMessage}</FieldError>
+          </TextField>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            className={timeSlotClass}
+            data-tracker-field="end"
+            aria-label={endTimeLabel}
+            onPress={() => onActivate("end")}
+          >
+            <EndTimeValue startDate={entry.date} end={entry.end} endDate={entryEndDate} />
+          </Button>
+        )}
+      </Table.Cell>
+
+      <Table.Cell className={trackerCellClass}>
+        {activeField === "date" ? (
+          <>
+            <HeroUIDatePicker
+              value={draft.date}
+              label={t("Date")}
+              className="!w-[8rem] !min-w-[8rem]"
+              compact
+              autoFocus
               isInvalid={Boolean(validationMessage)}
-              onChange={(value) => setDraft((current) => ({ ...current, start: value }))}
-            >
-              <Label className="sr-only">{t("Start time")}</Label>
-              <Input
-                ref={focusRef}
-                className={timeInputClass}
-                variant="secondary"
-                type="time"
-                onBlur={() => commitTime(draft.start, draft.end)}
-                onKeyDown={handleTimeKeyDown}
-              />
-              <FieldError>{validationMessage}</FieldError>
-            </TextField>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              className={timeSlotClass}
-              data-tracker-field="start"
-              aria-label={t("Start time: {time}", { time: entry.start })}
-              onPress={() => onActivate("start")}
-            >
-              {entry.start}
-            </Button>
-          )}
-        </td>
+              onChange={(next) => {
+                setDraft((current) => ({ ...current, date: next }));
+                if (isValidDateOnly(next) && commitField("date", next)) onDeactivate();
+              }}
+              onEscape={restoreField}
+            />
+            {errorFor("date")}
+          </>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            className={`${cellButtonClass} tabular-nums text-muted`}
+            data-tracker-field="date"
+            onPress={() => onActivate("date")}
+          >
+            {formatDate(entry.date, locale)}
+          </Button>
+        )}
+      </Table.Cell>
 
-        <td className={`${trackerCellClass} text-center`}>
-          {activeField === "end" ? (
-            <TextField
-              className="inline-flex min-w-0"
-              name={`end-${entry.id}`}
-              value={draft.end}
-              isInvalid={Boolean(validationMessage)}
-              onChange={(value) => setDraft((current) => ({ ...current, end: value }))}
-            >
-              <Label className="sr-only">
-                {t("End time")}
-                {getDayOffset(draft.date, draft.endDate) > 0 ? `, ${t("next day")}` : ""}
-              </Label>
-              <Input
-                ref={focusRef}
-                className={timeInputClass}
-                variant="secondary"
-                type="time"
-                onBlur={() => commitTime(draft.start, draft.end)}
-                onKeyDown={handleTimeKeyDown}
-              />
-              <FieldError>{validationMessage}</FieldError>
-            </TextField>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              className={timeSlotClass}
-              data-tracker-field="end"
-              aria-label={endTimeLabel}
-              onPress={() => onActivate("end")}
-            >
-              <EndTimeValue startDate={entry.date} end={entry.end} endDate={entryEndDate} />
-            </Button>
-          )}
-        </td>
+      <Table.Cell className={trackerCellClass}>
+        {activeField === "duration" ? (
+          <TextField
+            className="inline-flex min-w-0"
+            name={`duration-${entry.id}`}
+            value={draft.duration}
+            isInvalid={Boolean(validationMessage)}
+            onChange={(value) => setDraft((current) => ({ ...current, duration: value }))}
+          >
+            <Label className="sr-only">{t("Duration")}</Label>
+            <Input
+              ref={focusRef}
+              className={durationInputClass}
+              variant="secondary"
+              inputMode="decimal"
+              placeholder={t("H:MM")}
+              onBlur={() => commitDuration(draft.duration)}
+              onKeyDown={handleDurationKeyDown}
+            />
+            <FieldError>{validationMessage}</FieldError>
+          </TextField>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            className={`${cellButtonClass} font-medium tabular-nums text-foreground`}
+            data-tracker-field="duration"
+            onPress={() => onActivate("duration")}
+          >
+            {formatDuration(entry.seconds, locale)}
+          </Button>
+        )}
+      </Table.Cell>
 
-        <td className={trackerCellClass}>
-          {activeField === "date" ? (
-            <>
-              <HeroUIDatePicker
-                value={draft.date}
-                label={t("Date")}
-                className="!w-[8rem] !min-w-[8rem]"
-                compact
-                autoFocus
-                isInvalid={Boolean(validationMessage)}
-                onChange={(next) => {
-                  setDraft((current) => ({ ...current, date: next }));
-                  if (isValidDateOnly(next) && commitField("date", next)) onDeactivate();
-                }}
-                onEscape={restoreField}
-              />
-              {errorFor("date")}
-            </>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              className={`${cellButtonClass} tabular-nums text-muted`}
-              data-tracker-field="date"
-              onPress={() => onActivate("date")}
-            >
-              {formatDate(entry.date, locale)}
-            </Button>
-          )}
-        </td>
-
-        <td className={trackerCellClass}>
-          {activeField === "duration" ? (
-            <TextField
-              className="inline-flex min-w-0"
-              name={`duration-${entry.id}`}
-              value={draft.duration}
-              isInvalid={Boolean(validationMessage)}
-              onChange={(value) => setDraft((current) => ({ ...current, duration: value }))}
-            >
-              <Label className="sr-only">{t("Duration")}</Label>
-              <Input
-                ref={focusRef}
-                className={durationInputClass}
-                variant="secondary"
-                inputMode="decimal"
-                placeholder={t("H:MM")}
-                onBlur={() => commitDuration(draft.duration)}
-                onKeyDown={handleDurationKeyDown}
-              />
-              <FieldError>{validationMessage}</FieldError>
-            </TextField>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              className={`${cellButtonClass} font-medium tabular-nums text-foreground`}
-              data-tracker-field="duration"
-              onPress={() => onActivate("duration")}
-            >
-              {formatDuration(entry.seconds, locale)}
-            </Button>
-          )}
-        </td>
-
-        {actionCell}
-      </tr>
-      <Modal isOpen={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <Modal.Backdrop>
-          <Modal.Container size="sm">
-            <Modal.Dialog>
-              <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Delete time entry?")}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body>
-                <p className="text-sm text-muted">
-                  {t("Delete “{task}”? This action cannot be undone.", { task: entry.task })}
-                </p>
-              </Modal.Body>
-              <Modal.Footer>
-                <Button slot="close" variant="secondary">
-                  {t("Keep entry")}
-                </Button>
-                <Button variant="secondary" className="text-danger" onPress={confirmDelete}>
-                  {t("Delete entry")}
-                </Button>
-              </Modal.Footer>
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal.Backdrop>
-      </Modal>
-    </Fragment>
+      {actionCell}
+    </Table.Row>
   );
 }

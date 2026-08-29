@@ -14,13 +14,20 @@ system before they can track time.
   custom component framework.
 - Use a restrained neutral surface palette with one accent for primary actions
   and status feedback.
+- Treat `Surface`, `PageHeader`, `DataTable`, `DataTableFrame` and `LoadingState` as the
+  official shared building blocks for route-level composition. New reusable
+  components should consume these patterns instead of inventing a parallel
+  surface, table or loading treatment.
+- Use a near-borderless surface policy: cards and sections separate through
+  background contrast, spacing and restrained elevation. Reserve visible
+  borders for input-like fields, table separators, validation, focus and
+  boundaries that would otherwise lose context.
 - In dark mode, follow the HeroUI form-reference contrast hierarchy: a near-black
   canvas, distinct charcoal field surfaces, bright labels, cool blue-gray support
   text, vivid blue primary actions and clear red danger states.
 - In light mode, use the same hierarchy through a soft gray canvas, white
-  surfaces, tinted field fills and visible borders. Field controls must not use
-  drop shadows as their primary separation mechanism; focus may use the shared
-  accent ring.
+  surfaces and tinted field fills. Field controls must not use drop shadows as
+  their primary separation mechanism; focus may use the shared accent ring.
 - Use strong, readable headings and compact supporting text. Keep dense data
   scannable with tabular numerals and aligned values.
 - Use Lucide icons with labels or tooltips. Do not use decorative icon-only
@@ -96,6 +103,13 @@ system before they can track time.
   scrolling so the page itself does not overflow. At the compact-desktop `1200px` CSS
   viewport and above, the table fits beside the open sidebar without
   horizontal scrolling.
+- Standard read-only tables use the shared `DataTable` component, which keeps
+  HeroUI's primary surface, internal cell rounding and `ScrollContainer` in
+  one place. Dense report or editable native tables keep their semantic
+  columns inside `DataTableFrame` and follow the same surface, radius and
+  separator contract. When a viewport cannot fit all columns, the frame
+  exposes a localized instruction, keyboard focus and a visible scrollbar;
+  horizontal scrolling belongs to the table frame, never to the document body.
 - Use the effective CSS viewport, rather than the physical diagonal of a
   laptop, as the responsive reference because operating-system display scaling
   changes the number of CSS pixels available at browser zoom 100%.
@@ -289,6 +303,8 @@ project` remains a first-class report category. Hidden filters keep their
 - Keep a visible focus indicator and a logical keyboard order.
 - Provide labels for search, form controls, switches and icon buttons.
 - Use semantic headings and table headers.
+- Give scrollable table regions an accessible name and description, and expose
+  `scope="col"` on data-table headers.
 - Keep important status text available to assistive technology.
 - Validate responsive behavior at desktop, tablet and mobile widths.
 

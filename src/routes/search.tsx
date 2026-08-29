@@ -133,9 +133,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div>
       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">{title}</p>
-      <div className="divide-y divide-default overflow-hidden rounded-xl border border-default bg-surface">
-        {children}
-      </div>
+      <div className="surface-card divide-y divide-separator overflow-hidden">{children}</div>
     </div>
   );
 }

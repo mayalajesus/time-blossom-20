@@ -1,7 +1,8 @@
-import { Button, Label, ListBox, Select } from "@heroui/react";
+import { Button, Label, ListBox, Select, Table } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, ChevronRight, Download, FileBarChart, RotateCcw } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
+import { DataTable } from "@/components/data-table";
 import { ExportModal } from "@/components/export-modal";
 import {
   ReportFiltersBar,
@@ -693,7 +694,7 @@ function ReportsPage() {
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
-              <Select.Popover>
+              <Select.Popover className="hero-menu-surface">
                 <ListBox aria-label={t("Report views")}>
                   {reportViews.map((report) => (
                     <ListBox.Item key={report.id} id={report.id} textValue={report.label}>
@@ -845,26 +846,6 @@ function ReportOverview({
   );
 }
 
-function ReportTable({
-  children,
-  minWidth = "min-w-[920px]",
-}: {
-  children: ReactNode;
-  minWidth?: string;
-}) {
-  return (
-    <div className="min-w-0 overflow-x-auto rounded-2xl border border-default bg-surface">
-      <table className={`w-full ${minWidth} border-collapse text-sm`}>{children}</table>
-    </div>
-  );
-}
-
-function ReportTableHead({ children }: { children: ReactNode }) {
-  return (
-    <thead className="border-b border-default bg-surface-secondary text-left">{children}</thead>
-  );
-}
-
 function EmptyReport({ onClear }: { onClear: () => void }) {
   const { t } = useI18n();
   return (
@@ -906,114 +887,105 @@ function DetailedReport({
   const currentPage = Math.min(page, pageCount);
   const pageEntries = entries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   return (
-    <div className="space-y-3">
-      <ReportTable minWidth="min-w-[1180px]">
-        <ReportTableHead>
-          <tr>
-            {[
-              t("Date"),
-              t("Member"),
-              t("Project"),
-              t("Client"),
-              t("Task"),
-              t("Description"),
-              t("Start"),
-              t("End"),
-              t("Duration"),
-              t("Billability"),
-            ].map((label) => (
-              <th
-                key={label}
-                className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase"
-              >
-                {t(label)}
-              </th>
-            ))}
-          </tr>
-        </ReportTableHead>
-        <tbody>
-          {pageEntries.map((entry) => (
-            <tr key={entry.id} className="border-b border-default last:border-b-0">
-              <td className="whitespace-nowrap px-4 py-3 text-muted">
-                {formatDate(entry.date, locale)}
-              </td>
-              <td className="whitespace-nowrap px-4 py-3 text-muted">
-                {nameForMember(members, entry.userId)}
-              </td>
-              <td className="px-4 py-3 font-medium">{projectNameFor(projects, entry.projectId)}</td>
-              <td className="px-4 py-3 text-muted">
-                {clientNameFor(clients, projects, entry.projectId)}
-              </td>
-              <td className="max-w-48 px-4 py-3 font-medium">
-                <div className="truncate">{entry.task}</div>
-              </td>
-              <td className="max-w-56 px-4 py-3 text-muted">
-                <div className="truncate">{entry.description ?? "—"}</div>
-              </td>
-              <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted">{entry.start}</td>
-              <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted">
-                {endLabel(entry)}
-              </td>
-              <td className="whitespace-nowrap px-4 py-3 font-medium tabular-nums">
-                {formatDuration(entry.seconds, locale)}
-              </td>
-              <td className="whitespace-nowrap px-4 py-3 text-muted">
-                {entry.billable ? t("Billable") : t("Internal")}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot className="border-t border-default bg-surface-secondary">
-          <tr>
-            <td colSpan={8} className="px-4 py-3 text-right font-medium text-muted">
-              {t("Total · {count} entries", { count: entries.length })}
-            </td>
-            <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums">
-              {formatDuration(
-                entries.reduce((sum, entry) => sum + entry.seconds, 0),
-                locale,
-              )}
-            </td>
-            <td className="px-4 py-3 text-muted">
-              {formatDuration(
-                entries
-                  .filter((entry) => entry.billable)
-                  .reduce((sum, entry) => sum + entry.seconds, 0),
-                locale,
-              )}{" "}
-              {t("billable")}
-            </td>
-          </tr>
-        </tfoot>
-      </ReportTable>
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted">
-        <span>
-          {t("{count} entries · page {page} of {pages}", {
-            count: entries.length,
-            page: currentPage,
-            pages: pageCount,
-          })}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            isDisabled={currentPage === 1}
-            onPress={() => onPageChange(currentPage - 1)}
-          >
-            {t("Previous")}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            isDisabled={currentPage === pageCount}
-            onPress={() => onPageChange(currentPage + 1)}
-          >
-            {t("Next")}
-          </Button>
+    <DataTable
+      label={t("Detailed report table")}
+      minWidth="min-w-[1180px]"
+      scrollHint={t("Scroll horizontally to see all columns")}
+      footer={
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 text-sm">
+          <span className="font-medium text-muted">
+            {t("Total · {count} entries", { count: entries.length })}
+          </span>
+          <span className="whitespace-nowrap font-semibold tabular-nums">
+            {formatDuration(
+              entries.reduce((sum, entry) => sum + entry.seconds, 0),
+              locale,
+            )}
+          </span>
+          <span className="whitespace-nowrap tabular-nums text-muted">
+            {formatDuration(
+              entries
+                .filter((entry) => entry.billable)
+                .reduce((sum, entry) => sum + entry.seconds, 0),
+              locale,
+            )}{" "}
+            {t("billable")}
+          </span>
         </div>
-      </div>
-    </div>
+      }
+      pagination={{
+        page: currentPage,
+        totalPages: pageCount,
+        onPageChange,
+        summary: (
+          <span>
+            {t("{count} entries · page {page} of {pages}", {
+              count: entries.length,
+              page: currentPage,
+              pages: pageCount,
+            })}
+          </span>
+        ),
+        previousLabel: t("Previous"),
+        nextLabel: t("Next"),
+        ariaLabel: t("Report pages"),
+      }}
+    >
+      <Table.Header>
+        {[
+          "Date",
+          "Member",
+          "Project",
+          "Client",
+          "Task",
+          "Description",
+          "Start",
+          "End",
+          "Duration",
+          "Billability",
+        ].map((label, index) => (
+          <Table.Column key={label} isRowHeader={index === 0}>
+            {t(label)}
+          </Table.Column>
+        ))}
+      </Table.Header>
+      <Table.Body>
+        {pageEntries.map((entry) => (
+          <Table.Row key={entry.id}>
+            <Table.Cell className="whitespace-nowrap text-muted">
+              {formatDate(entry.date, locale)}
+            </Table.Cell>
+            <Table.Cell className="whitespace-nowrap text-muted">
+              {nameForMember(members, entry.userId)}
+            </Table.Cell>
+            <Table.Cell className="font-medium">
+              {projectNameFor(projects, entry.projectId)}
+            </Table.Cell>
+            <Table.Cell className="text-muted">
+              {clientNameFor(clients, projects, entry.projectId)}
+            </Table.Cell>
+            <Table.Cell className="max-w-48 font-medium">
+              <div className="truncate">{entry.task}</div>
+            </Table.Cell>
+            <Table.Cell className="max-w-56 text-muted">
+              <div className="truncate">{entry.description ?? "—"}</div>
+            </Table.Cell>
+            <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
+              {entry.start}
+            </Table.Cell>
+            <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
+              {endLabel(entry)}
+            </Table.Cell>
+            <Table.Cell className="whitespace-nowrap font-medium tabular-nums">
+              {formatDuration(entry.seconds, locale)}
+            </Table.Cell>
+            <Table.Cell className="whitespace-nowrap text-muted">
+              {entry.billable ? t("Billable") : t("Internal")}
+            </Table.Cell>
+          </Table.Row>
+        ))}
+      </Table.Body>
+    </DataTable>
   );
 }
 
@@ -1061,32 +1033,30 @@ function SummaryReport({
           onChange={onChangeSubgroup}
         />
       </div>
-      <ReportTable>
-        <ReportTableHead>
-          <tr>
-            {["Group", "Tracked", "Billable", "Internal", "Records", "Share"].map((label) => (
-              <th
-                key={label}
-                className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase"
-              >
-                {label}
-              </th>
-            ))}
-          </tr>
-        </ReportTableHead>
-        <tbody>
-          {groups.map((group) => (
+      <DataTable
+        label={t("Summary report table")}
+        scrollHint={t("Scroll horizontally to see all columns")}
+      >
+        <Table.Header>
+          {["Group", "Tracked", "Billable", "Internal", "Records", "Share"].map((label, index) => (
+            <Table.Column key={label} isRowHeader={index === 0}>
+              {t(label)}
+            </Table.Column>
+          ))}
+        </Table.Header>
+        <Table.Body>
+          {flattenSummaryRows(groups, expanded).map(({ group, level }) => (
             <SummaryRow
-              key={group.key}
+              key={`${level}-${group.key}`}
               group={group}
               total={total}
-              level={0}
+              level={level}
               expanded={expanded}
               onToggle={onToggle}
             />
           ))}
-        </tbody>
-      </ReportTable>
+        </Table.Body>
+      </DataTable>
     </div>
   );
 }
@@ -1108,58 +1078,57 @@ function SummaryRow({
   const expandable = Boolean(group.children?.length);
   const isOpen = Boolean(expanded[group.key]);
   return (
-    <>
-      <tr className="border-b border-default last:border-b-0">
-        <td className="px-4 py-3" style={{ paddingLeft: `${16 + level * 24}px` }}>
-          <div className="flex min-w-0 items-center gap-2">
-            {expandable ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                isIconOnly
-                aria-label={t("{action} {label}", {
-                  action: t(isOpen ? "Collapse" : "Expand"),
-                  label: group.label,
-                })}
-                aria-expanded={isOpen}
-                onPress={() => onToggle(group.key)}
-              >
-                {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-              </Button>
-            ) : (
-              <span className="size-8" />
-            )}
-            <span className="truncate font-medium">{group.label}</span>
-          </div>
-        </td>
-        <td className="whitespace-nowrap px-4 py-3 font-medium tabular-nums">
-          {formatDuration(group.seconds, locale)}
-        </td>
-        <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted">
-          {formatDuration(group.billable, locale)}
-        </td>
-        <td className="whitespace-nowrap px-4 py-3 tabular-nums text-muted">
-          {formatDuration(group.seconds - group.billable, locale)}
-        </td>
-        <td className="px-4 py-3 tabular-nums text-muted">{group.records}</td>
-        <td className="px-4 py-3 tabular-nums text-muted">
-          {total ? `${Math.round((group.seconds / total) * 100)}%` : "0%"}
-        </td>
-      </tr>
-      {isOpen
-        ? group.children?.map((child) => (
-            <SummaryRow
-              key={`${group.key}-${child.key}`}
-              group={child}
-              total={total}
-              level={level + 1}
-              expanded={expanded}
-              onToggle={onToggle}
-            />
-          ))
-        : null}
-    </>
+    <Table.Row>
+      <Table.Cell style={{ paddingInlineStart: `${16 + level * 24}px` }}>
+        <div className="flex min-w-0 items-center gap-2">
+          {expandable ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              isIconOnly
+              aria-label={t("{action} {label}", {
+                action: t(isOpen ? "Collapse" : "Expand"),
+                label: group.label,
+              })}
+              aria-expanded={isOpen}
+              onPress={() => onToggle(group.key)}
+            >
+              {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+            </Button>
+          ) : (
+            <span className="size-8" />
+          )}
+          <span className="truncate font-medium">{group.label}</span>
+        </div>
+      </Table.Cell>
+      <Table.Cell className="whitespace-nowrap font-medium tabular-nums">
+        {formatDuration(group.seconds, locale)}
+      </Table.Cell>
+      <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
+        {formatDuration(group.billable, locale)}
+      </Table.Cell>
+      <Table.Cell className="whitespace-nowrap tabular-nums text-muted">
+        {formatDuration(group.seconds - group.billable, locale)}
+      </Table.Cell>
+      <Table.Cell className="tabular-nums text-muted">{group.records}</Table.Cell>
+      <Table.Cell className="tabular-nums text-muted">
+        {total ? `${Math.round((group.seconds / total) * 100)}%` : "0%"}
+      </Table.Cell>
+    </Table.Row>
   );
+}
+
+function flattenSummaryRows(
+  groups: ReportGroup[],
+  expanded: Record<string, boolean>,
+  level = 0,
+): Array<{ group: ReportGroup; level: number }> {
+  return groups.flatMap((group) => [
+    { group, level },
+    ...(expanded[group.key] && group.children
+      ? flattenSummaryRows(group.children, expanded, level + 1)
+      : []),
+  ]);
 }
 
 function GroupSelect({
@@ -1188,7 +1157,7 @@ function GroupSelect({
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover>
+      <Select.Popover className="hero-menu-surface">
         <ListBox aria-label={t(label)}>
           {options.map((option) => (
             <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
@@ -1267,53 +1236,42 @@ function WeeklyReport({
           }}
         />
       </div>
-      <ReportTable minWidth="min-w-[940px]">
-        <ReportTableHead>
-          <tr>
-            <th className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase">
-              {t("Group")}
-            </th>
-            {dates.map((date) => (
-              <th
-                key={date}
-                className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase"
-              >
-                {formatDate(date, locale)}
-              </th>
-            ))}
-            <th className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase">
-              {t("Tracked")}
-            </th>
-            <th className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase">
-              {t("Billable")}
-            </th>
-            <th className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase">
-              {t("Internal")}
-            </th>
-          </tr>
-        </ReportTableHead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.key} className="border-b border-default last:border-b-0">
-              <td className="px-4 py-3 font-medium">{row.label}</td>
-              {dates.map((date) => (
-                <td key={date} className="px-4 py-3 tabular-nums text-muted">
-                  {formatDuration(row.byDate[date] ?? 0, locale)}
-                </td>
-              ))}
-              <td className="px-4 py-3 font-medium tabular-nums">
-                {formatDuration(row.seconds, locale)}
-              </td>
-              <td className="px-4 py-3 tabular-nums text-muted">
-                {formatDuration(row.billable, locale)}
-              </td>
-              <td className="px-4 py-3 tabular-nums text-muted">
-                {formatDuration(row.seconds - row.billable, locale)}
-              </td>
-            </tr>
+      <DataTable
+        label={t("Weekly report table")}
+        minWidth="min-w-[940px]"
+        scrollHint={t("Scroll horizontally to see all columns")}
+      >
+        <Table.Header>
+          <Table.Column isRowHeader>{t("Group")}</Table.Column>
+          {dates.map((date) => (
+            <Table.Column key={date}>{formatDate(date, locale)}</Table.Column>
           ))}
-        </tbody>
-      </ReportTable>
+          <Table.Column>{t("Tracked")}</Table.Column>
+          <Table.Column>{t("Billable")}</Table.Column>
+          <Table.Column>{t("Internal")}</Table.Column>
+        </Table.Header>
+        <Table.Body>
+          {rows.map((row) => (
+            <Table.Row key={row.key}>
+              <Table.Cell className="font-medium">{row.label}</Table.Cell>
+              {dates.map((date) => (
+                <Table.Cell key={date} className="tabular-nums text-muted">
+                  {formatDuration(row.byDate[date] ?? 0, locale)}
+                </Table.Cell>
+              ))}
+              <Table.Cell className="font-medium tabular-nums">
+                {formatDuration(row.seconds, locale)}
+              </Table.Cell>
+              <Table.Cell className="tabular-nums text-muted">
+                {formatDuration(row.billable, locale)}
+              </Table.Cell>
+              <Table.Cell className="tabular-nums text-muted">
+                {formatDuration(row.seconds - row.billable, locale)}
+              </Table.Cell>
+            </Table.Row>
+          ))}
+        </Table.Body>
+      </DataTable>
     </div>
   );
 }
@@ -1379,60 +1337,59 @@ function TeamReport({
   const rows = buildTeamRows(entries, members, projects, clients, scopeToMember);
   if (rows.length === 0) return <EmptyReport onClear={onClear} />;
   return (
-    <ReportTable minWidth="min-w-[1040px]">
-      <ReportTableHead>
-        <tr>
-          {[
-            "Member",
-            "Tracked",
-            "Billable",
-            "Internal",
-            "Records",
-            "Projects",
-            "Clients",
-            "Average/day",
-            "Share",
-          ].map((label) => (
-            <th
-              key={label}
-              className="px-4 py-3 text-xs font-medium tracking-wide text-muted uppercase"
-            >
-              {t(label)}
-            </th>
-          ))}
-        </tr>
-      </ReportTableHead>
-      <tbody>
+    <DataTable
+      label={t("Team report table")}
+      minWidth="min-w-[1040px]"
+      scrollHint={t("Scroll horizontally to see all columns")}
+    >
+      <Table.Header>
+        {[
+          "Member",
+          "Tracked",
+          "Billable",
+          "Internal",
+          "Records",
+          "Projects",
+          "Clients",
+          "Average/day",
+          "Share",
+        ].map((label, index) => (
+          <Table.Column key={label} isRowHeader={index === 0}>
+            {t(label)}
+          </Table.Column>
+        ))}
+      </Table.Header>
+      <Table.Body>
         {rows.map((row) => (
-          <tr key={row.member.id} className="border-b border-default last:border-b-0">
-            <td className="px-4 py-3">
+          <Table.Row key={row.member.id}>
+            <Table.Cell>
               <div className="font-medium">{row.member.name}</div>
               <div className="text-xs text-muted">{row.member.email}</div>
-            </td>
-            <td className="px-4 py-3 font-medium tabular-nums">
+            </Table.Cell>
+            <Table.Cell className="font-medium tabular-nums">
               {formatDuration(row.seconds, locale)}
-            </td>
-            <td className="px-4 py-3 tabular-nums text-muted">
+            </Table.Cell>
+            <Table.Cell className="tabular-nums text-muted">
               {formatDuration(row.billable, locale)}
-            </td>
-            <td className="px-4 py-3 tabular-nums text-muted">
+            </Table.Cell>
+            <Table.Cell className="tabular-nums text-muted">
               {formatDuration(row.seconds - row.billable, locale)}
-            </td>
-            <td className="px-4 py-3 tabular-nums text-muted">{row.records}</td>
-            <td className="px-4 py-3 tabular-nums text-muted">{row.projectCount}</td>
-            <td className="px-4 py-3 tabular-nums text-muted">{row.clientCount}</td>
-            <td className="px-4 py-3 tabular-nums text-muted">
+            </Table.Cell>
+            <Table.Cell className="tabular-nums text-muted">{row.records}</Table.Cell>
+            <Table.Cell className="tabular-nums text-muted">{row.projectCount}</Table.Cell>
+            <Table.Cell className="tabular-nums text-muted">{row.clientCount}</Table.Cell>
+            <Table.Cell className="tabular-nums text-muted">
               {formatDuration(
                 row.activeDays ? Math.round(row.seconds / row.activeDays) : 0,
                 locale,
               )}
-            </td>
-            <td className="px-4 py-3 tabular-nums text-muted">
+            </Table.Cell>
+            <Table.Cell className="tabular-nums text-muted">
               {total ? `${Math.round((row.seconds / total) * 100)}%` : "0%"}
-            </td>
-          </tr>
+            </Table.Cell>
+          </Table.Row>
         ))}
-      </tbody>
-    </ReportTable>
+      </Table.Body>
+    </DataTable>
   );
 }

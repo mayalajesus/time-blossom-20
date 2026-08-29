@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
+import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 
 interface Command {
   id: string;
@@ -171,10 +172,11 @@ export function CommandMenu({
         onOpenChange(open);
       }}
     >
+      <ModalTriggerRegistration />
       <Modal.Backdrop>
         <Modal.Container placement="top" size="sm">
           <Modal.Dialog>
-            <div className="border-b border-default px-3 py-2">
+            <div className="border-b border-separator px-3 py-2">
               <TextField fullWidth name="command-search" value={query} onChange={setQuery}>
                 <Label className="sr-only">{t("Command menu search")}</Label>
                 <Input
@@ -228,7 +230,7 @@ export function CommandMenu({
                 </ListBox>
               )}
             </div>
-            <div className="flex items-center justify-between border-t border-default px-4 py-2 text-xs text-muted">
+            <div className="flex items-center justify-between border-t border-separator px-4 py-2 text-xs text-muted">
               <span>{t("Navigate with arrow keys")}</span>
               <span className="flex items-center gap-1">
                 <Kbd>esc</Kbd> {t("to close")}

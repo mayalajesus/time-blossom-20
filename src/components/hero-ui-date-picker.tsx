@@ -1,8 +1,10 @@
-import { Button, Calendar, DateField, IconCalendar, Popover } from "@heroui/react";
+import { Button, Calendar, DateField, IconCalendar, I18nProvider, Popover } from "@heroui/react";
 import { DateInputGroup } from "@heroui/react/date-input-group";
 import { CalendarDate } from "@internationalized/date";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
+import { PopoverTriggerRegistration } from "@/components/overlay-trigger-registration";
 
 function toCalendarDate(value: string): CalendarDate | null {
   const parts = value.split("-").map(Number);
@@ -38,6 +40,7 @@ export function HeroUIDatePicker({
   compact?: boolean;
 }) {
   const { settings } = useStore();
+  const { locale, t } = useI18n();
   const calendarValue = toCalendarDate(value);
   const [isOpen, setIsOpen] = useState(false);
   const [isShortViewport, setIsShortViewport] = useState(false);
@@ -70,6 +73,7 @@ export function HeroUIDatePicker({
   return (
     <div data-tracker-date-picker className={`relative w-full min-w-0 ${className ?? ""}`}>
       <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTriggerRegistration />
         <div
           className="w-full min-w-0"
           onPointerDown={(event) => {
@@ -134,7 +138,7 @@ export function HeroUIDatePicker({
                 <Button
                   variant="ghost"
                   isIconOnly
-                  aria-label={`Open ${label} calendar`}
+                  aria-label={t("Open {label} calendar", { label })}
                   className={
                     compact
                       ? "flex size-5 min-w-5 shrink-0 items-center justify-center rounded-md text-muted outline-none transition-colors hover:bg-surface-secondary focus-visible:ring-2 focus-visible:ring-accent"
@@ -157,25 +161,27 @@ export function HeroUIDatePicker({
           className="calendar-popover-content calendar-popover-single w-[min(16rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] overflow-visible p-0"
         >
           <Popover.Dialog>
-            <Calendar
-              aria-label={`Select ${label}`}
-              firstDayOfWeek={settings.weekStart === "sunday" ? "sun" : "mon"}
-              value={calendarValue}
-              onChange={commitDate}
-              className="calendar-no-scroll w-full max-w-full p-3"
-            >
-              <Calendar.Header className="flex items-center justify-between gap-2">
-                <Calendar.NavButton slot="previous" aria-label="Previous month" />
-                <Calendar.Heading className="text-sm font-medium" />
-                <Calendar.NavButton slot="next" aria-label="Next month" />
-              </Calendar.Header>
-              <Calendar.Grid className="mt-2 w-full max-w-full">
-                <Calendar.GridHeader>
-                  {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
-                </Calendar.GridHeader>
-                <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
-              </Calendar.Grid>
-            </Calendar>
+            <I18nProvider locale={locale}>
+              <Calendar
+                aria-label={t("Select {label}", { label })}
+                firstDayOfWeek={settings.weekStart === "sunday" ? "sun" : "mon"}
+                value={calendarValue}
+                onChange={commitDate}
+                className="calendar-no-scroll w-full max-w-full p-3"
+              >
+                <Calendar.Header className="flex items-center justify-between gap-2">
+                  <Calendar.NavButton slot="previous" aria-label={t("Previous month")} />
+                  <Calendar.Heading className="text-sm font-medium" />
+                  <Calendar.NavButton slot="next" aria-label={t("Next month")} />
+                </Calendar.Header>
+                <Calendar.Grid className="mt-2 w-full max-w-full">
+                  <Calendar.GridHeader>
+                    {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
+                  </Calendar.GridHeader>
+                  <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
+                </Calendar.Grid>
+              </Calendar>
+            </I18nProvider>
           </Popover.Dialog>
         </Popover.Content>
       </Popover>

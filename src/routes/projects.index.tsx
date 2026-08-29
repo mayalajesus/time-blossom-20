@@ -27,6 +27,7 @@ import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { PageHeader } from "@/components/page-header";
 import { FormAlert } from "@/components/form-feedback";
+import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { CardsSkeleton, EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration, getLocalToday } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
@@ -192,7 +193,7 @@ function ProjectsPage() {
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
-              <Select.Popover>
+              <Select.Popover className="hero-menu-surface">
                 <ListBox>
                   {[
                     { id: "all", label: t("All") },
@@ -256,7 +257,7 @@ function ProjectsPage() {
           {visible.map((project) => (
             <article
               key={project.id}
-              className="flex min-h-[160px] min-w-0 flex-col rounded-2xl border border-default bg-surface p-4 transition-colors hover:bg-surface-secondary"
+              className="surface-card surface-card-interactive flex min-h-[160px] min-w-0 flex-col p-4"
             >
               <div className="flex min-w-0 items-start justify-between gap-3">
                 <Link
@@ -370,6 +371,7 @@ function ProjectsPage() {
           }
         }}
       >
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>
@@ -404,6 +406,7 @@ function ProjectsPage() {
       </Modal>
 
       <Modal isOpen={newOpen} onOpenChange={setNewOpen}>
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>
@@ -454,7 +457,7 @@ function ProjectsPage() {
                         <Select.Value />
                         <Select.Indicator />
                       </Select.Trigger>
-                      <Select.Popover>
+                      <Select.Popover className="hero-menu-surface">
                         <ListBox>
                           <ListBox.Item id="none" textValue={t("Select a client")} isDisabled>
                             <Label>{t("Select a client")}</Label>
@@ -538,6 +541,7 @@ function ProjectsPage() {
           }
         }}
       >
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>

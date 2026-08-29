@@ -2,6 +2,7 @@ import { Button, Description, Form, Label, Modal, Radio, RadioGroup, toast } fro
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
+import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import {
   exportReport,
   type ReportExportFormat,
@@ -35,6 +36,7 @@ export function ExportModal({
 
   return (
     <Modal isOpen={isOpen} onOpenChange={close}>
+      <ModalTriggerRegistration />
       <Modal.Backdrop>
         <Modal.Container size="sm">
           <Modal.Dialog>

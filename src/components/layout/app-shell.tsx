@@ -20,6 +20,7 @@ import { ProfileMenu } from "@/components/profile-menu";
 import { FormAlert } from "@/components/form-feedback";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { SidebarNavigation } from "@/components/layout/sidebar-navigation";
+import { DrawerTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { AppI18nProvider, useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
@@ -129,7 +130,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
       </a>
       <div className="min-h-screen bg-background text-foreground">
         <aside
-          className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-default bg-surface p-2 md:flex ${
+          className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-hidden bg-surface p-2 md:flex ${
             collapsed ? "w-16" : "w-56"
           }`}
         >
@@ -167,7 +168,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
             collapsed ? "md:pl-16" : "md:pl-56"
           }`}
         >
-          <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-default bg-background/80 px-3 py-2.5 backdrop-blur sm:gap-3 sm:px-4 sm:py-3">
+          <header className="sticky top-0 z-10 flex items-center gap-2 bg-background/80 px-3 py-2.5 backdrop-blur sm:gap-3 sm:px-4 sm:py-3">
             <div className="md:hidden">
               <Button
                 aria-label={t("Open navigation")}
@@ -202,10 +203,11 @@ function AppShellContent({ children }: { children: ReactNode }) {
         </div>
 
         <Drawer isOpen={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <DrawerTriggerRegistration />
           <Drawer.Backdrop>
             <Drawer.Content placement="left" className="w-[min(18rem,calc(100vw-1rem))]">
               <Drawer.Dialog className="flex h-full flex-col">
-                <Drawer.Header className="flex items-center gap-3 border-b border-default px-4 py-3">
+                <Drawer.Header className="flex items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <ProfileMenu showName showRole />
                   </div>
@@ -224,7 +226,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
                     onNavigate={() => setMobileNavOpen(false)}
                   />
                 </Drawer.Body>
-                <Drawer.Footer className="flex shrink-0 flex-col gap-2 border-t border-default px-3 py-3">
+                <Drawer.Footer className="flex shrink-0 flex-col gap-2 px-3 py-3">
                   <WorkspaceSwitcher popoverPlacement="footer" />
                 </Drawer.Footer>
               </Drawer.Dialog>
@@ -292,7 +294,7 @@ function SignedOutScreen() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
-      <section className="w-full max-w-md rounded-2xl border border-default bg-surface p-6 text-center shadow-sm">
+      <section className="surface-card w-full max-w-md p-6 text-center">
         <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-surface-secondary text-accent">
           <Clock aria-hidden="true" className="size-6" />
         </div>
@@ -321,7 +323,7 @@ function SignedOutScreen() {
                   <Select.Value />
                   <Select.Indicator />
                 </Select.Trigger>
-                <Select.Popover>
+                <Select.Popover className="hero-menu-surface">
                   <ListBox>
                     {activeMembers.map((member) => (
                       <ListBox.Item key={member.id} id={member.id} textValue={member.name}>

@@ -66,10 +66,10 @@ function IntegrationsPage() {
         description={t("Bring tasks from the tools you already use.")}
       />
 
-      <div className="rounded-2xl border border-default bg-surface p-5">
+      <div className="surface-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="rounded-xl border border-default p-2">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-surface-secondary p-2">
               <Trello className="size-5" />
             </div>
             <div className="space-y-1">
@@ -97,7 +97,7 @@ function IntegrationsPage() {
         </div>
 
         {connected ? (
-          <div className="mt-6 space-y-4 border-t border-default pt-5">
+          <div className="mt-6 space-y-4 border-t border-separator pt-5">
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
               <span className="text-muted">
                 {trello.workspace} · {trello.board} · {t("last sync")}{" "}
@@ -114,7 +114,7 @@ function IntegrationsPage() {
                 </Button>
               ) : null}
             </div>
-            <ul className="divide-y divide-default rounded-xl border border-default">
+            <ul className="divide-y divide-separator overflow-hidden rounded-2xl bg-surface-secondary/40">
               {trello.cards.map((card) => (
                 <li key={card} className="flex items-center justify-between gap-3 px-4 py-3">
                   <p className="text-sm text-foreground">{card}</p>

@@ -14,7 +14,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Building2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
+import { DataTable } from "@/components/data-table";
 import { FormAlert } from "@/components/form-feedback";
+import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { PageHeader } from "@/components/page-header";
 import { EmptyBlock, TableSkeleton } from "@/components/states";
 import { formatDuration } from "@/lib/format";
@@ -128,54 +130,50 @@ function ClientsPage() {
           }
         />
       ) : (
-        <Table>
-          <Table.ScrollContainer>
-            <Table.Content aria-label={t("Clients")} className="min-w-[640px]">
-              <Table.Header>
-                <Table.Column isRowHeader>{t("Client")}</Table.Column>
-                <Table.Column>{t("Contact")}</Table.Column>
-                <Table.Column className="text-center">{t("Projects")}</Table.Column>
-                <Table.Column className="text-center">{t("Tracked")}</Table.Column>
-                <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
-              </Table.Header>
-              <Table.Body>
-                {clients.map((client) => (
-                  <Table.Row key={client.id}>
-                    <Table.Cell className="font-medium">{client.name}</Table.Cell>
-                    <Table.Cell className="text-muted">{client.contact || "—"}</Table.Cell>
-                    <Table.Cell className="text-center">{projectCountFor(client.id)}</Table.Cell>
-                    <Table.Cell className="text-center tabular-nums">
-                      {formatDuration(secondsFor(client.id), locale)}
-                    </Table.Cell>
-                    <Table.Cell>
-                      {can("manage-clients") ? (
-                        <div className="flex justify-end">
-                          <ActionDropdown
-                            ariaLabel={t("Actions for {name}", { name: client.name })}
-                            items={[
-                              {
-                                id: "delete",
-                                label: t("Delete client"),
-                                icon: <Trash2 className="size-4" />,
-                                tone: "danger",
-                              },
-                            ]}
-                            onAction={(key) => {
-                              if (key === "delete") {
-                                setDeleteError(null);
-                                setPendingDelete(client);
-                              }
-                            }}
-                          />
-                        </div>
-                      ) : null}
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table.Content>
-          </Table.ScrollContainer>
-        </Table>
+        <DataTable label={t("Clients")} minWidth="min-w-[640px]">
+          <Table.Header>
+            <Table.Column isRowHeader>{t("Client")}</Table.Column>
+            <Table.Column>{t("Contact")}</Table.Column>
+            <Table.Column className="text-center">{t("Projects")}</Table.Column>
+            <Table.Column className="text-center">{t("Tracked")}</Table.Column>
+            <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
+          </Table.Header>
+          <Table.Body>
+            {clients.map((client) => (
+              <Table.Row key={client.id}>
+                <Table.Cell className="font-medium">{client.name}</Table.Cell>
+                <Table.Cell className="text-muted">{client.contact || "—"}</Table.Cell>
+                <Table.Cell className="text-center">{projectCountFor(client.id)}</Table.Cell>
+                <Table.Cell className="text-center tabular-nums">
+                  {formatDuration(secondsFor(client.id), locale)}
+                </Table.Cell>
+                <Table.Cell>
+                  {can("manage-clients") ? (
+                    <div className="flex justify-end">
+                      <ActionDropdown
+                        ariaLabel={t("Actions for {name}", { name: client.name })}
+                        items={[
+                          {
+                            id: "delete",
+                            label: t("Delete client"),
+                            icon: <Trash2 className="size-4" />,
+                            tone: "danger",
+                          },
+                        ]}
+                        onAction={(key) => {
+                          if (key === "delete") {
+                            setDeleteError(null);
+                            setPendingDelete(client);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </DataTable>
       )}
 
       <Modal
@@ -185,6 +183,7 @@ function ClientsPage() {
           if (!open) resetCreateForm();
         }}
       >
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>
@@ -263,6 +262,7 @@ function ClientsPage() {
           }
         }}
       >
+        <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>

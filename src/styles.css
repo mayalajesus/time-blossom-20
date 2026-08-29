@@ -4,6 +4,12 @@
 @source "../node_modules/@heroui/react/dist";
 @source "../node_modules/@heroui/styles/dist";
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   min-width: 320px;
@@ -56,9 +62,9 @@ body {
 
 .loading-state {
   overflow: hidden;
-  border: 1px solid var(--border, #d5dbe5);
   border-radius: 1rem;
   background: var(--surface, #ffffff);
+  box-shadow: var(--surface-shadow, 0 1px 2px rgb(15 23 42 / 0.08));
 }
 
 .app-boot-screen {
@@ -173,14 +179,16 @@ body {
   --overlay: #ffffff;
   --overlay-foreground: #1f2937;
   --muted: #64748b;
-  --default: #e7eaf0;
+  /* HeroUI's default surface token is intentionally quiet, but it should
+     still separate cards and tables from this app's tinted background. */
+  --default: #d9e0e8;
   --default-foreground: #1f2937;
   --field-background: #eef1f5;
   --field-foreground: #1f2937;
   --field-placeholder: #64748b;
   --field-border-width: 1px;
-  --field-border: #d5dbe5;
-  --field-border-hover: #b7c1d0;
+  --field-border: #cbd4df;
+  --field-border-hover: #aebbc9;
   --field-border-focus: #0b93f6;
   --field-hover: #e8edf3;
   --field-focus: #f6f8fb;
@@ -189,8 +197,10 @@ body {
   --accent-foreground: #ffffff;
   --danger: #dc3d4b;
   --danger-foreground: #ffffff;
-  --border: #d5dbe5;
-  --separator: #e2e6ec;
+  --border: #cbd4df;
+  --separator: #dfe5ec;
+  --table-edge-shadow: rgb(15 23 42 / 0.16);
+  --surface-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
   --focus: #0b93f6;
   --link: #1f2937;
 }
@@ -209,18 +219,26 @@ body {
   --overlay: #111114;
   --overlay-foreground: #f7f8fb;
   --muted: #9aabc4;
-  --default: #25252b;
+  --default: #363640;
   --default-foreground: #f7f8fb;
   --field-background: #19191e;
   --field-foreground: #f7f8fb;
   --field-placeholder: #9aabc4;
+  --field-border-width: 1px;
+  --field-border: #363640;
+  --field-border-hover: #4a4a56;
+  --field-border-focus: #0b93f6;
+  --field-hover: #22222a;
+  --field-focus: #19191e;
   --field-shadow: 0 0 0 0 transparent;
   --accent: #0b93f6;
   --accent-foreground: #ffffff;
   --danger: #ef4444;
   --danger-foreground: #ffffff;
-  --border: #2a2a31;
-  --separator: #24242a;
+  --border: #363640;
+  --separator: #292a32;
+  --table-edge-shadow: rgb(0 0 0 / 0.55);
+  --surface-shadow: 0 1px 2px rgb(0 0 0 / 0.28);
   --focus: #0b93f6;
   --link: #f7f8fb;
 }
@@ -239,6 +257,107 @@ body {
   box-sizing: border-box;
   max-width: calc(100vw - 1rem);
   overflow: visible !important;
+}
+
+.data-table-region {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.table-scroll-hint {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 1.25rem;
+  margin: 0 0 0.25rem;
+  padding-inline: 0.25rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.data-table-scroll-container {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.data-table-scroll-container:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: min(32px, calc(var(--radius, 0.5rem) * 2));
+}
+
+.data-table-scroll-container::-webkit-scrollbar {
+  height: 0.5rem;
+}
+
+.data-table-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.data-table-scroll-container::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--separator);
+  background-clip: padding-box;
+}
+
+/* Shared HeroUI card language for route-level surfaces. Cards are separated
+   primarily by surface and elevation; borders stay reserved for fields,
+   tables, focus states and places that need a hard boundary. */
+.surface-card {
+  min-width: 0;
+  border-radius: min(32px, var(--radius-3xl, 1.5rem));
+  background: var(--surface);
+  color: var(--surface-foreground);
+  box-shadow: var(--surface-shadow, 0 1px 2px rgb(15 23 42 / 0.08));
+}
+
+.field-control {
+  border: var(--field-border-width) solid var(--field-border);
+  border-radius: var(--radius-lg, 0.75rem);
+  background: var(--field-background);
+  color: var(--field-foreground);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.field-control:hover {
+  border-color: var(--field-border-hover);
+  background: var(--field-hover);
+}
+
+.field-control:focus-visible {
+  border-color: var(--field-border-focus);
+  outline: 3px solid color-mix(in srgb, var(--field-border-focus) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.field-control[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.surface-card-interactive {
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.surface-card-interactive:hover {
+  background: var(--surface-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-card-interactive {
+    transition: none;
+  }
+}
+
+/* HeroUI menus use rounded surfaces; clipping the menu content makes item
+   hover states follow that same radius instead of reaching the corners. */
+.hero-menu-surface {
+  overflow: hidden;
 }
 
 .calendar-no-scroll {
@@ -295,36 +414,5 @@ body {
 @media (max-height: 40rem) {
   .report-calendar-compact {
     width: 8rem;
-  }
-}
-
-/* Keep grouped summaries and their expanded detail rows on one visual rhythm.
-   The inner content can still grow for an accessible validation message, but
-   ordinary rows never become shorter just because a group is collapsed. */
-.tracker-table .tracker-data-row > td {
-  height: 82px;
-}
-
-.tracker-table .tracker-group-summary-row > td {
-  background-clip: padding-box;
-}
-
-/* The 1200px CSS viewport is the compact-desktop threshold for the Tracker.
-   Physical screen size varies with OS display scaling, so responsive behavior
-   is based on the effective browser viewport instead of laptop diagonal. */
-@media (min-width: 1200px) {
-  .tracker-table {
-    min-width: 0 !important;
-  }
-
-  .tracker-table th,
-  .tracker-table td {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-  }
-
-  .tracker-table .tracker-actions-cell {
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
   }
 }

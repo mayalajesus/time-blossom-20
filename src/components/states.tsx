@@ -1,5 +1,6 @@
-import { Alert, Button, Card, Spinner } from "@heroui/react";
+import { Alert, Button, Spinner } from "@heroui/react";
 import type { ReactNode } from "react";
+import { Surface } from "@/components/surface";
 import { useI18n } from "@/lib/i18n";
 
 export function LoadingState({ label, className }: { label?: string; className?: string }) {
@@ -42,18 +43,16 @@ export function EmptyBlock({
   action?: ReactNode;
 }) {
   return (
-    <Card variant="secondary">
-      <Card.Content className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-        <div className="flex size-11 items-center justify-center rounded-full bg-surface-secondary text-muted">
-          {icon}
-        </div>
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-foreground">{title}</p>
-          <p className="max-w-sm text-sm text-muted">{description}</p>
-        </div>
-        {action}
-      </Card.Content>
-    </Card>
+    <Surface className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+      <div className="flex size-11 items-center justify-center rounded-full bg-surface-secondary text-muted">
+        {icon}
+      </div>
+      <div className="space-y-1">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <p className="max-w-sm text-sm text-muted">{description}</p>
+      </div>
+      {action}
+    </Surface>
   );
 }
 

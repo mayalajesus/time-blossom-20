@@ -81,7 +81,7 @@ export function ProjectSelect({
         <Select.Indicator />
       </Select.Trigger>
       <Select.Popover
-        className="w-[var(--trigger-width)] max-w-[calc(100vw-2rem)] min-w-0"
+        className="hero-menu-surface w-[var(--trigger-width)] max-w-[calc(100vw-2rem)] min-w-0"
         data-project-select-popover
       >
         <div className="flex flex-col gap-2 p-2">
