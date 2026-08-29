@@ -80,7 +80,7 @@ function NavigationLink({
       aria-current={active ? "page" : undefined}
       aria-label={collapsed ? t(item.label) : undefined}
       isIconOnly={collapsed}
-      variant={active ? "secondary" : "ghost"}
+      variant={active ? "tertiary" : "ghost"}
       className={
         collapsed
           ? "mx-auto block h-10 min-h-10 w-10 px-2.5 py-0"
@@ -133,7 +133,7 @@ function ReportsNavigation({
           <Button
             key={view.id}
             aria-current={active ? "page" : undefined}
-            variant={active ? "secondary" : "ghost"}
+            variant={active ? "tertiary" : "ghost"}
             className="h-10 min-h-10 w-full justify-start px-3 py-0"
             onPress={() => {
               void navigate({ to: "/reports", search: { view: view.id } });
@@ -162,7 +162,7 @@ function ReportsNavigation({
             aria-expanded={reportsOpen}
             aria-label={t("Reports")}
             isIconOnly
-            variant={reportsActive ? "secondary" : "ghost"}
+            variant={reportsActive ? "tertiary" : "ghost"}
             className="mx-auto block h-10 min-h-10 w-10 px-2.5 py-0"
           >
             <span className="flex size-5 shrink-0 items-center justify-center">
@@ -186,7 +186,7 @@ function ReportsNavigation({
         aria-controls="reports-submenu-expanded"
         aria-expanded={reportsOpen}
         aria-label={`${t(reportsOpen ? "Collapse" : "Expand")} ${t("Reports")}`}
-        variant={reportsActive ? "secondary" : "ghost"}
+        variant={reportsActive ? "tertiary" : "ghost"}
         className="h-10 min-h-10 w-full justify-start gap-3 px-3 py-0"
         onPress={() => onReportsOpenChange(!reportsOpen)}
       >
