@@ -1,21 +1,13 @@
-import { Button } from "@heroui/react";
+import { Button, Form } from "@heroui/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  AuthError,
-  AuthField,
-  AuthFooter,
-  AuthPage,
-  ContinueToWorkspaceButton,
-} from "@/components/auth-page";
+import { AuthError, AuthField, AuthFooter, AuthPage } from "@/components/auth-page";
 import { requestPasswordReset } from "@/lib/auth";
-import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/forgot-password")({ component: ForgotPasswordPage });
 
 function ForgotPasswordPage() {
-  const { configured } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -51,23 +43,31 @@ function ForgotPasswordPage() {
             {t("Back to sign in")}
           </Button>
         </div>
-      ) : configured ? (
-        <form className="space-y-4" onSubmit={submit}>
+      ) : (
+        <Form className="auth-page__fields space-y-4" onSubmit={submit}>
           <AuthField
             id="reset-email"
             label={t("Email")}
             type="email"
             value={email}
-            onChange={setEmail}
+            onChange={(value) => {
+              setEmail(value);
+              setError(null);
+            }}
             autoComplete="email"
+            placeholder="john@example.com"
+            validate={(value) => {
+              if (!value.trim()) return t("Email is required");
+              return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+                ? null
+                : t("Enter a valid email address");
+            }}
           />
           <Button className="w-full" type="submit" isDisabled={busy}>
             {busy ? t("Sending…") : t("Send reset link")}
           </Button>
           <AuthFooter prompt={t("Remember your password?")} to="/login" action={t("Sign in")} />
-        </form>
-      ) : (
-        <ContinueToWorkspaceButton />
+        </Form>
       )}
     </AuthPage>
   );

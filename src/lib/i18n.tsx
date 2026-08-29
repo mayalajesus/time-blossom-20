@@ -290,9 +290,6 @@ const ptBR: Record<string, string> = {
   "Choose the language for your account.": "Escolha o idioma da sua conta.",
   "Preferences saved": "Preferências salvas",
   "Could not save personal preferences": "Não foi possível salvar as preferências pessoais",
-  "Switch account": "Alternar conta",
-  "Choose the account to use.": "Escolha a conta que será usada.",
-  "Could not switch account": "Não foi possível alternar a conta",
   "Workspace settings are managed by Admins and the Owner.":
     "As configurações do workspace são gerenciadas por Administradores e pelo Proprietário.",
   "This page didn't load": "Esta página não carregou",
@@ -736,8 +733,16 @@ const ptBR: Record<string, string> = {
   "Forgot password?": "Esqueceu a senha?",
   "Signing in…": "Entrando…",
   "Continue with Google": "Continuar com Google",
+  "Enter your password": "Digite sua senha",
+  "Confirm your password": "Confirme sua senha",
+  "Password is required": "A senha é obrigatória",
   "Don't have an account?": "Ainda não tem uma conta?",
   "Password must be at least 8 characters.": "A senha deve ter pelo menos 8 caracteres.",
+  "Password must contain at least one uppercase letter.":
+    "A senha deve conter pelo menos uma letra maiúscula.",
+  "Password must contain at least one number.": "A senha deve conter pelo menos um número.",
+  "Use at least 8 characters, one uppercase letter and one number.":
+    "Use pelo menos 8 caracteres, uma letra maiúscula e um número.",
   "Passwords do not match.": "As senhas não coincidem.",
   "Check your email to confirm your account before signing in.":
     "Confira seu e-mail para confirmar sua conta antes de entrar.",

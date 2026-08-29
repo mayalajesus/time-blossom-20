@@ -1,4 +1,4 @@
-import { Button } from "@heroui/react";
+import { Button, Form } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -6,7 +6,7 @@ import {
   AuthField,
   AuthFooter,
   AuthPage,
-  ContinueToWorkspaceButton,
+  GoogleAuthButton,
 } from "@/components/auth-page";
 import { signInWithGoogle, signInWithPassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
@@ -16,7 +16,7 @@ import { getAuthReturnPath } from "@/lib/auth-redirect";
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
-  const { configured, session } = useAuth();
+  const { session } = useAuth();
   const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,60 +51,57 @@ function LoginPage() {
   return (
     <AuthPage title={t("Sign in")} description={t("Access your time tracking workspace.")}>
       <AuthError message={error} />
-      {configured ? (
-        <>
-          <form className="space-y-4" onSubmit={submit}>
-            <AuthField
-              id="login-email"
-              label={t("Email")}
-              type="email"
-              value={email}
-              onChange={setEmail}
-              autoComplete="email"
-            />
-            <AuthField
-              id="login-password"
-              label={t("Password")}
-              type="password"
-              value={password}
-              onChange={setPassword}
-              autoComplete="current-password"
-            />
-            <div className="flex justify-end">
-              <a
-                className="text-sm text-link underline-offset-4 hover:underline"
-                href="/forgot-password"
-              >
-                {t("Forgot password?")}
-              </a>
-            </div>
-            <Button className="w-full" type="submit" isDisabled={busy}>
-              {busy ? t("Signing in…") : t("Sign in")}
-            </Button>
-          </form>
-          <div className="flex items-center gap-3 text-xs text-muted">
-            <span className="h-px flex-1 bg-separator" />
-            {t("or")}
-            <span className="h-px flex-1 bg-separator" />
-          </div>
-          <Button
-            className="w-full"
-            variant="secondary"
-            type="button"
-            isDisabled={busy}
-            onPress={google}
+      <Form className="auth-page__fields space-y-4" onSubmit={submit}>
+        <AuthField
+          id="login-email"
+          label={t("Email")}
+          type="email"
+          value={email}
+          onChange={(value) => {
+            setEmail(value);
+            setError(null);
+          }}
+          autoComplete="email"
+          placeholder="john@example.com"
+          validate={(value) => {
+            if (!value.trim()) return t("Email is required");
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
+              ? null
+              : t("Enter a valid email address");
+          }}
+        />
+        <AuthField
+          id="login-password"
+          label={t("Password")}
+          type="password"
+          value={password}
+          onChange={(value) => {
+            setPassword(value);
+            setError(null);
+          }}
+          autoComplete="current-password"
+          placeholder={t("Enter your password")}
+          validate={(value) => (value ? null : t("Password is required"))}
+        />
+        <div className="flex justify-end">
+          <a
+            className="text-sm text-link underline-offset-4 hover:underline"
+            href="/forgot-password"
           >
-            {t("Continue with Google")}
-          </Button>
-          <AuthFooter
-            prompt={t("Don't have an account?")}
-            to="/signup"
-            action={t("Create account")}
-          />
-        </>
-      ) : (
-        <ContinueToWorkspaceButton />
-      )}
+            {t("Forgot password?")}
+          </a>
+        </div>
+        <Button className="w-full" type="submit" isDisabled={busy}>
+          {busy ? t("Signing in…") : t("Sign in")}
+        </Button>
+      </Form>
+      <div className="flex items-center gap-3 text-xs text-muted" role="separator">
+        <span className="h-px flex-1 bg-separator" />
+        {t("or")}
+        <span className="h-px flex-1 bg-separator" />
+      </div>
+      <GoogleAuthButton onPress={google} isDisabled={busy} />
+      <AuthFooter prompt={t("Don't have an account?")} to="/signup" action={t("Create account")} />
     </AuthPage>
   );
 }

@@ -34,19 +34,11 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const {
-    preferences,
-    members,
-    currentMember,
-    setUserPreferences,
-    setActiveMember,
-    updateCurrentMemberEmail,
-  } = useStore();
+  const { preferences, currentMember, setUserPreferences, updateCurrentMemberEmail } = useStore();
   const { configured, session } = useAuth();
   const dataSource = useMemo(() => createSupabaseDataSource(), []);
   const { t, error } = useI18n();
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
-  const [accountSwitchError, setAccountSwitchError] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState(
     session?.user.email ?? currentMember?.email ?? "",
   );
@@ -106,16 +98,6 @@ function SettingsPage() {
     setPreferenceError(null);
     const locale = patch.language ?? preferences.language;
     toast(translate("Preferences saved", locale));
-  };
-
-  const changeAccount = (memberId: string) => {
-    const result = setActiveMember(memberId);
-    if (!result.success) {
-      setAccountSwitchError(result.error);
-      return;
-    }
-    setAccountSwitchError(null);
-    window.location.reload();
   };
 
   const savePhoto = async (file: File) => {
@@ -426,48 +408,6 @@ function SettingsPage() {
             </Switch.Content>
           </Switch>
         ))}
-      </div>
-
-      <div className="space-y-3 rounded-2xl border border-default bg-surface p-5">
-        <div>
-          <h2 className="font-medium text-foreground">{t("Switch account")}</h2>
-          <p className="mt-1 text-sm text-muted">{t("Choose the account to use.")}</p>
-        </div>
-        {accountSwitchError ? (
-          <FormAlert
-            title={t("Could not switch account")}
-            description={error(accountSwitchError)}
-          />
-        ) : null}
-        <Select
-          aria-label={t("Account")}
-          value={currentMember?.id ?? ""}
-          onChange={(key) => changeAccount(String(key ?? ""))}
-        >
-          <Select.Trigger>
-            <Select.Value />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              {members
-                .filter((member) => member.status === "active")
-                .map((member) => (
-                  <ListBox.Item
-                    key={member.id}
-                    id={member.id}
-                    textValue={`${member.name} ${t(member.role)}`}
-                  >
-                    <div className="flex min-w-0 flex-col">
-                      <Label>{member.name}</Label>
-                      <Description>{t(member.role)}</Description>
-                    </div>
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                ))}
-            </ListBox>
-          </Select.Popover>
-        </Select>
       </div>
     </div>
   );

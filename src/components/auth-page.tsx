@@ -1,4 +1,4 @@
-import { Button, Card, Label } from "@heroui/react";
+import { Button, Description, FieldError, Input, Label, TextField } from "@heroui/react";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { FormAlert } from "@/components/form-feedback";
@@ -14,20 +14,13 @@ export function AuthPage({
   children: ReactNode;
 }) {
   return (
-    <main className="auth-page min-h-screen bg-background px-4 py-10 text-foreground sm:px-6">
-      <section className="mx-auto w-full max-w-md">
+    <main className="auth-page flex min-h-screen items-center justify-center bg-background px-4 py-8 text-foreground sm:px-6 sm:py-10">
+      <section className="auth-page__content mx-auto w-full max-w-md">
         <div className="mb-8 text-center">
-          <div
-            className="profile-avatar-fallback mx-auto mb-4 size-12 rounded-2xl"
-            aria-hidden="true"
-          />
-          <p className="text-sm font-semibold tracking-wide text-accent">Time Blossom</p>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight">{title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="mt-2 text-sm text-muted">{description}</p>
         </div>
-        <Card>
-          <Card.Content className="space-y-5 p-5 sm:p-6">{children}</Card.Content>
-        </Card>
+        <div className="auth-page__form space-y-5">{children}</div>
       </section>
     </main>
   );
@@ -40,6 +33,10 @@ export function AuthField({
   value,
   onChange,
   autoComplete,
+  placeholder,
+  description,
+  validate,
+  minLength,
   required = true,
 }: {
   id: string;
@@ -48,22 +45,31 @@ export function AuthField({
   value: string;
   onChange: (value: string) => void;
   autoComplete?: string;
+  placeholder?: string;
+  description?: string;
+  validate?: (value: string) => string | null;
+  minLength?: number;
   required?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <input
-        className="input input--full-width input--primary"
-        id={id}
-        name={id}
-        type={type}
-        value={value}
-        autoComplete={autoComplete}
-        required={required}
-        onChange={(event) => onChange(event.target.value)}
+    <TextField
+      fullWidth
+      isRequired={required}
+      name={id}
+      type={type}
+      value={value}
+      {...(minLength === undefined ? {} : { minLength })}
+      {...(validate === undefined ? {} : { validate })}
+      onChange={onChange}
+    >
+      <Label>{label}</Label>
+      <Input
+        {...(autoComplete === undefined ? {} : { autoComplete })}
+        {...(placeholder === undefined ? {} : { placeholder })}
       />
-    </div>
+      {description ? <Description>{description}</Description> : null}
+      <FieldError />
+    </TextField>
   );
 }
 
@@ -99,5 +105,50 @@ export function ContinueToWorkspaceButton() {
     <Button className="w-full" onPress={() => (window.location.href = "/tracker")}>
       {t("Continue")}
     </Button>
+  );
+}
+
+export function GoogleAuthButton({
+  onPress,
+  isDisabled = false,
+}: {
+  onPress: () => void | Promise<void>;
+  isDisabled?: boolean;
+}) {
+  const { t } = useI18n();
+  return (
+    <Button
+      className="auth-page__google-button w-full"
+      variant="secondary"
+      type="button"
+      isDisabled={isDisabled}
+      onPress={onPress}
+    >
+      <GoogleMark />
+      {t("Continue with Google")}
+    </Button>
+  );
+}
+
+function GoogleMark() {
+  return (
+    <svg aria-hidden="true" className="size-4" viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M21.35 12.27c0-.73-.06-1.44-.2-2.12H12v4.01h5.24a4.48 4.48 0 0 1-1.94 2.94v2.44h3.14c1.84-1.69 2.91-4.18 2.91-7.27Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 21.99c2.63 0 4.84-.87 6.45-2.45l-3.14-2.44c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.52A9.74 9.74 0 0 0 12 22Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M6.54 13.99A5.86 5.86 0 0 1 6.23 12c0-.69.12-1.36.31-1.99V7.49H3.3A9.98 9.98 0 0 0 2.25 12c0 1.62.39 3.15 1.05 4.51l3.24-2.52Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.98c1.43 0 2.71.49 3.72 1.46l2.79-2.79C16.84 3.04 14.63 2 12 2a9.74 9.74 0 0 0-8.7 5.49l3.24 2.52C7.31 7.7 9.46 5.98 12 5.98Z"
+      />
+    </svg>
   );
 }

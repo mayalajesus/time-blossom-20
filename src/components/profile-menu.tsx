@@ -36,7 +36,7 @@ export function ProfileMenu({
         const result = configured ? await signOutRemote() : signOut();
         if (!result.success) {
           toast(t("Could not sign out: {error}", { error: error(result.error) }));
-        } else if (configured) {
+        } else {
           void navigate({ to: "/login", replace: true });
         }
         break;
