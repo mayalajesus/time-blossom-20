@@ -15,6 +15,7 @@ import {
   Spinner,
   Surface,
   TextField,
+  Typography,
 } from "@heroui/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { Clock, Menu, PanelLeft } from "lucide-react";
@@ -222,7 +223,9 @@ function AppShellContent({ children }: { children: ReactNode }) {
                   </div>
                   <div className="sr-only">
                     <Drawer.Heading>{t("Navigation")}</Drawer.Heading>
-                    <p className="mt-0.5">{t("Time Blossom")}</p>
+                    <Typography type="body-xs" color="muted" className="mt-0.5">
+                      {t("Time Blossom")}
+                    </Typography>
                   </div>
                   <Drawer.CloseTrigger aria-label={t("Close navigation")} />
                 </Drawer.Header>
@@ -310,8 +313,12 @@ function SignedOutScreen() {
         <div className="mx-auto flex size-12 items-center justify-center">
           <Clock aria-hidden="true" className="size-6" />
         </div>
-        <h1 className="mt-4">{t("You are signed out")}</h1>
-        <p className="mt-2">{t("Choose an account to continue.")}</p>
+        <Typography type="h1" weight="semibold" className="mt-4">
+          {t("You are signed out")}
+        </Typography>
+        <Typography type="body-sm" color="muted" className="mt-2">
+          {t("Choose an account to continue.")}
+        </Typography>
 
         {sessionError ? (
           <div className="mt-5 text-left">
@@ -355,7 +362,9 @@ function SignedOutScreen() {
             </Button>
           </div>
         ) : (
-          <p className="mt-5">{t("No accounts available.")}</p>
+          <Typography type="body-sm" color="muted" className="mt-5">
+            {t("No accounts available.")}
+          </Typography>
         )}
       </Card>
     </main>

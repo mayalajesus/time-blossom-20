@@ -1,4 +1,4 @@
-import { Spinner } from "@heroui/react";
+import { Spinner, Typography } from "@heroui/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthPage } from "@/components/auth-page";
@@ -24,7 +24,9 @@ function AuthCallbackPage() {
         aria-live="polite"
       >
         <Spinner aria-label={t("Loading data")} />
-        <p>{t("Finishing sign in")}</p>
+        <Typography type="body-sm" color="muted">
+          {t("Finishing sign in")}
+        </Typography>
       </div>
     </AuthPage>
   );

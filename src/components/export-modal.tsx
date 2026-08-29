@@ -1,4 +1,14 @@
-import { Button, Description, Form, Label, Modal, Radio, RadioGroup, toast } from "@heroui/react";
+import {
+  Button,
+  Description,
+  Form,
+  Label,
+  Modal,
+  Radio,
+  RadioGroup,
+  Typography,
+  toast,
+} from "@heroui/react";
 import { Download } from "lucide-react";
 import { useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
@@ -74,7 +84,9 @@ export function ExportModal({
             >
               <Modal.Body className="flex flex-col gap-5">
                 <div className="space-y-1">
-                  <p>{t("Included data")}</p>
+                  <Typography type="body-sm" weight="semibold">
+                    {t("Included data")}
+                  </Typography>
                   <Description>
                     {t(
                       "This export uses the current period, filters and report view ({count} rows).",

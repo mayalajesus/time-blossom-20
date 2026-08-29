@@ -11,6 +11,7 @@ import {
   Switch,
   Tabs,
   TextField,
+  Typography,
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -217,8 +218,12 @@ function SettingsPage() {
 
       <Card id="account" className="scroll-mt-24 space-y-5 p-5">
         <div>
-          <h2>{t("Account")}</h2>
-          <p className="mt-1">{t("Manage your profile and account details.")}</p>
+          <Typography type="h2" weight="semibold">
+            {t("Account")}
+          </Typography>
+          <Typography type="body-sm" color="muted" className="mt-1">
+            {t("Manage your profile and account details.")}
+          </Typography>
         </div>
 
         {accountError ? (
@@ -228,7 +233,9 @@ function SettingsPage() {
         <div className="flex flex-wrap items-center gap-4">
           <ProfileAvatar member={currentMember} avatarUrl={preferences.avatarUrl} size="lg" />
           <div className="min-w-0">
-            <p className="truncate">{currentMember.name}</p>
+            <Typography type="body-sm" weight="semibold" truncate>
+              {currentMember.name}
+            </Typography>
             <input
               ref={avatarInputRef}
               accept="image/jpeg,image/png,image/webp,image/gif"
@@ -329,8 +336,12 @@ function SettingsPage() {
 
       <Card id="personal-preferences" className="scroll-mt-24 space-y-5 p-5">
         <div>
-          <h2>{t("Personal preferences")}</h2>
-          <p className="mt-1">{t("These preferences apply only to your account.")}</p>
+          <Typography type="h2" weight="semibold">
+            {t("Personal preferences")}
+          </Typography>
+          <Typography type="body-sm" color="muted" className="mt-1">
+            {t("These preferences apply only to your account.")}
+          </Typography>
         </div>
 
         {preferenceError ? (

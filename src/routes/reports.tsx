@@ -9,6 +9,7 @@ import {
   Select,
   Table,
   TextField,
+  Typography,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, ChevronRight, Download, FileBarChart, RotateCcw } from "lucide-react";
@@ -876,8 +877,12 @@ function ReportOverview({
       <Card.Content className="grid grid-cols-2 gap-px p-0 sm:grid-cols-4">
         {metrics.map((metric) => (
           <div key={metric.label} className="min-w-0 px-4 py-3">
-            <p className="truncate">{metric.label}</p>
-            <p className="mt-1 truncate">{metric.value}</p>
+            <Typography type="body-xs" color="muted" weight="semibold" truncate>
+              {metric.label}
+            </Typography>
+            <Typography type="body-sm" weight="semibold" className="mt-1" truncate>
+              {metric.value}
+            </Typography>
           </div>
         ))}
       </Card.Content>
@@ -898,7 +903,13 @@ function ReportChartCard({ title, children }: { title: string; children: ReactNo
 
 function ChartEmpty() {
   const { t } = useI18n();
-  return <div className="flex h-48 items-center justify-center">{t("No chart data")}</div>;
+  return (
+    <div className="flex h-48 items-center justify-center">
+      <Typography type="body-sm" color="muted">
+        {t("No chart data")}
+      </Typography>
+    </div>
+  );
 }
 
 function ReportMetricRing({
@@ -943,10 +954,12 @@ function ReportMetricRing({
         </span>
       </div>
       <div className="min-w-0">
-        <p className="truncate">{label}</p>
-        <p className="truncate">
+        <Typography type="body-sm" weight="semibold" truncate>
+          {label}
+        </Typography>
+        <Typography type="body-xs" color="muted" truncate>
           {formatDuration(seconds, locale)} {t("of tracked time")}
-        </p>
+        </Typography>
       </div>
     </div>
   );
@@ -1086,7 +1099,9 @@ function DetailedReport({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p>{t("Choose the columns you need for this view.")}</p>
+        <Typography type="body-sm" color="muted">
+          {t("Choose the columns you need for this view.")}
+        </Typography>
         <ReportColumnPicker columns={columns} onChange={onChangeColumns} />
       </div>
       <DataTable
@@ -1209,7 +1224,9 @@ function ReportColumnPicker({
       />
       <Popover.Content placement="bottom end" className="w-64 max-w-[calc(100vw-1rem)] p-2">
         <Popover.Dialog>
-          <p className="px-2 py-2">{t("Visible columns")}</p>
+          <Typography type="body-xs" color="muted" weight="semibold" className="px-2 py-2">
+            {t("Visible columns")}
+          </Typography>
           <div className="space-y-1">
             {detailedColumnOptions.map((column) => {
               const checked = columns.includes(column.id);
@@ -1714,9 +1731,9 @@ function TeamComparisonChart({ rows }: { rows: TeamRow[] }) {
               total={totalSeconds}
               color="accent"
             />
-            <p className="mt-2">
+            <Typography type="body-sm" color="muted" className="mt-2">
               {data[0].share}% · {formatDuration(data[0].seconds, locale)}
-            </p>
+            </Typography>
           </div>
         ) : null}
       </div>

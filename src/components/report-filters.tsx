@@ -12,6 +12,7 @@ import {
   Select,
   TextField,
   Toolbar,
+  Typography,
 } from "@heroui/react";
 import { ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
@@ -291,7 +292,9 @@ function ReportPeriodPicker({
         >
           <div className="flex min-w-0 flex-col sm:flex-row">
             <div className="hidden w-36 shrink-0 flex-col p-2 sm:flex">
-              <p className="px-2 py-2">{t("Date range")}</p>
+              <Typography type="body-xs" color="muted" weight="semibold" className="px-2 py-2">
+                {t("Date range")}
+              </Typography>
               {reportPeriodPresets.map((option) => (
                 <Button
                   key={option.id}

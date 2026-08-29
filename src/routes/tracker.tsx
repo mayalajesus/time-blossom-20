@@ -1,4 +1,4 @@
-import { Button } from "@heroui/react";
+import { Button, Typography } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { CalendarPlus, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -97,14 +97,19 @@ function TrackerPage() {
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <h2 id="tracker-period-heading" className="min-w-0 px-1">
+            <Typography
+              type="h2"
+              weight="semibold"
+              id="tracker-period-heading"
+              className="min-w-0 px-1"
+            >
               <TrackerPeriodFilter
                 period={period}
                 today={today}
                 weekStartsOn={weekStartsOn}
                 onChange={setPeriod}
               />
-            </h2>
+            </Typography>
             <Button
               isIconOnly
               aria-label={t("Next {unit}", {
@@ -134,9 +139,9 @@ function TrackerPage() {
             )}
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
-            <span>
+            <Typography type="body-sm" color="muted">
               {formatDuration(periodTotal, locale)} {t("tracked")}
-            </span>
+            </Typography>
             <Button
               size="sm"
               variant="secondary"

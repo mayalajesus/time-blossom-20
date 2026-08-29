@@ -1,4 +1,4 @@
-import { Button, Toast } from "@heroui/react";
+import { Button, Toast, Typography } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "../components/layout/app-shell";
 import { useI18n } from "../lib/i18n";
@@ -22,9 +22,15 @@ function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="max-w-md text-center">
-        <h1>404</h1>
-        <h2 className="mt-4">{t("Page not found")}</h2>
-        <p className="mt-2">{t("The page you're looking for doesn't exist or has been moved.")}</p>
+        <Typography type="h1" weight="bold">
+          404
+        </Typography>
+        <Typography type="h2" weight="semibold" className="mt-4">
+          {t("Page not found")}
+        </Typography>
+        <Typography type="body-sm" color="muted" className="mt-2">
+          {t("The page you're looking for doesn't exist or has been moved.")}
+        </Typography>
         <div className="mt-6">
           <Button onPress={() => navigate({ to: "/" })}>{t("Go home")}</Button>
         </div>
@@ -41,10 +47,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="max-w-md text-center">
-        <h1>{t("This page didn't load")}</h1>
-        <p className="mt-2">
+        <Typography type="h1" weight="semibold">
+          {t("This page didn't load")}
+        </Typography>
+        <Typography type="body-sm" color="muted" className="mt-2">
           {t("Something went wrong on our end. You can try refreshing or head back home.")}
-        </p>
+        </Typography>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Button
             onPress={() => {

@@ -1,4 +1,4 @@
-import { Card, Input, Label, TextField } from "@heroui/react";
+import { Card, Input, Label, TextField, Typography } from "@heroui/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { SearchIcon } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
@@ -121,7 +121,9 @@ function SearchPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-2">{title}</p>
+      <Typography type="h3" weight="semibold" className="mb-2">
+        {title}
+      </Typography>
       <Card className="overflow-hidden">{children}</Card>
     </div>
   );

@@ -12,6 +12,7 @@ import {
   Select,
   Switch,
   TextField,
+  Typography,
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -346,12 +347,20 @@ function ProjectsPage() {
 
               <div className="mt-auto flex items-end justify-between gap-4 pt-4">
                 <div className="min-w-0">
-                  <p>{t("Tracked")}</p>
-                  <p className="truncate">{formatDuration(projectSeconds(project.id), locale)}</p>
+                  <Typography type="body-xs" color="muted" weight="semibold">
+                    {t("Tracked")}
+                  </Typography>
+                  <Typography type="body-sm" weight="semibold" truncate>
+                    {formatDuration(projectSeconds(project.id), locale)}
+                  </Typography>
                 </div>
                 <div className="min-w-0 text-right">
-                  <p>{t("Last activity")}</p>
-                  <p className="truncate">{formatDate(project.lastActivity, locale)}</p>
+                  <Typography type="body-xs" color="muted" weight="semibold">
+                    {t("Last activity")}
+                  </Typography>
+                  <Typography type="body-sm" weight="semibold" truncate>
+                    {formatDate(project.lastActivity, locale)}
+                  </Typography>
                 </div>
               </div>
             </Card>
@@ -380,14 +389,14 @@ function ProjectsPage() {
                 {statusError ? (
                   <FormAlert title={t("Could not archive project")} description={statusError} />
                 ) : null}
-                <p>
+                <Typography type="body-sm" color="muted">
                   {t(
                     "{name} will leave Active and Inactive lists. Existing time entries will remain available in reports and history.",
                     {
                       name: pendingArchive?.name ?? t("This project"),
                     },
                   )}
-                </p>
+                </Typography>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
@@ -550,11 +559,11 @@ function ProjectsPage() {
                 {memberError ? (
                   <FormAlert title={t("Could not update members")} description={memberError} />
                 ) : null}
-                <p>
+                <Typography type="body-sm" color="muted">
                   {t("Select the active members who can track time on {name}.", {
                     name: pendingMembers?.name ?? t("this project"),
                   })}
-                </p>
+                </Typography>
                 {activeMembers.map((member) => (
                   <Switch
                     key={member.id}

@@ -1,4 +1,4 @@
-import { Button, Card, Chip } from "@heroui/react";
+import { Button, Card, Chip, Typography } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Trello } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
@@ -73,8 +73,12 @@ function IntegrationsPage() {
               <Trello className="size-5" />
             </div>
             <div className="space-y-1">
-              <p>Trello</p>
-              <p>{t("Import cards from your boards and start timers straight from a card.")}</p>
+              <Typography type="body-sm" weight="semibold">
+                Trello
+              </Typography>
+              <Typography type="body-sm" color="muted">
+                {t("Import cards from your boards and start timers straight from a card.")}
+              </Typography>
               <Chip color={connected ? "success" : "default"} size="sm" variant="soft">
                 {t(trello.status)}
               </Chip>
@@ -97,10 +101,10 @@ function IntegrationsPage() {
         {connected ? (
           <div className="mt-6 space-y-4 pt-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <span>
+              <Typography type="body-xs" color="muted">
                 {trello.workspace} · {trello.board} · {t("last sync")}{" "}
                 {trello.lastSync ?? t("never")}
-              </span>
+              </Typography>
               {canManageIntegrations ? (
                 <Button
                   size="sm"
@@ -115,7 +119,9 @@ function IntegrationsPage() {
             <ul className="overflow-hidden">
               {trello.cards.map((card) => (
                 <li key={card} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <p>{card}</p>
+                  <Typography type="body-sm" weight="medium">
+                    {card}
+                  </Typography>
                   <Chip size="sm" variant="soft">
                     {trello.board}
                   </Chip>

@@ -12,6 +12,7 @@ import {
   Select,
   Switch,
   TextField,
+  Typography,
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -264,12 +265,14 @@ function WorkspacesPage() {
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="truncate">{workspace.name}</h2>
-                <p className="mt-1 truncate">
+                <Typography type="body-sm" weight="semibold" truncate>
+                  {workspace.name}
+                </Typography>
+                <Typography type="body-xs" color="muted" truncate className="mt-1">
                   {workspace.isOwned
                     ? t("Owned by you")
                     : t("Owned by {name}", { name: workspace.ownerName })}
-                </p>
+                </Typography>
               </div>
               {isCurrent ? <span className="shrink-0 px-2 py-1">{t("Current")}</span> : null}
             </div>
@@ -353,10 +356,12 @@ function WorkspacesPage() {
         <section aria-labelledby="owned-workspaces-heading" className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 id="owned-workspaces-heading">{t("Your workspaces")}</h2>
-              <p className="mt-1">
+              <Typography type="h2" weight="semibold" id="owned-workspaces-heading">
+                {t("Your workspaces")}
+              </Typography>
+              <Typography type="body-sm" color="muted" className="mt-1">
                 {t("Up to 5 workspaces created by you, including archived ones.")}
-              </p>
+              </Typography>
             </div>
             <span>{owned.length}/5</span>
           </div>
@@ -367,8 +372,12 @@ function WorkspacesPage() {
       {shared.length > 0 ? (
         <section aria-labelledby="shared-workspaces-heading" className="space-y-3">
           <div>
-            <h2 id="shared-workspaces-heading">{t("Shared with you")}</h2>
-            <p className="mt-1">{t("Workspaces where you collaborate with another owner.")}</p>
+            <Typography type="h2" weight="semibold" id="shared-workspaces-heading">
+              {t("Shared with you")}
+            </Typography>
+            <Typography type="body-sm" color="muted" className="mt-1">
+              {t("Workspaces where you collaborate with another owner.")}
+            </Typography>
           </div>
           <div className="grid gap-4 md:grid-cols-2">{shared.map(renderWorkspace)}</div>
         </section>
@@ -440,7 +449,7 @@ function WorkspacesPage() {
                 </Modal.Heading>
               </Modal.Header>
               <Modal.Body>
-                <p>
+                <Typography type="body-sm" color="muted">
                   {confirmation?.kind === "archive"
                     ? t("Archived workspaces become read-only until the Owner restores them.")
                     : confirmation?.kind === "restore"
@@ -448,7 +457,7 @@ function WorkspacesPage() {
                       : t(
                           "You will lose access to this workspace. Your tracked history stays intact.",
                         )}
-                </p>
+                </Typography>
               </Modal.Body>
               <Modal.Footer>
                 <Button variant="tertiary" onPress={() => setConfirmation(null)}>
@@ -484,11 +493,11 @@ function WorkspacesPage() {
                 <Modal.Heading>{t("Pause timer before switching?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
-                <p>
+                <Typography type="body-sm" color="muted">
                   {t(
                     "Pause the active timer before opening another workspace. It will remain paused in its original workspace.",
                   )}
-                </p>
+                </Typography>
               </Modal.Body>
               <Modal.Footer>
                 <Button variant="tertiary" onPress={() => setSwitchOpen(false)}>
@@ -618,8 +627,12 @@ function WorkspaceFormModal({
                 {workspaceSettings ? (
                   <div className="space-y-5 pt-5">
                     <div>
-                      <h2>{t("Workspace settings")}</h2>
-                      <p className="mt-1">{t("Defaults shared by everyone in the workspace.")}</p>
+                      <Typography type="h3" weight="semibold">
+                        {t("Workspace settings")}
+                      </Typography>
+                      <Typography type="body-sm" color="muted" className="mt-1">
+                        {t("Defaults shared by everyone in the workspace.")}
+                      </Typography>
                     </div>
                     <Switch
                       aria-label={t("Billable by default")}

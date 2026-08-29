@@ -8,6 +8,7 @@ import {
   Modal,
   Table,
   TextField,
+  Typography,
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -286,14 +287,14 @@ function ClientsPage() {
                     )}
                   />
                 ) : (
-                  <p>
+                  <Typography type="body-sm" color="muted">
                     {t(
                       "This permanently removes {name}. Tracked time entries without a direct client relationship remain unchanged.",
                       {
                         name: pendingDelete?.name ?? t("this client"),
                       },
                     )}
-                  </p>
+                  </Typography>
                 )}
               </Modal.Body>
               <Modal.Footer>

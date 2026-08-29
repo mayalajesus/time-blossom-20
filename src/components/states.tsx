@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Spinner } from "@heroui/react";
+import { Alert, Button, Card, Spinner, Typography } from "@heroui/react";
 import type { ReactNode } from "react";
 import { useI18n } from "@/lib/i18n";
 
@@ -17,7 +17,9 @@ export function LoadingState({ label, className }: { label?: string; className?:
     >
       <div className="flex min-h-24 flex-col items-center justify-center gap-3 px-4 py-6 text-center">
         <Spinner aria-hidden="true" />
-        <span>{loadingLabel}</span>
+        <Typography type="body-sm" color="muted">
+          {loadingLabel}
+        </Typography>
       </div>
     </Card>
   );
@@ -46,8 +48,12 @@ export function EmptyBlock({
     <Card className="flex flex-col items-center gap-3 px-6 py-14 text-center">
       <div className="flex size-11 items-center justify-center">{icon}</div>
       <div className="space-y-1">
-        <p>{title}</p>
-        <p className="max-w-sm">{description}</p>
+        <Typography type="body-sm" weight="semibold">
+          {title}
+        </Typography>
+        <Typography type="body-sm" color="muted" className="max-w-sm">
+          {description}
+        </Typography>
       </div>
       {action}
     </Card>

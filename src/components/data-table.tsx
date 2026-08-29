@@ -1,4 +1,4 @@
-import { Pagination, Table } from "@heroui/react";
+import { Pagination, Table, Typography } from "@heroui/react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 export type DataTablePagination = {
@@ -118,9 +118,14 @@ export function DataTable({
   return (
     <section ref={regionRef} className="min-w-0 max-w-full" aria-label={label}>
       {scrollHint ? (
-        <p id={descriptionId} className={isScrollable ? "" : "sr-only"}>
+        <Typography
+          type="body-xs"
+          color="muted"
+          id={descriptionId}
+          className={isScrollable ? "" : "sr-only"}
+        >
           {scrollHint}
-        </p>
+        </Typography>
       ) : null}
       <Table className={className ?? ""}>
         <Table.ScrollContainer

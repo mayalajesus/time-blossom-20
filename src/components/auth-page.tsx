@@ -1,4 +1,12 @@
-import { Button, Description, FieldError, Input, Label, TextField } from "@heroui/react";
+import {
+  Button,
+  Description,
+  FieldError,
+  Input,
+  Label,
+  TextField,
+  Typography,
+} from "@heroui/react";
 import type { ReactNode } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { RouterLink } from "@/components/router-link";
@@ -20,8 +28,12 @@ export function AuthPage({
     >
       <section className="mx-auto w-full max-w-md">
         <div className="mb-8 text-center">
-          <h1>{title}</h1>
-          <p className="mt-2">{description}</p>
+          <Typography type="h1" weight="semibold">
+            {title}
+          </Typography>
+          <Typography type="body-sm" color="muted" className="mt-2">
+            {description}
+          </Typography>
         </div>
         <div className="space-y-5">{children}</div>
       </section>
@@ -93,9 +105,9 @@ export function AuthFooter({
   action: string;
 }) {
   return (
-    <p className="text-center">
+    <Typography type="body-sm" color="muted" align="center">
       {prompt} <RouterLink to={to}>{action}</RouterLink>
-    </p>
+    </Typography>
   );
 }
 

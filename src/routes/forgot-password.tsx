@@ -1,4 +1,4 @@
-import { Button, Form } from "@heroui/react";
+import { Button, Form, Typography } from "@heroui/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AuthError, AuthField, AuthFooter, AuthPage } from "@/components/auth-page";
@@ -36,7 +36,9 @@ function ForgotPasswordPage() {
       <AuthError message={error} />
       {sent ? (
         <div className="space-y-4" role="status">
-          <p>{t("If an account exists for this email, a reset link is on its way.")}</p>
+          <Typography type="body-sm" color="muted">
+            {t("If an account exists for this email, a reset link is on its way.")}
+          </Typography>
           <Button className="w-full" onPress={() => navigate({ to: "/login" })}>
             {t("Back to sign in")}
           </Button>

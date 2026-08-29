@@ -1,4 +1,4 @@
-import { Input, Kbd, Label, ListBox, Modal, TextField } from "@heroui/react";
+import { Input, Kbd, Label, ListBox, Modal, TextField, Typography } from "@heroui/react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   BarChart3,
@@ -188,7 +188,9 @@ export function CommandMenu({
             </div>
             <div className="max-h-[52vh] overflow-y-auto p-2">
               {filtered.length === 0 ? (
-                <p className="px-3 py-8 text-center">{t("No results for “{query}”.", { query })}</p>
+                <Typography type="body-sm" color="muted" align="center" className="px-3 py-8">
+                  {t("No results for “{query}”.", { query })}
+                </Typography>
               ) : (
                 <ListBox
                   aria-label={t("Commands")}
@@ -227,7 +229,9 @@ export function CommandMenu({
               )}
             </div>
             <div className="flex items-center justify-between px-4 py-2">
-              <span>{t("Navigate with arrow keys")}</span>
+              <Typography type="body-xs" color="muted">
+                {t("Navigate with arrow keys")}
+              </Typography>
               <span className="flex items-center gap-1">
                 <Kbd>esc</Kbd> {t("to close")}
               </span>

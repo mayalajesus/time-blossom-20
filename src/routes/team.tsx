@@ -12,6 +12,7 @@ import {
   Select,
   Table,
   TextField,
+  Typography,
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -448,11 +449,11 @@ function TeamPage() {
                 {cancelError ? (
                   <FormAlert title={t("Could not cancel invitation")} description={cancelError} />
                 ) : null}
-                <p>
+                <Typography type="body-sm" color="muted">
                   {t("The pending invitation for {email} will be removed from the team list.", {
                     email: pendingCancel?.email ?? t("this member"),
                   })}
-                </p>
+                </Typography>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
@@ -488,14 +489,14 @@ function TeamPage() {
                 {removeError ? (
                   <FormAlert title={t("Could not remove member")} description={removeError} />
                 ) : null}
-                <p>
+                <Typography type="body-sm" color="muted">
                   {t(
                     "Removing {name} revokes workspace access and removes them from current project assignments. Their tracked time and reports remain available. Restoring access later will not reassign projects automatically.",
                     {
                       name: pendingRemove?.name ?? t("this member"),
                     },
                   )}
-                </p>
+                </Typography>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">

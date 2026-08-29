@@ -194,18 +194,20 @@ export function WorkspaceSwitcher({
                 <Modal.Heading>{t("Pause timer before switching?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body className="space-y-3">
-                <p>
+                <Typography type="body-sm" color="muted">
                   {t(
                     "Your active timer is running in {workspace}. Pause it before opening another workspace.",
                     {
                       workspace: pendingWorkspace?.name ?? t("workspace"),
                     },
                   )}
-                </p>
+                </Typography>
                 <div className="flex items-center gap-2 p-3">
                   <Layers3 aria-hidden="true" className="size-4" />
                   <div className="min-w-0">
-                    <p className="truncate">{currentSummary.name}</p>
+                    <Typography type="body-sm" weight="semibold" truncate>
+                      {currentSummary.name}
+                    </Typography>
                     <Description>
                       {t("The timer will remain paused in its original workspace.")}
                     </Description>

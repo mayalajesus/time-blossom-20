@@ -1,4 +1,4 @@
-import { Button } from "@heroui/react";
+import { Button, Typography } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AuthPage, ContinueToWorkspaceButton } from "@/components/auth-page";
@@ -50,21 +50,27 @@ function InviteAcceptPage() {
       ) : null}
       {configured && accepted ? (
         <div className="space-y-4" role="status">
-          <p>{t("Your invitation has been accepted.")}</p>
+          <Typography type="body-sm" color="muted">
+            {t("Your invitation has been accepted.")}
+          </Typography>
           <Button className="w-full" onPress={() => window.location.assign("/tracker")}>
             {t("Open workspace")}
           </Button>
         </div>
       ) : configured && session ? (
         <div className="space-y-4">
-          <p>{t("Your invitation is ready to be accepted.")}</p>
+          <Typography type="body-sm" color="muted">
+            {t("Your invitation is ready to be accepted.")}
+          </Typography>
           <Button className="w-full" isDisabled={busy} onPress={() => void accept()}>
             {busy ? t("Accepting invitation…") : t("Accept invitation")}
           </Button>
         </div>
       ) : configured ? (
         <div className="space-y-4">
-          <p>{t("Sign in or create your account to accept this invitation.")}</p>
+          <Typography type="body-sm" color="muted">
+            {t("Sign in or create your account to accept this invitation.")}
+          </Typography>
           <div className="grid gap-2 sm:grid-cols-2">
             <Button
               className="w-full"

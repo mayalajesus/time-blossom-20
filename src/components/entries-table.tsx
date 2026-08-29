@@ -1,4 +1,4 @@
-import { Button, Chip, Modal, Table, toast } from "@heroui/react";
+import { Button, Chip, Modal, Table, Typography, toast } from "@heroui/react";
 import { CircleDollarSign, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
@@ -149,14 +149,14 @@ export function EntriesTable({
                 <Modal.Heading>{t("Delete time entry?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
-                <p>
+                <Typography type="body-sm" color="muted">
                   {t(
                     "This removes {task}. You can undo it from the confirmation toast for 20 seconds.",
                     {
                       task: pendingDelete?.task ?? t("this entry"),
                     },
                   )}
-                </p>
+                </Typography>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">

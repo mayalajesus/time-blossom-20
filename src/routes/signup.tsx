@@ -1,4 +1,4 @@
-import { Button, Form, Separator } from "@heroui/react";
+import { Button, Form, Separator, Typography } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -66,7 +66,9 @@ function SignupPage() {
       <AuthError message={error} />
       {created ? (
         <div className="space-y-4" role="status">
-          <p>{t("Check your email to confirm your account before signing in.")}</p>
+          <Typography type="body-sm" color="muted">
+            {t("Check your email to confirm your account before signing in.")}
+          </Typography>
           <Button
             className="w-full"
             onPress={() =>

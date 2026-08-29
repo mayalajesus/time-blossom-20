@@ -8,6 +8,7 @@ import {
   TextField,
   TimeField,
   Tooltip,
+  Typography,
   toast,
 } from "@heroui/react";
 import { Time } from "@internationalized/date";
@@ -455,13 +456,13 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
                 <Modal.Heading>{t("Delete time entry?")}</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
-                <p>
+                <Typography type="body-sm" color="muted">
                   {pendingDelete
                     ? t("Delete “{task}”? This action cannot be undone.", {
                         task: pendingDelete.task,
                       })
                     : null}
-                </p>
+                </Typography>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
