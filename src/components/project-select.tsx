@@ -11,6 +11,7 @@ export interface ProjectSelectProps {
   includeAll?: boolean;
   allowArchivedId?: string | null;
   ariaLabel: string;
+  triggerClassName?: string;
 }
 
 function normalizeSearch(value: string): string {
@@ -27,6 +28,7 @@ export function ProjectSelect({
   includeAll = false,
   allowArchivedId = null,
   ariaLabel,
+  triggerClassName,
 }: ProjectSelectProps) {
   const { projects, clients, canTrackProject } = useStore();
   const { t } = useI18n();
@@ -76,7 +78,7 @@ export function ProjectSelect({
         if (!nextIsOpen) setQuery("");
       }}
     >
-      <Select.Trigger>
+      <Select.Trigger {...(triggerClassName ? { className: triggerClassName } : {})}>
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>

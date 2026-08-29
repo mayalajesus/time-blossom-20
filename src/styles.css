@@ -309,13 +309,6 @@ body {
   min-width: 0;
 }
 
-.report-calendar-compact {
-  width: 9.5rem;
-  max-width: 100%;
-  margin-inline: auto;
-  padding: 0 !important;
-}
-
 @media (max-width: 26rem), (max-height: 34rem) {
   .calendar-popover-single {
     width: min(13rem, calc(100vw - 1rem)) !important;
@@ -340,15 +333,131 @@ body {
   .calendar-no-scroll .range-calendar__cell-button {
     font-size: 0.75rem;
   }
-
-  .report-calendar-compact {
-    width: 9rem;
-  }
 }
 
-@media (max-height: 40rem) {
-  .report-calendar-compact {
-    width: 8rem;
+/* Header timer: a compact control aligned to the search field, with the
+   readout carrying the information and one HeroUI action button. */
+.header-search-shell {
+  position: relative;
+  min-width: 0;
+}
+
+.header-search-input {
+  height: 2.5rem;
+  min-height: 2.5rem;
+  border-width: 1px;
+  border-color: transparent;
+  border-radius: 999px;
+  padding: 0.5rem 4.75rem 0.5rem 0.875rem;
+  background: var(--surface-secondary);
+  box-shadow: none;
+  color: var(--foreground);
+}
+
+.header-search-input:hover:not(:focus):not(:focus-visible),
+.header-search-input[data-hovered="true"]:not([data-focused="true"]):not(
+    [data-focus-visible="true"]
+  ) {
+  border-color: transparent;
+  background: var(--surface-tertiary);
+}
+
+.header-search-input:focus,
+.header-search-input[data-focused="true"],
+.header-search-input:focus-visible,
+.header-search-input[data-focus-visible="true"] {
+  border-color: transparent;
+  background: var(--surface-secondary);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.header-search-input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.header-search-shortcut {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--muted);
+  font-size: 0.6875rem;
+}
+
+.header-timer-widget {
+  display: flex;
+  min-width: 0;
+  height: 2.5rem;
+  max-height: 2.5rem;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.375rem 0.25rem 0.75rem;
+  background: var(--surface-secondary);
+  color: var(--foreground);
+}
+
+.header-timer-status-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.header-timer-widget[data-status="running"] .header-timer-status-dot {
+  background: var(--success, #22c55e);
+  box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--success, #22c55e) 14%, transparent);
+}
+
+.header-timer-widget[data-status="paused"] .header-timer-status-dot {
+  background: var(--warning, #f59e0b);
+}
+
+.header-timer-readout {
+  min-width: 4.5rem;
+  color: var(--foreground);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.header-timer-widget[data-status="idle"] .header-timer-readout {
+  color: var(--muted);
+}
+
+.header-timer-action {
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  padding: 0;
+}
+
+@media (max-width: 26rem) {
+  .header-search-input {
+    padding-right: 0.875rem;
+  }
+
+  .header-search-shortcut {
+    display: none;
+  }
+
+  .header-timer-widget {
+    gap: 0.375rem;
+    padding-left: 0.625rem;
+  }
+
+  .header-timer-readout {
+    min-width: 4.25rem;
+    font-size: 0.8125rem;
   }
 }
 
@@ -588,5 +697,177 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .workspace-switcher-item {
     transition: none;
+  }
+}
+
+/* Tracker timer: one quiet HeroUI surface with clear hierarchy between the
+   editable fields, the live readout and the actions. */
+.tracker-timer-card {
+  min-width: 0;
+  border: 0;
+  border-radius: 1.25rem;
+  background: var(--surface-secondary);
+  box-shadow: none;
+  color: var(--surface-secondary-foreground);
+}
+
+.tracker-timer-layout {
+  align-items: center;
+}
+
+.tracker-timer-input,
+.tracker-timer-project-trigger {
+  height: 2.5rem;
+  min-height: 2.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.875rem;
+  background: var(--surface-tertiary);
+  box-shadow: none;
+  color: var(--foreground);
+}
+
+.tracker-timer-input {
+  padding: 0.5rem 0.875rem;
+}
+
+.tracker-timer-input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.tracker-timer-input:hover:not(:focus):not(:focus-visible),
+.tracker-timer-input[data-hovered="true"]:not([data-focused="true"]):not(
+    [data-focus-visible="true"]
+  ),
+.tracker-timer-project-trigger:hover:not(:focus):not(:focus-visible),
+.tracker-timer-project-trigger[data-hovered="true"]:not([data-focused="true"]):not(
+    [data-focus-visible="true"]
+  ) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--surface-tertiary) 82%, var(--foreground));
+}
+
+.tracker-timer-input:focus,
+.tracker-timer-input[data-focused="true"],
+.tracker-timer-input:focus-visible,
+.tracker-timer-input[data-focus-visible="true"],
+.tracker-timer-project-trigger:focus,
+.tracker-timer-project-trigger[data-focused="true"],
+.tracker-timer-project-trigger:focus-visible,
+.tracker-timer-project-trigger[data-focus-visible="true"] {
+  border-color: transparent;
+  background: var(--surface-tertiary);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.tracker-timer-controls {
+  justify-content: flex-end;
+}
+
+.tracker-timer-readout {
+  display: inline-flex;
+  min-width: 7.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--foreground);
+}
+
+.tracker-timer-status-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.tracker-timer-readout[data-status="running"] .tracker-timer-status-dot {
+  background: var(--success, #22c55e);
+  box-shadow: 0 0 0 0.1875rem color-mix(in srgb, var(--success, #22c55e) 14%, transparent);
+}
+
+.tracker-timer-readout[data-status="paused"] .tracker-timer-status-dot {
+  background: var(--warning, #f59e0b);
+}
+
+.tracker-timer-readout-value {
+  min-width: 7ch;
+  color: var(--foreground);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tracker-timer-readout[data-status="idle"] .tracker-timer-readout-value {
+  color: var(--muted);
+}
+
+.tracker-timer-actions {
+  flex: 0 0 auto;
+}
+
+.tracker-timer-action,
+.tracker-timer-billable {
+  width: 2.25rem;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  padding: 0;
+}
+
+.tracker-timer-stop {
+  background: var(--surface-tertiary);
+  color: var(--muted);
+}
+
+.tracker-timer-stop:hover,
+.tracker-timer-stop[data-hovered="true"] {
+  background: color-mix(in srgb, var(--surface-tertiary) 82%, var(--foreground));
+  color: var(--foreground);
+}
+
+.tracker-timer-stop:focus-visible,
+.tracker-timer-stop[data-focus-visible="true"],
+.tracker-timer-billable:focus-visible,
+.tracker-timer-billable[data-focus-visible="true"] {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.tracker-timer-billable {
+  background: transparent;
+  color: var(--muted);
+}
+
+.tracker-timer-billable:hover,
+.tracker-timer-billable[data-hovered="true"] {
+  background: var(--surface-tertiary);
+  color: var(--foreground);
+}
+
+.tracker-timer-billable[data-selected="true"] {
+  background: var(--success-soft, color-mix(in srgb, var(--success, #22c55e) 14%, transparent));
+  color: var(--success-soft-foreground, var(--success, #22c55e));
+}
+
+@media (max-width: 39.999rem) {
+  .tracker-timer-controls {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 26rem) {
+  .tracker-timer-card {
+    border-radius: 1rem;
+  }
+
+  .tracker-timer-readout {
+    min-width: 0;
+  }
+
+  .tracker-timer-readout-value {
+    font-size: 1.125rem;
   }
 }

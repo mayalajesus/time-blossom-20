@@ -6,6 +6,7 @@ import {
   Form,
   I18nProvider as HeroI18nProvider,
   Input,
+  Kbd,
   Label,
   Link,
   ListBox,
@@ -270,7 +271,12 @@ function GlobalSearchForm({
     >
       <TextField fullWidth name="global-search" value={query} onChange={onQueryChange}>
         <Label className="sr-only">{t("Search")}</Label>
-        <Input placeholder={`${t("Search…")}  (Ctrl+K)`} />
+        <div className="header-search-shell">
+          <Input className="header-search-input" placeholder={t("Search…")} />
+          <Kbd aria-hidden="true" className="header-search-shortcut">
+            Ctrl K
+          </Kbd>
+        </div>
       </TextField>
     </Form>
   );

@@ -29,16 +29,20 @@ export function HeaderTimerControl() {
   };
 
   return (
-    <div className="flex min-w-0 shrink-0 items-center gap-1.5" data-header-timer-control>
-      {timer.status !== "idle" ? (
-        <span className="whitespace-nowrap font-mono text-sm tabular-nums text-muted">
-          {formatClock(elapsed)}
-        </span>
-      ) : null}
+    <div className="header-timer-widget" data-header-timer-control data-status={timer.status}>
+      <span className="header-timer-status-dot" aria-hidden="true" />
+      <span
+        className="header-timer-readout"
+        aria-atomic="true"
+        aria-live="polite"
+        aria-label={`${t("Timer")}: ${formatClock(elapsed)}`}
+      >
+        {formatClock(elapsed)}
+      </span>
       <Button
         aria-label={actionLabel}
         isIconOnly
-        className="size-9 min-w-9 shrink-0"
+        className="header-timer-action"
         size="sm"
         variant={isRunning ? "secondary" : "primary"}
         onPress={handleAction}
