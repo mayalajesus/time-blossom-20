@@ -1,5 +1,6 @@
 import {
   Button,
+  Card,
   Chip,
   Description,
   FieldError,
@@ -13,7 +14,7 @@ import {
   TextField,
   toast,
 } from "@heroui/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import {
   Archive,
   ArchiveRestore,
@@ -26,6 +27,7 @@ import {
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { PageHeader } from "@/components/page-header";
+import { RouterLink } from "@/components/router-link";
 import { FormAlert } from "@/components/form-feedback";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { CardsSkeleton, EmptyBlock } from "@/components/states";
@@ -193,7 +195,7 @@ function ProjectsPage() {
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
-              <Select.Popover className="hero-menu-surface">
+              <Select.Popover>
                 <ListBox>
                   {[
                     { id: "all", label: t("All") },
@@ -255,21 +257,20 @@ function ProjectsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((project) => (
-            <article
-              key={project.id}
-              className="surface-card surface-card-interactive flex min-h-[160px] min-w-0 flex-col p-4"
-            >
+            <Card key={project.id} className="flex min-h-[160px] min-w-0 flex-col p-4">
               <div className="flex min-w-0 items-start justify-between gap-3">
-                <Link
-                  to="/projects/$projectId"
-                  params={{ projectId: project.id }}
-                  className="min-w-0 flex-1"
-                >
-                  <p className="truncate font-medium text-foreground">{project.name}</p>
-                  <p className="mt-0.5 truncate text-sm text-muted">
+                <div className="min-w-0 flex-1">
+                  <RouterLink
+                    to="/projects/$projectId"
+                    params={{ projectId: project.id }}
+                    className="block w-full truncate text-left font-medium text-foreground"
+                  >
+                    {project.name}
+                  </RouterLink>
+                  <span className="mt-0.5 block w-full truncate text-sm text-muted">
                     {clientName(project.clientId)}
-                  </p>
-                </Link>
+                  </span>
+                </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <Chip color={project.billable ? "success" : "default"} size="sm" variant="soft">
                     {project.billable ? t("Billable") : t("Internal")}
@@ -357,7 +358,7 @@ function ProjectsPage() {
                   </p>
                 </div>
               </div>
-            </article>
+            </Card>
           ))}
         </div>
       )}
@@ -457,7 +458,7 @@ function ProjectsPage() {
                         <Select.Value />
                         <Select.Indicator />
                       </Select.Trigger>
-                      <Select.Popover className="hero-menu-surface">
+                      <Select.Popover>
                         <ListBox>
                           <ListBox.Item id="none" textValue={t("Select a client")} isDisabled>
                             <Label>{t("Select a client")}</Label>

@@ -1,5 +1,7 @@
 import {
+  Avatar,
   Button,
+  Card,
   Description,
   FieldError,
   Form,
@@ -57,19 +59,12 @@ function WorkspaceLogo({
   workspace: WorkspaceSummary;
   size?: "sm" | "md";
 }) {
-  return workspace.logoDataUrl ? (
-    <img
-      src={workspace.logoDataUrl}
-      alt=""
-      className={`${size === "sm" ? "size-9 rounded-lg" : "size-12 rounded-xl"} shrink-0 object-cover`}
-    />
-  ) : (
-    <span
-      aria-hidden="true"
-      className={`flex ${size === "sm" ? "size-9 rounded-lg text-xs" : "size-12 rounded-xl text-sm"} shrink-0 items-center justify-center bg-surface-secondary font-semibold text-accent`}
-    >
-      {initialsForWorkspace(workspace.name)}
-    </span>
+  const avatarSize: "sm" | "md" = size === "sm" ? "sm" : "md";
+  return (
+    <Avatar size={avatarSize} aria-label={workspace.name} className="shrink-0">
+      {workspace.logoDataUrl ? <Avatar.Image alt="" src={workspace.logoDataUrl} /> : null}
+      <Avatar.Fallback>{initialsForWorkspace(workspace.name)}</Avatar.Fallback>
+    </Avatar>
   );
 }
 
@@ -263,11 +258,9 @@ function WorkspacesPage() {
     const isCurrent = workspace.id === activeWorkspaceId;
     const canEdit = workspace.isOwned && workspace.status === "active";
     return (
-      <article
+      <Card
         key={workspace.id}
-        className={`surface-card surface-card-interactive flex min-h-44 min-w-0 flex-col p-4 ${
-          isCurrent ? "ring-1 ring-focus/60" : ""
-        }`}
+        className={`flex min-h-44 min-w-0 flex-col p-4 ${isCurrent ? "ring-1 ring-focus/60" : ""}`}
       >
         <div className="flex min-w-0 items-start gap-3">
           <WorkspaceLogo workspace={workspace} />
@@ -344,7 +337,7 @@ function WorkspacesPage() {
             ) : null}
           </div>
         </div>
-      </article>
+      </Card>
     );
   };
 
@@ -599,13 +592,12 @@ function WorkspaceFormModal({
                 <div className="space-y-2">
                   <Label>{t("Workspace logo")}</Label>
                   <div className="flex flex-wrap items-center gap-3">
-                    {logoDataUrl ? (
-                      <img src={logoDataUrl} alt="" className="size-12 rounded-xl object-cover" />
-                    ) : (
-                      <span className="flex size-12 items-center justify-center rounded-xl bg-surface-secondary text-sm font-semibold text-accent">
+                    <Avatar size="lg" aria-label={t("Workspace logo preview")}>
+                      {logoDataUrl ? <Avatar.Image alt="" src={logoDataUrl} /> : null}
+                      <Avatar.Fallback>
                         {initialsForWorkspace(name || t("Workspace"))}
-                      </span>
-                    )}
+                      </Avatar.Fallback>
+                    </Avatar>
                     <div className="flex flex-wrap gap-2">
                       <input
                         ref={inputRef}
@@ -672,7 +664,7 @@ function WorkspaceFormModal({
                           <Select.Value />
                           <Select.Indicator />
                         </Select.Trigger>
-                        <Select.Popover className="hero-menu-surface">
+                        <Select.Popover>
                           <ListBox>
                             {(["monday", "sunday"] as const).map((day) => (
                               <ListBox.Item

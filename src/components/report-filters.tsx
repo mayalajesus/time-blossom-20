@@ -136,16 +136,13 @@ function ReportMultiSelect({
         <Button
           variant="ghost"
           aria-label={t("{label} filter", { label })}
-          className="field-control flex h-9 min-w-32 max-w-48 items-center justify-between gap-2 px-3 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-focus"
+          className="flex h-9 min-w-32 max-w-48 items-center justify-between gap-2 px-3 text-sm text-foreground"
         >
           <span className="truncate">{selectedLabel(options, values, label)}</span>
           <ChevronRight className="size-4 shrink-0 rotate-90 text-muted" />
         </Button>
       </Popover.Trigger>
-      <Popover.Content
-        placement="bottom start"
-        className="hero-menu-surface w-64 max-w-[calc(100vw-1rem)] p-2"
-      >
+      <Popover.Content placement="bottom start" className="w-64 max-w-[calc(100vw-1rem)] p-2">
         <Popover.Dialog>
           <div className="flex flex-col gap-2">
             <TextField
@@ -215,7 +212,7 @@ function ReportSingleSelect({
         <Button
           variant="ghost"
           aria-label={t("{label} filter", { label })}
-          className="field-control flex h-9 min-w-32 max-w-44 items-center justify-between gap-2 px-3 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-focus"
+          className="flex h-9 min-w-32 max-w-44 items-center justify-between gap-2 px-3 text-sm text-foreground"
         >
           <span className="truncate">
             {options.find((option) => option.id === value)?.label ?? label}
@@ -223,10 +220,7 @@ function ReportSingleSelect({
           <ChevronRight className="size-4 shrink-0 rotate-90 text-muted" />
         </Button>
       </Popover.Trigger>
-      <Popover.Content
-        placement="bottom start"
-        className="hero-menu-surface w-48 max-w-[calc(100vw-1rem)] p-1"
-      >
+      <Popover.Content placement="bottom start" className="w-48 max-w-[calc(100vw-1rem)] p-1">
         <Popover.Dialog>
           <ListBox aria-label={t("{label} options", { label })} selectedKeys={new Set([value])}>
             {options.map((option) => (
@@ -296,7 +290,7 @@ function ReportPeriodPicker({
         <Button
           variant="ghost"
           aria-label={t("Date range: {range}", { range: formatReportPeriod(range, locale) })}
-          className="field-control flex h-10 min-w-56 max-w-full items-center gap-2 px-3 text-sm font-medium text-foreground focus-visible:ring-2 focus-visible:ring-focus"
+          className="flex h-10 min-w-56 max-w-full items-center gap-2 px-3 text-sm font-medium text-foreground"
         >
           <CalendarDays className="size-4 shrink-0 text-muted" />
           <span className="truncate">{formatReportPeriod(range, locale)}</span>
@@ -353,7 +347,7 @@ function ReportPeriodPicker({
                   <Select.Value />
                   <Select.Indicator />
                 </Select.Trigger>
-                <Select.Popover className="hero-menu-surface w-[var(--trigger-width)] max-w-[calc(100vw-2rem)]">
+                <Select.Popover className="w-[var(--trigger-width)] max-w-[calc(100vw-2rem)]">
                   <ListBox aria-label={t("Date range presets")}>
                     {reportPeriodPresets.map((option) => (
                       <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
@@ -527,16 +521,13 @@ export function ReportFiltersBar({
             <Button
               variant="ghost"
               aria-label={t("Choose report filters")}
-              className="field-control flex h-9 shrink-0 items-center gap-2 px-3 text-sm font-medium text-foreground focus-visible:ring-2 focus-visible:ring-focus"
+              className="flex h-9 shrink-0 items-center gap-2 px-3 text-sm font-medium text-foreground"
             >
               <Filter className="size-4" />
               {t("Filters")}
             </Button>
           </Popover.Trigger>
-          <Popover.Content
-            placement="bottom start"
-            className="hero-menu-surface w-64 max-w-[calc(100vw-1rem)] p-2"
-          >
+          <Popover.Content placement="bottom start" className="w-64 max-w-[calc(100vw-1rem)] p-2">
             <Popover.Dialog>
               <p className="px-2 py-2 text-xs font-semibold tracking-wide text-muted uppercase">
                 {t("Show filters")}

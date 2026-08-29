@@ -1,4 +1,5 @@
 import {
+  Card,
   Button,
   Description,
   FieldError,
@@ -214,7 +215,7 @@ function SettingsPage() {
         description={t("Manage your account and personal preferences.")}
       />
 
-      <section id="account" className="surface-card scroll-mt-24 space-y-5 p-5">
+      <Card id="account" className="scroll-mt-24 space-y-5 p-5">
         <div>
           <h2 className="font-medium text-foreground">{t("Account")}</h2>
           <p className="mt-1 text-sm text-muted">{t("Manage your profile and account details.")}</p>
@@ -324,9 +325,9 @@ function SettingsPage() {
             </Button>
           </div>
         </Form>
-      </section>
+      </Card>
 
-      <section id="personal-preferences" className="surface-card scroll-mt-24 space-y-5 p-5">
+      <Card id="personal-preferences" className="scroll-mt-24 space-y-5 p-5">
         <div>
           <h2 className="font-medium text-foreground">{t("Personal preferences")}</h2>
           <p className="mt-1 text-sm text-muted">
@@ -354,7 +355,7 @@ function SettingsPage() {
               <Select.Value />
               <Select.Indicator />
             </Select.Trigger>
-            <Select.Popover className="hero-menu-surface">
+            <Select.Popover>
               <ListBox>
                 {localeOptions.map((option) => (
                   <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
@@ -412,7 +413,7 @@ function SettingsPage() {
             </Switch.Content>
           </Switch>
         ))}
-      </section>
+      </Card>
     </div>
   );
 }

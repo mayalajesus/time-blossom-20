@@ -1,5 +1,5 @@
+import { Card } from "@heroui/react";
 import type { ReactNode } from "react";
-import { Surface } from "@/components/surface";
 
 export function PageHeader({
   title,
@@ -23,10 +23,10 @@ export function PageHeader({
 
 export function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <Surface className="p-4">
+    <Card className="p-4">
       <p className="text-xs font-medium tracking-wide text-muted uppercase">{label}</p>
       <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">{value}</p>
       {hint ? <p className="mt-1 text-xs text-muted">{hint}</p> : null}
-    </Surface>
+    </Card>
   );
 }

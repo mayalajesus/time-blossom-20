@@ -6,6 +6,26 @@ Time Blossom should feel quiet, clear and slightly premium. The interface
 supports a quick return to work rather than asking users to configure a large
 system before they can track time.
 
+## HeroUI consolidation
+
+- HeroUI is the single visual system for active product UI. Use `Card` for
+  route-level surfaces, `Table`/`DataTable` for read-only data, `Form` and
+  `TextField` for forms, `FieldError` for local validation, `Alert` for
+  persistent errors, `Toast` for brief confirmations, `Link` for visible
+  navigation, and `Avatar` for user or image identity.
+- Do not add local components or CSS that recreate HeroUI radius, borders,
+  focus rings, shadows, menus, cards, fields or states. Local styles may only
+  express layout, sizing, truncation, responsive behavior and structural
+  scrolling.
+- The Tracker table keeps a semantic fixed-column implementation because it
+  needs stable cell-level editing. This is a geometry exception, not a second
+  visual system; its editors remain HeroUI controls.
+- Hidden `input type="file"` elements are permitted only as the browser API
+  behind a visible HeroUI upload button. Native markup is otherwise limited to
+  boot/error fallbacks and the independent HTML used to print PDF reports.
+- `src/components/ui` is retired. New imports from that path and direct use of
+  the legacy UI dependencies are prohibited and checked by `npm run audit:ui`.
+
 ## Visual system
 
 - Use HeroUI components as the default source of controls, overlays, tables,
@@ -14,10 +34,12 @@ system before they can track time.
   custom component framework.
 - Use a restrained neutral surface palette with one accent for primary actions
   and status feedback.
-- Treat `Surface`, `PageHeader`, `DataTable`, `DataTableFrame` and `LoadingState` as the
+- Treat HeroUI `Card`, `PageHeader`, `DataTable` and `LoadingState` as the
   official shared building blocks for route-level composition. New reusable
   components should consume these patterns instead of inventing a parallel
-  surface, table or loading treatment.
+  surface, table or loading treatment. `DataTable` is the standard read-only
+  table; the Tracker's semantic table is the documented geometry exception for
+  cell-level editing.
 - Use a near-borderless surface policy: cards and sections separate through
   background contrast, spacing and restrained elevation. Reserve visible
   borders for input-like fields, table separators, validation, focus and
@@ -105,11 +127,10 @@ system before they can track time.
   horizontal scrolling.
 - Standard read-only tables use the shared `DataTable` component, which keeps
   HeroUI's primary surface, internal cell rounding and `ScrollContainer` in
-  one place. Dense report or editable native tables keep their semantic
-  columns inside `DataTableFrame` and follow the same surface, radius and
-  separator contract. When a viewport cannot fit all columns, the frame
-  exposes a localized instruction, keyboard focus and a visible scrollbar;
-  horizontal scrolling belongs to the table frame, never to the document body.
+  one place. The editable Tracker table remains semantic and owns only the
+  fixed-column geometry required for cell editing. When a viewport cannot fit
+  all columns, horizontal scrolling belongs to the table container, never to
+  the document body.
 - Use the effective CSS viewport, rather than the physical diagonal of a
   laptop, as the responsive reference because operating-system display scaling
   changes the number of CSS pixels available at browser zoom 100%.

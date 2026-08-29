@@ -1,7 +1,8 @@
-import { Input, Label, TextField } from "@heroui/react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Card, Input, Label, TextField } from "@heroui/react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { SearchIcon } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { RouterLink } from "@/components/router-link";
 import { EmptyBlock } from "@/components/states";
 import { useStore } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
@@ -73,53 +74,53 @@ function SearchPage() {
           {p.length > 0 && (
             <Section title={t("Projects")}>
               {p.map((item) => (
-                <Link
+                <RouterLink
                   key={item.id}
                   to="/projects/$projectId"
                   params={{ projectId: item.id }}
                   className="block px-4 py-3 text-sm hover:bg-surface-secondary"
                 >
                   {item.name}
-                </Link>
+                </RouterLink>
               ))}
             </Section>
           )}
           {c.length > 0 && (
             <Section title={t("Clients")}>
               {c.map((item) => (
-                <Link
+                <RouterLink
                   key={item.id}
                   to="/clients"
                   className="block px-4 py-3 text-sm hover:bg-surface-secondary"
                 >
                   {item.name}
-                </Link>
+                </RouterLink>
               ))}
             </Section>
           )}
           {m.length > 0 && (
             <Section title={t("Team")}>
               {m.map((item) => (
-                <Link
+                <RouterLink
                   key={item.id}
                   to="/team"
                   className="block px-4 py-3 text-sm hover:bg-surface-secondary"
                 >
                   {item.name}
-                </Link>
+                </RouterLink>
               ))}
             </Section>
           )}
           {e.length > 0 && (
             <Section title={t("Time entries")}>
               {e.slice(0, 10).map((item) => (
-                <Link
+                <RouterLink
                   key={item.id}
                   to="/tracker"
                   className="block px-4 py-3 text-sm hover:bg-surface-secondary"
                 >
                   {item.task}
-                </Link>
+                </RouterLink>
               ))}
             </Section>
           )}
@@ -133,7 +134,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div>
       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">{title}</p>
-      <div className="surface-card divide-y divide-separator overflow-hidden">{children}</div>
+      <Card className="divide-y divide-separator overflow-hidden">{children}</Card>
     </div>
   );
 }

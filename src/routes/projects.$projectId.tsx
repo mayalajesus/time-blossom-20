@@ -1,7 +1,8 @@
 import { Button, Chip } from "@heroui/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, Clock } from "lucide-react";
 import { EntriesTable } from "@/components/entries-table";
+import { RouterLink } from "@/components/router-link";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { EmptyBlock, TableSkeleton } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
@@ -38,11 +39,11 @@ function ProjectDetail() {
         title={t("Project not found")}
         description={t("This project may have been archived or removed.")}
         action={
-          <Link to="/projects">
+          <RouterLink to="/projects">
             <Button size="sm" variant="secondary">
               {t("Back to projects")}
             </Button>
-          </Link>
+          </RouterLink>
         }
       />
     );
@@ -53,13 +54,13 @@ function ProjectDetail() {
 
   return (
     <div className="space-y-6">
-      <Link
+      <RouterLink
         to="/projects"
         className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
         {t("Projects")}
-      </Link>
+      </RouterLink>
 
       <PageHeader
         title={project.name}

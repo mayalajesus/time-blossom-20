@@ -1,4 +1,4 @@
-import { Button, Chip } from "@heroui/react";
+import { Button, Card, Chip } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Trello } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
@@ -66,7 +66,7 @@ function IntegrationsPage() {
         description={t("Bring tasks from the tools you already use.")}
       />
 
-      <div className="surface-card p-5">
+      <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="flex size-10 items-center justify-center rounded-xl bg-surface-secondary p-2">
@@ -126,7 +126,7 @@ function IntegrationsPage() {
             </ul>
           </div>
         ) : null}
-      </div>
+      </Card>
     </div>
   );
 }

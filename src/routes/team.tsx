@@ -399,7 +399,7 @@ function TeamPage() {
                         <Select.Value />
                         <Select.Indicator />
                       </Select.Trigger>
-                      <Select.Popover className="hero-menu-surface">
+                      <Select.Popover>
                         <ListBox>
                           {inviteRoles.map((option) => (
                             <ListBox.Item key={option} id={option} textValue={option}>

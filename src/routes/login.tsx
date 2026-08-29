@@ -1,4 +1,4 @@
-import { Button, Form } from "@heroui/react";
+import { Button, Form, Link } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -84,12 +84,9 @@ function LoginPage() {
           validate={(value) => (value ? null : t("Password is required"))}
         />
         <div className="flex justify-end">
-          <a
-            className="text-sm text-link underline-offset-4 hover:underline"
-            href="/forgot-password"
-          >
+          <Link className="text-sm" href="/forgot-password">
             {t("Forgot password?")}
-          </a>
+          </Link>
         </div>
         <Button className="w-full" type="submit" isDisabled={busy}>
           {busy ? t("Signing in…") : t("Sign in")}

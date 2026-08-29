@@ -1,11 +1,13 @@
 import {
   Button,
+  Card,
   Description,
   Drawer,
   Form,
   I18nProvider as HeroI18nProvider,
   Input,
   Label,
+  Link,
   ListBox,
   Select,
   TextField,
@@ -125,9 +127,9 @@ function AppShellContent({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <a className="skip-link" href="#main-content">
+      <Link className="skip-link" href="#main-content">
         {t("Skip to content")}
-      </a>
+      </Link>
       <div className="min-h-screen bg-background text-foreground">
         <aside
           className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-hidden bg-surface p-2 md:flex ${
@@ -294,7 +296,7 @@ function SignedOutScreen() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground">
-      <section className="surface-card w-full max-w-md p-6 text-center">
+      <Card className="w-full max-w-md p-6 text-center">
         <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-surface-secondary text-accent">
           <Clock aria-hidden="true" className="size-6" />
         </div>
@@ -323,7 +325,7 @@ function SignedOutScreen() {
                   <Select.Value />
                   <Select.Indicator />
                 </Select.Trigger>
-                <Select.Popover className="hero-menu-surface">
+                <Select.Popover>
                   <ListBox>
                     {activeMembers.map((member) => (
                       <ListBox.Item key={member.id} id={member.id} textValue={member.name}>
@@ -345,7 +347,7 @@ function SignedOutScreen() {
         ) : (
           <p className="mt-5 text-sm text-muted">{t("No accounts available.")}</p>
         )}
-      </section>
+      </Card>
     </main>
   );
 }

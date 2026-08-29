@@ -112,7 +112,7 @@ export function WorkspaceSwitcher({
             placement={
               collapsed ? "right" : popoverPlacement === "footer" ? "top start" : "bottom start"
             }
-            className="hero-menu-surface w-72 max-w-[calc(100vw-1rem)] p-1"
+            className="w-72 max-w-[calc(100vw-1rem)] p-1"
           >
             <div className="px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-muted">
               {t("Switch workspace")}

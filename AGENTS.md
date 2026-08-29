@@ -32,25 +32,31 @@ such as `node_modules`, `dist`, `.output` or `.wrangler`.
 ## UI rules
 
 - Preserve the Today → choose task → start → work → stop flow.
-- Reuse HeroUI components before introducing custom primitives.
-- Follow the shared visual primitives: `Surface` for route-level surfaces,
-  `PageHeader` for page introductions, `DataTable` for standard HeroUI tables
-  and `DataTableFrame` for dense native data.
+- Use HeroUI's official components as the only visual source of truth for
+  active product controls and surfaces. Use `Card` for route-level surfaces,
+  `PageHeader` for page introductions and `DataTable` for standard tables.
+  Shared components such as `ActionDropdown`, `ProjectSelect` and
+  `TrackerPeriodFilter` are thin compositions of HeroUI primitives, not a
+  second visual system.
 - Keep the border policy intentionally quiet: surfaces and cards use contrast,
   spacing and elevation; visible borders are reserved for fields, table
   separators, focus, validation and boundaries that need explicit separation.
-- Apply the shared `field-control` class to custom field-like triggers and keep
-  the HeroUI radius, focus ring and disabled states consistent.
+- Do not add CSS classes that recreate a HeroUI field, card, menu, focus ring,
+  radius or state. Use the official HeroUI component variants and keep local
+  classes limited to layout, sizing, truncation and responsive behavior.
 - Every primary screen needs loading, populated, empty and error treatment.
 - Loading uses the shared HeroUI Spinner; empty states are reserved for real
   zero-data conditions.
 - Keep keyboard focus visible, icon buttons labelled and responsive layouts free
   of accidental horizontal overflow.
-- Standard HeroUI tables must use `DataTable`, which owns the primary variant,
-  internal first/last-cell rounding and horizontal `ScrollContainer`. Dense
-  native tables must use `DataTableFrame` with semantic markup, a localized
-  horizontal-scroll hint when needed and keyboard focus on the scroll region.
-  Never allow a data table to overflow the page body.
+- Standard read-only tables must use `DataTable`, which owns the HeroUI table
+  variant and horizontal `ScrollContainer`. The Tracker may use its semantic
+  fixed-column table for inline editing, but its local styles may only control
+  geometry and scrolling. Never allow a data table to overflow the page body.
+- Do not import from `src/components/ui` or add another component library for
+  active product UI. Hidden file inputs are allowed only as the technical
+  browser API behind a visible HeroUI upload button. Native markup in boot/error
+  fallbacks and generated PDF/print HTML is explicitly out of the app shell.
 - Use motion only for small state changes, menus, dialogs and item transitions.
 
 ## Change hygiene

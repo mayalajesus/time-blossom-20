@@ -1,9 +1,8 @@
-import { Button, Input, Label, TextField, ToggleButton } from "@heroui/react";
+import { Button, Card, Input, Label, TextField, ToggleButton } from "@heroui/react";
 import { CircleDollarSign, Pause, Play, Square } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { ProjectSelect } from "@/components/project-select";
-import { Surface } from "@/components/surface";
 import { formatClock } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
@@ -38,7 +37,7 @@ export function TimerCard() {
   };
 
   return (
-    <Surface className="p-3 sm:p-4">
+    <Card className="p-3 sm:p-4">
       <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(10rem,13rem)_auto_auto_auto] lg:items-center">
         <TextField
           className="min-w-0 sm:col-span-2 lg:col-span-1"
@@ -178,6 +177,6 @@ export function TimerCard() {
           <FormAlert title={t("Timer could not update")} description={error(timerError)} />
         </div>
       ) : null}
-    </Surface>
+    </Card>
   );
 }

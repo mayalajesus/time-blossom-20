@@ -28,10 +28,7 @@ export function ActionDropdown({
       >
         <MoreHorizontal className="size-4" />
       </Dropdown.Trigger>
-      <Dropdown.Popover
-        placement="bottom end"
-        className="hero-menu-surface max-w-[calc(100vw-1.5rem)] min-w-48"
-      >
+      <Dropdown.Popover placement="bottom end" className="max-w-[calc(100vw-1.5rem)] min-w-48">
         <Dropdown.Menu onAction={(key) => onAction(String(key))}>
           {items.map((item) => (
             <Dropdown.Item

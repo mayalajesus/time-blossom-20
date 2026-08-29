@@ -60,13 +60,6 @@ body {
   outline-offset: 3px;
 }
 
-.loading-state {
-  overflow: hidden;
-  border-radius: 1rem;
-  background: var(--surface, #ffffff);
-  box-shadow: var(--surface-shadow, 0 1px 2px rgb(15 23 42 / 0.08));
-}
-
 .app-boot-screen {
   display: grid;
   min-height: 100vh;
@@ -300,64 +293,6 @@ body {
   border-radius: 999px;
   background: var(--separator);
   background-clip: padding-box;
-}
-
-/* Shared HeroUI card language for route-level surfaces. Cards are separated
-   primarily by surface and elevation; borders stay reserved for fields,
-   tables, focus states and places that need a hard boundary. */
-.surface-card {
-  min-width: 0;
-  border-radius: min(32px, var(--radius-3xl, 1.5rem));
-  background: var(--surface);
-  color: var(--surface-foreground);
-  box-shadow: var(--surface-shadow, 0 1px 2px rgb(15 23 42 / 0.08));
-}
-
-.field-control {
-  border: var(--field-border-width) solid var(--field-border);
-  border-radius: var(--radius-lg, 0.75rem);
-  background: var(--field-background);
-  color: var(--field-foreground);
-  transition:
-    background-color 150ms ease,
-    border-color 150ms ease;
-}
-
-.field-control:hover {
-  border-color: var(--field-border-hover);
-  background: var(--field-hover);
-}
-
-.field-control:focus-visible {
-  border-color: var(--field-border-focus);
-  outline: 3px solid color-mix(in srgb, var(--field-border-focus) 35%, transparent);
-  outline-offset: 2px;
-}
-
-.field-control[aria-invalid="true"] {
-  border-color: var(--danger);
-}
-
-.surface-card-interactive {
-  transition:
-    background-color 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.surface-card-interactive:hover {
-  background: var(--surface-secondary);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .surface-card-interactive {
-    transition: none;
-  }
-}
-
-/* HeroUI menus use rounded surfaces; clipping the menu content makes item
-   hover states follow that same radius instead of reaching the corners. */
-.hero-menu-surface {
-  overflow: hidden;
 }
 
 .calendar-no-scroll {

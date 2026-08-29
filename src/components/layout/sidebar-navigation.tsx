@@ -1,5 +1,5 @@
 import { Button, Popover } from "@heroui/react";
-import { Link, useLocation } from "@tanstack/react-router";
+import { useLocation } from "@tanstack/react-router";
 import {
   BarChart3,
   Building2,
@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import { RouterLink } from "@/components/router-link";
 
 type NavigationItem = {
   to: string;
@@ -75,21 +76,20 @@ function NavigationLink({
   const active = isNavigationItemActive(location.pathname, item);
 
   return (
-    <Link
+    <RouterLink
       to={item.to}
       aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? t(item.label) : undefined}
-      title={collapsed ? t(item.label) : undefined}
-      onClick={onNavigate}
       className={`flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface hover:bg-surface-secondary hover:text-foreground ${
         active ? "bg-surface-secondary text-foreground" : "text-muted"
       } ${collapsed ? "w-10 justify-center px-2.5" : ""}`}
+      {...(collapsed ? { "aria-label": t(item.label) } : {})}
+      {...(onNavigate ? { onClick: () => onNavigate() } : {})}
     >
       <span className="flex size-5 shrink-0 items-center justify-center">
         <item.icon aria-hidden="true" className="size-4" />
       </span>
       {!collapsed ? <span className="min-w-0 truncate">{t(item.label)}</span> : null}
-    </Link>
+    </RouterLink>
   );
 }
 
@@ -114,18 +114,18 @@ function ReportsNavigation({
       {reportViews.map((view) => {
         const active = reportsActive && activeReportView === view.id;
         return (
-          <Link
+          <RouterLink
             key={view.id}
             to="/reports"
             search={{ view: view.id }}
             aria-current={active ? "page" : undefined}
-            onClick={onNavigate}
             className={`block rounded-xl px-3 py-2 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface hover:bg-surface-secondary hover:text-foreground ${
               active ? "bg-surface-secondary text-foreground" : "text-muted"
             }`}
+            {...(onNavigate ? { onClick: () => onNavigate() } : {})}
           >
             {t(view.label)}
-          </Link>
+          </RouterLink>
         );
       })}
     </nav>

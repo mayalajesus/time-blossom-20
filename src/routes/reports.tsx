@@ -694,7 +694,7 @@ function ReportsPage() {
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
-              <Select.Popover className="hero-menu-surface">
+              <Select.Popover>
                 <ListBox aria-label={t("Report views")}>
                   {reportViews.map((report) => (
                     <ListBox.Item key={report.id} id={report.id} textValue={report.label}>
@@ -1157,7 +1157,7 @@ function GroupSelect({
         <Select.Value />
         <Select.Indicator />
       </Select.Trigger>
-      <Select.Popover className="hero-menu-surface">
+      <Select.Popover>
         <ListBox aria-label={t(label)}>
           {options.map((option) => (
             <ListBox.Item key={option.id} id={option.id} textValue={option.label}>

@@ -1,6 +1,5 @@
-import { Alert, Button, Spinner } from "@heroui/react";
+import { Alert, Button, Card, Spinner } from "@heroui/react";
 import type { ReactNode } from "react";
-import { Surface } from "@/components/surface";
 import { useI18n } from "@/lib/i18n";
 
 export function LoadingState({ label, className }: { label?: string; className?: string }) {
@@ -8,8 +7,9 @@ export function LoadingState({ label, className }: { label?: string; className?:
   const loadingLabel = label ?? t("Loading data");
 
   return (
-    <div
-      className={`loading-state ${className ?? ""}`.trim()}
+    <Card
+      variant="secondary"
+      {...(className ? { className } : {})}
       role="status"
       aria-live="polite"
       aria-busy="true"
@@ -19,7 +19,7 @@ export function LoadingState({ label, className }: { label?: string; className?:
         <Spinner aria-hidden="true" className="motion-reduce:animate-none" />
         <span className="text-sm text-muted">{loadingLabel}</span>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -43,7 +43,7 @@ export function EmptyBlock({
   action?: ReactNode;
 }) {
   return (
-    <Surface className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+    <Card className="flex flex-col items-center gap-3 px-6 py-14 text-center">
       <div className="flex size-11 items-center justify-center rounded-full bg-surface-secondary text-muted">
         {icon}
       </div>
@@ -52,7 +52,7 @@ export function EmptyBlock({
         <p className="max-w-sm text-sm text-muted">{description}</p>
       </div>
       {action}
-    </Surface>
+    </Card>
   );
 }
 

@@ -1,7 +1,7 @@
 import { Button, Description, FieldError, Input, Label, TextField } from "@heroui/react";
-import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { FormAlert } from "@/components/form-feedback";
+import { RouterLink } from "@/components/router-link";
 import { useI18n } from "@/lib/i18n";
 
 export function AuthPage({
@@ -92,9 +92,9 @@ export function AuthFooter({
   return (
     <p className="text-center text-sm text-muted">
       {prompt}{" "}
-      <Link className="font-medium text-link underline-offset-4 hover:underline" to={to}>
+      <RouterLink className="font-medium text-link underline-offset-4 hover:underline" to={to}>
         {action}
-      </Link>
+      </RouterLink>
     </p>
   );
 }
