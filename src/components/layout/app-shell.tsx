@@ -165,7 +165,9 @@ function AppShellContent({ children }: { children: ReactNode }) {
             onReportsOpenChange={setReportsOpen}
           />
 
-          <div className={`mt-3 shrink-0 ${collapsed ? "flex justify-center" : "px-1"}`}>
+          <div
+            className={`relative z-10 mt-3 shrink-0 ${collapsed ? "flex justify-center" : "px-1"}`}
+          >
             <WorkspaceSwitcher collapsed={collapsed} popoverPlacement="footer" />
           </div>
           <Separator orientation="vertical" className="absolute right-0 top-0 h-full" />

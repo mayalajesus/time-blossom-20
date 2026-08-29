@@ -1,4 +1,4 @@
-import { Button, Popover, Separator, Typography } from "@heroui/react";
+import { Button, Popover, ScrollShadow, Separator, Typography } from "@heroui/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
   BarChart3,
@@ -231,28 +231,40 @@ export function SidebarNavigation({
   const { t } = useI18n();
 
   return (
-    <nav aria-label={t("Main navigation")} className="min-h-0 flex-1 overflow-y-auto py-3">
-      {!collapsed ? <SectionLabel>{t("Workspace")}</SectionLabel> : null}
-      <div className={collapsed ? "flex flex-col items-center gap-0.5" : "space-y-0.5"}>
-        {workspaceNavigation.map((item) => (
-          <NavigationLink key={item.to} item={item} collapsed={collapsed} onNavigate={onNavigate} />
-        ))}
-        <ReportsNavigation
-          collapsed={collapsed}
-          reportsOpen={reportsOpen}
-          onReportsOpenChange={onReportsOpenChange}
-          onNavigate={onNavigate}
-        />
-      </div>
+    <ScrollShadow orientation="vertical" hideScrollBar className="min-h-0 flex-1">
+      <nav aria-label={t("Main navigation")} className="py-3">
+        {!collapsed ? <SectionLabel>{t("Workspace")}</SectionLabel> : null}
+        <div className={collapsed ? "flex flex-col items-center gap-0.5" : "space-y-0.5"}>
+          {workspaceNavigation.map((item) => (
+            <NavigationLink
+              key={item.to}
+              item={item}
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+            />
+          ))}
+          <ReportsNavigation
+            collapsed={collapsed}
+            reportsOpen={reportsOpen}
+            onReportsOpenChange={onReportsOpenChange}
+            onNavigate={onNavigate}
+          />
+        </div>
 
-      {!collapsed ? <SectionLabel>{t("Manage")}</SectionLabel> : null}
-      <div
-        className={`${collapsed ? "mt-3 flex flex-col items-center gap-0.5 pt-3" : "space-y-0.5"}`}
-      >
-        {managementNavigation.map((item) => (
-          <NavigationLink key={item.to} item={item} collapsed={collapsed} onNavigate={onNavigate} />
-        ))}
-      </div>
-    </nav>
+        {!collapsed ? <SectionLabel>{t("Manage")}</SectionLabel> : null}
+        <div
+          className={`${collapsed ? "mt-3 flex flex-col items-center gap-0.5 pt-3" : "space-y-0.5"}`}
+        >
+          {managementNavigation.map((item) => (
+            <NavigationLink
+              key={item.to}
+              item={item}
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
+      </nav>
+    </ScrollShadow>
   );
 }

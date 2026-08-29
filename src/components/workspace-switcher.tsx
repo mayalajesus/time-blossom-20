@@ -1,4 +1,4 @@
-import { Button, Card, Description, Dropdown, Label, Modal, toast } from "@heroui/react";
+import { Button, Card, Description, Dropdown, Modal, Typography, toast } from "@heroui/react";
 import { Check, ChevronDown, Layers3 } from "lucide-react";
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -12,20 +12,30 @@ function WorkspaceItem({ workspace, active }: { workspace: WorkspaceSummary; act
       id={workspace.id}
       textValue={`${workspace.name} ${workspace.ownerName} ${workspace.role}`}
       aria-current={active ? "true" : undefined}
+      className="min-h-10 px-2.5 py-1"
     >
-      <span aria-hidden="true">
-        <Layers3 className="size-4" />
+      <span aria-hidden="true" className="flex size-4 shrink-0 items-center justify-center">
+        <Layers3 className="size-3.5" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate">{workspace.name}</span>
+          <Typography
+            type="body-sm"
+            weight={active ? "semibold" : "medium"}
+            truncate
+            className="min-w-0 flex-1"
+          >
+            {workspace.name}
+          </Typography>
           {workspace.status === "archived" ? (
-            <span className="shrink-0">{t("Archived")}</span>
+            <Typography type="body-xs" color="muted" className="shrink-0">
+              {t("Archived")}
+            </Typography>
           ) : null}
         </span>
-        <span className="block truncate">
+        <Typography type="body-xs" color="muted" truncate>
           {workspace.isOwned ? t("Owned by you") : workspace.ownerName} · {t(workspace.role)}
-        </span>
+        </Typography>
       </span>
       {active ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}
     </Dropdown.Item>
@@ -82,13 +92,17 @@ export function WorkspaceSwitcher({
   const pendingWorkspace = workspaces.find((workspace) => workspace.id === pendingWorkspaceId);
   const triggerContent = (
     <>
-      <span aria-hidden="true">
+      <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center">
         <Layers3 className="size-4" />
       </span>
       {!collapsed ? (
-        <span className="min-w-0 flex-1">
-          <span>{currentSummary.name}</span>
-          <span>{t(currentSummary.role)}</span>
+        <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+          <Typography type="body-sm" weight="semibold" truncate className="min-w-0 flex-1">
+            {currentSummary.name}
+          </Typography>
+          <Typography type="body-xs" color="muted" truncate className="min-w-0">
+            {t(currentSummary.role)}
+          </Typography>
         </span>
       ) : null}
       {!collapsed ? <ChevronDown aria-hidden="true" className="size-4 shrink-0" /> : null}
@@ -99,8 +113,15 @@ export function WorkspaceSwitcher({
     <Dropdown.Menu aria-label={t("Workspaces")} onAction={(key) => requestSwitch(String(key))}>
       {own.length > 0 ? (
         <Dropdown.Section aria-label={t("Your workspaces")}>
-          <Dropdown.Item id="owned-heading" isDisabled textValue={t("Your workspaces")}>
-            <Label>{t("Your workspaces")}</Label>
+          <Dropdown.Item
+            id="owned-heading"
+            isDisabled
+            textValue={t("Your workspaces")}
+            className="min-h-7 px-2.5 py-1"
+          >
+            <Typography type="body-xs" color="muted" weight="semibold">
+              {t("Your workspaces")}
+            </Typography>
           </Dropdown.Item>
           {own.map((workspace) => (
             <WorkspaceItem
@@ -113,8 +134,15 @@ export function WorkspaceSwitcher({
       ) : null}
       {shared.length > 0 ? (
         <Dropdown.Section aria-label={t("Shared with you")}>
-          <Dropdown.Item id="shared-heading" isDisabled textValue={t("Shared with you")}>
-            <Label>{t("Shared with you")}</Label>
+          <Dropdown.Item
+            id="shared-heading"
+            isDisabled
+            textValue={t("Shared with you")}
+            className="min-h-7 px-2.5 py-1"
+          >
+            <Typography type="body-xs" color="muted" weight="semibold">
+              {t("Shared with you")}
+            </Typography>
           </Dropdown.Item>
           {shared.map((workspace) => (
             <WorkspaceItem
@@ -130,14 +158,14 @@ export function WorkspaceSwitcher({
 
   return (
     <>
-      <Card variant="secondary" className="p-1">
+      <Card variant="secondary" className="w-full p-0.5">
         <Dropdown>
           <Dropdown.Trigger
             aria-label={t("Switch workspace")}
             className={
               collapsed
                 ? "flex h-10 w-10 items-center justify-center p-0"
-                : "flex min-w-0 items-center gap-2"
+                : "flex min-w-0 w-full items-center gap-2 px-2 py-1"
             }
           >
             {triggerContent}
@@ -149,7 +177,7 @@ export function WorkspaceSwitcher({
             shouldFlip
             containerPadding={12}
             offset={8}
-            className="max-w-[calc(100vw-1rem)]"
+            className="min-w-64 max-w-[calc(100vw-1rem)]"
           >
             {workspaceMenu}
           </Dropdown.Popover>
