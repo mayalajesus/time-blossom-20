@@ -40,6 +40,15 @@ system before they can track time.
   live clock without adding a secondary status strip. Use min-width
   constraints and shrink-safe controls to preserve the toolbar's geometry
   across viewport sizes.
+- Billable uses a compact icon-only HeroUI ToggleButton in the composer. Its
+  selected state uses the system's success-soft green and its resting state is
+  neutral, creating a quiet visual association without adding a text label to
+  the toolbar. It shares the same height and baseline as the timer actions; no
+  vertical Switch or isolated control row is used in this toolbar. The
+  accessible label remains available to assistive technology.
+- On smaller screens, clock, timer actions and Billable travel as one compact
+  control group and wrap only between those controls when the available width
+  requires it; Task and Project keep their own full-width priority rows.
 - Follow the familiar time-tracker hierarchy: composer, week total, then one
   aligned flat table with task, project/client, start, end, date, duration and
   quick actions. The date belongs in the Date column, not in repeated row

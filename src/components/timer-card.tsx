@@ -1,5 +1,5 @@
-import { Button, Input, Label, Switch, TextField } from "@heroui/react";
-import { Pause, Play, Square } from "lucide-react";
+import { Button, Input, Label, TextField, ToggleButton } from "@heroui/react";
+import { CircleDollarSign, Pause, Play, Square } from "lucide-react";
 import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { ProjectSelect } from "@/components/project-select";
@@ -38,7 +38,7 @@ export function TimerCard() {
 
   return (
     <div className="rounded-xl border border-default bg-surface p-3 sm:p-4">
-      <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(10rem,13rem)_auto_auto_auto] lg:items-center">
+      <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_minmax(10rem,13rem)_auto_auto_auto] lg:items-center">
         <TextField
           className="min-w-0 sm:col-span-2 lg:col-span-1"
           fullWidth
@@ -94,81 +94,82 @@ export function TimerCard() {
           />
         </div>
 
-        <span className="min-w-0 whitespace-nowrap font-mono text-2xl tabular-nums text-foreground sm:justify-self-end lg:col-span-1 lg:justify-self-end">
-          {formatClock(elapsed)}
-        </span>
-        <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:col-span-2 sm:justify-end lg:col-span-1 lg:justify-end">
-          {timer.status === "idle" ? (
-            <Button
-              aria-label={t("Start")}
-              isIconOnly
-              className="size-9 min-w-9 shrink-0"
-              size="sm"
-              onPress={() => {
-                const result = startTimer(task, projectId, billable);
-                setTimerError(result.success ? null : result.error);
-              }}
-            >
-              <Play aria-hidden="true" className="size-4" />
-            </Button>
-          ) : (
-            <>
-              {timer.status === "running" ? (
-                <Button
-                  aria-label={t("Pause")}
-                  isIconOnly
-                  className="size-9 min-w-9 shrink-0"
-                  size="sm"
-                  variant="secondary"
-                  onPress={pauseTimer}
-                >
-                  <Pause aria-hidden="true" className="size-4" />
-                </Button>
-              ) : (
-                <Button
-                  aria-label={t("Resume")}
-                  isIconOnly
-                  className="size-9 min-w-9 shrink-0"
-                  size="sm"
-                  variant="secondary"
-                  onPress={resumeTimer}
-                >
-                  <Play aria-hidden="true" className="size-4" />
-                </Button>
-              )}
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:col-span-2 lg:contents">
+          <span className="min-w-[7.5ch] shrink-0 whitespace-nowrap font-mono text-2xl tabular-nums text-foreground sm:ml-auto lg:col-span-1 lg:ml-0 lg:justify-self-end">
+            {formatClock(elapsed)}
+          </span>
+          <div className="flex min-w-0 shrink-0 items-center gap-1.5 lg:col-span-1 lg:justify-self-end">
+            {timer.status === "idle" ? (
               <Button
-                aria-label={t("Stop")}
+                aria-label={t("Start")}
                 isIconOnly
                 className="size-9 min-w-9 shrink-0"
                 size="sm"
                 onPress={() => {
-                  stopTimer();
-                  setTask("");
-                  setActiveTask("");
-                  setProjectId(null);
+                  const result = startTimer(task, projectId, billable);
+                  setTimerError(result.success ? null : result.error);
                 }}
               >
-                <Square aria-hidden="true" className="size-4" />
+                <Play aria-hidden="true" className="size-4" />
               </Button>
-            </>
-          )}
-        </div>
+            ) : (
+              <>
+                {timer.status === "running" ? (
+                  <Button
+                    aria-label={t("Pause")}
+                    isIconOnly
+                    className="size-9 min-w-9 shrink-0"
+                    size="sm"
+                    variant="secondary"
+                    onPress={pauseTimer}
+                  >
+                    <Pause aria-hidden="true" className="size-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    aria-label={t("Resume")}
+                    isIconOnly
+                    className="size-9 min-w-9 shrink-0"
+                    size="sm"
+                    variant="secondary"
+                    onPress={resumeTimer}
+                  >
+                    <Play aria-hidden="true" className="size-4" />
+                  </Button>
+                )}
+                <Button
+                  aria-label={t("Stop")}
+                  isIconOnly
+                  className="size-9 min-w-9 shrink-0"
+                  size="sm"
+                  onPress={() => {
+                    stopTimer();
+                    setTask("");
+                    setActiveTask("");
+                    setProjectId(null);
+                  }}
+                >
+                  <Square aria-hidden="true" className="size-4" />
+                </Button>
+              </>
+            )}
+          </div>
 
-        <Switch
-          className="min-w-0 shrink-0 sm:col-span-2 lg:col-span-1 lg:justify-self-end"
-          isSelected={active ? timer.billable : billable}
-          onChange={(selected: boolean) => {
-            if (active) updateActiveTimer({ billable: selected });
-            else setBillable(selected);
-          }}
-        >
-          <Switch.Control>
-            <Switch.Thumb />
-          </Switch.Control>
-          <Switch.Content>
-            <Label>{t("Billable")}</Label>
-          </Switch.Content>
-        </Switch>
+          <ToggleButton
+            aria-label={t("Billable")}
+            className="size-9 min-w-9 shrink-0 data-[selected=true]:bg-success-soft data-[selected=true]:text-success-soft-foreground lg:col-span-1 lg:justify-self-end"
+            isIconOnly
+            isSelected={active ? timer.billable : billable}
+            size="md"
+            variant="default"
+            onChange={(selected: boolean) => {
+              if (active) updateActiveTimer({ billable: selected });
+              else setBillable(selected);
+            }}
+          >
+            <CircleDollarSign aria-hidden="true" className="size-4" />
+          </ToggleButton>
+        </div>
       </div>
 
       {timerError ? (
