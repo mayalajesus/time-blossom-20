@@ -261,8 +261,6 @@ const ptBR: Record<string, string> = {
   "Account settings saved": "Configurações da conta salvas",
   Password: "Senha",
   "Confirm password": "Confirmar senha",
-  "Password changes are simulated in this local preview because no authentication service is connected.":
-    "As alterações de senha são simuladas neste preview local porque não há um serviço de autenticação conectado.",
   "Could not save account": "Não foi possível salvar a conta",
   "The current account could not be loaded.": "Não foi possível carregar a conta atual.",
   "Defaults shared by everyone in the workspace.": "Padrões compartilhados por todos no workspace.",
@@ -292,10 +290,9 @@ const ptBR: Record<string, string> = {
   "Choose the language for your account.": "Escolha o idioma da sua conta.",
   "Preferences saved": "Preferências salvas",
   "Could not save personal preferences": "Não foi possível salvar as preferências pessoais",
-  "Preview identity": "Identidade de preview",
-  "Local-only preview control; it does not represent real authentication.":
-    "Controle local de preview; não representa uma autenticação real.",
-  "Could not change preview identity": "Não foi possível alterar a identidade de preview",
+  "Switch account": "Alternar conta",
+  "Choose the account to use.": "Escolha a conta que será usada.",
+  "Could not switch account": "Não foi possível alternar a conta",
   "Workspace settings are managed by Admins and the Owner.":
     "As configurações do workspace são gerenciadas por Administradores e pelo Proprietário.",
   "This page didn't load": "Esta página não carregou",
@@ -315,11 +312,11 @@ const ptBR: Record<string, string> = {
   "Choose a valid default billability setting.":
     "Escolha uma configuração válida de faturamento padrão.",
   "Choose a valid week start.": "Escolha um início de semana válido.",
-  "Choose an active preview identity.": "Escolha uma identidade de preview ativa.",
-  "Stop the active timer before changing preview identity.":
-    "Pare o cronômetro ativo antes de alterar a identidade de preview.",
-  "Preview identity could not be saved locally.":
-    "Não foi possível salvar a identidade de preview localmente.",
+  "Choose an active account.": "Escolha uma conta ativa.",
+  "Choose an active account in this workspace.": "Escolha uma conta ativa neste workspace.",
+  "Stop the active timer before changing accounts.":
+    "Pare o cronômetro ativo antes de trocar de conta.",
+  "Account selection could not be saved.": "Não foi possível salvar a seleção da conta.",
   "Stop the active timer before adding time manually.":
     "Pare o cronômetro ativo antes de adicionar horas manualmente.",
   "Stop the active timer before starting another one.":
@@ -423,13 +420,12 @@ const ptBR: Record<string, string> = {
   "Sign out": "Sair da conta",
   "Could not sign out: {error}": "Não foi possível sair da conta: {error}",
   "You are signed out": "Você saiu da conta",
-  "Choose a preview identity to continue.": "Escolha uma identidade de preview para continuar.",
-  "Could not resume preview": "Não foi possível retomar o preview",
-  "Continue to preview": "Continuar para o preview",
-  "No active preview identities.": "Não há identidades de preview ativas.",
-  "Sign in to change the preview identity.":
-    "Entre novamente para alterar a identidade de preview.",
-  "The session could not be ended locally.": "Não foi possível encerrar a sessão localmente.",
+  "Choose an account to continue.": "Escolha uma conta para continuar.",
+  "Could not continue": "Não foi possível continuar",
+  Continue: "Continuar",
+  "No accounts available.": "Nenhuma conta disponível.",
+  "Sign in to change accounts.": "Entre novamente para alternar de conta.",
+  "The session could not be ended.": "Não foi possível encerrar a sessão.",
   Collapse: "Recolher",
   Expand: "Expandir",
   "Report views": "Visualizações do relatório",
@@ -645,8 +641,7 @@ const ptBR: Record<string, string> = {
   "Filter and understand tracked time.": "Filtre e entenda as horas registradas.",
   "Connect Time Blossom to Trello and sync cards into tracked tasks.":
     "Conecte o Time Blossom ao Trello e sincronize cartões como tarefas registradas.",
-  "Simulated Trello sync for your time tracking.":
-    "Sincronização simulada do Trello para seu controle de tempo.",
+  "Trello sync for your time tracking.": "Sincronização do Trello para seu controle de tempo.",
   "Workspace settings and personal preferences.":
     "Configurações do workspace e preferências pessoais.",
   "Configure your Time Blossom workspace.": "Configure seu workspace do Time Blossom.",
@@ -738,8 +733,6 @@ const ptBR: Record<string, string> = {
   "Access your time tracking workspace.": "Acesse seu workspace de controle de tempo.",
   "Start a focused workspace for your team.": "Comece um workspace focado para sua equipe.",
   "Authentication failed": "Falha na autenticação",
-  "Authentication is not configured; use the local preview.":
-    "A autenticação não está configurada; use o preview local.",
   "Forgot password?": "Esqueceu a senha?",
   "Signing in…": "Entrando…",
   "Continue with Google": "Continuar com Google",
@@ -779,8 +772,7 @@ const ptBR: Record<string, string> = {
   "This invitation belongs to a different email address.":
     "Este convite pertence a outro endereço de e-mail.",
   "You already have access to this workspace.": "Você já tem acesso a este workspace.",
-  "Authentication is not configured for this environment.":
-    "A autenticação não está configurada neste ambiente.",
+  "Authentication is currently unavailable.": "A autenticação está indisponível no momento.",
   "Invalid invitation details.": "Os dados do convite são inválidos.",
   "Your session is not valid.": "Sua sessão não é válida.",
 };

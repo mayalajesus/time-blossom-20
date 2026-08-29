@@ -1,7 +1,7 @@
 import { Button } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { AuthPage, ContinuePreviewButton } from "@/components/auth-page";
+import { AuthPage, ContinueToWorkspaceButton } from "@/components/auth-page";
 import { FormAlert } from "@/components/form-feedback";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
@@ -44,7 +44,7 @@ function InviteAcceptPage() {
       title={t("Workspace invitation")}
       description={t("Accept your invitation to collaborate on tracked time.")}
     >
-      {!configured ? <ContinuePreviewButton /> : null}
+      {!configured ? <ContinueToWorkspaceButton /> : null}
       {configured && errorMessage ? (
         <FormAlert title={t("Could not accept invitation")} description={t(errorMessage)} />
       ) : null}

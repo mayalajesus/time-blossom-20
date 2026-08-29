@@ -9,9 +9,7 @@ function getError(error: AuthError | null): AuthResult<never> | null {
 }
 
 function requireClient(): AuthResult<never> | null {
-  return supabase
-    ? null
-    : { success: false, error: "Authentication is not configured for this environment." };
+  return supabase ? null : { success: false, error: "Authentication is currently unavailable." };
 }
 
 export async function signInWithPassword(

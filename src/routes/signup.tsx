@@ -1,12 +1,12 @@
 import { Button } from "@heroui/react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   AuthError,
   AuthField,
   AuthFooter,
   AuthPage,
-  LocalPreviewNotice,
+  ContinueToWorkspaceButton,
 } from "@/components/auth-page";
 import { signUpWithPassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
@@ -18,7 +18,6 @@ export const Route = createFileRoute("/signup")({ component: SignupPage });
 function SignupPage() {
   const { configured } = useAuth();
   const { t } = useI18n();
-  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -51,7 +50,6 @@ function SignupPage() {
     <AuthPage
       title={t("Create your account")}
       description={t("Start a focused workspace for your team.")}
-      notice={<LocalPreviewNotice />}
     >
       <AuthError message={error} />
       {created ? (
@@ -101,9 +99,7 @@ function SignupPage() {
           <AuthFooter prompt={t("Already have an account?")} to="/login" action={t("Sign in")} />
         </form>
       ) : (
-        <Button className="w-full" onPress={() => navigate({ to: "/tracker" })}>
-          {t("Continue to preview")}
-        </Button>
+        <ContinueToWorkspaceButton />
       )}
     </AuthPage>
   );

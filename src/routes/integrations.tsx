@@ -16,7 +16,7 @@ export const Route = createFileRoute("/integrations")({
         content: "Connect Time Blossom to Trello and sync cards into tracked tasks.",
       },
       { property: "og:title", content: "Integrations — Time Blossom" },
-      { property: "og:description", content: "Simulated Trello sync for your time tracking." },
+      { property: "og:description", content: "Trello sync for your time tracking." },
     ],
   }),
   component: IntegrationsPage,

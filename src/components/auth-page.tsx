@@ -1,20 +1,17 @@
-import { Button, Card, Description, Label } from "@heroui/react";
+import { Button, Card, Label } from "@heroui/react";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { FormAlert } from "@/components/form-feedback";
-import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
 
 export function AuthPage({
   title,
   description,
   children,
-  notice,
 }: {
   title: string;
   description: string;
   children: ReactNode;
-  notice?: ReactNode;
 }) {
   return (
     <main className="auth-page min-h-screen bg-background px-4 py-10 text-foreground sm:px-6">
@@ -29,10 +26,7 @@ export function AuthPage({
           <p className="mt-2 text-sm text-muted">{description}</p>
         </div>
         <Card>
-          <Card.Content className="space-y-5 p-5 sm:p-6">
-            {notice}
-            {children}
-          </Card.Content>
+          <Card.Content className="space-y-5 p-5 sm:p-6">{children}</Card.Content>
         </Card>
       </section>
     </main>
@@ -99,18 +93,11 @@ export function AuthFooter({
   );
 }
 
-export function LocalPreviewNotice() {
-  const { configured } = useAuth();
-  const { t } = useI18n();
-  if (configured) return null;
-  return <Description>{t("Authentication is not configured; use the local preview.")}</Description>;
-}
-
-export function ContinuePreviewButton() {
+export function ContinueToWorkspaceButton() {
   const { t } = useI18n();
   return (
     <Button className="w-full" onPress={() => (window.location.href = "/tracker")}>
-      {t("Continue to preview")}
+      {t("Continue")}
     </Button>
   );
 }

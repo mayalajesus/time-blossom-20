@@ -1504,7 +1504,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const setUserPreferences = (patch: Partial<UserPreferences>): StoreResult => {
       if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active")
-        return { success: false, error: "Choose an active preview identity." };
+        return { success: false, error: "Choose an active account." };
       const next = { ...preferences, ...patch };
       if (
         typeof next.reminders !== "boolean" ||
@@ -1525,7 +1525,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const updateCurrentMemberEmail = (email: string): StoreResult => {
       if (!currentMember || currentMember.status !== "active")
-        return { success: false, error: "Choose an active preview identity." };
+        return { success: false, error: "Choose an active account." };
       const normalizedEmail = email.trim().toLowerCase();
       if (!inviteEmailPattern.test(normalizedEmail))
         return { success: false, error: "Enter a valid email address." };
@@ -1599,7 +1599,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const createWorkspace = (name: string): StoreResult => {
       if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active")
-        return { success: false, error: "Choose an active preview identity." };
+        return { success: false, error: "Choose an active account." };
       if (timerRef.current.status !== "idle")
         return {
           success: false,
@@ -1826,10 +1826,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const member = members.find(
         (candidate) => candidate.id === memberId && candidate.status === "active",
       );
-      if (!member)
-        return { success: false, error: "Choose an active preview identity in this workspace." };
+      if (!member) return { success: false, error: "Choose an active account in this workspace." };
       if (timerRef.current.status !== "idle")
-        return { success: false, error: "Stop the active timer before changing preview identity." };
+        return { success: false, error: "Stop the active timer before changing accounts." };
       try {
         window.localStorage.setItem(ACTIVE_MEMBER_STORAGE_KEY, memberId);
       } catch {
@@ -1859,9 +1858,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const member = members.find(
         (candidate) => candidate.id === memberId && candidate.status === "active",
       );
-      if (!member) return { success: false, error: "Choose an active preview identity." };
+      if (!member) return { success: false, error: "Choose an active account." };
       if (timerRef.current.status !== "idle")
-        return { success: false, error: "Stop the active timer before changing preview identity." };
+        return { success: false, error: "Stop the active timer before changing accounts." };
       try {
         window.localStorage.setItem(ACTIVE_MEMBER_STORAGE_KEY, memberId);
         window.localStorage.removeItem(SESSION_STORAGE_KEY);

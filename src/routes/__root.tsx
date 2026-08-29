@@ -179,7 +179,7 @@ function RootOutlet() {
         "/integrations": {
           title: `${t("Integrations")} — Time Blossom`,
           description: t("Connect Time Blossom to Trello and sync cards into tracked tasks."),
-          ogDescription: t("Simulated Trello sync for your time tracking."),
+          ogDescription: t("Trello sync for your time tracking."),
         },
         "/settings": {
           title: `${t("Settings")} — Time Blossom`,

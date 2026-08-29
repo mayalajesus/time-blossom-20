@@ -6,8 +6,7 @@ import {
   AuthField,
   AuthFooter,
   AuthPage,
-  ContinuePreviewButton,
-  LocalPreviewNotice,
+  ContinueToWorkspaceButton,
 } from "@/components/auth-page";
 import { signInWithGoogle, signInWithPassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
@@ -50,11 +49,7 @@ function LoginPage() {
   };
 
   return (
-    <AuthPage
-      title={t("Sign in")}
-      description={t("Access your time tracking workspace.")}
-      notice={<LocalPreviewNotice />}
-    >
+    <AuthPage title={t("Sign in")} description={t("Access your time tracking workspace.")}>
       <AuthError message={error} />
       {configured ? (
         <>
@@ -108,7 +103,7 @@ function LoginPage() {
           />
         </>
       ) : (
-        <ContinuePreviewButton />
+        <ContinueToWorkspaceButton />
       )}
     </AuthPage>
   );

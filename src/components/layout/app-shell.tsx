@@ -281,7 +281,7 @@ function SignedOutScreen() {
   );
   const [sessionError, setSessionError] = useState<string | null>(null);
 
-  const continuePreview = () => {
+  const continueAccount = () => {
     const result = resumeSession(memberId);
     if (!result.success) {
       setSessionError(result.error);
@@ -297,20 +297,20 @@ function SignedOutScreen() {
           <Clock aria-hidden="true" className="size-6" />
         </div>
         <h1 className="mt-4 text-xl font-semibold">{t("You are signed out")}</h1>
-        <p className="mt-2 text-sm text-muted">{t("Choose a preview identity to continue.")}</p>
+        <p className="mt-2 text-sm text-muted">{t("Choose an account to continue.")}</p>
 
         {sessionError ? (
           <div className="mt-5 text-left">
-            <FormAlert title={t("Could not resume preview")} description={error(sessionError)} />
+            <FormAlert title={t("Could not continue")} description={error(sessionError)} />
           </div>
         ) : null}
 
         {activeMembers.length > 0 ? (
           <div className="mt-5 space-y-4 text-left">
             <div className="flex flex-col gap-2">
-              <Label>{t("Preview identity")}</Label>
+              <Label>{t("Account")}</Label>
               <Select
-                aria-label={t("Preview identity")}
+                aria-label={t("Account")}
                 value={memberId}
                 onChange={(key) => {
                   setMemberId(String(key ?? ""));
@@ -336,12 +336,12 @@ function SignedOutScreen() {
                 </Select.Popover>
               </Select>
             </div>
-            <Button className="w-full" onPress={continuePreview} isDisabled={!memberId}>
-              {t("Continue to preview")}
+            <Button className="w-full" onPress={continueAccount} isDisabled={!memberId}>
+              {t("Continue")}
             </Button>
           </div>
         ) : (
-          <p className="mt-5 text-sm text-muted">{t("No active preview identities.")}</p>
+          <p className="mt-5 text-sm text-muted">{t("No accounts available.")}</p>
         )}
       </section>
     </main>

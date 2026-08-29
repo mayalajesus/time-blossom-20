@@ -46,7 +46,7 @@ function SettingsPage() {
   const dataSource = useMemo(() => createSupabaseDataSource(), []);
   const { t, error } = useI18n();
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
-  const [identityError, setIdentityError] = useState<string | null>(null);
+  const [accountSwitchError, setAccountSwitchError] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState(
     session?.user.email ?? currentMember?.email ?? "",
   );
@@ -108,12 +108,13 @@ function SettingsPage() {
     toast(translate("Preferences saved", locale));
   };
 
-  const changeIdentity = (memberId: string) => {
+  const changeAccount = (memberId: string) => {
     const result = setActiveMember(memberId);
     if (!result.success) {
-      setIdentityError(result.error);
+      setAccountSwitchError(result.error);
       return;
     }
+    setAccountSwitchError(null);
     window.location.reload();
   };
 
@@ -328,12 +329,6 @@ function SettingsPage() {
               }}
             />
           </div>
-          <Description>
-            {t(
-              "Password changes are simulated in this local preview because no authentication service is connected.",
-            )}
-          </Description>
-
           <div className="flex justify-end border-t border-default pt-4">
             <Button type="submit" isDisabled={!(accountEmail || currentMember.email).trim()}>
               {t("Save account")}
@@ -435,21 +430,19 @@ function SettingsPage() {
 
       <div className="space-y-3 rounded-2xl border border-default bg-surface p-5">
         <div>
-          <h2 className="font-medium text-foreground">{t("Preview identity")}</h2>
-          <p className="mt-1 text-sm text-muted">
-            {t("Local-only preview control; it does not represent real authentication.")}
-          </p>
+          <h2 className="font-medium text-foreground">{t("Switch account")}</h2>
+          <p className="mt-1 text-sm text-muted">{t("Choose the account to use.")}</p>
         </div>
-        {identityError ? (
+        {accountSwitchError ? (
           <FormAlert
-            title={t("Could not change preview identity")}
-            description={error(identityError)}
+            title={t("Could not switch account")}
+            description={error(accountSwitchError)}
           />
         ) : null}
         <Select
-          aria-label={t("Preview identity")}
+          aria-label={t("Account")}
           value={currentMember?.id ?? ""}
-          onChange={(key) => changeIdentity(String(key ?? ""))}
+          onChange={(key) => changeAccount(String(key ?? ""))}
         >
           <Select.Trigger>
             <Select.Value />

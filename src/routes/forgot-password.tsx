@@ -6,7 +6,7 @@ import {
   AuthField,
   AuthFooter,
   AuthPage,
-  LocalPreviewNotice,
+  ContinueToWorkspaceButton,
 } from "@/components/auth-page";
 import { requestPasswordReset } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
@@ -40,7 +40,6 @@ function ForgotPasswordPage() {
     <AuthPage
       title={t("Reset your password")}
       description={t("We will send a secure reset link to your email.")}
-      notice={<LocalPreviewNotice />}
     >
       <AuthError message={error} />
       {sent ? (
@@ -68,9 +67,7 @@ function ForgotPasswordPage() {
           <AuthFooter prompt={t("Remember your password?")} to="/login" action={t("Sign in")} />
         </form>
       ) : (
-        <Button className="w-full" onPress={() => navigate({ to: "/tracker" })}>
-          {t("Continue to preview")}
-        </Button>
+        <ContinueToWorkspaceButton />
       )}
     </AuthPage>
   );
