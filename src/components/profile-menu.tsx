@@ -1,4 +1,4 @@
-import { Description, Dropdown, Label, toast } from "@heroui/react";
+import { Description, Dropdown, Label, toast, Typography } from "@heroui/react";
 import { useNavigate } from "@tanstack/react-router";
 import { Layers3, LogOut, Settings, SlidersHorizontal } from "lucide-react";
 import { ProfileAvatar } from "@/components/profile-avatar";
@@ -57,8 +57,14 @@ export function ProfileMenu({
         <ProfileAvatar member={currentMember} avatarUrl={preferences.avatarUrl} />
         {showName ? (
           <span className="min-w-0 truncate">
-            <span className="block truncate">{currentMember.name}</span>
-            {showRole ? <span className="block truncate">{t(currentMember.role)}</span> : null}
+            <Typography type="body-sm" weight="semibold" truncate>
+              {currentMember.name}
+            </Typography>
+            {showRole ? (
+              <Typography type="body-xs" color="muted" truncate>
+                {t(currentMember.role)}
+              </Typography>
+            ) : null}
           </span>
         ) : null}
       </Dropdown.Trigger>
@@ -67,8 +73,12 @@ export function ProfileMenu({
         className="w-64 max-w-[calc(100vw-1.5rem)] p-1"
       >
         <div className="px-3 py-2">
-          <p className="truncate">{currentMember.name}</p>
-          <p className="truncate">{currentMember.email}</p>
+          <Typography type="body-sm" weight="semibold" truncate>
+            {currentMember.name}
+          </Typography>
+          <Typography type="body-xs" color="muted" truncate>
+            {currentMember.email}
+          </Typography>
           <Description className="mt-1">{t(currentMember.role)}</Description>
         </div>
         <Dropdown.Menu onAction={(key) => handleAction(String(key))}>

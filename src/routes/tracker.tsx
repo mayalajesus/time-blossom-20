@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { LogTimeModal } from "@/components/log-time-modal";
 import { PageHeader } from "@/components/page-header";
 import { EmptyBlock, TableSkeleton } from "@/components/states";
-import { TimerCard } from "@/components/timer-card";
+import { TrackerBar } from "@/components/tracker-bar";
 import { TrackerEntries } from "@/components/tracker-entries";
 import { TrackerPeriodFilter } from "@/components/tracker-period-filter";
 import {
@@ -81,7 +81,7 @@ function TrackerPage() {
     <div className="space-y-7">
       <PageHeader title={t("Tracker")} description={formatLongDate(today, locale)} />
 
-      <TimerCard />
+      <TrackerBar />
 
       <section className="space-y-4" aria-labelledby="tracker-period-heading">
         <div className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">

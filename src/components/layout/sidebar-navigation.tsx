@@ -1,5 +1,5 @@
-import { Button, Popover } from "@heroui/react";
-import { useLocation } from "@tanstack/react-router";
+import { Button, Popover, Separator, Typography } from "@heroui/react";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
   BarChart3,
   Building2,
@@ -13,7 +13,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
-import { RouterLink } from "@/components/router-link";
 
 type NavigationItem = {
   to: string;
@@ -55,7 +54,11 @@ function isNavigationItemActive(pathname: string, item: NavigationItem) {
 }
 
 function SectionLabel({ children }: { children: string }) {
-  return <div className="px-3 pb-1 pt-2">{children}</div>;
+  return (
+    <Typography type="body-xs" color="muted" weight="semibold" className="px-3 pb-1 pt-3">
+      {children}
+    </Typography>
+  );
 }
 
 function NavigationLink({
@@ -69,23 +72,39 @@ function NavigationLink({
 }) {
   const { t } = useI18n();
   const location = useLocation();
+  const navigate = useNavigate();
   const active = isNavigationItemActive(location.pathname, item);
 
   return (
-    <RouterLink
-      to={item.to}
+    <Button
       aria-current={active ? "page" : undefined}
-      className={`flex min-w-0 items-center gap-3 px-3 py-2.5 ${
-        collapsed ? "w-10 justify-center px-2.5" : ""
-      }`}
-      {...(collapsed ? { "aria-label": t(item.label) } : {})}
-      {...(onNavigate ? { onClick: () => onNavigate() } : {})}
+      aria-label={collapsed ? t(item.label) : undefined}
+      isIconOnly={collapsed}
+      variant={active ? "secondary" : "ghost"}
+      className={
+        collapsed
+          ? "mx-auto block h-10 min-h-10 w-10 px-2.5 py-0"
+          : "h-10 min-h-10 w-full justify-start gap-3 px-3 py-0"
+      }
+      onPress={() => {
+        void navigate({ to: item.to });
+        onNavigate?.();
+      }}
     >
       <span className="flex size-5 shrink-0 items-center justify-center">
         <item.icon aria-hidden="true" className="size-4" />
       </span>
-      {!collapsed ? <span className="min-w-0 truncate">{t(item.label)}</span> : null}
-    </RouterLink>
+      {!collapsed ? (
+        <Typography
+          type="body-sm"
+          weight={active ? "semibold" : "medium"}
+          truncate
+          className="min-w-0 flex-1 text-left"
+        >
+          {t(item.label)}
+        </Typography>
+      ) : null}
+    </Button>
   );
 }
 
@@ -102,6 +121,7 @@ function ReportsNavigation({
 }) {
   const { t } = useI18n();
   const location = useLocation();
+  const navigate = useNavigate();
   const reportsActive = location.pathname === "/reports";
   const activeReportView = getReportView(location.search);
 
@@ -110,16 +130,24 @@ function ReportsNavigation({
       {reportViews.map((view) => {
         const active = reportsActive && activeReportView === view.id;
         return (
-          <RouterLink
+          <Button
             key={view.id}
-            to="/reports"
-            search={{ view: view.id }}
             aria-current={active ? "page" : undefined}
-            className="block px-3 py-2"
-            {...(onNavigate ? { onClick: () => onNavigate() } : {})}
+            variant={active ? "secondary" : "ghost"}
+            className="h-10 min-h-10 w-full justify-start px-3 py-0"
+            onPress={() => {
+              void navigate({ to: "/reports", search: { view: view.id } });
+              onNavigate?.();
+            }}
           >
-            {t(view.label)}
-          </RouterLink>
+            <Typography
+              type="body-sm"
+              weight={active ? "semibold" : "medium"}
+              className="min-w-0 flex-1 text-left"
+            >
+              {t(view.label)}
+            </Typography>
+          </Button>
         );
       })}
     </nav>
@@ -165,7 +193,14 @@ function ReportsNavigation({
         <span className="flex size-5 shrink-0 items-center justify-center">
           <BarChart3 aria-hidden="true" className="size-4" />
         </span>
-        <span className="min-w-0 flex-1 truncate text-left">{t("Reports")}</span>
+        <Typography
+          type="body-sm"
+          weight={reportsActive ? "semibold" : "medium"}
+          truncate
+          className="min-w-0 flex-1 text-left"
+        >
+          {t("Reports")}
+        </Typography>
         {reportsOpen ? (
           <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
         ) : (
@@ -173,8 +208,9 @@ function ReportsNavigation({
         )}
       </Button>
       {reportsOpen ? (
-        <div id="reports-submenu-expanded" className="ml-6 mt-1 pl-2">
-          {reportLinks}
+        <div id="reports-submenu-expanded" className="ml-6 mt-1 flex gap-2 pl-2">
+          <Separator orientation="vertical" />
+          <div className="min-w-0 flex-1">{reportLinks}</div>
         </div>
       ) : null}
     </div>
