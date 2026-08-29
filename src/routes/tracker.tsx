@@ -83,7 +83,7 @@ function TrackerPage() {
 
       <TrackerBar />
 
-      <section className="space-y-4" aria-labelledby="tracker-period-heading">
+      <section className="space-y-4" aria-label={t("Tracking period")}>
         <div className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-1">
             <Button
@@ -97,19 +97,14 @@ function TrackerPage() {
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <Typography
-              type="h2"
-              weight="semibold"
-              id="tracker-period-heading"
-              className="min-w-0 px-1"
-            >
+            <div className="min-w-0 px-1">
               <TrackerPeriodFilter
                 period={period}
                 today={today}
                 weekStartsOn={weekStartsOn}
                 onChange={setPeriod}
               />
-            </Typography>
+            </div>
             <Button
               isIconOnly
               aria-label={t("Next {unit}", {
