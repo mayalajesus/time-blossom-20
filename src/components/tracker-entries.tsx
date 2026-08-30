@@ -565,10 +565,10 @@ function TrackerGroupSummaryRow({
             <Button
               size="sm"
               variant="ghost"
-              className="inline-flex h-8 min-h-8 min-w-0 max-w-full justify-start px-1 py-1 text-left"
               aria-label={toggleLabel}
               aria-expanded={isExpanded}
               data-tracker-group-toggle
+              className="inline-flex h-8 min-h-8 min-w-0 max-w-full justify-start px-1 py-1 text-left font-semibold"
               {...(group.entries[0]
                 ? { "aria-controls": trackerEntryRowKey(group, group.entries[0], 0) }
                 : {})}
@@ -581,7 +581,7 @@ function TrackerGroupSummaryRow({
                 <ChevronDown className="ml-1 size-4 shrink-0" aria-hidden="true" />
               )}
             </Button>
-            <span className="truncate pl-1">
+            <span className="truncate pl-1 font-normal">
               {t(group.entries.length === 1 ? "{count} entry" : "{count} entries", {
                 count: group.entries.length,
               })}
@@ -592,8 +592,8 @@ function TrackerGroupSummaryRow({
       <Table.Cell className={`${summaryCellClass} p-0`}>
         <Surface variant={summarySurfaceVariant} className="flex min-h-20 items-center px-4 py-3">
           <span className="flex min-w-0 flex-col">
-            <span className={summaryTextClass}>{projectName}</span>
-            <span className={summaryTextClass}>{clientName}</span>
+            <span className={`${summaryTextClass} font-medium`}>{projectName}</span>
+            <span className={`${summaryTextClass} text-xs font-light`}>{clientName}</span>
           </span>
         </Surface>
       </Table.Cell>
@@ -1197,11 +1197,11 @@ function TrackerEntryRow({
   const cellButtonClass =
     "inline-flex min-w-0 max-w-full truncate whitespace-nowrap px-1 py-1 text-left";
   const descriptionButtonClass =
-    "inline-flex min-w-0 max-w-full truncate whitespace-nowrap px-0 py-1 text-left";
+    "inline-flex min-w-0 max-w-full truncate whitespace-nowrap px-0 py-0 text-left text-xs font-light";
   const taskButtonClass =
-    "inline-flex min-w-0 max-w-full flex-[0_1_auto] items-center justify-start px-0 py-1 text-left whitespace-nowrap";
+    "inline-flex h-5 min-h-5 min-w-0 max-w-full flex-[0_1_auto] items-center justify-start px-0 py-0 text-left whitespace-nowrap font-semibold";
   const projectButtonClass =
-    "inline-flex h-auto min-h-8 w-full min-w-0 items-start justify-center px-1 py-1 text-left";
+    "inline-flex h-auto min-h-8 w-full min-w-0 items-start justify-center px-1 py-1 text-left font-medium";
   const timeSlotClass =
     "inline-flex h-8 w-[5.75rem] min-w-[5.75rem] shrink-0 items-center justify-center px-1 whitespace-nowrap";
   const compactInputClass = "h-8 min-h-8 px-2 py-1";
@@ -1214,29 +1214,91 @@ function TrackerEntryRow({
       onHoverChange={setIsHovered}
     >
       <Table.Cell className={`${trackerCellClass} min-w-0 ${isGroupedChild ? "pl-8" : ""}`.trim()}>
-        <div className="flex min-w-0 items-center gap-2">
-          {activeField === "task" ? (
-            <div className="flex min-w-0 flex-1 items-start gap-1">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            {activeField === "task" ? (
+              <div className="flex min-w-0 flex-1 items-start gap-1">
+                <TextField
+                  className="min-w-0 flex-1"
+                  fullWidth
+                  name={`task-${entry.id}`}
+                  value={draft.task}
+                  isInvalid={Boolean(validationMessage)}
+                  onChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      task: value,
+                    }))
+                  }
+                >
+                  <Label className="sr-only">{t("Task")}</Label>
+                  <Input
+                    ref={focusRef}
+                    className={compactInputClass}
+                    data-tracker-editor="true"
+                    onBlur={(event) => handleEditorBlur(event.currentTarget.value)}
+                    onKeyDown={(event) => handleTextKeyDown(event, "task")}
+                  />
+                  <FieldError className="sr-only">{validationMessage}</FieldError>
+                </TextField>
+                <InlineValidationTooltip
+                  label={t("Show validation error")}
+                  message={validationMessage}
+                />
+              </div>
+            ) : (
+              <div className="min-w-0 flex-[0_1_auto]">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  fullWidth
+                  className={taskButtonClass}
+                  data-tracker-field="task"
+                  onPress={() => onActivate("task")}
+                >
+                  <span className="truncate">{entry.task}</span>
+                </Button>
+              </div>
+            )}
+            <Button
+              isIconOnly
+              size="sm"
+              variant="ghost"
+              aria-label={t("Billable: {value}", {
+                value: entry.billable ? t("yes") : t("no"),
+              })}
+              aria-pressed={entry.billable}
+              data-tracker-field="billable"
+              className="size-4 min-w-4 p-0"
+              onPress={() => {
+                const next = !entry.billable;
+                if (commitField("billable", next)) onDeactivate();
+              }}
+            />
+          </div>
+          {activeField === "description" ? (
+            <div className="flex min-w-0 items-start gap-1">
               <TextField
                 className="min-w-0 flex-1"
                 fullWidth
-                name={`task-${entry.id}`}
-                value={draft.task}
+                name={`description-${entry.id}`}
+                value={draft.description}
                 isInvalid={Boolean(validationMessage)}
                 onChange={(value) =>
                   setDraft((current) => ({
                     ...current,
-                    task: value,
+                    description: value,
                   }))
                 }
               >
-                <Label className="sr-only">{t("Task")}</Label>
+                <Label className="sr-only">{t("Description")}</Label>
                 <Input
                   ref={focusRef}
                   className={compactInputClass}
                   data-tracker-editor="true"
+                  placeholder={t("Add a note")}
                   onBlur={(event) => handleEditorBlur(event.currentTarget.value)}
-                  onKeyDown={(event) => handleTextKeyDown(event, "task")}
+                  onKeyDown={(event) => handleTextKeyDown(event, "description")}
                 />
                 <FieldError className="sr-only">{validationMessage}</FieldError>
               </TextField>
@@ -1246,79 +1308,19 @@ function TrackerEntryRow({
               />
             </div>
           ) : (
-            <div className="min-w-0 flex-[0_1_auto]">
-              <Button
-                size="sm"
-                variant="ghost"
-                fullWidth
-                className={taskButtonClass}
-                data-tracker-field="task"
-                onPress={() => onActivate("task")}
-              >
-                <span className="truncate">{entry.task}</span>
-              </Button>
-            </div>
-          )}
-          <Button
-            isIconOnly
-            size="sm"
-            variant="ghost"
-            aria-label={t("Billable: {value}", {
-              value: entry.billable ? t("yes") : t("no"),
-            })}
-            aria-pressed={entry.billable}
-            data-tracker-field="billable"
-            className="size-4 min-w-4 p-0"
-            onPress={() => {
-              const next = !entry.billable;
-              if (commitField("billable", next)) onDeactivate();
-            }}
-          />
-        </div>
-        {activeField === "description" ? (
-          <div className="flex min-w-0 items-start gap-1">
-            <TextField
-              className="min-w-0 flex-1"
+            <Button
+              size="sm"
+              variant="ghost"
               fullWidth
-              name={`description-${entry.id}`}
-              value={draft.description}
-              isInvalid={Boolean(validationMessage)}
-              onChange={(value) =>
-                setDraft((current) => ({
-                  ...current,
-                  description: value,
-                }))
-              }
+              aria-label={t(entry.description ? "Edit description" : "Add description")}
+              className={`${descriptionButtonClass} h-5 min-h-5 justify-start`}
+              data-tracker-field="description"
+              onPress={() => onActivate("description")}
             >
-              <Label className="sr-only">{t("Description")}</Label>
-              <Input
-                ref={focusRef}
-                className={compactInputClass}
-                data-tracker-editor="true"
-                placeholder={t("Add a note")}
-                onBlur={(event) => handleEditorBlur(event.currentTarget.value)}
-                onKeyDown={(event) => handleTextKeyDown(event, "description")}
-              />
-              <FieldError className="sr-only">{validationMessage}</FieldError>
-            </TextField>
-            <InlineValidationTooltip
-              label={t("Show validation error")}
-              message={validationMessage}
-            />
-          </div>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            fullWidth
-            aria-label={t(entry.description ? "Edit description" : "Add description")}
-            className={`${descriptionButtonClass} mt-0.5 h-6 min-h-6 justify-start`}
-            data-tracker-field="description"
-            onPress={() => onActivate("description")}
-          >
-            {entry.description || "·"}
-          </Button>
-        )}
+              {entry.description || "·"}
+            </Button>
+          )}
+        </div>
       </Table.Cell>
 
       <Table.Cell className={trackerCellClass}>
@@ -1347,8 +1349,8 @@ function TrackerEntryRow({
             onPress={() => onActivate("project")}
           >
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="block w-full min-w-0 truncate">{projectName}</span>
-              <span className="block w-full min-w-0 truncate">{clientName}</span>
+              <span className="block w-full min-w-0 truncate font-medium">{projectName}</span>
+              <span className="block w-full min-w-0 truncate text-xs font-light">{clientName}</span>
             </span>
           </Button>
         )}
