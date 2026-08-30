@@ -97,7 +97,7 @@ function SettingsPage() {
     {
       key: "idleDetection" as const,
       title: "Idle detection",
-      hint: "Pause the timer after long inactivity.",
+      hint: "Ask whether to pause the timer after long inactivity.",
     },
   ];
 

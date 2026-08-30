@@ -863,6 +863,19 @@ export function elapsedForTimer(timer: TimerState, now = Date.now()): number {
   return Math.max(0, timer.accumulated + Math.floor((now - timer.startedAt) / 1000));
 }
 
+export function pauseTimerAt(timer: TimerState, effectiveAt = Date.now()): TimerState {
+  if (timer.status !== "running") return timer;
+  const now = Date.now();
+  const requestedAt = Number.isFinite(effectiveAt) ? effectiveAt : now;
+  const pauseAt = Math.max(timer.startedAt ?? requestedAt, Math.min(requestedAt, now));
+  return {
+    ...timer,
+    status: "paused",
+    accumulated: elapsedForTimer(timer, pauseAt),
+    startedAt: null,
+  };
+}
+
 type TimeIntervalEntry = Pick<
   TimeEntry,
   "date" | "start" | "seconds" | "startTimestamp" | "userId"
@@ -951,7 +964,7 @@ interface StoreValue {
     billable?: boolean;
   }) => StoreResult;
   setTimerElapsed: (seconds: number) => StoreResult;
-  pauseTimer: () => void;
+  pauseTimer: (effectiveAt?: number) => void;
   resumeTimer: () => void;
   stopTimer: () => StoreResult;
   addEntry: (entry: Omit<TimeEntry, "id">, options?: AddEntryOptions) => StoreResult;
@@ -1268,15 +1281,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { success: true };
     };
 
-    const pauseTimer = () => {
+    const pauseTimer = (effectiveAt?: number) => {
       const current = timerRef.current;
       if (current.status !== "running") return;
-      const next = {
-        ...current,
-        status: "paused" as const,
-        accumulated: elapsedForTimer(current),
-        startedAt: null,
-      };
+      const next = pauseTimerAt(current, effectiveAt);
       timerRef.current = next;
       setElapsed(next.accumulated);
       setTimer(next);

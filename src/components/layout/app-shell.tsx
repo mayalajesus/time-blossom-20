@@ -22,6 +22,7 @@ import { Bars, ChevronDown, Clock, LayoutSideContentLeft } from "@gravity-ui/ico
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { CommandMenu } from "@/components/command-menu";
 import { HeaderTimerControl } from "@/components/header-timer-control";
+import { IdleDetectionPrompt } from "@/components/idle-detection-prompt";
 import { LogTimeModal } from "@/components/log-time-modal";
 import { ProfileMenu } from "@/components/profile-menu";
 import { FormAlert } from "@/components/form-feedback";
@@ -133,6 +134,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
 
   return (
     <>
+      <IdleDetectionPrompt />
       <Link className="sr-only" href="#main-content">
         {t("Skip to content")}
       </Link>

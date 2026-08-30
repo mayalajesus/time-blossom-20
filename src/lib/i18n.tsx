@@ -305,8 +305,12 @@ const ptBR: Record<string, string> = {
   "Weekly digest": "Resumo semanal",
   "Email me a summary every Monday.": "Envie um resumo por e-mail toda segunda-feira.",
   "Idle detection": "Detecção de inatividade",
-  "Pause the timer after long inactivity.":
-    "Pausa o cronômetro após um longo período de inatividade.",
+  "Ask whether to pause the timer after long inactivity.":
+    "Pergunte se o timer deve ser pausado após um longo período de inatividade.",
+  "You were inactive. Would you like to pause the timer?":
+    "Você ficou inativo. Deseja pausar o timer?",
+  "Pause timer": "Pausar timer",
+  "Continue working": "Continuar trabalhando",
   Language: "Idioma",
   "Choose the language for your account.": "Escolha o idioma da sua conta.",
   "Preferences saved": "Preferências salvas",
