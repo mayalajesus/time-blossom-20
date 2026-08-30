@@ -45,17 +45,17 @@ export function EmptyBlock({
   action?: ReactNode;
 }) {
   return (
-    <Card className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-      <div className="flex size-11 items-center justify-center">{icon}</div>
-      <div className="space-y-1">
+    <Card className="flex min-h-56 w-full flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+      <div className="flex size-11 shrink-0 items-center justify-center">{icon}</div>
+      <div className="flex w-full max-w-sm flex-col items-center gap-1 text-center">
         <Typography type="body-sm" weight="semibold">
           {title}
         </Typography>
-        <Typography type="body-sm" color="muted" className="max-w-sm">
+        <Typography type="body-sm" color="muted" className="w-full text-center">
           {description}
         </Typography>
       </div>
-      {action}
+      {action ? <div className="flex w-full justify-center">{action}</div> : null}
     </Card>
   );
 }

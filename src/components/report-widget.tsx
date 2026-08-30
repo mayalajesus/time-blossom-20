@@ -36,7 +36,7 @@ const widgetWidthClassNames: Record<ReportWidgetWidth, string> = {
 function WidgetMessage({ message }: { message: ReportWidgetMessage }) {
   return (
     <div
-      className="flex min-h-36 flex-col items-center justify-center gap-2 px-4 py-6 text-center"
+      className="flex min-h-36 w-full flex-col items-center justify-center gap-2 px-4 py-6 text-center"
       role="status"
     >
       <Typography type="body-sm" weight="semibold">
