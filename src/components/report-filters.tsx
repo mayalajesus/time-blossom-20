@@ -1,19 +1,22 @@
 import {
+  Autocomplete,
   Button,
   ButtonGroup,
-  Description,
   DateField,
   DateRangePicker,
+  EmptyState,
   I18nProvider,
   Input,
   InputGroup,
   Label,
   ListBox,
   RangeCalendar,
+  SearchField,
   Select,
   TextField,
   Toolbar,
   Typography,
+  useFilter,
 } from "@heroui/react";
 import {
   ArrowRotateLeft,
@@ -41,7 +44,6 @@ import { useI18n } from "@/lib/i18n";
 import {
   formatReportPeriod,
   getReportPeriodRange,
-  normalizeSearch,
   reportPeriodPresets,
   type DateRange,
   type ReportPeriodPreset,
@@ -198,100 +200,61 @@ function ReportMultiSelect({
   className?: string;
 }) {
   const { t } = useI18n();
-  const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const searchRef = useRef<HTMLInputElement | null>(null);
-  const normalizedQuery = normalizeSearch(query);
-  const filteredOptions = useMemo(
-    () =>
-      normalizedQuery
-        ? options.filter((option) =>
-            normalizeSearch(`${option.label} ${option.description ?? ""}`).includes(
-              normalizedQuery,
-            ),
-          )
-        : options,
-    [normalizedQuery, options],
-  );
-
-  useEffect(() => {
-    if (!isOpen) {
-      setQuery("");
-      return;
-    }
-
-    const frame = window.requestAnimationFrame(() => searchRef.current?.focus());
-    return () => window.cancelAnimationFrame(frame);
-  }, [isOpen]);
+  const { contains } = useFilter({ sensitivity: "base" });
 
   return (
-    <Select<object, "multiple">
+    <Autocomplete<ReportFilterOption, "multiple">
       variant="primary"
       {...(className ? { className } : {})}
       aria-label={t("{label} filter", { label })}
       selectionMode="multiple"
       value={values}
-      isOpen={isOpen}
-      onOpenChange={(nextIsOpen) => {
-        setIsOpen(nextIsOpen);
-        if (!nextIsOpen) setQuery("");
-      }}
       onChange={(keys) => {
-        const visibleIds = new Set(filteredOptions.map((option) => option.id));
         const selectedVisibleIds = keys.map(String);
-        onChange(values.filter((value) => !visibleIds.has(value)).concat(selectedVisibleIds));
+        onChange(selectedVisibleIds);
       }}
     >
-      <Select.Trigger className="w-full min-w-0 items-center gap-2">
+      <Autocomplete.Trigger className="w-full min-w-0 items-center gap-2">
         <ReportFilterIcon>{icon}</ReportFilterIcon>
-        <Select.Value className="min-w-0 truncate">
+        <Autocomplete.Value className="min-w-0 truncate">
           {() => <ReportFilterValue>{selectedLabel(options, values, label)}</ReportFilterValue>}
-        </Select.Value>
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover>
-        <div className="flex min-w-0 flex-col gap-2">
-          <TextField
+        </Autocomplete.Value>
+        <Autocomplete.Indicator />
+      </Autocomplete.Trigger>
+      <Autocomplete.Popover className="w-64 max-w-[calc(100vw-2rem)] min-w-0">
+        <Autocomplete.Filter filter={contains}>
+          <SearchField
+            autoFocus
+            aria-label={t("Search {label} options", { label: label.toLowerCase() })}
             name={`report-${label.toLowerCase()}-search`}
-            value={query}
-            onChange={setQuery}
+            variant="secondary"
           >
-            <Label className="sr-only">
-              {t("Search {label} options", { label: label.toLowerCase() })}
-            </Label>
-            <Input
-              ref={searchRef}
-              placeholder={t("Search {label}...", { label: label.toLowerCase() })}
-              onKeyDown={(event) => {
-                if (event.key !== "Escape") event.stopPropagation();
-              }}
-            />
-          </TextField>
-          <div className="max-h-64 overflow-y-auto">
-            <ListBox aria-label={t("{label} options", { label })}>
-              {filteredOptions.map((option) => (
-                <ListBox.Item
-                  key={option.id}
-                  id={option.id}
-                  textValue={`${option.label} ${option.description ?? ""}`}
-                >
-                  <div className="flex min-w-0 flex-col">
-                    <Label>{option.label}</Label>
-                    {option.description ? <Description>{option.description}</Description> : null}
-                  </div>
-                  <ListBox.ItemIndicator />
-                </ListBox.Item>
-              ))}
-              {filteredOptions.length === 0 ? (
-                <ListBox.Item id="no-results" isDisabled textValue={t("No results")}>
-                  <Description>{t("No results")}</Description>
-                </ListBox.Item>
-              ) : null}
-            </ListBox>
-          </div>
-        </div>
-      </Select.Popover>
-    </Select>
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input
+                placeholder={t("Search {label}...", { label: label.toLowerCase() })}
+              />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
+          <ListBox
+            aria-label={t("{label} options", { label })}
+            renderEmptyState={() => <EmptyState>{t("No results")}</EmptyState>}
+          >
+            {options.map((option) => (
+              <ListBox.Item
+                key={option.id}
+                id={option.id}
+                textValue={`${option.label} ${option.description ?? ""}`}
+              >
+                {option.label}
+                <ListBox.ItemIndicator />
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </Autocomplete.Filter>
+      </Autocomplete.Popover>
+    </Autocomplete>
   );
 }
 
