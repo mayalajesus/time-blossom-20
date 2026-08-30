@@ -17,6 +17,17 @@ body {
   overflow-x: hidden;
 }
 
+html {
+  font-size: 100%;
+}
+
+/* Keep the desktop density compact without changing the browser viewport. */
+@media (min-width: 1024px) and (max-width: 1920px) {
+  html {
+    font-size: 90%;
+  }
+}
+
 #root {
   min-height: 100vh;
 }

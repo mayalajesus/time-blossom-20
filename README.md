@@ -40,6 +40,18 @@ bun run lint
 bun run build
 ```
 
+## Responsive desktop density
+
+The app does not use CSS `zoom`. On desktop viewports from 1024px through
+1920px, `src/styles.css` sets the document root font size to 90%. This keeps
+the rem-based HeroUI and layout dimensions compact while preserving the
+browser viewport, fixed positioning and overlay behavior.
+
+Viewports below 1024px and above 1920px use the default 100% root font size.
+The rule is based on the browser's CSS viewport, not the physical screen size;
+the resulting density can therefore also depend on the operating system's
+display scaling.
+
 ## Project structure
 
 - `src/routes` contains file-based routes.
