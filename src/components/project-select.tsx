@@ -11,6 +11,7 @@ export interface ProjectSelectProps {
   includeAll?: boolean;
   allowArchivedId?: string | null;
   ariaLabel: string;
+  variant?: "primary" | "secondary";
 }
 
 function normalizeSearch(value: string): string {
@@ -27,6 +28,7 @@ export function ProjectSelect({
   includeAll = false,
   allowArchivedId = null,
   ariaLabel,
+  variant = "primary",
 }: ProjectSelectProps) {
   const { projects, clients, canTrackProject } = useStore();
   const { t } = useI18n();
@@ -68,6 +70,7 @@ export function ProjectSelect({
       aria-label={ariaLabel}
       data-project-select
       fullWidth
+      variant={variant}
       value={value}
       onChange={(key) => onChange(key === null ? "none" : String(key))}
       isOpen={isOpen}

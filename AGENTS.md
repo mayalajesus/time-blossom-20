@@ -56,6 +56,9 @@ such as `node_modules`, `dist`, `.output` or `.wrangler`.
   responsive behavior. Do not use visual utility classes such as `bg-*`,
   `text-*`, `border-*`, `ring-*`, `shadow-*`, `rounded-*`, `font-*`,
   `leading-*`, `hover:*`, `focus:*`, `transition-*` or animation classes.
+  The documented HeroUI radius utilities `rounded-field`, `rounded-lg` and
+  `rounded-xl` are allowed only when an official component composition must
+  share the documented HeroUI example radius; do not use custom radius values.
   The official `bg-background` utility is allowed only on the root `Surface` so
   the app canvas follows the documented HeroUI background token.
 - Do not use `style`, CSS modules, custom visual CSS selectors or arbitrary

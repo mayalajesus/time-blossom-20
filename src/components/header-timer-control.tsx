@@ -1,18 +1,15 @@
-import { Button, toast } from "@heroui/react";
-import { Pause, Play } from "lucide-react";
+import { toast } from "@heroui/react";
 import { formatClock } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
+import { TimerActionButton } from "@/components/timer-action-button";
 
 export function HeaderTimerControl() {
   const { timer, elapsed, startTimer, pauseTimer, resumeTimer } = useStore();
   const { t, error } = useI18n();
 
-  const isRunning = timer.status === "running";
-  const actionLabel = isRunning ? t("Pause") : timer.status === "paused" ? t("Resume") : t("Start");
-
   const handleAction = () => {
-    if (isRunning) {
+    if (timer.status === "running") {
       pauseTimer();
       return;
     }
@@ -37,19 +34,7 @@ export function HeaderTimerControl() {
       >
         {formatClock(elapsed)}
       </span>
-      <Button
-        aria-label={actionLabel}
-        isIconOnly
-        size="sm"
-        variant={isRunning ? "secondary" : "primary"}
-        onPress={handleAction}
-      >
-        {isRunning ? (
-          <Pause aria-hidden="true" className="size-4" />
-        ) : (
-          <Play aria-hidden="true" className="size-4" />
-        )}
-      </Button>
+      <TimerActionButton status={timer.status} onPress={handleAction} />
     </div>
   );
 }

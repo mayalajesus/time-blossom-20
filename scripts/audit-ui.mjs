@@ -17,7 +17,7 @@ const legacyImports = [
   "vaul",
 ];
 const forbiddenVisualClasses =
-  /\b(?:bg|border|ring|shadow|rounded|font|leading|tracking|hover|focus|transition|animate|backdrop|opacity|divide|decoration|fill|stroke|outline|text)-(?!center\b|left\b|right\b|start\b|end\b|wrap\b|nowrap\b)/;
+  /\b(?!rounded-(?:field|lg|xl)\b)(?:bg|border|ring|shadow|rounded|font|leading|tracking|hover|focus|transition|animate|backdrop|opacity|divide|decoration|fill|stroke|outline|text)-(?!center\b|left\b|right\b|start\b|end\b|wrap\b|nowrap\b)/;
 const appUiRoots = ["src/components/", "src/routes/", "src/main.tsx"];
 const approvedThemeVariables = new Set([
   "--accent",
