@@ -10,14 +10,14 @@ type BootCopy = {
 const bootCopy: Record<BootLocale, BootCopy> = {
   "en-US": {
     loading: "Loading Time Blossom…",
-    errorTitle: "Time Blossom could not load",
-    errorDescription: "Something went wrong while preparing the app. Try reloading the page.",
+    errorTitle: "We couldn't open Time Blossom",
+    errorDescription: "Try reloading the page. If the problem continues, check your connection.",
     retry: "Reload page",
   },
   "pt-BR": {
     loading: "Carregando o Time Blossom…",
-    errorTitle: "O Time Blossom não pôde carregar",
-    errorDescription: "Algo deu errado ao preparar o app. Tente recarregar a página.",
+    errorTitle: "Não conseguimos abrir o Time Blossom",
+    errorDescription: "Tente recarregar a página. Se o problema continuar, confira sua conexão.",
     retry: "Recarregar página",
   },
 };

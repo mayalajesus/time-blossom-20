@@ -191,7 +191,7 @@ export function TrackerBar() {
       </Card>
 
       {timerError ? (
-        <FormAlert title={t("Timer could not update")} description={error(timerError)} />
+        <FormAlert title={t("We couldn't update the timer")} description={error(timerError)} />
       ) : null}
     </div>
   );

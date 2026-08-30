@@ -74,9 +74,9 @@ export function ErrorBlock({
     <Alert status="danger">
       <Alert.Indicator />
       <Alert.Content>
-        <Alert.Title>{title ?? t("Something went wrong")}</Alert.Title>
+        <Alert.Title>{title ?? t("This section couldn't load")}</Alert.Title>
         <Alert.Description>
-          {description ?? t("We couldn't load this data. Check your connection and try again.")}
+          {description ?? t("Try again, or check your connection if the problem continues.")}
         </Alert.Description>
         {onRetry ? (
           <Button className="mt-3" size="sm" variant="secondary" onPress={onRetry}>

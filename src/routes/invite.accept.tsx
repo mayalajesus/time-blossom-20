@@ -46,7 +46,7 @@ function InviteAcceptPage() {
     >
       {!configured ? <ContinueToWorkspaceButton /> : null}
       {configured && errorMessage ? (
-        <FormAlert title={t("Could not accept invitation")} description={t(errorMessage)} />
+        <FormAlert title={t("We couldn't accept this invitation")} description={t(errorMessage)} />
       ) : null}
       {configured && accepted ? (
         <div className="space-y-4" role="status">

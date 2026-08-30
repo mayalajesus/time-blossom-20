@@ -21,7 +21,7 @@ export function HeaderTimerControl() {
 
     const result = startTimer("Quick task", null);
     if (!result.success) {
-      toast(t("Could not start timer"), { description: error(result.error) });
+      toast.danger(t("We couldn't start the timer"), { description: error(result.error) });
     }
   };
 

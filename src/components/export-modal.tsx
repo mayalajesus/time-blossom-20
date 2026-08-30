@@ -69,7 +69,7 @@ export function ExportModal({
                   }
                   setHasExported(true);
                   setExportError("");
-                  toast(t("Export complete"), {
+                  toast.success(t("Your export is ready"), {
                     description:
                       format === "pdf"
                         ? t("The PDF report has been downloaded.")
@@ -119,7 +119,7 @@ export function ExportModal({
                 {hasExported ? (
                   <FormAlert
                     status="success"
-                    title={t("Export prepared")}
+                    title={t("Your export is ready")}
                     description={
                       format === "pdf"
                         ? t(
@@ -132,7 +132,7 @@ export function ExportModal({
                 {exportError ? (
                   <FormAlert
                     status="danger"
-                    title={t("Export unavailable")}
+                    title={t("We couldn't prepare the export")}
                     description={exportError}
                   />
                 ) : null}

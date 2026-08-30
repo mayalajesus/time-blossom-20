@@ -111,7 +111,7 @@ function ProjectsPage() {
       setCreateError(error(result.error));
       return;
     }
-    toast(t("Project created"), { description: name.trim() });
+    toast.success(t("Project is ready"), { description: name.trim() });
     setName("");
     setClientId("");
     setProjectBillable(settings.defaultBillable);
@@ -127,7 +127,9 @@ function ProjectsPage() {
       return;
     }
     setStatusError(null);
-    toast(t(isActive ? "Project deactivated" : "Project activated"), { description: name });
+    toast.success(t(isActive ? "Project is on hold" : "Project is active again"), {
+      description: name,
+    });
   };
 
   const restoreProject = (project: Project) => {
@@ -137,7 +139,7 @@ function ProjectsPage() {
       return;
     }
     setStatusError(null);
-    toast(t("Project restored"), { description: project.name });
+    toast.success(t("Project is active again"), { description: project.name });
   };
 
   const toggleProjectBillable = (project: Project) => {
@@ -147,7 +149,7 @@ function ProjectsPage() {
       return;
     }
     setStatusError(null);
-    toast(t(project.billable ? "Project marked internal" : "Project marked billable"), {
+    toast.success(t(project.billable ? "Project is internal now" : "Project is billable now"), {
       description: project.name,
     });
   };
@@ -159,7 +161,7 @@ function ProjectsPage() {
       setStatusError(error(result.error));
       return;
     }
-    toast(t("Project archived"), { description: pendingArchive.name });
+    toast.success(t("Project archived"), { description: pendingArchive.name });
     setStatusError(null);
     setPendingArchive(null);
   };
@@ -171,7 +173,7 @@ function ProjectsPage() {
       setDeleteError(error(result.error));
       return;
     }
-    toast(t("Project deleted"), { description: pendingDelete.name });
+    toast.success(t("Project deleted"), { description: pendingDelete.name });
     setDeleteError(null);
     setPendingDelete(null);
   };
@@ -189,7 +191,7 @@ function ProjectsPage() {
       setMemberError(error(result.error));
       return;
     }
-    toast(t("Project members updated"), { description: pendingMembers.name });
+    toast.success(t("Project access updated"), { description: pendingMembers.name });
     setPendingMembers(null);
     setMemberError(null);
   };
@@ -247,7 +249,7 @@ function ProjectsPage() {
       />
 
       {statusError ? (
-        <FormAlert title={t("Could not update project")} description={statusError} />
+        <FormAlert title={t("We couldn't update this project")} description={statusError} />
       ) : null}
 
       {loading ? (
@@ -424,7 +426,10 @@ function ProjectsPage() {
               </Modal.Header>
               <Modal.Body className="flex flex-col gap-4">
                 {statusError ? (
-                  <FormAlert title={t("Could not archive project")} description={statusError} />
+                  <FormAlert
+                    title={t("We couldn't archive this project")}
+                    description={statusError}
+                  />
                 ) : null}
                 <Typography type="body-sm" color="muted">
                   {t(
@@ -470,7 +475,10 @@ function ProjectsPage() {
               </AlertDialog.Header>
               <AlertDialog.Body>
                 {deleteError ? (
-                  <FormAlert title={t("Could not delete project")} description={deleteError} />
+                  <FormAlert
+                    title={t("We couldn't delete this project")}
+                    description={deleteError}
+                  />
                 ) : null}
                 <Typography type="body-sm" color="muted">
                   {t(
@@ -509,7 +517,10 @@ function ProjectsPage() {
               >
                 <Modal.Body className="flex flex-col gap-4">
                   {createError ? (
-                    <FormAlert title={t("Could not create project")} description={createError} />
+                    <FormAlert
+                      title={t("We couldn't create this project")}
+                      description={createError}
+                    />
                   ) : null}
 
                   <TextField
@@ -638,7 +649,10 @@ function ProjectsPage() {
               </Modal.Header>
               <Modal.Body className="space-y-4">
                 {memberError ? (
-                  <FormAlert title={t("Could not update members")} description={memberError} />
+                  <FormAlert
+                    title={t("We couldn't update project access")}
+                    description={memberError}
+                  />
                 ) : null}
                 <Typography type="body-sm" color="muted">
                   {t("Select the active members who can track time on {name}.", {

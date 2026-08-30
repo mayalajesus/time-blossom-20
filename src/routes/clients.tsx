@@ -76,7 +76,7 @@ function ClientsPage() {
       setCreateError(error(result.error));
       return;
     }
-    toast(t("Client created"), { description: name.trim() });
+    toast.success(t("Client added"), { description: name.trim() });
     resetCreateForm();
     setNewOpen(false);
   };
@@ -88,7 +88,7 @@ function ClientsPage() {
       setDeleteError(error(result.error));
       return;
     }
-    toast(t("Client removed"), { description: pendingDelete.name });
+    toast.success(t("Client removed"), { description: pendingDelete.name });
     setPendingDelete(null);
     setDeleteError(null);
   };
@@ -198,7 +198,7 @@ function ClientsPage() {
               >
                 <Modal.Body className="flex flex-col gap-4">
                   {createError ? (
-                    <FormAlert title={t("Could not create client")} description={createError} />
+                    <FormAlert title={t("We couldn't add this client")} description={createError} />
                   ) : null}
 
                   <TextField
@@ -271,12 +271,15 @@ function ClientsPage() {
               </Modal.Header>
               <Modal.Body className="flex flex-col gap-4">
                 {deleteError ? (
-                  <FormAlert title={t("Could not delete client")} description={deleteError} />
+                  <FormAlert
+                    title={t("We couldn't delete this client")}
+                    description={deleteError}
+                  />
                 ) : null}
                 {pendingProjectCount > 0 ? (
                   <FormAlert
                     status="warning"
-                    title={t("Client cannot be deleted")}
+                    title={t("This client still has projects")}
                     description={t(
                       "{name} is connected to {count} project{suffix}. Remove or reassign those projects first.",
                       {

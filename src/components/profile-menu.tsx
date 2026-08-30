@@ -29,7 +29,7 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
     if (configured && session) {
       const remote = await dataSource.updatePreferences(session.user.id, { theme });
       if (!remote.success) {
-        toast(t("Could not save personal preferences"), {
+        toast.danger(t("We couldn't save your preferences"), {
           description: error(remote.error),
         });
         return;
@@ -38,7 +38,7 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
 
     const result = setUserPreferences({ theme });
     if (!result.success) {
-      toast(t("Could not save personal preferences"), {
+      toast.danger(t("We couldn't save your preferences"), {
         description: error(result.error),
       });
     }
@@ -52,7 +52,7 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
       case "sign-out": {
         const result = configured ? await signOutRemote() : signOut();
         if (!result.success) {
-          toast(t("Could not sign out: {error}", { error: error(result.error) }));
+          toast.danger(t("We couldn't sign you out: {error}", { error: error(result.error) }));
         } else {
           resetSessionDefaultAvatar();
           void navigate({ to: "/login", replace: true });

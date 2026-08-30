@@ -48,10 +48,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="max-w-md text-center">
         <Typography type="h1" weight="semibold">
-          {t("This page didn't load")}
+          {t("We couldn't load this page")}
         </Typography>
         <Typography type="body-sm" color="muted" className="mt-2">
-          {t("Something went wrong on our end. You can try refreshing or head back home.")}
+          {t("We couldn't load this page. Try again or go back to the home page.")}
         </Typography>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Button
@@ -123,7 +123,7 @@ function RootComponent() {
           </AppShell>
         </StoreProvider>
       </AuthProvider>
-      <Toast.Provider />
+      <Toast.Provider placement="top end" width={360} gap={8} maxVisibleToasts={3} />
     </QueryClientProvider>
   );
 }

@@ -95,7 +95,7 @@ function TeamPage() {
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
-    toast(t("Invitation prepared"), {
+    toast.info(t("Your invitation is ready"), {
       description: `${normalizedEmail} · ${role}`,
     });
     resetInviteForm();
@@ -105,10 +105,10 @@ function TeamPage() {
   const handleResend = (member: Member) => {
     const result = resendInvite(member.id);
     if (!result.success) {
-      toast(t("Could not refresh invitation"), { description: error(result.error) });
+      toast.danger(t("We couldn't refresh this invitation"), { description: error(result.error) });
       return;
     }
-    toast(t("Invitation refreshed"), { description: member.email });
+    toast.success(t("Invitation refreshed"), { description: member.email });
   };
 
   const confirmCancel = () => {
@@ -118,7 +118,7 @@ function TeamPage() {
       setCancelError(error(result.error));
       return;
     }
-    toast(t("Invitation canceled"), { description: pendingCancel.email });
+    toast.success(t("Invitation canceled"), { description: pendingCancel.email });
     setPendingCancel(null);
     setCancelError(null);
   };
@@ -126,10 +126,10 @@ function TeamPage() {
   const handleRestore = (member: Member) => {
     const result = restoreMember(member.id);
     if (!result.success) {
-      toast(t("Could not restore access"), { description: error(result.error) });
+      toast.danger(t("We couldn't restore access"), { description: error(result.error) });
       return;
     }
-    toast(t("Access restored"), { description: member.email });
+    toast.success(t("Access restored"), { description: member.email });
   };
 
   const confirmRemove = () => {
@@ -139,7 +139,7 @@ function TeamPage() {
       setRemoveError(error(result.error));
       return;
     }
-    toast(t("Member removed"), {
+    toast.success(t("Member removed"), {
       description: t("{email} no longer has access to the workspace.", {
         email: pendingRemove.email,
       }),
@@ -152,10 +152,10 @@ function TeamPage() {
     const nextRole: InviteRole = member.role === "Admin" ? "Member" : "Admin";
     const result = updateMemberRole(member.id, nextRole);
     if (!result.success) {
-      toast(t("Could not change role"), { description: error(result.error) });
+      toast.danger(t("We couldn't change that role"), { description: error(result.error) });
       return;
     }
-    toast(t("Role updated"), { description: `${member.name} · ${t(nextRole)}` });
+    toast.success(t("Role updated"), { description: `${member.name} · ${t(nextRole)}` });
   };
 
   return (
@@ -351,7 +351,7 @@ function TeamPage() {
                 <Modal.Body className="flex flex-col gap-4">
                   {inviteError ? (
                     <FormAlert
-                      title={t("Could not prepare invitation")}
+                      title={t("We couldn't prepare this invitation")}
                       description={inviteError}
                     />
                   ) : null}
@@ -448,7 +448,10 @@ function TeamPage() {
               </Modal.Header>
               <Modal.Body className="flex flex-col gap-4">
                 {cancelError ? (
-                  <FormAlert title={t("Could not cancel invitation")} description={cancelError} />
+                  <FormAlert
+                    title={t("We couldn't cancel this invitation")}
+                    description={cancelError}
+                  />
                 ) : null}
                 <Typography type="body-sm" color="muted">
                   {t("The pending invitation for {email} will be removed from the team list.", {
@@ -488,7 +491,10 @@ function TeamPage() {
               </Modal.Header>
               <Modal.Body className="flex flex-col gap-4">
                 {removeError ? (
-                  <FormAlert title={t("Could not remove member")} description={removeError} />
+                  <FormAlert
+                    title={t("We couldn't remove this member")}
+                    description={removeError}
+                  />
                 ) : null}
                 <Typography type="body-sm" color="muted">
                   {t(

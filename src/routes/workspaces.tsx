@@ -171,7 +171,7 @@ function WorkspacesPage() {
             ? "Choose a PNG, JPG or WebP logo."
             : reason.message === "size"
               ? "Workspace logos must be smaller than 500 KB."
-              : "The workspace logo could not be read.",
+              : t("The workspace logo couldn't be read. Try another image."),
         );
       });
   };
@@ -189,7 +189,7 @@ function WorkspacesPage() {
         return;
       }
     }
-    toast(t("Workspace created"), { description: name.trim() });
+    toast.success(t("Workspace created"), { description: name.trim() });
     setCreateOpen(false);
     resetForm();
     navigate({ to: "/tracker" });
@@ -211,7 +211,7 @@ function WorkspacesPage() {
       setFormError(error(result.error));
       return;
     }
-    toast(t("Workspace updated"), { description: name.trim() });
+    toast.success(t("Workspace updated"), { description: name.trim() });
     setEditWorkspace(null);
     resetForm();
   };
@@ -260,7 +260,7 @@ function WorkspacesPage() {
       setPageError(error(result.error));
       return;
     }
-    toast(
+    toast.success(
       t(
         confirmation.kind === "archive"
           ? "Workspace archived"
@@ -391,7 +391,10 @@ function WorkspacesPage() {
       />
 
       {pageError ? (
-        <FormAlert title={t("Workspace action unavailable")} description={pageError} />
+        <FormAlert
+          title={t("We couldn't complete that workspace action")}
+          description={pageError}
+        />
       ) : null}
 
       {workspaces.length > 0 ? (
@@ -603,7 +606,10 @@ function WorkspaceFormModal({
             >
               <Modal.Body className="space-y-5">
                 {errorMessage ? (
-                  <FormAlert title={t("Could not save workspace")} description={errorMessage} />
+                  <FormAlert
+                    title={t("We couldn't save this workspace")}
+                    description={errorMessage}
+                  />
                 ) : null}
                 <TextField
                   isRequired

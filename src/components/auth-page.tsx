@@ -91,7 +91,7 @@ export function AuthField({
 export function AuthError({ message }: { message: string | null }) {
   const { t, error } = useI18n();
   return message ? (
-    <FormAlert title={t("Authentication failed")} description={error(message)} />
+    <FormAlert title={t("We couldn't sign you in")} description={error(message)} />
   ) : null;
 }
 

@@ -125,7 +125,7 @@ function SettingsPage() {
     }
     setPreferenceError(null);
     const locale = patch.language ?? preferences.language;
-    toast(translate("Preferences saved", locale));
+    toast.success(translate("Your preferences are up to date", locale));
   };
 
   const savePhoto = async (file: File) => {
@@ -147,7 +147,7 @@ function SettingsPage() {
         return;
       }
       setAccountError(null);
-      toast(t("Profile photo updated"));
+      toast.success(t("Your profile photo is updated"));
     } catch (photoError) {
       const code = photoError instanceof Error ? photoError.message : "read";
       setAccountError(
@@ -155,7 +155,7 @@ function SettingsPage() {
           ? "Choose a JPG, PNG, WebP or GIF image."
           : code === "size"
             ? "Profile photos must be smaller than 1 MB."
-            : "The profile photo could not be read.",
+            : t("The profile photo couldn't be read. Try another image."),
       );
     }
   };
@@ -174,7 +174,7 @@ function SettingsPage() {
       return;
     }
     setAccountError(null);
-    toast(t("Profile photo removed"));
+    toast.success(t("Your profile photo was removed"));
   };
 
   const saveAccount = async () => {
@@ -248,7 +248,7 @@ function SettingsPage() {
     setAccountError(null);
     setPassword("");
     setPasswordConfirmation("");
-    toast(t("Account settings saved"));
+    toast.success(t("Your account is up to date"));
   };
 
   if (!currentMember) {
@@ -259,8 +259,8 @@ function SettingsPage() {
           description={t("Manage your account and personal preferences.")}
         />
         <FormAlert
-          title={t("Account")}
-          description={t("The current account could not be loaded.")}
+          title={t("We couldn't load your account")}
+          description={t("Your account details are unavailable right now. Try again shortly.")}
         />
       </div>
     );
@@ -284,7 +284,7 @@ function SettingsPage() {
         </div>
 
         {accountError ? (
-          <FormAlert title={t("Could not save account")} description={error(accountError)} />
+          <FormAlert title={t("We couldn't save your account")} description={error(accountError)} />
         ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
@@ -439,7 +439,7 @@ function SettingsPage() {
 
         {preferenceError ? (
           <FormAlert
-            title={t("Could not save personal preferences")}
+            title={t("We couldn't save your preferences")}
             description={error(preferenceError)}
           />
         ) : null}

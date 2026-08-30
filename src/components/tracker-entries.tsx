@@ -358,13 +358,15 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
     deleteEntry(deletedEntry.id);
     setPendingDelete(null);
     setActiveCell(null);
-    toast(t("Time entry deleted"), {
+    toast.info(t("Time entry moved to trash"), {
       actionProps: {
         children: t("Undo"),
         onPress: () => {
           const result = restoreEntry(deletedEntry);
           if (!result.success)
-            toast(t("Could not restore entry"), { description: error(result.error) });
+            toast.danger(t("We couldn't restore this time entry"), {
+              description: error(result.error),
+            });
         },
       },
       timeout: 20_000,
@@ -510,7 +512,8 @@ function TrackerGroupSummaryRow({
   const startAgain = () => {
     if (timer.status !== "idle") return;
     const result = startTimer(group.task, group.projectId, group.billable);
-    if (!result.success) toast(t("Could not start timer"), { description: error(result.error) });
+    if (!result.success)
+      toast.danger(t("We couldn't start the timer"), { description: error(result.error) });
   };
 
   const handleSummaryClick = (event: React.MouseEvent) => {
@@ -682,7 +685,7 @@ function TrackerEntryRow({
     setDraft(candidate);
     setValidationMessage(null);
     const durationSeconds = parseDurationInput(candidate.duration);
-    toast(t("Entry updated"), {
+    toast.success(t("Entry updated"), {
       description: `${candidate.task} · ${durationSeconds === null ? candidate.duration : formatDuration(durationSeconds, locale)}`,
     });
   };
@@ -932,7 +935,8 @@ function TrackerEntryRow({
   const startAgain = () => {
     if (timer.status !== "idle") return;
     const result = startTimer(entry.task, entry.projectId, entry.billable);
-    if (!result.success) toast(t("Could not start timer"), { description: error(result.error) });
+    if (!result.success)
+      toast.danger(t("We couldn't start the timer"), { description: error(result.error) });
   };
 
   const actionCell = (

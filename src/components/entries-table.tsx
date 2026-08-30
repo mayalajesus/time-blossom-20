@@ -29,7 +29,7 @@ export function EntriesTable({
     const deletedEntry = pendingDelete;
     deleteEntry(deletedEntry.id);
     setPendingDelete(null);
-    toast(t("Time entry deleted"), {
+    toast.info(t("Time entry moved to trash"), {
       description: `${deletedEntry.task} · ${formatDuration(deletedEntry.seconds, locale)}`,
       timeout: 20_000,
       actionProps: {
@@ -37,7 +37,9 @@ export function EntriesTable({
         onPress: () => {
           const result = restoreEntry(deletedEntry);
           if (!result.success)
-            toast(t("Could not restore entry"), { description: error(result.error) });
+            toast.danger(t("We couldn't restore this time entry"), {
+              description: error(result.error),
+            });
         },
       },
     });

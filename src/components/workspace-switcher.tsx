@@ -63,7 +63,7 @@ export function WorkspaceSwitcher({
   const shared = activeWorkspaces.filter((workspace) => !workspace.isOwned);
 
   const showResult = (result: ReturnType<typeof switchWorkspace>) => {
-    if (!result.success) toast(error(result.error));
+    if (!result.success) toast.danger(error(result.error));
   };
 
   const requestSwitch = (workspaceId: string) => {

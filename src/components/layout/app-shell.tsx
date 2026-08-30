@@ -322,7 +322,7 @@ function SignedOutScreen() {
 
         {sessionError ? (
           <div className="mt-5 text-left">
-            <FormAlert title={t("Could not continue")} description={error(sessionError)} />
+            <FormAlert title={t("We couldn't continue")} description={error(sessionError)} />
           </div>
         ) : null}
 

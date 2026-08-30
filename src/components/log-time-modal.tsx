@@ -155,7 +155,7 @@ export function LogTimeModal({
       setSaveError(result.error);
       return;
     }
-    toast(t(entry ? "Time entry updated" : "Time entry added"), {
+    toast.success(t(entry ? "Time entry updated" : "Time entry added"), {
       description: `${task.trim()} · ${formatDuration(entrySeconds, locale)}`,
     });
     setTask("");
@@ -187,11 +187,14 @@ export function LogTimeModal({
             >
               <Modal.Body className="min-h-0 flex-1 overflow-y-auto overscroll-contain flex flex-col gap-4">
                 {saveError ? (
-                  <FormAlert title={t("Could not save entry")} description={error(saveError)} />
+                  <FormAlert
+                    title={t("We couldn't save this time entry")}
+                    description={error(saveError)}
+                  />
                 ) : null}
                 {manualTimerError ? (
                   <FormAlert
-                    title={t("Manual entry unavailable")}
+                    title={t("We couldn't add this manual entry")}
                     description={t(manualTimerError)}
                   />
                 ) : null}

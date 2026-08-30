@@ -30,9 +30,16 @@ export function FormAlert({
 
   if (!isVisible) return null;
 
+  const liveRole = status === "danger" ? "alert" : "status";
+
   return (
     <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
-      <Alert role="alert" status={status} className="pointer-events-auto w-full max-w-xl">
+      <Alert
+        role={liveRole}
+        aria-live={liveRole === "alert" ? "assertive" : "polite"}
+        status={status}
+        className="pointer-events-auto w-full max-w-lg"
+      >
         <Alert.Indicator />
         <Alert.Content>
           <Alert.Title>{title}</Alert.Title>
