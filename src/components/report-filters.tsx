@@ -87,6 +87,8 @@ function ReportFilterIcon({
   children: ReactNode;
   slot?: string | null;
 }) {
+  if (slot === null) return <>{children}</>;
+
   return (
     <Typography
       slot={slot}

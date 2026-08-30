@@ -569,9 +569,9 @@ function TrackerGroupSummaryRow({
               aria-label={toggleLabel}
               aria-expanded={isExpanded}
               data-tracker-group-toggle
-              aria-controls={
-                group.entries[0] ? trackerEntryRowKey(group, group.entries[0], 0) : undefined
-              }
+              {...(group.entries[0]
+                ? { "aria-controls": trackerEntryRowKey(group, group.entries[0], 0) }
+                : {})}
               onPress={onToggle}
             >
               <span className="min-w-0 truncate">{group.task}</span>

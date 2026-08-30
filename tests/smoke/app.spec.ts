@@ -39,13 +39,13 @@ test("authentication routes reload into a structured page", async ({ page }) => 
 test("settings preserves language and theme controls", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Personal preferences" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Preferences", exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Light" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Dark" })).toBeVisible();
   await page.getByRole("tab", { name: "Dark" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expect
-    .poll(() => page.evaluate(() => window.localStorage.getItem("time-blossom:account:v10")))
+    .poll(() => page.evaluate(() => window.localStorage.getItem("time-blossom:account:v11")))
     .toContain('"theme":"dark"');
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);

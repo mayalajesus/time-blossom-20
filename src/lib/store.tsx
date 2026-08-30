@@ -840,8 +840,8 @@ function readActiveWorkspaceId(account: PersistedAccount, memberId: string): str
     try {
       const stored = window.localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
       const storedWorkspace = accessible.find((data) => data.workspace.id === stored);
-      if (storedWorkspace?.workspace.status === "active") return stored;
-      if (storedWorkspace && active.length === 0) return stored;
+      if (stored && storedWorkspace?.workspace.status === "active") return stored;
+      if (stored && storedWorkspace && active.length === 0) return stored;
       window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
     } catch {
       // First accessible workspace fallback.
@@ -1280,7 +1280,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...existing,
           workspaceId: activeWorkspaceId,
         })),
-        { excludeEntryId: excludedEntryId, timeZone: preferences.timezone },
+        {
+          ...(excludedEntryId ? { excludeEntryId: excludedEntryId } : {}),
+          timeZone: preferences.timezone,
+        },
       );
 
     const startTimer = (
@@ -1443,7 +1446,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       timerRef.current = initialTimer;
       setTimer(initialTimer);
       setElapsed(0);
-      return { success: true, ...(warning ? { warning, conflict } : {}) };
+      return {
+        success: true,
+        ...(warning && conflict ? { warning, conflict } : {}),
+      };
     };
 
     const addEntry = (entry: Omit<TimeEntry, "id">, options: AddEntryOptions = {}): StoreResult => {
@@ -1478,7 +1484,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         },
         ...list,
       ]);
-      return { success: true, ...(warning ? { warning, conflict } : {}) };
+      return {
+        success: true,
+        ...(warning && conflict ? { warning, conflict } : {}),
+      };
     };
 
     const updateEntry = (id: string, patch: Partial<Omit<TimeEntry, "id">>): StoreResult => {
@@ -1515,7 +1524,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ? "This time overlaps another entry. It was saved anyway."
         : undefined;
       setEntries((list) => list.map((entry) => (entry.id === id ? next : entry)));
-      return { success: true, ...(warning ? { warning, conflict } : {}) };
+      return {
+        success: true,
+        ...(warning && conflict ? { warning, conflict } : {}),
+      };
     };
 
     const deleteEntry = (id: string): StoreResult => {
@@ -1539,7 +1551,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ? "This time overlaps another entry. It was saved anyway."
         : undefined;
       setEntries((list) => [entry, ...list]);
-      return { success: true, ...(warning ? { warning, conflict } : {}) };
+      return {
+        success: true,
+        ...(warning && conflict ? { warning, conflict } : {}),
+      };
     };
 
     const addProject = (project: Omit<Project, "id">): StoreResult => {
