@@ -321,8 +321,8 @@ function ProjectsPage() {
                           : {
                               id: "archive",
                               label: t("Archive project"),
-                              icon: <Archive className="size-4" />,
-                              tone: "danger" as const,
+                              icon: <Archive className="size-4 text-warning" />,
+                              tone: "warning" as const,
                             },
                       ]}
                       onAction={(key) => {
@@ -408,7 +408,7 @@ function ProjectsPage() {
                 <Button slot="close" variant="secondary">
                   {t("Cancel")}
                 </Button>
-                <Button variant="danger" onPress={archiveProject}>
+                <Button variant="secondary" className="text-warning" onPress={archiveProject}>
                   {t("Archive project")}
                 </Button>
               </Modal.Footer>

@@ -341,7 +341,7 @@ function WorkspacesPage() {
                 aria-label={t("Archive {name}", { name: workspace.name })}
                 onPress={() => setConfirmation({ kind: "archive", workspace })}
               >
-                <Archive aria-hidden="true" />
+                <Archive aria-hidden="true" className="text-warning" />
               </Button>
             ) : null}
             {workspace.isOwned && workspace.status === "archived" ? (
@@ -484,10 +484,13 @@ function WorkspacesPage() {
                 </Button>
                 <Button
                   variant={
-                    confirmation?.kind === "archive" || confirmation?.kind === "leave"
+                    confirmation?.kind === "leave"
                       ? "danger"
-                      : "primary"
+                      : confirmation?.kind === "archive"
+                        ? "secondary"
+                        : "primary"
                   }
+                  className={confirmation?.kind === "archive" ? "text-warning" : undefined}
                   onPress={confirmWorkspaceAction}
                 >
                   {confirmation?.kind === "archive"

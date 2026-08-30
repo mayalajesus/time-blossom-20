@@ -7,7 +7,7 @@ export type ActionDropdownItem = {
   label: string;
   icon?: ReactNode;
   trailing?: ReactNode;
-  tone?: "default" | "danger";
+  tone?: "default" | "danger" | "warning";
   isDisabled?: boolean;
 };
 
@@ -35,7 +35,9 @@ export function ActionDropdown({
               {...(item.tone === "danger" ? { variant: "danger" as const } : {})}
             >
               {item.icon}
-              <Label>{item.label}</Label>
+              <Label className={item.tone === "warning" ? "text-warning" : undefined}>
+                {item.label}
+              </Label>
               {item.trailing ? (
                 <span className="ml-auto flex shrink-0 items-center">{item.trailing}</span>
               ) : null}
