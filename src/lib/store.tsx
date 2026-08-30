@@ -24,6 +24,20 @@ import {
   type Permission,
 } from "./permissions";
 import { resetSessionDefaultAvatar } from "./default-avatar";
+import {
+  findTimeEntryConflict,
+  timeEntriesOverlap,
+  type ScopedTimeIntervalEntry,
+} from "./time-entry-overlap";
+import {
+  createRunningTimer,
+  recentTimerTasksFromEntries,
+  rememberRecentTimerTask,
+  validateTimerTaskStart,
+  type TimerTaskPreset,
+} from "./timer-start";
+
+export { findTimeEntryConflict, timeEntriesOverlap } from "./time-entry-overlap";
 
 export type TimerStatus = "idle" | "running" | "paused";
 
@@ -95,7 +109,8 @@ export interface UserPreferences {
 export type { Permission } from "./permissions";
 
 export type StoreResult =
-  { success: true; id?: string; warning?: string } | { success: false; error: string };
+  | { success: true; id?: string; warning?: string; conflict?: TimeEntry }
+  | { success: false; error: string };
 
 type AddEntryOptions = {
   allowWhileTimerActive?: boolean;
@@ -876,32 +891,6 @@ export function pauseTimerAt(timer: TimerState, effectiveAt = Date.now()): Timer
   };
 }
 
-type TimeIntervalEntry = Pick<
-  TimeEntry,
-  "date" | "start" | "seconds" | "startTimestamp" | "userId"
->;
-
-function entryInterval(entry: TimeIntervalEntry, timeZone?: string): [number, number] | null {
-  const start =
-    typeof entry.startTimestamp === "number" && Number.isFinite(entry.startTimestamp)
-      ? entry.startTimestamp
-      : dateTimeToTimestamp(entry.date, entry.start, 0, timeZone);
-  if (start === null || !Number.isFinite(entry.seconds) || entry.seconds <= 0) return null;
-  return [start, start + entry.seconds * 1000];
-}
-
-export function timeEntriesOverlap(
-  first: TimeIntervalEntry,
-  second: TimeIntervalEntry,
-  timeZone?: string,
-): boolean {
-  if (first.userId !== second.userId) return false;
-  const firstInterval = entryInterval(first, timeZone);
-  const secondInterval = entryInterval(second, timeZone);
-  if (!firstInterval || !secondInterval) return false;
-  return firstInterval[0] < secondInterval[1] && firstInterval[1] > secondInterval[0];
-}
-
 function cloneTrello(trello: TrelloState): TrelloState {
   return { ...trello, lists: [...trello.lists], cards: [...trello.cards] };
 }
@@ -942,6 +931,7 @@ interface StoreValue {
   clients: Client[];
   members: Member[];
   timer: TimerState;
+  recentTasks: TimerTaskPreset[];
   elapsed: number;
   trello: TrelloState;
   settings: WorkspaceSettings;
@@ -954,10 +944,15 @@ interface StoreValue {
   sessionStatus: SessionStatus;
   can: (permission: Permission) => boolean;
   canTrackProject: (projectId: string) => boolean;
+  findEntryConflict: (
+    entry: Omit<TimeEntry, "id">,
+    excludedEntryId?: string,
+  ) => TimeEntry | undefined;
   setActiveMember: (memberId: string) => StoreResult;
   currentUserId: string;
   today: string;
   startTimer: (task: string, projectId: string | null, billable?: boolean) => StoreResult;
+  startTimerFromTask: (task: TimerTaskPreset) => StoreResult;
   updateTimer: (patch: {
     task?: string;
     projectId?: string | null;
@@ -1041,6 +1036,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const currentMember = members.find((member) => member.id === activeMemberId) ?? null;
   const timerRef = useRef(timer);
   timerRef.current = timer;
+  const recentTasks = useMemo(() => {
+    const entriesForMember = entries.filter((entry) => entry.userId === activeMemberId);
+    const recent = recentTimerTasksFromEntries(entriesForMember);
+    if (timer.status === "idle" || timer.workspaceId !== activeWorkspaceId) return recent;
+    return rememberRecentTimerTask(recent, timer);
+  }, [activeMemberId, activeWorkspaceId, entries, timer]);
 
   useEffect(() => {
     try {
@@ -1162,8 +1163,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const validateProjectId = (projectId: string | null, allowUnassigned = false): StoreResult => {
       if (projectId === null) return { success: true };
       const project = projects.find((candidate) => candidate.id === projectId);
-      if (!project) return { success: false, error: "Choose an existing project or No project." };
-      if (allowUnassigned || canTrackProject(projectId)) return { success: true };
+      if (!project) return { success: false, error: "This project no longer exists." };
+      if (allowUnassigned) return { success: true };
+      if (project.status === "archived")
+        return {
+          success: false,
+          error: "This project is archived and cannot be used to start a timer.",
+        };
+      if (project.status !== "active")
+        return {
+          success: false,
+          error: "This project is inactive and cannot be used to start a timer.",
+        };
+      if (canTrackProject(projectId)) return { success: true };
       return { success: false, error: "This project is not assigned to your team member." };
     };
 
@@ -1189,17 +1201,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { success: true };
     };
 
-    const overlapWarningFor = (
+    const findEntryConflict = (
       entry: Omit<TimeEntry, "id">,
       excludedEntryId?: string,
-    ): string | undefined =>
-      entries.some(
-        (existing) =>
-          existing.id !== excludedEntryId &&
-          timeEntriesOverlap(entry, existing, preferences.timezone),
-      )
-        ? "This time overlaps another entry. It was saved anyway."
-        : undefined;
+    ): TimeEntry | undefined =>
+      findTimeEntryConflict(
+        { ...entry, workspaceId: activeWorkspaceId },
+        entries.map((existing): ScopedTimeIntervalEntry & TimeEntry => ({
+          ...existing,
+          workspaceId: activeWorkspaceId,
+        })),
+        { excludeEntryId: excludedEntryId, timeZone: preferences.timezone },
+      );
 
     const startTimer = (
       task: string,
@@ -1217,21 +1230,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? settings.defaultBillable
           : (projects.find((project) => project.id === projectId)?.billable ??
             settings.defaultBillable);
-      const next = {
-        status: "running" as const,
-        workspaceId: activeWorkspaceId,
-        task: task.trim() || "Untitled task",
-        projectId,
-        billable: billable ?? projectDefault,
-        startedAt: Date.now(),
-        startedDate: getLocalToday(new Date(), preferences.timezone),
-        accumulated: 0,
-        startClock: nowTime(preferences.timezone),
-      } satisfies TimerState;
+      const now = Date.now();
+      const next = createRunningTimer(
+        { task, projectId, billable: billable ?? projectDefault },
+        {
+          workspaceId: activeWorkspaceId,
+          now,
+          startedDate: getLocalToday(new Date(now), preferences.timezone),
+          startClock: nowTime(preferences.timezone),
+        },
+      );
       timerRef.current = next;
       setElapsed(0);
       setTimer(next);
       return { success: true };
+    };
+
+    const startTimerFromTask = (task: TimerTaskPreset): StoreResult => {
+      const validation = validateTimerTaskStart(task, {
+        timerStatus: timerRef.current.status,
+        projects,
+        canUseProject: canTrackProject,
+      });
+      if (!validation.success) return validation;
+      return startTimer(
+        validation.preset.task,
+        validation.preset.projectId,
+        validation.preset.billable,
+      );
     };
 
     const updateTimer = (patch: {
@@ -1306,6 +1332,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const startedDate = current.startedDate ?? getLocalToday(new Date(), preferences.timezone);
       const finish = addSecondsToDateTime(startedDate, current.startClock, total);
       let warning: string | undefined;
+      let conflict: TimeEntry | undefined;
       if (total > 0) {
         const startTimestamp = dateTimeToTimestamp(
           startedDate,
@@ -1327,7 +1354,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           task: current.task,
           billable: current.billable,
         };
-        warning = overlapWarningFor(stoppedEntry);
+        conflict = findEntryConflict(stoppedEntry);
+        warning = conflict ? "This time overlaps another entry. It was saved anyway." : undefined;
         setEntries((list) => [
           {
             ...stoppedEntry,
@@ -1342,7 +1370,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       timerRef.current = initialTimer;
       setTimer(initialTimer);
       setElapsed(0);
-      return { success: true, ...(warning ? { warning } : {}) };
+      return { success: true, ...(warning ? { warning, conflict } : {}) };
     };
 
     const addEntry = (entry: Omit<TimeEntry, "id">, options: AddEntryOptions = {}): StoreResult => {
@@ -1352,7 +1380,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Stop the active timer before adding time manually." };
       const validation = validateEntry(entry);
       if (!validation.success) return validation;
-      const warning = overlapWarningFor(entry);
+      const conflict = findEntryConflict(entry);
+      const warning = conflict
+        ? "This time overlaps another entry. It was saved anyway."
+        : undefined;
       setEntries((list) => [
         {
           ...entry,
@@ -1363,7 +1394,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         },
         ...list,
       ]);
-      return { success: true, ...(warning ? { warning } : {}) };
+      return { success: true, ...(warning ? { warning, conflict } : {}) };
     };
 
     const updateEntry = (id: string, patch: Partial<Omit<TimeEntry, "id">>): StoreResult => {
@@ -1395,9 +1426,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       const validation = validateEntry(next, current.projectId);
       if (!validation.success) return validation;
-      const warning = timeChanged ? overlapWarningFor(next, id) : undefined;
+      const conflict = timeChanged ? findEntryConflict(next, id) : undefined;
+      const warning = conflict
+        ? "This time overlaps another entry. It was saved anyway."
+        : undefined;
       setEntries((list) => list.map((entry) => (entry.id === id ? next : entry)));
-      return { success: true, ...(warning ? { warning } : {}) };
+      return { success: true, ...(warning ? { warning, conflict } : {}) };
     };
 
     const deleteEntry = (id: string): StoreResult => {
@@ -1416,9 +1450,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "This time entry already exists." };
       const validation = validateEntry(entry);
       if (!validation.success) return validation;
-      const warning = overlapWarningFor(entry);
+      const conflict = findEntryConflict(entry);
+      const warning = conflict
+        ? "This time overlaps another entry. It was saved anyway."
+        : undefined;
       setEntries((list) => [entry, ...list]);
-      return { success: true, ...(warning ? { warning } : {}) };
+      return { success: true, ...(warning ? { warning, conflict } : {}) };
     };
 
     const addProject = (project: Omit<Project, "id">): StoreResult => {
@@ -2206,6 +2243,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       clients,
       members,
       timer,
+      recentTasks,
       elapsed,
       trello,
       settings,
@@ -2218,10 +2256,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       sessionStatus,
       can,
       canTrackProject,
+      findEntryConflict,
       setActiveMember,
       currentUserId: activeMemberId,
       today,
       startTimer,
+      startTimerFromTask,
       updateTimer,
       setTimerElapsed,
       pauseTimer,
@@ -2270,6 +2310,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     members,
     preferences,
     projects,
+    recentTasks,
     sessionStatus,
     settings,
     timer,

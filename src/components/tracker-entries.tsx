@@ -19,6 +19,7 @@ import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
+import { OverlapConfirmation } from "@/components/overlap-confirmation";
 import { ProjectSelect } from "@/components/project-select";
 import { useStore } from "@/lib/store";
 import {
@@ -500,7 +501,7 @@ function TrackerGroupSummaryRow({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const { projects, clients, timer, startTimer, addEntry } = useStore();
+  const { projects, clients, timer, startTimerFromTask, addEntry } = useStore();
   const { locale, t, error } = useI18n();
   const [isHovered, setIsHovered] = useState(false);
   const project = projects.find((item) => item.id === group.projectId);
@@ -521,8 +522,7 @@ function TrackerGroupSummaryRow({
   );
 
   const startAgain = () => {
-    if (timer.status !== "idle") return;
-    const result = startTimer(group.task, group.projectId, group.billable);
+    const result = startTimerFromTask(group);
     if (!result.success)
       toast.danger(t("We couldn't start the timer"), { description: error(result.error) });
   };
@@ -692,7 +692,16 @@ function TrackerEntryRow({
   onDeactivate: () => void;
   onRequestDelete: (entry: TimeEntry) => void;
 }) {
-  const { projects, clients, timer, preferences, startTimer, addEntry, updateEntry } = useStore();
+  const {
+    projects,
+    clients,
+    timer,
+    preferences,
+    startTimerFromTask,
+    addEntry,
+    updateEntry,
+    findEntryConflict,
+  } = useStore();
   const { locale, t, error } = useI18n();
   const rowRef = useRef<HTMLTableRowElement | null>(null);
   const focusRef = useRef<HTMLInputElement | null>(null);
@@ -702,6 +711,11 @@ function TrackerEntryRow({
   const [draft, setDraft] = useState<EntryDraft>(() => toDraft(entry));
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [pendingEdit, setPendingEdit] = useState<{
+    candidate: EntryDraft;
+    patch: Partial<Omit<TimeEntry, "id">>;
+    conflict: TimeEntry;
+  } | null>(null);
 
   useEffect(() => {
     if (activeField) return;
@@ -774,6 +788,16 @@ function TrackerEntryRow({
     if (warning) toast.info(t("Overlapping time"), { description: error(warning) });
   };
 
+  const queueIfOverlapping = (
+    candidate: EntryDraft,
+    patch: Partial<Omit<TimeEntry, "id">>,
+  ): boolean => {
+    const conflict = findEntryConflict({ ...entry, ...patch }, entry.id);
+    if (!conflict) return false;
+    setPendingEdit({ candidate, patch, conflict });
+    return true;
+  };
+
   const commitField = (
     field: "task" | "description" | "project" | "date" | "billable",
     value: string | boolean | null,
@@ -798,6 +822,10 @@ function TrackerEntryRow({
 
     if (savedDraftRef.current[draftField] === candidate[draftField]) return true;
 
+    const changedDateStart =
+      field === "date" && typeof normalizedValue === "string"
+        ? dateTimeToTimestamp(normalizedValue, candidate.start, 0, preferences.timezone)
+        : null;
     const patch =
       field === "project"
         ? { projectId: candidate.projectId }
@@ -805,8 +833,12 @@ function TrackerEntryRow({
           ? {
               date: candidate.date,
               endDate: candidate.endDate !== candidate.date ? candidate.endDate : undefined,
+              startTimestamp: changedDateStart ?? undefined,
+              endTimestamp:
+                changedDateStart === null ? undefined : changedDateStart + entry.seconds * 1000,
             }
           : { [field]: normalizedValue };
+    if (field === "date" && queueIfOverlapping(candidate, patch)) return false;
     const result = updateEntry(entry.id, patch);
     if (!result.success) {
       setValidationMessage(error(result.error));
@@ -843,14 +875,16 @@ function TrackerEntryRow({
       return true;
     }
 
-    const result = updateEntry(entry.id, {
+    const patch = {
       start,
       end,
       endDate: endDate !== draft.date ? endDate : undefined,
       seconds: elapsedSeconds,
       startTimestamp: dateTimeToTimestamp(draft.date, start, 0, preferences.timezone) ?? undefined,
       endTimestamp: dateTimeToTimestamp(endDate, end, 0, preferences.timezone) ?? undefined,
-    });
+    };
+    if (queueIfOverlapping(candidate, patch)) return false;
+    const result = updateEntry(entry.id, patch);
     if (!result.success) {
       setValidationMessage(error(result.error));
       return false;
@@ -894,13 +928,15 @@ function TrackerEntryRow({
       return true;
     }
 
-    const result = updateEntry(entry.id, {
+    const patch = {
       end: finish.end,
       endDate: finish.endDate !== draft.date ? finish.endDate : undefined,
       seconds: totalSeconds,
       startTimestamp: startTimestamp ?? undefined,
       endTimestamp: endTimestamp ?? undefined,
-    });
+    };
+    if (queueIfOverlapping(candidate, patch)) return false;
+    const result = updateEntry(entry.id, patch);
     if (!result.success) {
       setValidationMessage(error(result.error));
       return false;
@@ -973,6 +1009,7 @@ function TrackerEntryRow({
     if (!activeField) return;
 
     const handleOutsidePointer = (event: PointerEvent) => {
+      if (pendingEdit) return;
       const target = event.target instanceof Element ? event.target : null;
       const clickedEditor = target?.closest("[data-tracker-editor]");
       if (clickedEditor) return;
@@ -1017,8 +1054,7 @@ function TrackerEntryRow({
   });
 
   const startAgain = () => {
-    if (timer.status !== "idle") return;
-    const result = startTimer(entry.task, entry.projectId, entry.billable);
+    const result = startTimerFromTask(entry);
     if (!result.success)
       toast.danger(t("We couldn't start the timer"), { description: error(result.error) });
   };
@@ -1038,6 +1074,19 @@ function TrackerEntryRow({
     if (result.warning) {
       toast.info(t("Overlapping time"), { description: error(result.warning) });
     }
+  };
+
+  const confirmPendingEdit = () => {
+    if (!pendingEdit) return;
+    const result = updateEntry(entry.id, pendingEdit.patch);
+    if (!result.success) {
+      setValidationMessage(error(result.error));
+      setPendingEdit(null);
+      return;
+    }
+    notifySaved(pendingEdit.candidate);
+    setPendingEdit(null);
+    onDeactivate();
   };
 
   const actionCell = (
@@ -1072,6 +1121,12 @@ function TrackerEntryRow({
             if (key === "duplicate") duplicateEntry();
             if (key === "delete") onRequestDelete(entry);
           }}
+        />
+        <OverlapConfirmation
+          conflict={pendingEdit?.conflict ?? null}
+          isOpen={pendingEdit !== null}
+          onCancel={() => setPendingEdit(null)}
+          onConfirm={confirmPendingEdit}
         />
       </div>
     </Table.Cell>

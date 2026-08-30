@@ -1,4 +1,4 @@
-import { Drawer, Modal, Popover } from "@heroui/react";
+import { AlertDialog, Drawer, Modal, Popover } from "@heroui/react";
 
 const registrationClassName = "sr-only";
 
@@ -10,6 +10,16 @@ const registrationClassName = "sr-only";
 export function ModalTriggerRegistration() {
   return (
     <Modal.Trigger aria-label="Modal trigger" className={registrationClassName} tabIndex={-1} />
+  );
+}
+
+export function AlertDialogTriggerRegistration() {
+  return (
+    <AlertDialog.Trigger
+      aria-label="Alert dialog trigger"
+      className={registrationClassName}
+      tabIndex={-1}
+    />
   );
 }
 

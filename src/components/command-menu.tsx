@@ -17,6 +17,7 @@ import type { ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
+import { formatOverlapConflict } from "@/components/overlap-confirmation";
 
 interface Command {
   id: string;
@@ -38,7 +39,7 @@ export function CommandMenu({
 }) {
   const navigate = useNavigate();
   const { projects, clients, timer, startTimer, stopTimer } = useStore();
-  const { t, error } = useI18n();
+  const { locale, t, error } = useI18n();
   const [query, setQuery] = useState("");
 
   const close = () => {
@@ -118,7 +119,11 @@ export function CommandMenu({
           if (!result.success) {
             toast.danger(error(result.error));
           } else if (result.warning) {
-            toast.info(t("Overlapping time"), { description: error(result.warning) });
+            toast.info(t("Overlapping time"), {
+              description: result.conflict
+                ? formatOverlapConflict(result.conflict, locale)
+                : error(result.warning),
+            });
           }
         },
       },
@@ -166,6 +171,7 @@ export function CommandMenu({
   }, [
     clients,
     error,
+    locale,
     navigate,
     onLogTime,
     projects,

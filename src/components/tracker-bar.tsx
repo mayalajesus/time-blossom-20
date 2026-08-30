@@ -12,6 +12,7 @@ import {
 import { CircleDollar, Square } from "@gravity-ui/icons";
 import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
+import { formatOverlapConflict } from "@/components/overlap-confirmation";
 import { ProjectSelect } from "@/components/project-select";
 import { TimerActionButton } from "@/components/timer-action-button";
 import { TimerDurationEditor } from "@/components/timer-duration-editor";
@@ -31,7 +32,7 @@ export function TrackerBar() {
     resumeTimer,
     stopTimer,
   } = useStore();
-  const { t, error } = useI18n();
+  const { locale, t, error } = useI18n();
   const [task, setTask] = useState("");
   const [activeTask, setActiveTask] = useState(timer.task);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -162,7 +163,11 @@ export function TrackerBar() {
                       return;
                     }
                     if (result.warning) {
-                      toast.info(t("Overlapping time"), { description: error(result.warning) });
+                      toast.info(t("Overlapping time"), {
+                        description: result.conflict
+                          ? formatOverlapConflict(result.conflict, locale)
+                          : error(result.warning),
+                      });
                     }
                     setTask("");
                     setActiveTask("");

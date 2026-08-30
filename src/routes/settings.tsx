@@ -87,7 +87,7 @@ function SettingsPage() {
     {
       key: "reminders" as const,
       title: "Reminders",
-      hint: "Nudge me when I forget to start a timer.",
+      hint: "Remind me every 60 minutes while a timer is running.",
     },
     {
       key: "weeklyDigest" as const,

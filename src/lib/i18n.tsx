@@ -348,12 +348,23 @@ const ptBR: Record<string, string> = {
     "Esta conta não pode atualizar o cronômetro ativo.",
   "There is no active timer to update.": "Ainda não há um cronômetro ativo para atualizar.",
   "A task is required.": "Uma tarefa é obrigatória.",
+  "Timer is still running": "O cronômetro ainda está em andamento",
+  "Keep working or stop it when you're done. Your timer will keep counting.":
+    "Continue trabalhando ou pare quando terminar. O cronômetro continuará contando.",
+  "Remind me every 60 minutes while a timer is running.":
+    "Lembre-me a cada 60 minutos enquanto um cronômetro estiver em andamento.",
   "Overlapping time": "Horários sobrepostos",
+  "This entry overlaps another.": "Este lançamento se sobrepõe a outro.",
+  "Save anyway": "Salvar mesmo assim",
   "This time overlaps another entry. It was saved anyway.":
     "Este horário se sobrepõe a outro registro. Ele foi salvo mesmo assim.",
   "Choose an existing project or No project.": "Escolha um projeto existente ou Sem projeto.",
   "This project is not assigned to your team member.":
     "Este projeto ainda não está atribuído a este membro da equipe.",
+  "This project is archived and cannot be used to start a timer.":
+    "Este projeto está arquivado e não pode ser usado para iniciar um timer.",
+  "This project is inactive and cannot be used to start a timer.":
+    "Este projeto está inativo e não pode ser usado para iniciar um timer.",
   "Choose a valid date.": "Escolha uma data válida.",
   "Choose a valid end date.": "Escolha uma data final válida.",
   "End date cannot be before the start date.": "A data final não pode ser anterior à data inicial.",
@@ -961,6 +972,10 @@ const enUS: Record<string, string> = {
     "Pause or stop the current timer before signing out.",
   "This project is not assigned to your team member.":
     "This project isn't assigned to this team member yet.",
+  "This project is archived and cannot be used to start a timer.":
+    "This project is archived and cannot be used to start a timer.",
+  "This project is inactive and cannot be used to start a timer.":
+    "This project is inactive and cannot be used to start a timer.",
   "This time entry no longer exists.": "This time entry is no longer available.",
   "This project no longer exists.": "This project is no longer available.",
   "This client no longer exists.": "This client is no longer available.",

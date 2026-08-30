@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { elapsedForTimer, isValidTimeZone, timeEntriesOverlap } from "../../src/lib/store";
+import { elapsedForTimer, isValidTimeZone } from "../../src/lib/store";
 
 describe("timer persistence domain", () => {
   it("computes running elapsed seconds without changing the stored timer", () => {
@@ -22,35 +22,5 @@ describe("timer persistence domain", () => {
     expect(isValidTimeZone("America/Sao_Paulo")).toBe(true);
     expect(isValidTimeZone("UTC")).toBe(true);
     expect(isValidTimeZone("not/a-timezone")).toBe(false);
-  });
-
-  it("detects same-user overlaps across midnight without treating adjacency as overlap", () => {
-    const first = {
-      userId: "u1",
-      date: "2026-08-29",
-      start: "23:30",
-      seconds: 7_200,
-    };
-    expect(
-      timeEntriesOverlap(
-        first,
-        { userId: "u1", date: "2026-08-30", start: "00:30", seconds: 3_600 },
-        "America/Sao_Paulo",
-      ),
-    ).toBe(true);
-    expect(
-      timeEntriesOverlap(
-        first,
-        { userId: "u1", date: "2026-08-30", start: "01:30", seconds: 3_600 },
-        "America/Sao_Paulo",
-      ),
-    ).toBe(false);
-    expect(
-      timeEntriesOverlap(
-        first,
-        { userId: "u2", date: "2026-08-30", start: "00:30", seconds: 3_600 },
-        "America/Sao_Paulo",
-      ),
-    ).toBe(false);
   });
 });

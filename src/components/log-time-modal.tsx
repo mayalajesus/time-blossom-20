@@ -15,9 +15,10 @@ import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
+import { OverlapConfirmation } from "@/components/overlap-confirmation";
 import { ProjectSelect } from "@/components/project-select";
 import { useI18n } from "@/lib/i18n";
-import { useStore, type StoreResult } from "@/lib/store";
+import { useStore } from "@/lib/store";
 import {
   addSecondsToDateTime,
   dateTimeToTimestamp,
@@ -43,8 +44,17 @@ export function LogTimeModal({
   onOpenChange: (open: boolean) => void;
   entry?: TimeEntry | null;
 }) {
-  const { projects, clients, settings, preferences, addEntry, updateEntry, currentUserId, timer } =
-    useStore();
+  const {
+    projects,
+    clients,
+    settings,
+    preferences,
+    addEntry,
+    updateEntry,
+    findEntryConflict,
+    currentUserId,
+    timer,
+  } = useStore();
   const { locale, t, error } = useI18n();
   const [timeMode, setTimeMode] = useState<"range" | "duration">("range");
   const [task, setTask] = useState("");
@@ -58,6 +68,7 @@ export function LogTimeModal({
   const [description, setDescription] = useState("");
   const [billable, setBillable] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [pendingEntry, setPendingEntry] = useState<Omit<TimeEntry, "id"> | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -78,6 +89,7 @@ export function LogTimeModal({
           : settings.defaultBillable),
     );
     setSaveError(null);
+    setPendingEntry(null);
   }, [entry, isOpen, preferences.timezone, projects, settings.defaultBillable]);
 
   const originalEndDate = entry ? getEndDateForEntry(entry) : undefined;
@@ -114,6 +126,21 @@ export function LogTimeModal({
       : undefined;
   const invalid = Boolean(taskError || dateError || timeError || manualTimerError);
 
+  const save = (candidate: Omit<TimeEntry, "id">) => {
+    const result = entry ? updateEntry(entry.id, candidate) : addEntry(candidate);
+    if (!result.success) {
+      setSaveError(result.error);
+      return;
+    }
+    toast.success(t(entry ? "Time entry updated" : "Time entry added"), {
+      description: `${candidate.task} · ${formatDuration(candidate.seconds, locale)}`,
+    });
+    setTask("");
+    setDescription("");
+    setPendingEntry(null);
+    onOpenChange(false);
+  };
+
   const submit = () => {
     if (invalid) return;
     const cleanDescription = description.trim();
@@ -125,48 +152,39 @@ export function LogTimeModal({
             startTimestamp,
             endTimestamp: startTimestamp + entrySeconds * 1000,
           };
-    let result: StoreResult;
-    if (entry) {
-      result = updateEntry(entry.id, {
-        date,
-        start,
-        end: effectiveEnd,
-        endDate: effectiveEndDate !== date ? effectiveEndDate : undefined,
-        seconds: entrySeconds,
-        projectId,
-        task: task.trim(),
-        description: cleanDescription,
-        billable,
-        ...timestampPatch,
-      });
-    } else {
-      result = addEntry({
-        date,
-        start,
-        end: effectiveEnd,
-        endDate: effectiveEndDate !== date ? effectiveEndDate : undefined,
-        seconds: entrySeconds,
-        userId: currentUserId,
-        projectId,
-        task: task.trim(),
-        ...(cleanDescription ? { description: cleanDescription } : {}),
-        billable,
-        ...timestampPatch,
-      });
-    }
-    if (!result.success) {
-      setSaveError(result.error);
+    const candidate: Omit<TimeEntry, "id"> = entry
+      ? {
+          date,
+          start,
+          end: effectiveEnd,
+          endDate: effectiveEndDate !== date ? effectiveEndDate : undefined,
+          seconds: entrySeconds,
+          userId: entry.userId,
+          projectId,
+          task: task.trim(),
+          description: cleanDescription,
+          billable,
+          ...timestampPatch,
+        }
+      : {
+          date,
+          start,
+          end: effectiveEnd,
+          endDate: effectiveEndDate !== date ? effectiveEndDate : undefined,
+          seconds: entrySeconds,
+          userId: currentUserId,
+          projectId,
+          task: task.trim(),
+          ...(cleanDescription ? { description: cleanDescription } : {}),
+          billable,
+          ...timestampPatch,
+        };
+    const conflict = findEntryConflict(candidate, entry?.id);
+    if (conflict) {
+      setPendingEntry(candidate);
       return;
     }
-    if (result.warning) {
-      toast.info(t("Overlapping time"), { description: error(result.warning) });
-    }
-    toast.success(t(entry ? "Time entry updated" : "Time entry added"), {
-      description: `${task.trim()} · ${formatDuration(entrySeconds, locale)}`,
-    });
-    setTask("");
-    setDescription("");
-    onOpenChange(false);
+    save(candidate);
   };
 
   const selectedProject = projects.find((project) => project.id === projectId);
@@ -174,7 +192,7 @@ export function LogTimeModal({
     ? clients.find((client) => client.id === selectedProject.clientId)
     : null;
 
-  return (
+  const formModal = (
     <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
       <ModalTriggerRegistration />
       <Modal.Backdrop>
@@ -369,5 +387,19 @@ export function LogTimeModal({
         </Modal.Container>
       </Modal.Backdrop>
     </Modal>
+  );
+
+  return (
+    <>
+      {formModal}
+      <OverlapConfirmation
+        conflict={pendingEntry ? (findEntryConflict(pendingEntry, entry?.id) ?? null) : null}
+        isOpen={pendingEntry !== null}
+        onCancel={() => setPendingEntry(null)}
+        onConfirm={() => {
+          if (pendingEntry) save(pendingEntry);
+        }}
+      />
+    </>
   );
 }

@@ -165,10 +165,12 @@ system before they can track time.
   so it can persist safely and be named while running. A non-empty task remains
   required for manual and edited time entries. Notes and project assignment
   remain optional.
-- Overlapping entries for the same user are allowed because legitimate work
-  can be duplicated or reconciled later, but every create, edit, duplicate or
-  timer stop that introduces an overlap gives a non-blocking warning. Adjacent
-  entries whose end and start times are equal do not overlap.
+- Overlapping entries for the same user and workspace are allowed because
+  legitimate work can be duplicated or reconciled later. Manual creation and
+  editing require a confirmation that identifies the conflicting task, time
+  and duration; stopping a timer gives the same information as a non-blocking
+  warning. Adjacent entries whose end and start times are equal do not overlap,
+  and reports keep every overlapping entry visible in their totals.
 - Work that crosses midnight remains one entry. The entry keeps its start date,
   records an explicit end date when it differs, and uses elapsed seconds as the
   authoritative value for totals and reports.
@@ -185,6 +187,12 @@ system before they can track time.
 - Running and paused are both active timer states. At most one active timer is
   stored for each user and workspace, and manual creation is unavailable until
   that timer is stopped.
+- When personal reminders are enabled, a non-blocking reminder appears at each
+  completed 60-minute boundary of a running timer. Reloading derives the next
+  boundary from persisted elapsed time, and a reminder that becomes due in a
+  background tab waits until the tab is visible. Disabling reminders cancels
+  pending notifications. Showing or dismissing a reminder never pauses, resets
+  or otherwise changes the timer.
 
 - The live timer is a persistent state, not a page-local counter. A timestamp
   is the source of truth for running time, while paused time is stored as

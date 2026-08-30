@@ -1,0 +1,117 @@
+import type { Project, TimeEntry } from "./mock-data";
+import type { TimerState, TimerStatus } from "./store";
+
+export type TimerTaskPreset = Pick<TimeEntry, "task" | "projectId" | "billable"> & {
+  favorite?: boolean;
+};
+
+type TimerStartValidation =
+  | { success: true; preset: Pick<TimerTaskPreset, "task" | "projectId" | "billable"> }
+  | { success: false; error: string };
+
+export function validateTimerTaskStart(
+  preset: TimerTaskPreset,
+  context: {
+    timerStatus: TimerStatus;
+    projects: readonly Project[];
+    canUseProject: (projectId: string) => boolean;
+  },
+): TimerStartValidation {
+  if (context.timerStatus !== "idle") {
+    return { success: false, error: "Stop the active timer before starting another one." };
+  }
+
+  if (preset.projectId !== null) {
+    const project = context.projects.find((candidate) => candidate.id === preset.projectId);
+    if (!project) return { success: false, error: "This project no longer exists." };
+    if (project.status === "archived") {
+      return {
+        success: false,
+        error: "This project is archived and cannot be used to start a timer.",
+      };
+    }
+    if (project.status !== "active") {
+      return {
+        success: false,
+        error: "This project is inactive and cannot be used to start a timer.",
+      };
+    }
+    if (!context.canUseProject(project.id)) {
+      return {
+        success: false,
+        error: "This project is not assigned to your team member.",
+      };
+    }
+  }
+
+  return {
+    success: true,
+    preset: {
+      task: preset.task,
+      projectId: preset.projectId,
+      billable: preset.billable,
+    },
+  };
+}
+
+export function createRunningTimer(
+  preset: Pick<TimerTaskPreset, "task" | "projectId" | "billable">,
+  context: {
+    workspaceId: string;
+    now: number;
+    startedDate: string;
+    startClock: string;
+  },
+): TimerState {
+  return {
+    status: "running",
+    workspaceId: context.workspaceId,
+    task: preset.task.trim() || "Untitled task",
+    projectId: preset.projectId,
+    billable: preset.billable,
+    startedAt: context.now,
+    startedDate: context.startedDate,
+    accumulated: 0,
+    startClock: context.startClock,
+  };
+}
+
+function sameTimerTask(first: TimerTaskPreset, second: TimerTaskPreset) {
+  return (
+    first.task === second.task &&
+    first.projectId === second.projectId &&
+    first.billable === second.billable
+  );
+}
+
+export function rememberRecentTimerTask(
+  recentTasks: readonly TimerTaskPreset[],
+  preset: TimerTaskPreset,
+  limit = 8,
+): TimerTaskPreset[] {
+  const existing = recentTasks.find((task) => sameTimerTask(task, preset));
+  const next = {
+    task: preset.task,
+    projectId: preset.projectId,
+    billable: preset.billable,
+    ...(preset.favorite || existing?.favorite ? { favorite: true } : {}),
+  } satisfies TimerTaskPreset;
+  return [next, ...recentTasks.filter((task) => !sameTimerTask(task, preset))].slice(0, limit);
+}
+
+export function recentTimerTasksFromEntries(
+  entries: readonly TimeEntry[],
+  limit = 8,
+): TimerTaskPreset[] {
+  const recentTasks: TimerTaskPreset[] = [];
+  const orderedEntries = [...entries].sort(
+    (first, second) =>
+      second.date.localeCompare(first.date) || second.start.localeCompare(first.start),
+  );
+  for (const entry of orderedEntries) {
+    if (recentTasks.some((task) => sameTimerTask(task, entry))) continue;
+    recentTasks.push({ task: entry.task, projectId: entry.projectId, billable: entry.billable });
+    if (recentTasks.length === limit) break;
+  }
+  return recentTasks;
+}
