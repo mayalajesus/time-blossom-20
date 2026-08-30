@@ -53,6 +53,7 @@ const approvedThemeVariables = new Set([
   "--warning-foreground",
   "--radius",
   "--field-radius",
+  "--font-sans",
 ]);
 
 async function filesIn(directory) {

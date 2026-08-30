@@ -49,7 +49,7 @@ export function TrackerBar() {
 
   return (
     <div className="space-y-3" data-tracker-bar>
-      <Card className="w-full gap-0 rounded-xl p-1.5" variant="default">
+      <Card className="w-full gap-0 p-1.5" variant="default">
         <Toolbar
           aria-label={t("Timer")}
           data-status={timer.status}
@@ -72,6 +72,7 @@ export function TrackerBar() {
           >
             <Label className="sr-only">{t("What are you working on?")}</Label>
             <Input
+              className="rounded-s-3xl"
               placeholder={t("What are you working on?")}
               variant="secondary"
               onBlur={() => {
@@ -152,7 +153,6 @@ export function TrackerBar() {
                   aria-label={t("Stop")}
                   isIconOnly
                   isSelected={false}
-                  className="rounded-lg"
                   onPress={() => {
                     stopTimer();
                     setTask("");
@@ -177,7 +177,6 @@ export function TrackerBar() {
                 aria-label={t("Billable")}
                 isIconOnly
                 isSelected={active ? timer.billable : billable}
-                className="rounded-lg"
                 onChange={(selected: boolean) => {
                   if (active) updateActiveTimer({ billable: selected });
                   else setBillable(selected);

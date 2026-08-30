@@ -1,13 +1,13 @@
 import {
   Card,
   Button,
+  ButtonGroup,
   Description,
+  Dropdown,
   FieldError,
   Form,
   Input,
   Label,
-  ListBox,
-  Select,
   Switch,
   Tabs,
   TextField,
@@ -15,6 +15,7 @@ import {
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
+import { ChevronDown } from "@gravity-ui/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { PageHeader } from "@/components/page-header";
@@ -446,30 +447,40 @@ function SettingsPage() {
 
         <div className="flex flex-col gap-1.5">
           <Label>{t("Language")}</Label>
-          <Select
-            aria-label={t("Language")}
-            fullWidth
-            variant="secondary"
-            value={preferences.language}
-            onChange={(key) =>
-              savePreference({ language: String(key ?? "en-US") as typeof preferences.language })
-            }
-          >
-            <Select.Trigger>
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
+          <Dropdown>
+            <ButtonGroup variant="secondary" size="sm" className="w-full">
+              <Button
+                type="button"
+                aria-label={t("Language")}
+                className="h-9 min-w-0 flex-1 justify-start"
+              >
+                {localeOptions.find((option) => option.id === preferences.language)?.label}
+              </Button>
+              <Dropdown.Trigger
+                aria-label={t("Choose language")}
+                className="h-9 w-9 min-w-9 shrink-0 px-0"
+              >
+                <ChevronDown aria-hidden="true" className="size-4" />
+              </Dropdown.Trigger>
+            </ButtonGroup>
+            <Dropdown.Popover>
+              <Dropdown.Menu
+                aria-label={t("Language")}
+                selectionMode="single"
+                selectedKeys={new Set([preferences.language])}
+                onAction={(key) =>
+                  savePreference({ language: String(key) as typeof preferences.language })
+                }
+              >
                 {localeOptions.map((option) => (
-                  <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
+                  <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
                     <Label>{option.label}</Label>
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
+                    <Dropdown.ItemIndicator />
+                  </Dropdown.Item>
                 ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
           <Description>{t("Choose the language for your account.")}</Description>
         </div>
 

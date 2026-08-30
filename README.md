@@ -40,17 +40,23 @@ bun run lint
 bun run build
 ```
 
-## Responsive desktop density
+## Visual system
 
-The app does not use CSS `zoom`. On desktop viewports from 1024px through
-1920px, `src/styles.css` sets the document root font size to 90%. This keeps
-the rem-based HeroUI and layout dimensions compact while preserving the
-browser viewport, fixed positioning and overlay behavior.
+The product UI uses HeroUI Core and its semantic theme system as the source of
+truth. The active theme follows the [HeroUI Theme Builder dashboard
+configuration](https://heroui.com/en/themes?template=dashboard&chroma=0.13&hue=305&lightness=0.77): Inter, Radius M, Radius Form L and the Lavender accent theme.
 
-Viewports below 1024px and above 1920px use the default 100% root font size.
-The rule is based on the browser's CSS viewport, not the physical screen size;
-the resulting density can therefore also depend on the operating system's
-display scaling.
+The application uses the browser and HeroUI scale at 100%; it does not apply
+CSS `zoom` or a viewport-specific root font-size reduction. Layout classes are
+reserved for structure, spacing, sizing, positioning and responsive behavior.
+Colors, borders, shadows, radius, typography and component states come from
+HeroUI tokens and component variants. The dark application canvas intentionally
+uses `#060607`.
+
+Interactive UI must use the corresponding HeroUI component. Searchable option
+lists use `Autocomplete` with `SearchField` and `ListBox`; date selection uses
+HeroUI date components. The only approved visual exception is the shadcn/ui
+chart helper backed by Recharts, used for reports.
 
 ## Project structure
 
@@ -153,7 +159,7 @@ they are not part of the current time-entry model. Members see and export only
 their own records; Admins and Owners can use workspace scope. CSV, XLSX and
 the downloadable PDF export uses the exact period, filters and view currently
 shown, including workspace branding when configured. Summary, Weekly and Team
-use complementary lightweight HeroUI visualizations: circular progress for
-proportions and concentration, and progress bars for ranked comparisons and
-daily activity. Detailed remains table-first, keeping each report useful
-without loading a heavy charting layer.
+use complementary lightweight shadcn/ui chart visualizations backed by
+Recharts: circular progress for proportions and concentration, and progress
+bars for ranked comparisons and daily activity. Detailed remains table-first,
+keeping each report useful without loading a heavy charting layer.

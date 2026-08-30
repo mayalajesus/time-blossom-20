@@ -9,8 +9,8 @@ import {
   Kbd,
   Label,
   Link,
-  ListBox,
-  Select,
+  Dropdown,
+  ButtonGroup,
   Separator,
   Spinner,
   Surface,
@@ -18,7 +18,7 @@ import {
   Typography,
 } from "@heroui/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { Bars, Clock, LayoutSideContentLeft } from "@gravity-ui/icons";
+import { Bars, ChevronDown, Clock, LayoutSideContentLeft } from "@gravity-ui/icons";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { CommandMenu } from "@/components/command-menu";
 import { HeaderTimerControl } from "@/components/header-timer-control";
@@ -297,6 +297,7 @@ function SignedOutScreen() {
     currentMember?.status === "active" ? currentMember.id : (activeMembers[0]?.id ?? ""),
   );
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const selectedMember = activeMembers.find((member) => member.id === memberId);
 
   const continueAccount = () => {
     const result = resumeSession(memberId);
@@ -330,32 +331,44 @@ function SignedOutScreen() {
           <div className="mt-5 space-y-4 text-left">
             <div className="flex flex-col gap-2">
               <Label>{t("Account")}</Label>
-              <Select
-                aria-label={t("Account")}
-                value={memberId}
-                onChange={(key) => {
-                  setMemberId(String(key ?? ""));
-                  setSessionError(null);
-                }}
-              >
-                <Select.Trigger>
-                  <Select.Value />
-                  <Select.Indicator />
-                </Select.Trigger>
-                <Select.Popover>
-                  <ListBox>
+              <Dropdown>
+                <ButtonGroup variant="secondary" size="sm" className="w-full">
+                  <Button
+                    type="button"
+                    aria-label={t("Account")}
+                    className="h-9 min-w-0 flex-1 justify-start"
+                  >
+                    {selectedMember?.name ?? t("Account")}
+                  </Button>
+                  <Dropdown.Trigger
+                    aria-label={t("Choose account")}
+                    className="h-9 w-9 min-w-9 shrink-0 px-0"
+                  >
+                    <ChevronDown aria-hidden="true" className="size-4" />
+                  </Dropdown.Trigger>
+                </ButtonGroup>
+                <Dropdown.Popover>
+                  <Dropdown.Menu
+                    aria-label={t("Account")}
+                    selectionMode="single"
+                    selectedKeys={new Set(memberId ? [memberId] : [])}
+                    onAction={(key) => {
+                      setMemberId(String(key));
+                      setSessionError(null);
+                    }}
+                  >
                     {activeMembers.map((member) => (
-                      <ListBox.Item key={member.id} id={member.id} textValue={member.name}>
+                      <Dropdown.Item key={member.id} id={member.id} textValue={member.name}>
                         <div className="flex min-w-0 flex-col">
                           <Label>{member.name}</Label>
                           <Description>{t(member.role)}</Description>
                         </div>
-                        <ListBox.ItemIndicator />
-                      </ListBox.Item>
+                        <Dropdown.ItemIndicator />
+                      </Dropdown.Item>
                     ))}
-                  </ListBox>
-                </Select.Popover>
-              </Select>
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
             </div>
             <Button className="w-full" onPress={continueAccount} isDisabled={!memberId}>
               {t("Continue")}

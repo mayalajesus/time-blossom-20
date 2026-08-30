@@ -20,7 +20,7 @@ export function ProjectSelect({
   includeAll = false,
   allowArchivedId = null,
   ariaLabel,
-  variant = "primary",
+  variant = "secondary",
 }: ProjectSelectProps) {
   const { projects, clients, canTrackProject } = useStore();
   const { t } = useI18n();
@@ -53,7 +53,7 @@ export function ProjectSelect({
         setIsOpen(nextIsOpen);
       }}
     >
-      <Autocomplete.Trigger>
+      <Autocomplete.Trigger className="h-9 w-full min-w-0 items-center gap-2">
         <Autocomplete.Value />
         <Autocomplete.Indicator />
       </Autocomplete.Trigger>

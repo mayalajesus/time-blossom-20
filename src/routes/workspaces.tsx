@@ -1,15 +1,15 @@
 import {
   Avatar,
   Button,
+  ButtonGroup,
   Chip,
   Description,
+  Dropdown,
   FieldError,
   Form,
   Input,
   Label,
-  ListBox,
   Modal,
-  Select,
   Switch,
   Table,
   TextField,
@@ -24,6 +24,7 @@ import {
   ArrowRotateLeft,
   ArrowUpRightFromSquare,
   CloudArrowUpIn,
+  ChevronDown,
   Layers,
   Pencil,
   Plus,
@@ -346,7 +347,9 @@ function WorkspacesPage() {
                 aria-label={t("Archive {name}", { name: workspace.name })}
                 onPress={() => setConfirmation({ kind: "archive", workspace })}
               >
-                <Archive aria-hidden="true" className="text-warning" />
+                <Chip color="warning" size="sm" variant="tertiary" className="px-0 py-0">
+                  <Archive aria-hidden="true" />
+                </Chip>
               </Button>
             ) : null}
             {workspace.isOwned && workspace.status === "archived" ? (
@@ -505,14 +508,17 @@ function WorkspacesPage() {
                         : "primary"
                   }
                   isDisabled={isArchivingCurrent && !hasAnotherActiveWorkspace}
-                  className={confirmation?.kind === "archive" ? "text-warning" : undefined}
                   onPress={confirmWorkspaceAction}
                 >
-                  {confirmation?.kind === "archive"
-                    ? t("Archive")
-                    : confirmation?.kind === "restore"
-                      ? t("Restore")
-                      : t("Leave")}
+                  {confirmation?.kind === "archive" ? (
+                    <Chip color="warning" size="sm" variant="tertiary" className="px-0 py-0">
+                      {t("Archive")}
+                    </Chip>
+                  ) : confirmation?.kind === "restore" ? (
+                    t("Restore")
+                  ) : (
+                    t("Leave")
+                  )}
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>
@@ -689,32 +695,44 @@ function WorkspaceFormModal({
                     </Switch>
                     <div className="flex flex-col gap-2">
                       <Label>{t("Week starts on")}</Label>
-                      <Select
-                        aria-label={t("Week starts on")}
-                        value={workspaceSettings.weekStart}
-                        onChange={(key) =>
-                          onWeekStartChange?.(String(key ?? "monday") as "monday" | "sunday")
-                        }
-                      >
-                        <Select.Trigger>
-                          <Select.Value />
-                          <Select.Indicator />
-                        </Select.Trigger>
-                        <Select.Popover>
-                          <ListBox>
+                      <Dropdown>
+                        <ButtonGroup variant="secondary" size="sm" className="w-full">
+                          <Button
+                            type="button"
+                            aria-label={t("Week starts on")}
+                            className="h-9 min-w-0 flex-1 justify-start"
+                          >
+                            {t(workspaceSettings.weekStart === "monday" ? "Monday" : "Sunday")}
+                          </Button>
+                          <Dropdown.Trigger
+                            aria-label={t("Choose week start day")}
+                            className="h-9 w-9 min-w-9 shrink-0 px-0"
+                          >
+                            <ChevronDown aria-hidden="true" className="size-4" />
+                          </Dropdown.Trigger>
+                        </ButtonGroup>
+                        <Dropdown.Popover>
+                          <Dropdown.Menu
+                            aria-label={t("Week starts on")}
+                            selectionMode="single"
+                            selectedKeys={new Set([workspaceSettings.weekStart])}
+                            onAction={(key) =>
+                              onWeekStartChange?.(String(key) as "monday" | "sunday")
+                            }
+                          >
                             {(["monday", "sunday"] as const).map((day) => (
-                              <ListBox.Item
+                              <Dropdown.Item
                                 key={day}
                                 id={day}
                                 textValue={t(day === "monday" ? "Monday" : "Sunday")}
                               >
                                 <Label>{t(day === "monday" ? "Monday" : "Sunday")}</Label>
-                                <ListBox.ItemIndicator />
-                              </ListBox.Item>
+                                <Dropdown.ItemIndicator />
+                              </Dropdown.Item>
                             ))}
-                          </ListBox>
-                        </Select.Popover>
-                      </Select>
+                          </Dropdown.Menu>
+                        </Dropdown.Popover>
+                      </Dropdown>
                     </div>
                   </div>
                 ) : null}

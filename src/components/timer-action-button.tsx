@@ -19,7 +19,7 @@ export function TimerActionButton({ status, onPress }: TimerActionButtonProps) {
       isIconOnly
       size="sm"
       variant={isRunning ? "secondary" : "primary"}
-      className="shrink-0 rounded-lg"
+      className="shrink-0"
       onPress={onPress}
     >
       {isRunning ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}

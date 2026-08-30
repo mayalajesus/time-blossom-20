@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "@gravity-ui/icons";
+import { Calendar, ChevronLeft, ChevronRight } from "@gravity-ui/icons";
 import { Button, I18nProvider, Popover, RangeCalendar } from "@heroui/react";
 import { CalendarDate } from "@internationalized/date";
 import type { RangeValue } from "@react-types/shared";
@@ -113,11 +113,13 @@ export function TrackerPeriodFilter({
     <Popover isOpen={isOpen} onOpenChange={setIsOpen}>
       <Popover.Trigger>
         <Button
-          variant="ghost"
+          variant="secondary"
+          size="sm"
           aria-label={t("Open period calendar: {label}", { label: translatedLabel })}
-          className="flex h-8 w-[11rem] min-w-[11rem] max-w-[11rem] shrink-0 items-center justify-center px-2 text-center"
+          className="flex h-9 w-[11rem] min-w-[11rem] max-w-[11rem] shrink-0 items-center justify-start gap-2 px-3 text-left"
         >
-          <span className="flex min-w-0 max-w-full items-center justify-center gap-1 whitespace-nowrap">
+          <Calendar aria-hidden="true" className="size-4 shrink-0" />
+          <span className="flex min-w-0 max-w-full items-center gap-1 whitespace-nowrap">
             <span className="min-w-0 truncate">{displayLabel}</span>
             {periodMeta && (
               <span className={period.unit === "week" ? "shrink-0" : "min-w-0 truncate"}>

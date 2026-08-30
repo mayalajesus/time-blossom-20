@@ -1,3 +1,5 @@
+import "@fontsource-variable/inter";
+
 type BootLocale = "en-US" | "pt-BR";
 
 type BootCopy = {

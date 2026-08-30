@@ -1,12 +1,12 @@
 import {
   Button,
+  ButtonGroup,
   Card,
   Checkbox,
+  Dropdown,
   Input,
   Label,
-  ListBox,
   Popover,
-  Select,
   Table,
   TextField,
   Typography,
@@ -1440,30 +1440,34 @@ function GroupSelect({
 }) {
   const { t } = useI18n();
   return (
-    <Select
-      aria-label={t(label)}
-      className="w-44"
-      value={value}
-      onChange={(key) => {
-        if (key) onChange(String(key) as GroupDimension | "none");
-      }}
-    >
-      <Label className="sr-only">{t(label)}</Label>
-      <Select.Trigger>
-        <Select.Value />
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover>
-        <ListBox aria-label={t(label)}>
+    <Dropdown>
+      <ButtonGroup variant="secondary" size="sm" className="w-44">
+        <Button type="button" aria-label={t(label)} className="h-9 min-w-0 flex-1 justify-start">
+          {t(options.find((option) => option.id === value)?.label ?? label)}
+        </Button>
+        <Dropdown.Trigger
+          aria-label={t("Open {label}", { label: t(label) })}
+          className="h-9 w-9 min-w-9 shrink-0 px-0"
+        >
+          <ChevronDown aria-hidden="true" className="size-4" />
+        </Dropdown.Trigger>
+      </ButtonGroup>
+      <Dropdown.Popover>
+        <Dropdown.Menu
+          aria-label={t(label)}
+          selectionMode="single"
+          selectedKeys={new Set([value])}
+          onAction={(key) => onChange(String(key) as GroupDimension | "none")}
+        >
           {options.map((option) => (
-            <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
+            <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
               <Label>{t(option.label)}</Label>
-              <ListBox.ItemIndicator />
-            </ListBox.Item>
+              <Dropdown.ItemIndicator />
+            </Dropdown.Item>
           ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
+        </Dropdown.Menu>
+      </Dropdown.Popover>
+    </Dropdown>
   );
 }
 

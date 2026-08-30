@@ -1,22 +1,29 @@
 import {
   Avatar,
   Button,
+  ButtonGroup,
   Chip,
   Description,
+  Dropdown,
   FieldError,
   Form,
   Input,
   Label,
-  ListBox,
   Modal,
-  Select,
   Table,
   TextField,
   Typography,
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Envelope, PaperPlane, PersonPencil, PersonPlus, TrashBin } from "@gravity-ui/icons";
+import {
+  ChevronDown,
+  Envelope,
+  PaperPlane,
+  PersonPencil,
+  PersonPlus,
+  TrashBin,
+} from "@gravity-ui/icons";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
@@ -388,28 +395,38 @@ function TeamPage() {
 
                   <div className="flex flex-col gap-2">
                     <Label>{t("Role")}</Label>
-                    <Select
-                      aria-label={t("Invitation role")}
-                      fullWidth
-                      variant="secondary"
-                      value={role}
-                      onChange={(key) => setRole(String(key ?? "Member") as InviteRole)}
-                    >
-                      <Select.Trigger>
-                        <Select.Value />
-                        <Select.Indicator />
-                      </Select.Trigger>
-                      <Select.Popover>
-                        <ListBox>
+                    <Dropdown>
+                      <ButtonGroup variant="secondary" size="sm" className="w-full">
+                        <Button
+                          type="button"
+                          aria-label={t("Invitation role")}
+                          className="h-9 min-w-0 flex-1 justify-start"
+                        >
+                          {t(role)}
+                        </Button>
+                        <Dropdown.Trigger
+                          aria-label={t("Choose invitation role")}
+                          className="h-9 w-9 min-w-9 shrink-0 px-0"
+                        >
+                          <ChevronDown aria-hidden="true" className="size-4" />
+                        </Dropdown.Trigger>
+                      </ButtonGroup>
+                      <Dropdown.Popover>
+                        <Dropdown.Menu
+                          aria-label={t("Invitation role")}
+                          selectionMode="single"
+                          selectedKeys={new Set([role])}
+                          onAction={(key) => setRole(String(key) as InviteRole)}
+                        >
                           {inviteRoles.map((option) => (
-                            <ListBox.Item key={option} id={option} textValue={option}>
+                            <Dropdown.Item key={option} id={option} textValue={option}>
                               <Label>{t(option)}</Label>
-                              <ListBox.ItemIndicator />
-                            </ListBox.Item>
+                              <Dropdown.ItemIndicator />
+                            </Dropdown.Item>
                           ))}
-                        </ListBox>
-                      </Select.Popover>
-                    </Select>
+                        </Dropdown.Menu>
+                      </Dropdown.Popover>
+                    </Dropdown>
                     <Description>
                       {t("Owner access is reserved for the workspace owner.")}
                     </Description>

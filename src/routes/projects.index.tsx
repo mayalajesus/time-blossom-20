@@ -8,9 +8,9 @@ import {
   Form,
   Input,
   Label,
-  ListBox,
   Modal,
-  Select,
+  ButtonGroup,
+  Dropdown,
   Separator,
   Switch,
   TextField,
@@ -21,6 +21,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   Archive,
   ArrowRotateLeft,
+  ChevronDown,
   CircleDollar,
   Folder,
   Persons,
@@ -197,6 +198,12 @@ function ProjectsPage() {
   };
 
   const activeMembers = members.filter((member) => member.status === "active");
+  const projectFilterOptions = [
+    { id: "all", label: t("All") },
+    { id: "active", label: t("Active") },
+    { id: "inactive", label: t("Inactive") },
+    { id: "archived", label: t("Archived") },
+  ];
 
   return (
     <div className="space-y-6">
@@ -205,33 +212,38 @@ function ProjectsPage() {
         description={t("Time tracked per project across the workspace.")}
         actions={
           <>
-            <Select
-              aria-label={t("Filter projects")}
-              className="w-28 shrink-0"
-              value={filter}
-              variant="secondary"
-              onChange={(key) => setFilter(String(key ?? "all"))}
-            >
-              <Select.Trigger className="h-9 w-full px-3">
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  {[
-                    { id: "all", label: t("All") },
-                    { id: "active", label: t("Active") },
-                    { id: "inactive", label: t("Inactive") },
-                    { id: "archived", label: t("Archived") },
-                  ].map((o) => (
-                    <ListBox.Item key={o.id} id={o.id} textValue={o.label}>
-                      <Label>{o.label}</Label>
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
+            <Dropdown>
+              <ButtonGroup variant="secondary" size="sm" className="w-28 shrink-0">
+                <Button
+                  type="button"
+                  aria-label={t("Filter projects")}
+                  className="h-9 min-w-0 flex-1 justify-start px-3"
+                >
+                  {projectFilterOptions.find((option) => option.id === filter)?.label}
+                </Button>
+                <Dropdown.Trigger
+                  aria-label={t("Open project filters")}
+                  className="h-9 w-9 min-w-9 shrink-0 px-0"
+                >
+                  <ChevronDown aria-hidden="true" className="size-4" />
+                </Dropdown.Trigger>
+              </ButtonGroup>
+              <Dropdown.Popover>
+                <Dropdown.Menu
+                  aria-label={t("Filter projects")}
+                  selectionMode="single"
+                  selectedKeys={new Set([filter])}
+                  onAction={(key) => setFilter(String(key))}
+                >
+                  {projectFilterOptions.map((option) => (
+                    <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
+                      <Label>{option.label}</Label>
+                      <Dropdown.ItemIndicator />
+                    </Dropdown.Item>
                   ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </Dropdown>
             {can("manage-projects") ? (
               <Button
                 onPress={() => {
@@ -349,7 +361,16 @@ function ProjectsPage() {
                               {
                                 id: "archive",
                                 label: t("Archive project"),
-                                icon: <Archive className="size-4 text-warning" />,
+                                icon: (
+                                  <Chip
+                                    color="warning"
+                                    size="sm"
+                                    variant="tertiary"
+                                    className="px-0 py-0"
+                                  >
+                                    <Archive className="size-4" />
+                                  </Chip>
+                                ),
                                 tone: "warning" as const,
                               },
                             ]),
@@ -444,8 +465,10 @@ function ProjectsPage() {
                 <Button slot="close" variant="secondary">
                   {t("Cancel")}
                 </Button>
-                <Button variant="secondary" className="text-warning" onPress={archiveProject}>
-                  {t("Archive project")}
+                <Button variant="secondary" onPress={archiveProject}>
+                  <Chip color="warning" size="sm" variant="tertiary" className="px-0 py-0">
+                    {t("Archive project")}
+                  </Chip>
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>
@@ -469,9 +492,7 @@ function ProjectsPage() {
               <AlertDialog.CloseTrigger />
               <AlertDialog.Header>
                 <AlertDialog.Icon status="danger" />
-                <AlertDialog.Heading className="text-danger-soft-foreground">
-                  {t("Delete project permanently?")}
-                </AlertDialog.Heading>
+                <AlertDialog.Heading>{t("Delete project permanently?")}</AlertDialog.Heading>
               </AlertDialog.Header>
               <AlertDialog.Body>
                 {deleteError ? (
@@ -541,34 +562,47 @@ function ProjectsPage() {
 
                   <div className="flex flex-col gap-2">
                     <Label>{t("Client")}</Label>
-                    <Select
-                      aria-label={t("Client")}
-                      fullWidth
-                      value={clientId || "none"}
-                      onChange={(key) => {
-                        const value = String(key ?? "none");
-                        setClientId(value === "none" ? "" : value);
-                        setCreateError(null);
-                      }}
-                    >
-                      <Select.Trigger>
-                        <Select.Value />
-                        <Select.Indicator />
-                      </Select.Trigger>
-                      <Select.Popover>
-                        <ListBox>
-                          <ListBox.Item id="none" textValue={t("Select a client")} isDisabled>
+                    <Dropdown>
+                      <ButtonGroup variant="secondary" size="sm" className="w-full">
+                        <Button
+                          type="button"
+                          aria-label={t("Client")}
+                          className="h-9 min-w-0 flex-1 justify-start"
+                        >
+                          {clients.find((client) => client.id === clientId)?.name ??
+                            t("Select a client")}
+                        </Button>
+                        <Dropdown.Trigger
+                          aria-label={t("Choose client")}
+                          className="h-9 w-9 min-w-9 shrink-0 px-0"
+                        >
+                          <ChevronDown aria-hidden="true" className="size-4" />
+                        </Dropdown.Trigger>
+                      </ButtonGroup>
+                      <Dropdown.Popover>
+                        <Dropdown.Menu
+                          aria-label={t("Client")}
+                          selectionMode="single"
+                          selectedKeys={new Set([clientId || "none"])}
+                          onAction={(key) => {
+                            const value = String(key);
+                            setClientId(value === "none" ? "" : value);
+                            setCreateError(null);
+                          }}
+                        >
+                          <Dropdown.Item id="none" textValue={t("Select a client")} isDisabled>
                             <Label>{t("Select a client")}</Label>
-                          </ListBox.Item>
+                            <Dropdown.ItemIndicator />
+                          </Dropdown.Item>
                           {clients.map((c) => (
-                            <ListBox.Item key={c.id} id={c.id} textValue={c.name}>
+                            <Dropdown.Item key={c.id} id={c.id} textValue={c.name}>
                               <Label>{c.name}</Label>
-                              <ListBox.ItemIndicator />
-                            </ListBox.Item>
+                              <Dropdown.ItemIndicator />
+                            </Dropdown.Item>
                           ))}
-                        </ListBox>
-                      </Select.Popover>
-                    </Select>
+                        </Dropdown.Menu>
+                      </Dropdown.Popover>
+                    </Dropdown>
                     <Description>{t("Every project is connected to one client.")}</Description>
                   </div>
 

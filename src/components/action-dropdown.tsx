@@ -1,4 +1,4 @@
-import { Dropdown, Label } from "@heroui/react";
+import { Chip, Dropdown, Label } from "@heroui/react";
 import type { ReactNode } from "react";
 import { Ellipsis } from "@gravity-ui/icons";
 
@@ -34,22 +34,17 @@ export function ActionDropdown({
               {...(item.isDisabled ? { isDisabled: true } : {})}
               {...(item.tone === "danger" ? { variant: "danger" as const } : {})}
             >
-              {item.icon ? (
-                <span
-                  className={
-                    item.tone === "danger"
-                      ? "text-danger"
-                      : item.tone === "warning"
-                        ? "text-warning"
-                        : undefined
-                  }
-                >
+              {item.tone === "warning" ? (
+                <Chip color="warning" size="sm" variant="tertiary" className="px-0 py-0">
                   {item.icon}
-                </span>
-              ) : null}
-              <Label className={item.tone === "warning" ? "text-warning" : undefined}>
-                {item.label}
-              </Label>
+                  <Chip.Label>{item.label}</Chip.Label>
+                </Chip>
+              ) : (
+                <>
+                  {item.icon ? <span>{item.icon}</span> : null}
+                  <Label>{item.label}</Label>
+                </>
+              )}
               {item.trailing ? (
                 <span className="ml-auto flex shrink-0 items-center">{item.trailing}</span>
               ) : null}
