@@ -7,6 +7,14 @@ const common = readFileSync(
   new URL("../../db/migrations/20260828180000_core.sql", import.meta.url),
   "utf8",
 );
+const defaultWorkspace = readFileSync(
+  new URL("../../db/migrations/20260830190000_default_workspace.sql", import.meta.url),
+  "utf8",
+);
+const requiredAccountAccess = readFileSync(
+  new URL("../../db/migrations/20260830200000_required_account_access.sql", import.meta.url),
+  "utf8",
+);
 const supabase = readFileSync(
   new URL("../../db/providers/supabase/20260828181000_supabase.sql", import.meta.url),
   "utf8",
@@ -67,5 +75,16 @@ describe("portable database schema", () => {
     expect(qaSeed).toContain("app.environment");
     expect(qaSeed).toContain("example.test");
     expect(qaSeed).not.toMatch(/@(?:gmail|outlook|hotmail)\./i);
+  });
+
+  it("guarantees one personal workspace for profiles without workspace access", () => {
+    expect(defaultWorkspace).toMatch(
+      /create or replace function public\.ensure_personal_workspace\(p_user_id text\)/i,
+    );
+    expect(defaultWorkspace).toContain("Workspace pessoal");
+    expect(defaultWorkspace).toContain("pg_advisory_xact_lock");
+    expect(defaultWorkspace).toMatch(/create trigger on_profile_created/i);
+    expect(defaultWorkspace).toMatch(/not exists \([\s\S]*workspace_members/i);
+    expect(requiredAccountAccess).toContain("wm.status = 'active'");
   });
 });

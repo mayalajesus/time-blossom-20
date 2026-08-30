@@ -1,14 +1,8 @@
-import { Button, Form, Link, Separator } from "@heroui/react";
+import { Button, Form, Link } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import {
-  AuthError,
-  AuthField,
-  AuthFooter,
-  AuthPage,
-  GoogleAuthButton,
-} from "@/components/auth-page";
-import { signInWithGoogle, signInWithPassword } from "@/lib/auth";
+import { AuthError, AuthField, AuthFooter, AuthPage } from "@/components/auth-page";
+import { signInWithPassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
 import { getAuthReturnPath } from "@/lib/auth-redirect";
@@ -38,14 +32,6 @@ function LoginPage() {
       return;
     }
     window.location.replace(getAuthReturnPath());
-  };
-
-  const google = async () => {
-    setError(null);
-    setBusy(true);
-    const result = await signInWithGoogle();
-    setBusy(false);
-    if (!result.success) setError(result.error);
   };
 
   return (
@@ -90,12 +76,6 @@ function LoginPage() {
           {busy ? t("Signing in…") : t("Sign in")}
         </Button>
       </Form>
-      <div className="flex items-center gap-3" role="separator">
-        <Separator className="flex-1" />
-        {t("or")}
-        <Separator className="flex-1" />
-      </div>
-      <GoogleAuthButton onPress={google} isDisabled={busy} />
       <AuthFooter prompt={t("Don't have an account?")} to="/signup" action={t("Create account")} />
     </AuthPage>
   );

@@ -1,5 +1,8 @@
 {
-  "rewrites": [{ "source": "/((?!.*\\.).*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/api/data", "destination": "/api/data.mjs" },
+    { "source": "/((?!.*\\.).*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

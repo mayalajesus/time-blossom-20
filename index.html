@@ -3,36 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>
-      (() => {
-        const root = document.documentElement;
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        let preferences = null;
-
-        try {
-          const activeMember = window.localStorage.getItem("time-blossom:active-member:v1") || "u1";
-          const raw =
-            window.localStorage.getItem("time-blossom:account:v10") ||
-            window.localStorage.getItem("time-blossom:account:v9") ||
-            window.localStorage.getItem("time-blossom:workspace:v8");
-          const snapshot = raw ? JSON.parse(raw) : null;
-          preferences =
-            snapshot?.preferencesByUserId?.[activeMember] ||
-            snapshot?.preferencesByMemberId?.[activeMember] ||
-            null;
-        } catch {
-          preferences = null;
-        }
-
-        const language = preferences?.language === "pt-BR" ? "pt-BR" : "en-US";
-        const theme = preferences?.theme || "system";
-        const dark = theme === "dark" || (theme === "system" && prefersDark);
-
-        root.lang = language;
-        root.classList.toggle("dark", dark);
-        root.classList.toggle("light", !dark);
-      })();
-    </script>
     <meta
       name="description"
       content="A calm, focused workspace for tracking time across projects and clients."

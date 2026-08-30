@@ -22,11 +22,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     let mounted = true;
-    void authClient.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setSession(data.session);
-      setLoading(false);
-    });
+    void authClient
+      .getSession()
+      .then(({ data }) => {
+        if (!mounted) return;
+        setSession(data.session);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setSession(null);
+        setLoading(false);
+      });
 
     const { data } = authClient.onAuthStateChange((event, nextSession) => {
       if (event === "SIGNED_IN") resetSessionDefaultAvatar();

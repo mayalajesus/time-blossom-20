@@ -1,13 +1,13 @@
 import {
   Card,
   Button,
-  ButtonGroup,
   Description,
-  Dropdown,
   FieldError,
   Form,
   Input,
   Label,
+  ListBox,
+  Select,
   Switch,
   Tabs,
   TextField,
@@ -457,14 +457,9 @@ function SettingsPage() {
       </Card>
 
       <Card id="personal-preferences" className="scroll-mt-24 space-y-4 p-4">
-        <div className="space-y-1">
-          <Typography type="h2" weight="semibold">
-            {t("Preferences")}
-          </Typography>
-          <Typography type="body-sm" color="muted">
-            {t("These preferences apply only to your account.")}
-          </Typography>
-        </div>
+        <Typography type="h2" weight="semibold">
+          {t("Preferences")}
+        </Typography>
 
         {preferenceError ? (
           <FormAlert
@@ -473,44 +468,32 @@ function SettingsPage() {
           />
         ) : null}
 
-        <div className="flex flex-col gap-1.5">
+        <Select
+          fullWidth
+          variant="secondary"
+          selectedKey={preferences.language}
+          onSelectionChange={(key) =>
+            savePreference({ language: String(key) as typeof preferences.language })
+          }
+        >
           <Label>{t("Language")}</Label>
-          <Dropdown>
-            <ButtonGroup variant="secondary" size="sm" className="w-full">
-              <Button
-                type="button"
-                aria-label={t("Language")}
-                className="h-9 min-w-0 flex-1 justify-start"
-              >
-                {localeOptions.find((option) => option.id === preferences.language)?.label}
-              </Button>
-              <Dropdown.Trigger
-                aria-label={t("Choose language")}
-                className="h-9 w-9 min-w-9 shrink-0 px-0"
-              >
-                <ChevronDown aria-hidden="true" className="size-4" />
-              </Dropdown.Trigger>
-            </ButtonGroup>
-            <Dropdown.Popover>
-              <Dropdown.Menu
-                aria-label={t("Language")}
-                selectionMode="single"
-                selectedKeys={new Set([preferences.language])}
-                onAction={(key) =>
-                  savePreference({ language: String(key) as typeof preferences.language })
-                }
-              >
-                {localeOptions.map((option) => (
-                  <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
-                    <Label>{option.label}</Label>
-                    <Dropdown.ItemIndicator />
-                  </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            </Dropdown.Popover>
-          </Dropdown>
-          <Description>{t("Choose the language for your account.")}</Description>
-        </div>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator>
+              <ChevronDown aria-hidden="true" className="size-4" />
+            </Select.Indicator>
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox aria-label={t("Language")}>
+              {localeOptions.map((option) => (
+                <ListBox.Item key={option.id} id={option.id} textValue={option.label}>
+                  <Label>{option.label}</Label>
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
 
         <div className="flex flex-col gap-1.5">
           <Label>{t("Theme")}</Label>
@@ -535,7 +518,6 @@ function SettingsPage() {
               </Tabs.Panel>
             ))}
           </Tabs>
-          <Description>{t("Choose how Time Blossom should look for your account.")}</Description>
         </div>
 
         <Form
@@ -545,17 +527,10 @@ function SettingsPage() {
             saveBillingPreferences();
           }}
         >
-          <div className="space-y-1">
-            <Typography type="body-sm" weight="semibold">
-              {t("Billing rate")}
-            </Typography>
-            <Description>
-              {t(
-                "Billable value is calculated from billable hours only. No currency conversion is applied.",
-              )}
-            </Description>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
+          <Typography type="body-sm" weight="semibold">
+            {t("Billing rate")}
+          </Typography>
+          <div className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_9rem]">
             <TextField
               isRequired
               fullWidth
@@ -568,44 +543,37 @@ function SettingsPage() {
               <Input variant="secondary" inputMode="decimal" placeholder="0.00" />
               <FieldError>{hourlyRateError}</FieldError>
             </TextField>
-            <div className="flex flex-col gap-1.5">
+            <Select
+              fullWidth
+              variant="secondary"
+              selectedKey={currency}
+              onSelectionChange={(key) => setCurrency(String(key) as CurrencyCode)}
+            >
               <Label>{t("Currency")}</Label>
-              <Dropdown>
-                <ButtonGroup variant="secondary" size="sm" className="w-full">
-                  <Button type="button" className="h-9 min-w-0 flex-1 justify-start">
-                    {currency}
-                  </Button>
-                  <Dropdown.Trigger
-                    aria-label={t("Choose currency")}
-                    className="h-9 w-9 min-w-9 shrink-0 px-0"
-                  >
-                    <ChevronDown aria-hidden="true" className="size-4" />
-                  </Dropdown.Trigger>
-                </ButtonGroup>
-                <Dropdown.Popover>
-                  <Dropdown.Menu
-                    aria-label={t("Currency")}
-                    selectionMode="single"
-                    selectedKeys={new Set([currency])}
-                    onAction={(key) => setCurrency(String(key) as CurrencyCode)}
-                  >
-                    {currencyOptions.map((option) => (
-                      <Dropdown.Item key={option} id={option} textValue={option}>
-                        <Label>{option}</Label>
-                        <Dropdown.ItemIndicator />
-                      </Dropdown.Item>
-                    ))}
-                  </Dropdown.Menu>
-                </Dropdown.Popover>
-              </Dropdown>
-            </div>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator>
+                  <ChevronDown aria-hidden="true" className="size-4" />
+                </Select.Indicator>
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox aria-label={t("Currency")}>
+                  {currencyOptions.map((option) => (
+                    <ListBox.Item key={option} id={option} textValue={option}>
+                      <Label>{option}</Label>
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
           </div>
-          <Description>
-            {t("Preview: {value}", {
-              value: formatMoney(parsedHourlyRate ?? 0, currency, preferences.language),
-            })}
-          </Description>
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Typography type="body-sm" color="muted">
+              {t("Preview: {value}", {
+                value: formatMoney(parsedHourlyRate ?? 0, currency, preferences.language),
+              })}
+            </Typography>
             <Button type="submit" isDisabled={Boolean(hourlyRateError)}>
               {t("Save billing rate")}
             </Button>

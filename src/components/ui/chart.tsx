@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as RechartsPrimitive from "recharts";
 import type { NameType, Payload, ValueType } from "recharts/types/component/DefaultTooltipContent";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 const THEMES = { light: "", dark: ".dark" } as const;
 
@@ -86,6 +86,7 @@ export function ChartTooltipContent({
   className,
   hideLabel = false,
   indicator = "dot",
+  valueFormatter,
 }: {
   active?: boolean;
   payload?: Array<Payload<ValueType, NameType>>;
@@ -93,6 +94,7 @@ export function ChartTooltipContent({
   className?: string;
   hideLabel?: boolean;
   indicator?: "line" | "dot" | "dashed";
+  valueFormatter?: (value: ValueType | undefined, name: NameType | undefined) => React.ReactNode;
 }) {
   const { config } = useChart();
   if (!active || !payload?.length) return null;
@@ -123,7 +125,7 @@ export function ChartTooltipContent({
               />
               <span className="min-w-0 flex-1 truncate">{itemConfig?.label || item.name}</span>
               <span className="font-mono font-medium tabular-nums text-foreground">
-                {String(item.value ?? "")}
+                {valueFormatter ? valueFormatter(item.value, item.name) : String(item.value ?? "")}
               </span>
             </div>
           );

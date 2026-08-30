@@ -15,7 +15,6 @@ const publicRoutes = ["/login", "/signup", "/forgot-password", "/auth/callback",
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
-  await page.evaluate(() => window.localStorage.clear());
 });
 
 test("all primary routes reload into the designed app shell", async ({ page }) => {
@@ -43,11 +42,6 @@ test("settings preserves language and theme controls", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Light" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Dark" })).toBeVisible();
   await page.getByRole("tab", { name: "Dark" }).click();
-  await expect(page.locator("html")).toHaveClass(/dark/);
-  await expect
-    .poll(() => page.evaluate(() => window.localStorage.getItem("time-blossom:account:v11")))
-    .toContain('"theme":"dark"');
-  await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.getByRole("tab", { name: "Light" }).click();
   await expect(page.locator("html")).toHaveClass(/light/);

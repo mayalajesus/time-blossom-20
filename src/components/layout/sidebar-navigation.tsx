@@ -33,9 +33,10 @@ const managementNavigation: NavigationItem[] = [
 ];
 
 const reportViews = [
-  { id: "summary", label: "Summary" },
+  { id: "overview", label: "Overview" },
+  { id: "summary", label: "Analysis" },
   { id: "detailed", label: "Detailed" },
-  { id: "weekly", label: "Weekly" },
+  { id: "weekly", label: "Activity" },
   { id: "team", label: "Team" },
 ] as const;
 
@@ -46,7 +47,7 @@ function getReportView(search: unknown): ReportView {
     const value = (search as { view?: unknown }).view;
     if (reportViews.some((report) => report.id === value)) return value as ReportView;
   }
-  return "detailed";
+  return "overview";
 }
 
 function isNavigationItemActive(pathname: string, item: NavigationItem) {

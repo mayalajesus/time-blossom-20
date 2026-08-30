@@ -1,14 +1,8 @@
-import { Button, Form, Separator, Typography } from "@heroui/react";
+import { Button, Form, Typography } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import {
-  AuthError,
-  AuthField,
-  AuthFooter,
-  AuthPage,
-  GoogleAuthButton,
-} from "@/components/auth-page";
-import { signInWithGoogle, signUpWithPassword } from "@/lib/auth";
+import { AuthError, AuthField, AuthFooter, AuthPage } from "@/components/auth-page";
+import { signUpWithPassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
 import { getAuthReturnPath } from "@/lib/auth-redirect";
@@ -18,6 +12,8 @@ export const Route = createFileRoute("/signup")({ component: SignupPage });
 function SignupPage() {
   const { session } = useAuth();
   const { t } = useI18n();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -32,6 +28,25 @@ function SignupPage() {
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    const normalizedFirstName = firstName.trim().replace(/\s+/g, " ");
+    const normalizedLastName = lastName.trim().replace(/\s+/g, " ");
+    if (!normalizedFirstName) {
+      setError("A first name is required.");
+      return;
+    }
+    if (!normalizedLastName) {
+      setError("A last name is required.");
+      return;
+    }
+    if (`${normalizedFirstName} ${normalizedLastName}`.length > 120) {
+      setError("Name must be 120 characters or fewer.");
+      return;
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError("Enter a valid email address");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -49,7 +64,12 @@ function SignupPage() {
       return;
     }
     setBusy(true);
-    const result = await signUpWithPassword(email.trim(), password);
+    const result = await signUpWithPassword(
+      normalizedEmail,
+      password,
+      normalizedFirstName,
+      normalizedLastName,
+    );
     setBusy(false);
     if (!result.success) {
       setError(result.error);
@@ -81,6 +101,32 @@ function SignupPage() {
       ) : (
         <>
           <Form className="space-y-4" onSubmit={submit}>
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <AuthField
+                id="signup-first-name"
+                label={t("First name")}
+                value={firstName}
+                onChange={(value) => {
+                  setFirstName(value);
+                  setError(null);
+                }}
+                autoComplete="given-name"
+                placeholder={t("Your first name")}
+                validate={(value) => (value.trim() ? null : t("A first name is required."))}
+              />
+              <AuthField
+                id="signup-last-name"
+                label={t("Last name")}
+                value={lastName}
+                onChange={(value) => {
+                  setLastName(value);
+                  setError(null);
+                }}
+                autoComplete="family-name"
+                placeholder={t("Your last name")}
+                validate={(value) => (value.trim() ? null : t("A last name is required."))}
+              />
+            </div>
             <AuthField
               id="signup-email"
               label={t("Email")}
@@ -137,21 +183,6 @@ function SignupPage() {
               {busy ? t("Creating account…") : t("Create account")}
             </Button>
           </Form>
-          <div className="flex items-center gap-3" role="separator">
-            <Separator className="flex-1" />
-            {t("or")}
-            <Separator className="flex-1" />
-          </div>
-          <GoogleAuthButton
-            onPress={async () => {
-              setError(null);
-              setBusy(true);
-              const result = await signInWithGoogle();
-              setBusy(false);
-              if (!result.success) setError(result.error);
-            }}
-            isDisabled={busy}
-          />
           <AuthFooter prompt={t("Already have an account?")} to="/login" action={t("Sign in")} />
         </>
       )}

@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { useAuth } from "./auth-context";
+import { createApiDataSource } from "./api-data-source";
 import {
   clients as seedClients,
   currentUserId as defaultCurrentUserId,
@@ -182,25 +184,6 @@ const initialTrello: TrelloState = {
   rule: "lists",
   lastSync: null,
 };
-
-const ACTIVE_MEMBER_STORAGE_KEY = "time-blossom:active-member:v1";
-const ACTIVE_WORKSPACE_STORAGE_KEY = "time-blossom:active-workspace:v1";
-const SESSION_STORAGE_KEY = "time-blossom:session:v1";
-const ACCOUNT_STORAGE_KEY = "time-blossom:account:v11";
-const LEGACY_ACCOUNT_KEYS = [
-  "time-blossom:account:v10",
-  "time-blossom:account:v9",
-  "time-blossom:workspace:v8",
-  "time-blossom:workspace:v7",
-  "time-blossom:workspace:v6",
-  "time-blossom:workspace:v5",
-  `time-blossom:workspace:v4:${defaultCurrentUserId}`,
-  `time-blossom:workspace:v3:${defaultCurrentUserId}`,
-  `time-blossom:workspace:v2:${defaultCurrentUserId}`,
-];
-const TIMER_STORAGE_KEY = (memberId: string, workspaceId: string) =>
-  `time-blossom:active-timer:v3:${memberId}:${workspaceId}`;
-const LEGACY_TIMER_STORAGE_KEY = (memberId: string) => `time-blossom:active-timer:v2:${memberId}`;
 
 function isValidClock(value: unknown): value is string {
   return typeof value === "string" && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -787,147 +770,6 @@ export function isValidAccount(value: unknown): value is PersistedAccount {
   });
 }
 
-function readPersistedAccount(): PersistedAccount {
-  if (typeof window === "undefined") return makeSeedAccount();
-  try {
-    for (const key of [ACCOUNT_STORAGE_KEY, ...LEGACY_ACCOUNT_KEYS]) {
-      const raw = window.localStorage.getItem(key);
-      if (!raw) continue;
-      const parsed: unknown = JSON.parse(raw);
-      const repaired = repairDuplicateEntryIds(parsed);
-      if (isValidAccount(repaired)) {
-        if (repaired !== parsed)
-          window.localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(repaired));
-        return repaired;
-      }
-      const migrated = migrateAccountSnapshot(parsed) ?? normalizeLegacyAccount(parsed);
-      const repairedMigrated = repairDuplicateEntryIds(migrated);
-      if (repairedMigrated && isValidAccount(repairedMigrated)) {
-        window.localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(repairedMigrated));
-        if (key !== ACCOUNT_STORAGE_KEY) window.localStorage.removeItem(key);
-        return repairedMigrated;
-      }
-    }
-  } catch {
-    // Seed fallback keeps the local prototype usable after malformed storage.
-  }
-  return makeSeedAccount();
-}
-
-function readActiveMemberId(identities: UserIdentity[]): string {
-  if (typeof window !== "undefined") {
-    try {
-      const stored = window.localStorage.getItem(ACTIVE_MEMBER_STORAGE_KEY);
-      if (stored && identities.some((identity) => identity.id === stored)) return stored;
-      window.localStorage.removeItem(ACTIVE_MEMBER_STORAGE_KEY);
-    } catch {
-      // Seed fallback.
-    }
-  }
-  return identities.some((identity) => identity.id === defaultCurrentUserId)
-    ? defaultCurrentUserId
-    : (identities[0]?.id ?? defaultCurrentUserId);
-}
-
-function readActiveWorkspaceId(account: PersistedAccount, memberId: string): string {
-  const accessible = account.workspaces.filter((data) =>
-    data.memberships.some(
-      (membership) => membership.userId === memberId && membership.status === "active",
-    ),
-  );
-  const active = accessible.filter((data) => data.workspace.status === "active");
-  if (typeof window !== "undefined") {
-    try {
-      const stored = window.localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
-      const storedWorkspace = accessible.find((data) => data.workspace.id === stored);
-      if (stored && storedWorkspace?.workspace.status === "active") return stored;
-      if (stored && storedWorkspace && active.length === 0) return stored;
-      window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
-    } catch {
-      // First accessible workspace fallback.
-    }
-  }
-  return active[0]?.workspace.id ?? accessible[0]?.workspace.id ?? "w1";
-}
-
-function readSessionStatus(): SessionStatus {
-  if (typeof window === "undefined") return "active";
-  try {
-    return window.localStorage.getItem(SESSION_STORAGE_KEY) === "signed-out"
-      ? "signed-out"
-      : "active";
-  } catch {
-    return "active";
-  }
-}
-
-function isValidTimerSnapshot(
-  value: unknown,
-  workspaceId: string,
-  projects: Project[],
-): value is TimerState {
-  if (!value || typeof value !== "object") return false;
-  const timer = value as Partial<TimerState>;
-  if (timer.status !== "running" && timer.status !== "paused") return false;
-  if (timer.workspaceId !== workspaceId || typeof timer.task !== "string" || !timer.task.trim())
-    return false;
-  if (
-    timer.projectId !== null &&
-    (typeof timer.projectId !== "string" ||
-      !projects.some((project) => project.id === timer.projectId))
-  )
-    return false;
-  if (
-    typeof timer.billable !== "boolean" ||
-    !isValidClock(timer.startClock) ||
-    typeof timer.startedDate !== "string" ||
-    !isValidDateOnly(timer.startedDate) ||
-    !isFiniteNumber(timer.accumulated) ||
-    timer.accumulated < 0
-  )
-    return false;
-  if (timer.hourlyRate !== undefined && (!isFiniteNumber(timer.hourlyRate) || timer.hourlyRate < 0))
-    return false;
-  if (timer.currency !== undefined && !isCurrencyCode(timer.currency)) return false;
-  if (timer.status === "running") {
-    if (!isFiniteNumber(timer.startedAt) || timer.startedAt > Date.now() + 60_000) return false;
-  } else if (timer.startedAt !== null) return false;
-  return true;
-}
-
-function readPersistedTimer(
-  memberId: string,
-  workspaceId: string,
-  projects: Project[],
-): TimerState {
-  if (typeof window === "undefined") return initialTimer;
-  try {
-    const key = TIMER_STORAGE_KEY(memberId, workspaceId);
-    const raw = window.localStorage.getItem(key);
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (isValidTimerSnapshot(parsed, workspaceId, projects)) return parsed;
-      window.localStorage.removeItem(key);
-    }
-    const legacyRaw = window.localStorage.getItem(LEGACY_TIMER_STORAGE_KEY(memberId));
-    if (legacyRaw) {
-      const migrated = { ...(JSON.parse(legacyRaw) as Partial<TimerState>), workspaceId };
-      if (isValidTimerSnapshot(migrated, workspaceId, projects)) {
-        window.localStorage.setItem(key, JSON.stringify(migrated));
-        window.localStorage.removeItem(LEGACY_TIMER_STORAGE_KEY(memberId));
-        return migrated;
-      }
-    }
-  } catch {
-    try {
-      window.localStorage.removeItem(TIMER_STORAGE_KEY(memberId, workspaceId));
-    } catch {
-      /* no-op */
-    }
-  }
-  return initialTimer;
-}
-
 export function elapsedForTimer(timer: TimerState, now = Date.now()): number {
   if (timer.status !== "running" || timer.startedAt === null) return timer.accumulated;
   return Math.max(0, timer.accumulated + Math.floor((now - timer.startedAt) / 1000));
@@ -970,13 +812,10 @@ function initialsFromName(name: string): string {
 }
 
 let idCounter = 100;
-const nextId = (prefix: string, existingIds: Iterable<string> = []) => {
-  const usedIds = new Set(existingIds);
-  let candidate = "";
-  do {
-    candidate = `${prefix}${++idCounter}`;
-  } while (usedIds.has(candidate));
-  return candidate;
+const nextId = (_prefix: string, _existingIds: Iterable<string> = []) => {
+  if (typeof globalThis.crypto?.randomUUID === "function") return globalThis.crypto.randomUUID();
+  const suffix = (++idCounter).toString(16).padStart(12, "0");
+  return `00000000-0000-4000-8000-${suffix}`;
 };
 const inviteEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -1055,34 +894,30 @@ interface StoreValue {
 const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [account, setAccount] = useState<PersistedAccount>(() => readPersistedAccount());
-  const [activeMemberId, setActiveMemberId] = useState(() =>
-    readActiveMemberId(account.identities),
-  );
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() =>
-    readActiveWorkspaceId(account, readActiveMemberId(account.identities)),
-  );
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(() => readSessionStatus());
+  const { loading: authLoading, session } = useAuth();
+  const dataSource = useMemo(() => createApiDataSource(), []);
+  const [account, setAccount] = useState<PersistedAccount>({
+    version: 11,
+    identities: [],
+    workspaces: [],
+    preferencesByUserId: {},
+  });
+  const [activeMemberId, setActiveMemberId] = useState(() => session?.user.id ?? "");
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState("");
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>("signed-out");
+  const [hydrated, setHydrated] = useState(false);
+  const [timerHydrated, setTimerHydrated] = useState(false);
+  const skipAccountSyncRef = useRef(false);
   const activeData =
     account.workspaces.find((data) => data.workspace.id === activeWorkspaceId) ??
     account.workspaces[0];
-  const [entries, setEntries] = useState<TimeEntry[]>(() => activeData?.entries ?? []);
-  const [projects, setProjects] = useState<Project[]>(() => activeData?.projects ?? []);
-  const [clients, setClients] = useState<Client[]>(() => activeData?.clients ?? []);
-  const [members, setMembers] = useState<Member[]>(() =>
-    (activeData?.memberships ?? [])
-      .map((membership) => membershipToMember(membership, account.identities))
-      .filter((member): member is Member => member !== null),
-  );
-  const [settings, setSettingsState] = useState<WorkspaceSettings>(
-    () => activeData?.settings ?? initialSettings,
-  );
-  const [trello, setTrelloState] = useState<TrelloState>(() => activeData?.trello ?? initialTrello);
-  const [timer, setTimer] = useState<TimerState>(() =>
-    activeData
-      ? readPersistedTimer(activeMemberId, activeData.workspace.id, activeData.projects)
-      : initialTimer,
-  );
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [settings, setSettingsState] = useState<WorkspaceSettings>(initialSettings);
+  const [trello, setTrelloState] = useState<TrelloState>(initialTrello);
+  const [timer, setTimer] = useState<TimerState>(initialTimer);
   const [elapsed, setElapsed] = useState(() => elapsedForTimer(timer));
   const preferences = account.preferencesByUserId[activeMemberId] ?? initialPreferences;
   const billingPreferencesByUserId = useMemo(
@@ -1113,15 +948,83 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [activeMemberId, activeWorkspaceId, entries, timer]);
 
   useEffect(() => {
-    try {
-      if (!currentWorkspace) return;
-      const key = TIMER_STORAGE_KEY(activeMemberId, currentWorkspace.id);
-      if (timer.status === "idle") window.localStorage.removeItem(key);
-      else window.localStorage.setItem(key, JSON.stringify(timer));
-    } catch {
-      // Memory fallback.
+    let cancelled = false;
+    if (authLoading) return;
+    if (!session) {
+      setHydrated(false);
+      setTimerHydrated(false);
+      setSessionStatus("signed-out");
+      setAccount({ version: 11, identities: [], workspaces: [], preferencesByUserId: {} });
+      setActiveMemberId("");
+      setActiveWorkspaceId("");
+      setEntries([]);
+      setProjects([]);
+      setClients([]);
+      setMembers([]);
+      setTimer(initialTimer);
+      return;
     }
-  }, [activeMemberId, currentWorkspace, timer]);
+
+    setSessionStatus("active");
+    setHydrated(false);
+    setTimerHydrated(false);
+    setActiveMemberId(session.user.id);
+    void dataSource.loadAccount(session.user.id).then((result) => {
+      if (cancelled) return;
+      if (!result.success) return;
+      const loadedAccount = result.data;
+      const nextWorkspace =
+        loadedAccount.workspaces.find(
+          (data) =>
+            data.workspace.status === "active" &&
+            data.memberships.some(
+              (membership) =>
+                membership.userId === session.user.id && membership.status === "active",
+            ),
+        ) ?? loadedAccount.workspaces[0];
+      const nextMembers =
+        nextWorkspace?.memberships
+          .map((membership) => membershipToMember(membership, loadedAccount.identities))
+          .filter((member): member is Member => member !== null) ?? [];
+      skipAccountSyncRef.current = true;
+      setAccount(loadedAccount);
+      setActiveWorkspaceId(nextWorkspace?.workspace.id ?? "");
+      setEntries(nextWorkspace?.entries ?? []);
+      setProjects(nextWorkspace?.projects ?? []);
+      setClients(nextWorkspace?.clients ?? []);
+      setMembers(nextMembers);
+      setSettingsState(nextWorkspace?.settings ?? initialSettings);
+      setTrelloState(nextWorkspace?.trello ?? initialTrello);
+      setTimer(initialTimer);
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, dataSource, session]);
+
+  useEffect(() => {
+    if (!hydrated || !session || !activeWorkspaceId) return;
+    let cancelled = false;
+    setTimerHydrated(false);
+    void dataSource.getActiveTimer(session.user.id, activeWorkspaceId).then((result) => {
+      if (cancelled) return;
+      setTimer(result.success && result.data ? result.data : initialTimer);
+      setTimerHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeMemberId, activeWorkspaceId, dataSource, hydrated, session]);
+
+  useEffect(() => {
+    if (!hydrated || !timerHydrated || !session || !activeWorkspaceId) return;
+    if (timer.status === "idle") {
+      void dataSource.clearActiveTimer(session.user.id, activeWorkspaceId);
+    } else {
+      void dataSource.saveActiveTimer(session.user.id, timer);
+    }
+  }, [activeMemberId, activeWorkspaceId, dataSource, hydrated, session, timer, timerHydrated]);
 
   useEffect(() => {
     const current = account.workspaces.find((data) => data.workspace.id === activeWorkspaceId);
@@ -1161,20 +1064,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   ]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(account));
-    } catch {
-      /* Memory fallback. */
+    if (!hydrated || !session) return;
+    if (skipAccountSyncRef.current) {
+      skipAccountSyncRef.current = false;
+      return;
     }
-  }, [account]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, activeWorkspaceId);
-    } catch {
-      /* Memory fallback. */
-    }
-  }, [activeWorkspaceId]);
+    const id = window.setTimeout(() => {
+      void dataSource.syncAccount(session.user.id, account);
+    }, 200);
+    return () => window.clearTimeout(id);
+  }, [account, dataSource, hydrated, session]);
 
   useEffect(() => {
     const refreshToday = () => setToday(getLocalToday(new Date(), preferences.timezone));
@@ -1978,7 +1877,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       setSettingsState(target.settings);
       setTrelloState(target.trello);
-      const nextTimer = readPersistedTimer(activeMemberId, workspaceId, target.projects);
+      const nextTimer = initialTimer;
       timerRef.current = nextTimer;
       setTimer(nextTimer);
       setElapsed(elapsedForTimer(nextTimer));
@@ -2167,11 +2066,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         );
         setSettingsState(nextWorkspace.settings);
         setTrelloState(nextWorkspace.trello);
-        const nextTimer = readPersistedTimer(
-          activeMemberId,
-          nextWorkspace.workspace.id,
-          nextWorkspace.projects,
-        );
+        const nextTimer = initialTimer;
         timerRef.current = nextTimer;
         setTimer(nextTimer);
         setElapsed(elapsedForTimer(nextTimer));
@@ -2256,11 +2151,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       setSettingsState(nextWorkspace.settings);
       setTrelloState(nextWorkspace.trello);
-      const nextTimer = readPersistedTimer(
-        activeMemberId,
-        nextWorkspace.workspace.id,
-        nextWorkspace.projects,
-      );
+      const nextTimer = initialTimer;
       timerRef.current = nextTimer;
       setTimer(nextTimer);
       setElapsed(elapsedForTimer(nextTimer));
@@ -2274,15 +2165,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!member) return { success: false, error: "Choose an active account in this workspace." };
       if (timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before changing accounts." };
-      try {
-        window.localStorage.setItem(ACTIVE_MEMBER_STORAGE_KEY, memberId);
-      } catch {
-        /* Memory fallback. */
-      }
-      const nextTimer = readPersistedTimer(memberId, activeWorkspaceId, projects);
+      const nextTimer = initialTimer;
       timerRef.current = nextTimer;
       setTimer(nextTimer);
       setElapsed(elapsedForTimer(nextTimer));
+      setTimerHydrated(false);
       setActiveMemberId(memberId);
       return { success: true };
     };
@@ -2291,11 +2178,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before signing out." };
       resetSessionDefaultAvatar();
-      try {
-        window.localStorage.setItem(SESSION_STORAGE_KEY, "signed-out");
-      } catch {
-        /* Memory fallback. */
-      }
       setSessionStatus("signed-out");
       return { success: true };
     };
@@ -2308,13 +2190,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before changing accounts." };
       resetSessionDefaultAvatar();
-      try {
-        window.localStorage.setItem(ACTIVE_MEMBER_STORAGE_KEY, memberId);
-        window.localStorage.removeItem(SESSION_STORAGE_KEY);
-      } catch {
-        /* Memory fallback. */
-      }
-      const nextTimer = readPersistedTimer(memberId, activeWorkspaceId, projects);
+      const nextTimer = initialTimer;
       timerRef.current = nextTimer;
       setTimer(nextTimer);
       setElapsed(elapsedForTimer(nextTimer));

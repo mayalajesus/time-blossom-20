@@ -3,7 +3,6 @@ import AxeBuilder from "@axe-core/playwright";
 
 for (const route of ["/tracker", "/reports", "/settings"]) {
   test(`has no critical accessibility violations on ${route}`, async ({ page }) => {
-    await page.addInitScript(() => window.localStorage.clear());
     await page.goto(route);
     const results = await new AxeBuilder({ page }).analyze();
     const critical = results.violations.filter((violation) => violation.impact === "critical");

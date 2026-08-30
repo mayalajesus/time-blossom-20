@@ -19,7 +19,12 @@ export async function signInWithPassword(
 ): Promise<AuthResult<Session>> {
   const unavailable = requireClient();
   if (unavailable) return unavailable;
-  const response = await authClient!.signInWithPassword({ email, password });
+  let response;
+  try {
+    response = await authClient!.signInWithPassword({ email, password });
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unable to sign in." };
+  }
   const failure = getError(response.error);
   return (
     failure ??
@@ -30,13 +35,19 @@ export async function signInWithPassword(
 export async function signUpWithPassword(
   email: string,
   password: string,
+  firstName: string,
+  lastName: string,
 ): Promise<AuthResult<Session>> {
   const unavailable = requireClient();
   if (unavailable) return unavailable;
+  const name = `${firstName.trim()} ${lastName.trim()}`.replace(/\s+/g, " ");
   const response = await authClient!.signUp({
     email,
     password,
-    options: { emailRedirectTo: getAuthRedirect() },
+    options: {
+      emailRedirectTo: getAuthRedirect(),
+      data: { name, displayName: name, firstName: firstName.trim(), lastName: lastName.trim() },
+    },
   });
   const failure = getError(response.error);
   return (

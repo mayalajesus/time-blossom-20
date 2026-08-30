@@ -12,13 +12,14 @@ type AuthSubscription = {
 type AuthStateCallback = (event: AuthChangeEvent, session: Session | null) => void;
 
 type AuthClient = {
+  getJWTToken?: () => Promise<string | null>;
   getSession: () => Promise<SessionResponse>;
   onAuthStateChange: (callback: AuthStateCallback) => AuthSubscription;
   signInWithPassword: (credentials: { email: string; password: string }) => Promise<AuthResponse>;
   signUp: (credentials: {
     email: string;
     password: string;
-    options?: { emailRedirectTo?: string };
+    options?: { emailRedirectTo?: string; data?: Record<string, string> };
   }) => Promise<AuthResponse>;
   signInWithOAuth: (options: {
     provider: "google";
@@ -50,6 +51,7 @@ export const authClient: AuthClient | null = isAuthConfigured
         if (neonAuth) return neonAuth.getSession() as unknown as Promise<SessionResponse>;
         return Promise.reject(unavailable());
       },
+      getJWTToken: () => (neonAuth ? neonAuth.getJWTToken(false) : Promise.resolve(null)),
       onAuthStateChange: (callback) => {
         if (supabase) return supabase.auth.onAuthStateChange(callback);
         if (neonAuth) {

@@ -69,6 +69,20 @@ if (!rootElement) {
   throw new Error("Time Blossom could not find the application root.");
 }
 
+const configuredAppUrl = import.meta.env["VITE_APP_URL"];
+if (window.location.hostname === "127.0.0.1" && typeof configuredAppUrl === "string") {
+  try {
+    const appUrl = new URL(configuredAppUrl);
+    if (appUrl.hostname === "localhost" && appUrl.port === window.location.port) {
+      window.location.replace(
+        `${appUrl.origin}${window.location.pathname}${window.location.search}${window.location.hash}`,
+      );
+    }
+  } catch {
+    // Keep the current origin when the optional app URL is invalid.
+  }
+}
+
 const copy = bootCopy[getBootLocale()];
 rootElement.querySelector<HTMLElement>("[role=status]")?.setAttribute("aria-label", copy.loading);
 

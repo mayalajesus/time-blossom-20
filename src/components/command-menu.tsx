@@ -87,7 +87,7 @@ export function CommandMenu({
         hint: t("Time analytics"),
         icon: <ChartColumn className="size-4" />,
         group: "Navigation",
-        run: () => navigate({ to: "/reports", search: { view: "detailed" } }),
+        run: () => navigate({ to: "/reports", search: { view: "overview" } }),
       },
       {
         id: "nav-integrations",

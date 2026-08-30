@@ -203,7 +203,7 @@ system before they can track time.
 - The live timer is a persistent state, not a page-local counter. A timestamp
   is the source of truth for running time, while paused time is stored as
   accumulated seconds. The active timer survives reloads, route changes and
-  browser restarts through local storage, and is cleared only after an explicit
+  browser restarts through server-side persistence, and is cleared only after an explicit
   stop action. A stopped timer uses its start date and stores an optional end
   date when the session crosses midnight; `seconds` remains authoritative for
   totals, including sessions that span more than one day. Task, project and
@@ -211,10 +211,8 @@ system before they can track time.
   the timer. Only one active timer is allowed, and manual creation is blocked
   while a timer is running or paused. Timers shorter than one minute preserve
   their real seconds instead of being silently rounded up.
-- Entries, projects, clients and workspace settings use a versioned local
-  storage snapshot in the mock application. Invalid snapshots fall back to
-  seeds without replacing a valid active timer. This is local continuity, not
-  cross-device synchronization.
+- Entries, projects, clients and workspace settings use the authenticated
+  database API. Invalid server responses do not replace a valid active timer.
 - All date selection uses the shared HeroUI DatePicker and Calendar pattern.
   Native browser date pickers are not used; inline date edits and manual log
   forms share the same calendar, keyboard navigation and visual language. The
