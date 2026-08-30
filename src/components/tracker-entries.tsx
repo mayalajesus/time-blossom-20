@@ -531,7 +531,7 @@ function TrackerGroupSummaryRow({
     const entry = group.entries[0];
     if (!entry) return;
     const { id: _id, ...duplicate } = entry;
-    const result = addEntry(duplicate, { allowWhileTimerActive: true });
+    const result = addEntry(duplicate, { allowWhileTimerActive: true, refreshBilling: true });
     if (!result.success) {
       toast.danger(t("We couldn't duplicate this time entry"), {
         description: error(result.error),
@@ -1061,7 +1061,7 @@ function TrackerEntryRow({
 
   const duplicateEntry = () => {
     const { id: _id, ...duplicate } = entry;
-    const result = addEntry(duplicate, { allowWhileTimerActive: true });
+    const result = addEntry(duplicate, { allowWhileTimerActive: true, refreshBilling: true });
     if (!result.success) {
       toast.danger(t("We couldn't duplicate this time entry"), {
         description: error(result.error),

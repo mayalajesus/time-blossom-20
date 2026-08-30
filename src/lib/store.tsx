@@ -25,6 +25,12 @@ import {
 } from "./permissions";
 import { resetSessionDefaultAvatar } from "./default-avatar";
 import {
+  defaultCurrencyForLocale,
+  isCurrencyCode,
+  type BillingPreference,
+  type CurrencyCode,
+} from "./billing";
+import {
   findTimeEntryConflict,
   timeEntriesOverlap,
   type ScopedTimeIntervalEntry,
@@ -51,6 +57,8 @@ export interface TimerState {
   startedDate: string | null;
   accumulated: number;
   startClock: string;
+  hourlyRate?: number;
+  currency?: CurrencyCode;
 }
 
 export type WorkspaceStatus = "active" | "archived";
@@ -104,6 +112,8 @@ export interface UserPreferences {
   theme: ThemeMode;
   avatarUrl: string | null;
   timezone: string;
+  hourlyRate: number;
+  currency: CurrencyCode;
 }
 
 export type { Permission } from "./permissions";
@@ -114,6 +124,7 @@ export type StoreResult =
 
 type AddEntryOptions = {
   allowWhileTimerActive?: boolean;
+  refreshBilling?: boolean;
 };
 
 export interface WorkspaceData {
@@ -127,7 +138,7 @@ export interface WorkspaceData {
 }
 
 export type PersistedAccount = {
-  version: 10;
+  version: 11;
   identities: UserIdentity[];
   workspaces: WorkspaceData[];
   preferencesByUserId: Record<string, UserPreferences>;
@@ -158,6 +169,8 @@ const initialPreferences: UserPreferences = {
   theme: "system",
   avatarUrl: null,
   timezone: getInitialTimeZone(),
+  hourlyRate: 0,
+  currency: defaultCurrencyForLocale(defaultLocale),
 };
 
 const initialTrello: TrelloState = {
@@ -173,8 +186,9 @@ const initialTrello: TrelloState = {
 const ACTIVE_MEMBER_STORAGE_KEY = "time-blossom:active-member:v1";
 const ACTIVE_WORKSPACE_STORAGE_KEY = "time-blossom:active-workspace:v1";
 const SESSION_STORAGE_KEY = "time-blossom:session:v1";
-const ACCOUNT_STORAGE_KEY = "time-blossom:account:v10";
+const ACCOUNT_STORAGE_KEY = "time-blossom:account:v11";
 const LEGACY_ACCOUNT_KEYS = [
+  "time-blossom:account:v10",
   "time-blossom:account:v9",
   "time-blossom:workspace:v8",
   "time-blossom:workspace:v7",
@@ -252,7 +266,10 @@ function isValidPreferences(value: unknown): value is UserPreferences {
     isLocale(prefs.language) &&
     isThemeMode(prefs.theme) &&
     isValidAvatarUrl(prefs.avatarUrl) &&
-    isValidTimeZone(prefs.timezone)
+    isValidTimeZone(prefs.timezone) &&
+    isFiniteNumber(prefs.hourlyRate) &&
+    prefs.hourlyRate >= 0 &&
+    isCurrencyCode(prefs.currency)
   );
 }
 
@@ -338,6 +355,9 @@ function isValidEntry(value: unknown, projects: Project[]): value is TimeEntry {
   if ((entry.startTimestamp === undefined) !== (entry.endTimestamp === undefined)) return false;
   if (entry.startTimestamp !== undefined && entry.endTimestamp! < entry.startTimestamp)
     return false;
+  if (entry.hourlyRate !== undefined && (!isFiniteNumber(entry.hourlyRate) || entry.hourlyRate < 0))
+    return false;
+  if (entry.currency !== undefined && !isCurrencyCode(entry.currency)) return false;
   const calculated = getElapsedSeconds(entry as TimeEntry);
   return calculated > 0 && Math.abs(calculated - entry.seconds) <= 1;
 }
@@ -424,12 +444,33 @@ function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
       legacyPreferences && typeof legacyPreferences === "object"
         ? (legacyPreferences as Record<string, unknown>)[member.id]
         : null;
-    preferencesByUserId[member.id] = isValidPreferences(candidate)
-      ? candidate
-      : { ...initialPreferences };
+    const legacy = candidate as Partial<UserPreferences> | null;
+    preferencesByUserId[member.id] =
+      legacy &&
+      typeof legacy.reminders === "boolean" &&
+      typeof legacy.weeklyDigest === "boolean" &&
+      typeof legacy.idleDetection === "boolean" &&
+      isLocale(legacy.language) &&
+      isThemeMode(legacy.theme) &&
+      isValidAvatarUrl(legacy.avatarUrl)
+        ? {
+            reminders: legacy.reminders,
+            weeklyDigest: legacy.weeklyDigest,
+            idleDetection: legacy.idleDetection,
+            language: legacy.language,
+            theme: legacy.theme,
+            avatarUrl: legacy.avatarUrl,
+            timezone: isValidTimeZone(legacy.timezone) ? legacy.timezone : getInitialTimeZone(),
+            hourlyRate:
+              isFiniteNumber(legacy.hourlyRate) && legacy.hourlyRate >= 0 ? legacy.hourlyRate : 0,
+            currency: isCurrencyCode(legacy.currency)
+              ? legacy.currency
+              : defaultCurrencyForLocale(legacy.language),
+          }
+        : { ...initialPreferences };
   }
   return {
-    version: 10,
+    version: 11,
     identities,
     workspaces: [
       {
@@ -456,7 +497,7 @@ function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
   };
 }
 
-function migrateAccountSnapshot(value: unknown): PersistedAccount | null {
+export function migrateAccountSnapshot(value: unknown): PersistedAccount | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as {
     version?: unknown;
@@ -465,7 +506,7 @@ function migrateAccountSnapshot(value: unknown): PersistedAccount | null {
     preferencesByUserId?: Record<string, unknown>;
   };
   if (
-    raw.version !== 9 ||
+    (raw.version !== 9 && raw.version !== 10) ||
     !Array.isArray(raw.identities) ||
     !Array.isArray(raw.workspaces) ||
     !raw.preferencesByUserId ||
@@ -495,12 +536,19 @@ function migrateAccountSnapshot(value: unknown): PersistedAccount | null {
       language: preferences.language,
       theme: preferences.theme,
       avatarUrl: preferences.avatarUrl,
-      timezone: getInitialTimeZone(),
+      timezone: isValidTimeZone(preferences.timezone) ? preferences.timezone : getInitialTimeZone(),
+      hourlyRate:
+        isFiniteNumber(preferences.hourlyRate) && preferences.hourlyRate >= 0
+          ? preferences.hourlyRate
+          : 0,
+      currency: isCurrencyCode(preferences.currency)
+        ? preferences.currency
+        : defaultCurrencyForLocale(preferences.language),
     };
   }
 
   const migrated: PersistedAccount = {
-    version: 10,
+    version: 11,
     identities: raw.identities,
     workspaces: raw.workspaces,
     preferencesByUserId,
@@ -515,7 +563,11 @@ function migrateAccountSnapshot(value: unknown): PersistedAccount | null {
  * the first existing record keeps its original identity and history.
  */
 export function repairDuplicateEntryIds(value: unknown): unknown {
-  if (!isRecord(value) || value["version"] !== 10 || !Array.isArray(value["workspaces"])) {
+  if (
+    !isRecord(value) ||
+    (value["version"] !== 10 && value["version"] !== 11) ||
+    !Array.isArray(value["workspaces"])
+  ) {
     return value;
   }
 
@@ -607,7 +659,7 @@ export function makeSeedAccount(): PersistedAccount {
     trello: initialTrello,
   };
   return {
-    version: 10,
+    version: 11,
     identities,
     workspaces: [defaultWorkspace, sharedWorkspace],
     preferencesByUserId: Object.fromEntries(
@@ -620,7 +672,7 @@ export function isValidAccount(value: unknown): value is PersistedAccount {
   if (!value || typeof value !== "object") return false;
   const account = value as Partial<PersistedAccount>;
   if (
-    account.version !== 10 ||
+    account.version !== 11 ||
     !Array.isArray(account.identities) ||
     !Array.isArray(account.workspaces) ||
     !account.preferencesByUserId ||
@@ -834,6 +886,9 @@ function isValidTimerSnapshot(
     timer.accumulated < 0
   )
     return false;
+  if (timer.hourlyRate !== undefined && (!isFiniteNumber(timer.hourlyRate) || timer.hourlyRate < 0))
+    return false;
+  if (timer.currency !== undefined && !isCurrencyCode(timer.currency)) return false;
   if (timer.status === "running") {
     if (!isFiniteNumber(timer.startedAt) || timer.startedAt > Date.now() + 60_000) return false;
   } else if (timer.startedAt !== null) return false;
@@ -936,6 +991,7 @@ interface StoreValue {
   trello: TrelloState;
   settings: WorkspaceSettings;
   preferences: UserPreferences;
+  billingPreferencesByUserId: Record<string, BillingPreference>;
   currentMember: Member | null;
   currentWorkspace: Workspace | null;
   currentWorkspaceMembership: WorkspaceMembership | null;
@@ -1029,6 +1085,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
   const [elapsed, setElapsed] = useState(() => elapsedForTimer(timer));
   const preferences = account.preferencesByUserId[activeMemberId] ?? initialPreferences;
+  const billingPreferencesByUserId = useMemo(
+    () =>
+      Object.fromEntries(
+        account.identities.map((identity) => {
+          const userPreferences = account.preferencesByUserId[identity.id] ?? initialPreferences;
+          return [
+            identity.id,
+            { hourlyRate: userPreferences.hourlyRate, currency: userPreferences.currency },
+          ];
+        }),
+      ),
+    [account.identities, account.preferencesByUserId],
+  );
   const [today, setToday] = useState(() => getLocalToday(new Date(), preferences.timezone));
   const currentWorkspace = activeData?.workspace ?? null;
   const currentWorkspaceMembership =
@@ -1238,6 +1307,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           now,
           startedDate: getLocalToday(new Date(now), preferences.timezone),
           startClock: nowTime(preferences.timezone),
+          hourlyRate: preferences.hourlyRate,
+          currency: preferences.currency,
         },
       );
       timerRef.current = next;
@@ -1353,6 +1424,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           projectId: current.projectId,
           task: current.task,
           billable: current.billable,
+          hourlyRate: current.hourlyRate ?? preferences.hourlyRate,
+          currency: current.currency ?? preferences.currency,
         };
         conflict = findEntryConflict(stoppedEntry);
         warning = conflict ? "This time overlaps another entry. It was saved anyway." : undefined;
@@ -1378,15 +1451,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "You can only create your own time entries." };
       if (!options.allowWhileTimerActive && timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before adding time manually." };
-      const validation = validateEntry(entry);
+      const billedEntry = {
+        ...entry,
+        hourlyRate:
+          options.refreshBilling || entry.hourlyRate === undefined
+            ? preferences.hourlyRate
+            : entry.hourlyRate,
+        currency:
+          options.refreshBilling || entry.currency === undefined
+            ? preferences.currency
+            : entry.currency,
+      } satisfies Omit<TimeEntry, "id">;
+      const validation = validateEntry(billedEntry);
       if (!validation.success) return validation;
-      const conflict = findEntryConflict(entry);
+      const conflict = findEntryConflict(billedEntry);
       const warning = conflict
         ? "This time overlaps another entry. It was saved anyway."
         : undefined;
       setEntries((list) => [
         {
-          ...entry,
+          ...billedEntry,
           id: nextId(
             "t",
             list.map((current) => current.id),
@@ -1771,7 +1855,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         !isLocale(next.language) ||
         !isThemeMode(next.theme) ||
         !isValidAvatarUrl(next.avatarUrl) ||
-        !isValidTimeZone(next.timezone)
+        !isValidTimeZone(next.timezone) ||
+        !isFiniteNumber(next.hourlyRate) ||
+        next.hourlyRate < 0 ||
+        !isCurrencyCode(next.currency)
       )
         return { success: false, error: "Choose valid personal preferences." };
       setAccount((current) => ({
@@ -2248,6 +2335,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       trello,
       settings,
       preferences,
+      billingPreferencesByUserId,
       currentMember,
       currentWorkspace,
       currentWorkspaceMembership,
@@ -2309,6 +2397,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     entries,
     members,
     preferences,
+    billingPreferencesByUserId,
     projects,
     recentTasks,
     sessionStatus,

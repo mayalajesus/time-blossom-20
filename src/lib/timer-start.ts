@@ -1,5 +1,6 @@
 import type { Project, TimeEntry } from "./mock-data";
 import type { TimerState, TimerStatus } from "./store";
+import type { BillingPreference } from "./billing";
 
 export type TimerTaskPreset = Pick<TimeEntry, "task" | "projectId" | "billable"> & {
   favorite?: boolean;
@@ -61,7 +62,7 @@ export function createRunningTimer(
     now: number;
     startedDate: string;
     startClock: string;
-  },
+  } & BillingPreference,
 ): TimerState {
   return {
     status: "running",
@@ -73,6 +74,8 @@ export function createRunningTimer(
     startedDate: context.startedDate,
     accumulated: 0,
     startClock: context.startClock,
+    hourlyRate: context.hourlyRate,
+    currency: context.currency,
   };
 }
 

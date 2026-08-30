@@ -1,4 +1,5 @@
 import { getLocalToday, getWeekBounds, shiftDate } from "./format";
+import type { CurrencyCode } from "./billing";
 
 export type Role = "Owner" | "Admin" | "Member";
 export type ProjectStatus = "active" | "on-hold" | "archived";
@@ -46,6 +47,9 @@ export interface TimeEntry {
   task: string;
   description?: string | undefined;
   billable: boolean;
+  /** Billing snapshot captured when the entry was created. */
+  hourlyRate?: number;
+  currency?: CurrencyCode;
 }
 
 export type TrelloStatus =

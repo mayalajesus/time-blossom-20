@@ -19,7 +19,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "@gravity-ui/icons";
-import { useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -65,6 +65,15 @@ import { useSimulatedLoad, useStore } from "@/lib/store";
 import type { ReportExportPayload } from "@/lib/report-export";
 import { useI18n } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
+import {
+  billableValue,
+  billingForEntry,
+  formatMoney,
+  formatMoneyTotals,
+  sumBillableValues,
+  type BillingPreference,
+  type MoneyTotals,
+} from "@/lib/billing";
 
 const reportViews = [
   { id: "summary", label: "Summary" },
@@ -85,7 +94,8 @@ type DetailedColumn =
   | "start"
   | "end"
   | "duration"
-  | "billability";
+  | "billability"
+  | "value";
 
 const groupOptions: Array<{ id: GroupDimension; label: string }> = [
   { id: "project", label: "Project" },
@@ -110,6 +120,7 @@ const detailedColumnOptions: Array<{ id: DetailedColumn; label: string }> = [
   { id: "end", label: "End" },
   { id: "duration", label: "Duration" },
   { id: "billability", label: "Billability" },
+  { id: "value", label: "Billable value" },
   { id: "member", label: "Member" },
   { id: "description", label: "Description" },
 ];
@@ -122,6 +133,7 @@ const defaultDetailedColumns: DetailedColumn[] = [
   "end",
   "duration",
   "billability",
+  "value",
 ];
 
 type ReportSearch = {
@@ -274,6 +286,7 @@ type ReportGroup = {
   billable: number;
   records: number;
   entries: TimeEntry[];
+  billableValue: MoneyTotals;
   children?: ReportGroup[];
 };
 
@@ -285,6 +298,7 @@ function buildGroups(
   projects: Project[],
   clients: Client[],
   locale: Locale,
+  fallbackForEntry: (entry: TimeEntry) => BillingPreference,
 ): ReportGroup[] {
   const primaryMap = new Map<string, TimeEntry[]>();
   for (const entry of entries) {
@@ -299,7 +313,16 @@ function buildGroups(
       const children =
         secondary === "none" || secondary === primary
           ? undefined
-          : buildGroups(groupEntries, secondary, "none", members, projects, clients, locale);
+          : buildGroups(
+              groupEntries,
+              secondary,
+              "none",
+              members,
+              projects,
+              clients,
+              locale,
+              fallbackForEntry,
+            );
       const seconds = groupEntries.reduce((sum, entry) => sum + entry.seconds, 0);
       return {
         key,
@@ -317,6 +340,7 @@ function buildGroups(
           .reduce((sum, entry) => sum + entry.seconds, 0),
         records: groupEntries.length,
         entries: groupEntries,
+        billableValue: sumBillableValues(groupEntries, fallbackForEntry),
         ...(children ? { children } : {}),
       };
     })
@@ -389,6 +413,8 @@ function ReportsPage() {
     currentWorkspace,
     can,
     settings,
+    preferences,
+    billingPreferencesByUserId,
     today,
   } = useStore();
   const { locale, t } = useI18n();
@@ -531,6 +557,16 @@ function ReportsPage() {
     .filter((entry) => entry.billable)
     .reduce((sum, entry) => sum + entry.seconds, 0);
   const internal = total - billable;
+  const fallbackForEntry = useCallback(
+    (entry: TimeEntry): BillingPreference =>
+      billingPreferencesByUserId[entry.userId] ?? {
+        hourlyRate: preferences.hourlyRate,
+        currency: preferences.currency,
+      },
+    [billingPreferencesByUserId, preferences.currency, preferences.hourlyRate],
+  );
+  const billableValues = sumBillableValues(filteredEntries, fallbackForEntry, preferences.currency);
+  const formattedBillableValue = formatMoneyTotals(billableValues, locale);
   const reportScope = can("export-all-reports") ? t("Workspace report") : t("Your report");
   const [summaryExpanded, setSummaryExpanded] = useState<Record<string, boolean>>({});
   const groups = useMemo(
@@ -543,8 +579,18 @@ function ReportsPage() {
         projects,
         clients,
         locale,
+        fallbackForEntry,
       ),
-    [clients, filteredEntries, members, projects, locale, search.group, search.subgroup],
+    [
+      clients,
+      fallbackForEntry,
+      filteredEntries,
+      members,
+      projects,
+      locale,
+      search.group,
+      search.subgroup,
+    ],
   );
   const exportContext = useMemo(
     () => ({
@@ -587,12 +633,14 @@ function ReportsPage() {
         { label: t("Billable"), value: formatDuration(billable, locale) },
         { label: t("Internal"), value: formatDuration(internal, locale) },
         { label: t("Records"), value: String(filteredEntries.length) },
+        { label: t("Billable value"), value: formattedBillableValue },
       ],
     }),
     [
       billable,
       currentWorkspace,
       filteredEntries.length,
+      formattedBillableValue,
       internal,
       locale,
       range.endDate,
@@ -624,6 +672,9 @@ function ReportsPage() {
         t("End date"),
         t("End time"),
         t("Duration"),
+        t("Hourly rate"),
+        t("Currency"),
+        t("Billable value"),
       ];
       return {
         ...exportContext,
@@ -632,6 +683,7 @@ function ReportsPage() {
         rows: filteredEntries.map((entry) => {
           const member = memberMap.get(entry.userId);
           const endDate = getEndDateForEntry(entry);
+          const billing = billingForEntry(entry, fallbackForEntry(entry));
           return {
             [t("Project")]: projectNameFor(projects, entry.projectId),
             [t("Client")]: clientNameFor(clients, projects, entry.projectId),
@@ -645,6 +697,13 @@ function ReportsPage() {
             [t("End date")]: formatDate(endDate, locale),
             [t("End time")]: endLabel(entry),
             [t("Duration")]: formatDuration(entry.seconds, locale),
+            [t("Hourly rate")]: formatMoney(billing.hourlyRate, billing.currency, locale),
+            [t("Currency")]: billing.currency,
+            [t("Billable value")]: formatMoney(
+              billableValue(entry, billing),
+              billing.currency,
+              locale,
+            ),
           };
         }),
       };
@@ -653,12 +712,20 @@ function ReportsPage() {
       return {
         ...exportContext,
         title: `time-blossom-${search.view}`,
-        columns: [t("Group"), t("Tracked"), t("Billable"), t("Internal"), t("Records")],
+        columns: [
+          t("Group"),
+          t("Tracked"),
+          t("Billable"),
+          t("Internal"),
+          t("Billable value"),
+          t("Records"),
+        ],
         rows: groups.map((group) => ({
           [t("Group")]: group.label,
           [t("Tracked")]: formatDuration(group.seconds, locale),
           [t("Billable")]: formatDuration(group.billable, locale),
           [t("Internal")]: formatDuration(group.seconds - group.billable, locale),
+          [t("Billable value")]: formatMoneyTotals(group.billableValue, locale),
           [t("Records")]: group.records,
         })),
       };
@@ -671,6 +738,7 @@ function ReportsPage() {
         members,
         projects,
         weekDates,
+        fallbackForEntry,
       );
       return {
         ...exportContext,
@@ -681,6 +749,7 @@ function ReportsPage() {
           t("Tracked"),
           t("Billable"),
           t("Internal"),
+          t("Billable value"),
         ],
         rows: rows.map((row) => ({
           [t("Group")]: row.label,
@@ -693,6 +762,7 @@ function ReportsPage() {
           [t("Tracked")]: formatDuration(row.seconds, locale),
           [t("Billable")]: formatDuration(row.billable, locale),
           [t("Internal")]: formatDuration(row.seconds - row.billable, locale),
+          [t("Billable value")]: formatMoneyTotals(row.billableValue, locale),
         })),
       };
     }
@@ -702,6 +772,7 @@ function ReportsPage() {
       projects,
       clients,
       showTeam ? null : currentUserId,
+      fallbackForEntry,
     );
     return {
       ...exportContext,
@@ -711,6 +782,7 @@ function ReportsPage() {
         t("Tracked"),
         t("Billable"),
         t("Internal"),
+        t("Billable value"),
         t("Records"),
         t("Projects"),
         t("Clients"),
@@ -722,6 +794,7 @@ function ReportsPage() {
         [t("Tracked")]: formatDuration(row.seconds, locale),
         [t("Billable")]: formatDuration(row.billable, locale),
         [t("Internal")]: formatDuration(row.seconds - row.billable, locale),
+        [t("Billable value")]: formatMoneyTotals(row.billableValue, locale),
         [t("Records")]: row.records,
         [t("Projects")]: row.projectCount,
         [t("Clients")]: row.clientCount,
@@ -748,6 +821,7 @@ function ReportsPage() {
     showTeam,
     t,
     total,
+    fallbackForEntry,
   ]);
 
   const description = {
@@ -825,6 +899,7 @@ function ReportsPage() {
             billable={billable}
             internal={internal}
             records={filteredEntries.length}
+            billableValue={formattedBillableValue}
           />
           {search.view === "detailed" ? (
             <DetailedReport
@@ -837,6 +912,7 @@ function ReportsPage() {
               clients={clients}
               columns={parseDetailedColumns(search.columns)}
               onChangeColumns={(columns) => updateSearch({ columns: encodeIds(columns) })}
+              fallbackForEntry={fallbackForEntry}
             />
           ) : search.view === "summary" ? (
             <SummaryReport
@@ -868,6 +944,7 @@ function ReportsPage() {
               projects={projects}
               onChange={(weeklyGroup) => updateSearch({ weeklyGroup })}
               onClear={clearFilters}
+              fallbackForEntry={fallbackForEntry}
             />
           ) : (
             <TeamReport
@@ -878,6 +955,7 @@ function ReportsPage() {
               total={total}
               scopeToMember={showTeam ? null : currentUserId}
               onClear={clearFilters}
+              fallbackForEntry={fallbackForEntry}
             />
           )}
         </>
@@ -898,11 +976,13 @@ function ReportOverview({
   billable,
   internal,
   records,
+  billableValue,
 }: {
   total: number;
   billable: number;
   internal: number;
   records: number;
+  billableValue: string;
 }) {
   const { locale, t } = useI18n();
   const metrics = [
@@ -910,10 +990,11 @@ function ReportOverview({
     { label: t("Billable"), value: formatDuration(billable, locale) },
     { label: t("Internal"), value: formatDuration(internal, locale) },
     { label: t("Entries"), value: String(records) },
+    { label: t("Billable value"), value: billableValue },
   ];
   return (
     <Card className="overflow-hidden">
-      <Card.Content className="grid grid-cols-2 gap-px p-0 sm:grid-cols-4">
+      <Card.Content className="grid grid-cols-2 gap-px p-0 sm:grid-cols-5">
         {metrics.map((metric) => (
           <div key={metric.label} className="min-w-0 px-4 py-3">
             <Typography type="body-xs" color="muted" weight="semibold" truncate>
@@ -1113,6 +1194,7 @@ function DetailedReport({
   clients,
   columns,
   onChangeColumns,
+  fallbackForEntry,
 }: {
   entries: TimeEntry[];
   page: number;
@@ -1123,6 +1205,7 @@ function DetailedReport({
   clients: Client[];
   columns: DetailedColumn[];
   onChangeColumns: (columns: DetailedColumn[]) => void;
+  fallbackForEntry: (entry: TimeEntry) => BillingPreference;
 }) {
   const { locale, t } = useI18n();
   if (entries.length === 0) return <EmptyReport onClear={onClear} />;
@@ -1135,6 +1218,7 @@ function DetailedReport({
   const billableSeconds = entries
     .filter((entry) => entry.billable)
     .reduce((sum, entry) => sum + entry.seconds, 0);
+  const billableTotal = formatMoneyTotals(sumBillableValues(entries, fallbackForEntry), locale);
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1157,6 +1241,7 @@ function DetailedReport({
             <span className="whitespace-nowrap">
               {formatDuration(totalSeconds - billableSeconds, locale)} {t("internal")}
             </span>
+            <span className="whitespace-nowrap">{billableTotal}</span>
           </div>
         }
         pagination={{
@@ -1219,6 +1304,14 @@ function DetailedReport({
               {columns.includes("billability") ? (
                 <Table.Cell className="whitespace-nowrap">
                   {entry.billable ? t("Billable") : t("Internal")}
+                </Table.Cell>
+              ) : null}
+              {columns.includes("value") ? (
+                <Table.Cell className="whitespace-nowrap">
+                  {(() => {
+                    const billing = billingForEntry(entry, fallbackForEntry(entry));
+                    return formatMoney(billableValue(entry, billing), billing.currency, locale);
+                  })()}
                 </Table.Cell>
               ) : null}
               {columns.includes("member") ? (
@@ -1351,11 +1444,13 @@ function SummaryReport({
         scrollHint={t("Scroll horizontally to see all columns")}
       >
         <Table.Header>
-          {["Group", "Tracked", "Billable", "Internal", "Records", "Share"].map((label, index) => (
-            <Table.Column key={label} isRowHeader={index === 0}>
-              {t(label)}
-            </Table.Column>
-          ))}
+          {["Group", "Tracked", "Billable", "Internal", "Billable value", "Records", "Share"].map(
+            (label, index) => (
+              <Table.Column key={label} isRowHeader={index === 0}>
+                {t(label)}
+              </Table.Column>
+            ),
+          )}
         </Table.Header>
         <Table.Body>
           {flattenSummaryRows(groups, expanded).map(({ group, level, path }) => (
@@ -1430,6 +1525,9 @@ function SummaryRow({
       </Table.Cell>
       <Table.Cell className="whitespace-nowrap">
         {formatDuration(group.seconds - group.billable, locale)}
+      </Table.Cell>
+      <Table.Cell className="whitespace-nowrap">
+        {formatMoneyTotals(group.billableValue, locale)}
       </Table.Cell>
       <Table.Cell>{group.records}</Table.Cell>
       <Table.Cell>{total ? `${Math.round((group.seconds / total) * 100)}%` : "0%"}</Table.Cell>
@@ -1513,6 +1611,7 @@ type WeeklyRow = {
   seconds: number;
   billable: number;
   byDate: Record<string, number>;
+  billableValue: MoneyTotals;
 };
 
 function buildWeeklyRows(
@@ -1521,6 +1620,7 @@ function buildWeeklyRows(
   members: Member[],
   projects: Project[],
   dates: string[],
+  fallbackForEntry: (entry: TimeEntry) => BillingPreference,
 ): WeeklyRow[] {
   const map = new Map<string, WeeklyRow>();
   for (const entry of entries) {
@@ -1529,11 +1629,21 @@ function buildWeeklyRows(
       dimension === "project"
         ? projectNameFor(projects, entry.projectId)
         : nameForMember(members, entry.userId);
-    const current = map.get(key) ?? { key, label, seconds: 0, billable: 0, byDate: {} };
+    const current = map.get(key) ?? {
+      key,
+      label,
+      seconds: 0,
+      billable: 0,
+      byDate: {},
+      billableValue: {},
+    };
     const seconds = entry.seconds;
     current.seconds += seconds;
     current.billable += entry.billable ? seconds : 0;
     current.byDate[entry.date] = (current.byDate[entry.date] ?? 0) + seconds;
+    const billing = billingForEntry(entry, fallbackForEntry(entry));
+    current.billableValue[billing.currency] =
+      (current.billableValue[billing.currency] ?? 0) + billableValue(entry, billing);
     map.set(key, current);
   }
   return [...map.values()].sort((a, b) => b.seconds - a.seconds || a.label.localeCompare(b.label));
@@ -1547,6 +1657,7 @@ function WeeklyReport({
   projects,
   onChange,
   onClear,
+  fallbackForEntry,
 }: {
   entries: TimeEntry[];
   range: DateRange;
@@ -1555,10 +1666,11 @@ function WeeklyReport({
   projects: Project[];
   onChange: (dimension: WeeklyDimension) => void;
   onClear: () => void;
+  fallbackForEntry: (entry: TimeEntry) => BillingPreference;
 }) {
   const { locale, t } = useI18n();
   const dates = Array.from({ length: 7 }, (_, index) => shiftDate(range.startDate, index));
-  const rows = buildWeeklyRows(entries, dimension, members, projects, dates);
+  const rows = buildWeeklyRows(entries, dimension, members, projects, dates, fallbackForEntry);
   if (rows.length === 0) return <EmptyReport onClear={onClear} />;
   return (
     <div className="space-y-4">
@@ -1586,6 +1698,7 @@ function WeeklyReport({
           <Table.Column>{t("Tracked")}</Table.Column>
           <Table.Column>{t("Billable")}</Table.Column>
           <Table.Column>{t("Internal")}</Table.Column>
+          <Table.Column>{t("Billable value")}</Table.Column>
         </Table.Header>
         <Table.Body>
           {rows.map((row) => (
@@ -1597,6 +1710,7 @@ function WeeklyReport({
               <Table.Cell>{formatDuration(row.seconds, locale)}</Table.Cell>
               <Table.Cell>{formatDuration(row.billable, locale)}</Table.Cell>
               <Table.Cell>{formatDuration(row.seconds - row.billable, locale)}</Table.Cell>
+              <Table.Cell>{formatMoneyTotals(row.billableValue, locale)}</Table.Cell>
             </Table.Row>
           ))}
         </Table.Body>
@@ -1639,6 +1753,7 @@ type TeamRow = {
   projectCount: number;
   clientCount: number;
   activeDays: number;
+  billableValue: MoneyTotals;
 };
 
 function buildTeamRows(
@@ -1647,6 +1762,7 @@ function buildTeamRows(
   projects: Project[],
   clients: Client[],
   onlyMemberId: string | null,
+  fallbackForEntry: (entry: TimeEntry) => BillingPreference,
 ): TeamRow[] {
   return members
     .filter((member) => member.status === "active" && (!onlyMemberId || member.id === onlyMemberId))
@@ -1666,6 +1782,7 @@ function buildTeamRows(
             .filter(Boolean),
         ).size,
         activeDays: new Set(memberEntries.map((entry) => entry.date)).size,
+        billableValue: sumBillableValues(memberEntries, fallbackForEntry),
       };
     })
     .sort((a, b) => b.seconds - a.seconds || a.member.name.localeCompare(b.member.name));
@@ -1679,6 +1796,7 @@ function TeamReport({
   total,
   scopeToMember,
   onClear,
+  fallbackForEntry,
 }: {
   entries: TimeEntry[];
   members: Member[];
@@ -1687,9 +1805,10 @@ function TeamReport({
   total: number;
   scopeToMember: string | null;
   onClear: () => void;
+  fallbackForEntry: (entry: TimeEntry) => BillingPreference;
 }) {
   const { locale, t } = useI18n();
-  const rows = buildTeamRows(entries, members, projects, clients, scopeToMember);
+  const rows = buildTeamRows(entries, members, projects, clients, scopeToMember, fallbackForEntry);
   if (rows.length === 0) return <EmptyReport onClear={onClear} />;
   return (
     <div className="space-y-4">
@@ -1705,6 +1824,7 @@ function TeamReport({
             "Tracked",
             "Billable",
             "Internal",
+            "Billable value",
             "Records",
             "Projects",
             "Clients",
@@ -1726,6 +1846,7 @@ function TeamReport({
               <Table.Cell>{formatDuration(row.seconds, locale)}</Table.Cell>
               <Table.Cell>{formatDuration(row.billable, locale)}</Table.Cell>
               <Table.Cell>{formatDuration(row.seconds - row.billable, locale)}</Table.Cell>
+              <Table.Cell>{formatMoneyTotals(row.billableValue, locale)}</Table.Cell>
               <Table.Cell>{row.records}</Table.Cell>
               <Table.Cell>{row.projectCount}</Table.Cell>
               <Table.Cell>{row.clientCount}</Table.Cell>

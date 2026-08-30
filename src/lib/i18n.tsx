@@ -353,6 +353,19 @@ const ptBR: Record<string, string> = {
     "Continue trabalhando ou pare quando terminar. O cronômetro continuará contando.",
   "Remind me every 60 minutes while a timer is running.":
     "Lembre-me a cada 60 minutos enquanto um cronômetro estiver em andamento.",
+  "Billing rate": "Valor da hora",
+  "Hourly rate": "Valor-hora",
+  Currency: "Moeda",
+  "Choose currency": "Escolher moeda",
+  "Hourly rate is required.": "O valor-hora é obrigatório.",
+  "Hourly rate must be zero or greater.": "O valor-hora deve ser maior ou igual a zero.",
+  "Enter a valid hourly rate with up to two decimal places.":
+    "Digite um valor-hora válido com até duas casas decimais.",
+  "Billable value is calculated from billable hours only. No currency conversion is applied.":
+    "O valor faturável considera apenas horas faturáveis. Nenhuma conversão cambial é aplicada.",
+  "Preview: {value}": "Prévia: {value}",
+  "Save billing rate": "Salvar valor-hora",
+  "Billable value": "Valor faturável",
   "Overlapping time": "Horários sobrepostos",
   "This entry overlaps another.": "Este lançamento se sobrepõe a outro.",
   "Save anyway": "Salvar mesmo assim",

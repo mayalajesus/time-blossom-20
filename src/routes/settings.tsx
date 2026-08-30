@@ -26,6 +26,12 @@ import { useStore, type ThemeMode } from "@/lib/store";
 import { updateEmail, updatePassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { createSupabaseDataSource } from "@/lib/supabase-data-source";
+import {
+  currencyOptions,
+  formatMoney,
+  parseHourlyRateInput,
+  type CurrencyCode,
+} from "@/lib/billing";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -59,6 +65,8 @@ function SettingsPage() {
   const dataSource = useMemo(() => createSupabaseDataSource(), []);
   const { t, error } = useI18n();
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
+  const [hourlyRate, setHourlyRate] = useState(preferences.hourlyRate.toFixed(2));
+  const [currency, setCurrency] = useState<CurrencyCode>(preferences.currency);
   const [accountFirstName, setAccountFirstName] = useState(
     splitAccountName(currentMember?.name ?? "").firstName,
   );
@@ -82,6 +90,11 @@ function SettingsPage() {
     setPasswordConfirmation("");
     setAccountError(null);
   }, [currentMember?.id, currentMember?.name, currentMember?.email, session?.user.email]);
+
+  useEffect(() => {
+    setHourlyRate(preferences.hourlyRate.toFixed(2));
+    setCurrency(preferences.currency);
+  }, [preferences.currency, preferences.hourlyRate]);
 
   const toggles = [
     {
@@ -127,6 +140,20 @@ function SettingsPage() {
     setPreferenceError(null);
     const locale = patch.language ?? preferences.language;
     toast.success(translate("Your preferences are up to date", locale));
+  };
+
+  const parsedHourlyRate = parseHourlyRateInput(hourlyRate);
+  const hourlyRateError = !hourlyRate.trim()
+    ? t("Hourly rate is required.")
+    : hourlyRate.trim().startsWith("-")
+      ? t("Hourly rate must be zero or greater.")
+      : parsedHourlyRate === null
+        ? t("Enter a valid hourly rate with up to two decimal places.")
+        : undefined;
+
+  const saveBillingPreferences = () => {
+    if (parsedHourlyRate === null) return;
+    void savePreference({ hourlyRate: parsedHourlyRate, currency });
   };
 
   const savePhoto = async (file: File) => {
@@ -509,6 +536,80 @@ function SettingsPage() {
           </Tabs>
           <Description>{t("Choose how Time Blossom should look for your account.")}</Description>
         </div>
+
+        <Form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            saveBillingPreferences();
+          }}
+        >
+          <div className="space-y-1">
+            <Typography type="body-sm" weight="semibold">
+              {t("Billing rate")}
+            </Typography>
+            <Description>
+              {t(
+                "Billable value is calculated from billable hours only. No currency conversion is applied.",
+              )}
+            </Description>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
+            <TextField
+              isRequired
+              fullWidth
+              name="hourly-rate"
+              value={hourlyRate}
+              isInvalid={Boolean(hourlyRateError)}
+              onChange={setHourlyRate}
+            >
+              <Label>{t("Hourly rate")}</Label>
+              <Input variant="secondary" inputMode="decimal" placeholder="0.00" />
+              <FieldError>{hourlyRateError}</FieldError>
+            </TextField>
+            <div className="flex flex-col gap-1.5">
+              <Label>{t("Currency")}</Label>
+              <Dropdown>
+                <ButtonGroup variant="secondary" size="sm" className="w-full">
+                  <Button type="button" className="h-9 min-w-0 flex-1 justify-start">
+                    {currency}
+                  </Button>
+                  <Dropdown.Trigger
+                    aria-label={t("Choose currency")}
+                    className="h-9 w-9 min-w-9 shrink-0 px-0"
+                  >
+                    <ChevronDown aria-hidden="true" className="size-4" />
+                  </Dropdown.Trigger>
+                </ButtonGroup>
+                <Dropdown.Popover>
+                  <Dropdown.Menu
+                    aria-label={t("Currency")}
+                    selectionMode="single"
+                    selectedKeys={new Set([currency])}
+                    onAction={(key) => setCurrency(String(key) as CurrencyCode)}
+                  >
+                    {currencyOptions.map((option) => (
+                      <Dropdown.Item key={option} id={option} textValue={option}>
+                        <Label>{option}</Label>
+                        <Dropdown.ItemIndicator />
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
+            </div>
+          </div>
+          <Description>
+            {t("Preview: {value}", {
+              value: formatMoney(parsedHourlyRate ?? 0, currency, preferences.language),
+            })}
+          </Description>
+          <div className="flex justify-end">
+            <Button type="submit" isDisabled={Boolean(hourlyRateError)}>
+              {t("Save billing rate")}
+            </Button>
+          </div>
+        </Form>
 
         <div className="space-y-3">
           {toggles.map((item) => (

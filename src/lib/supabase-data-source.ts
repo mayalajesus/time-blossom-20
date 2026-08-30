@@ -3,6 +3,7 @@ import type { Client, Member, Project, TimeEntry } from "./mock-data";
 import type { AppDataSource, DataSourceResult, ReportQuery } from "./data-source";
 import type { TimerState, UserPreferences, Workspace, WorkspaceSettings } from "./store";
 import { supabase } from "./supabase";
+import { defaultCurrencyForLocale, isCurrencyCode } from "./billing";
 
 type PreferenceRow = {
   user_id: string;
@@ -12,6 +13,8 @@ type PreferenceRow = {
   reminders: boolean;
   weekly_digest: boolean;
   idle_detection: boolean;
+  hourly_rate?: number;
+  currency?: string;
   profiles?: { avatar_path?: string | null } | null;
 };
 type WorkspaceRow = {
@@ -48,6 +51,8 @@ type TimerRow = {
   started_date: string | null;
   accumulated_seconds: number;
   start_clock: string;
+  hourly_rate?: number | null;
+  currency?: string | null;
 };
 type EntryRow = TimeEntry & { workspace_id: string };
 
@@ -78,6 +83,8 @@ function mapTimer(row: TimerRow): TimerState {
     startedDate: row.started_date,
     accumulated: row.accumulated_seconds,
     startClock: row.start_clock,
+    ...(typeof row.hourly_rate === "number" ? { hourlyRate: row.hourly_rate } : {}),
+    ...(isCurrencyCode(row.currency) ? { currency: row.currency } : {}),
   };
 }
 
@@ -99,6 +106,8 @@ async function mapPreferences(
     weeklyDigest: row.weekly_digest,
     idleDetection: row.idle_detection,
     avatarUrl,
+    hourlyRate: typeof row.hourly_rate === "number" && row.hourly_rate >= 0 ? row.hourly_rate : 0,
+    currency: isCurrencyCode(row.currency) ? row.currency : defaultCurrencyForLocale(row.language),
   };
 }
 
@@ -141,6 +150,8 @@ function mapEntry(row: EntryRow): TimeEntry {
     duration_seconds: number;
     project_id: string | null;
     user_id: string;
+    hourly_rate?: number | null;
+    currency?: string | null;
   };
   return {
     id: row.id,
@@ -156,6 +167,8 @@ function mapEntry(row: EntryRow): TimeEntry {
     task: row.task,
     description: row.description,
     billable: row.billable,
+    ...(typeof raw.hourly_rate === "number" ? { hourlyRate: raw.hourly_rate } : {}),
+    ...(isCurrencyCode(raw.currency) ? { currency: raw.currency } : {}),
   };
 }
 
@@ -174,6 +187,8 @@ function entryPayload(entry: Omit<TimeEntry, "id"> & { workspaceId?: string }) {
     task: entry.task,
     description: entry.description ?? null,
     billable: entry.billable,
+    hourly_rate: entry.hourlyRate ?? null,
+    currency: entry.currency ?? null,
   };
 }
 
@@ -189,6 +204,7 @@ function entryPatch(patch: Partial<Omit<TimeEntry, "id">>): Record<string, unkno
     endTimestamp: "end_at",
     seconds: "duration_seconds",
     projectId: "project_id",
+    hourlyRate: "hourly_rate",
   };
   for (const [key, value] of Object.entries(source)) {
     const target = keys[key] ?? key;
@@ -239,7 +255,7 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
 
     updatePreferences: (userId, patch) =>
       call(async () => {
-        const { avatarUrl: _avatarUrl, weeklyDigest, idleDetection, ...rest } = patch;
+        const { avatarUrl: _avatarUrl, weeklyDigest, idleDetection, hourlyRate, ...rest } = patch;
         const response = await client!
           .from("user_preferences")
           .upsert({
@@ -247,6 +263,7 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
             ...rest,
             ...(weeklyDigest === undefined ? {} : { weekly_digest: weeklyDigest }),
             ...(idleDetection === undefined ? {} : { idle_detection: idleDetection }),
+            ...(hourlyRate === undefined ? {} : { hourly_rate: hourlyRate }),
           })
           .select("*, profiles(avatar_path)")
           .single();
@@ -471,6 +488,8 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
             started_date: timer.startedDate,
             accumulated_seconds: timer.accumulated,
             start_clock: timer.startClock,
+            hourly_rate: timer.hourlyRate ?? null,
+            currency: timer.currency ?? null,
           })
           .select("*")
           .single();

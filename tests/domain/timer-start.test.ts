@@ -44,6 +44,8 @@ describe("starting a timer from an earlier entry", () => {
       now: 1_000,
       startedDate: "2026-08-30",
       startClock: "11:30",
+      hourlyRate: 125,
+      currency: "BRL",
     });
     const recentTasks = rememberRecentTimerTask([], result.preset);
 
@@ -101,6 +103,8 @@ describe("starting a timer from an earlier entry", () => {
         now: 2_000,
         startedDate: "2026-08-30",
         startClock: "12:00",
+        hourlyRate: 80,
+        currency: "USD",
       });
       expect(timer).not.toBe(originalEntry);
     }
