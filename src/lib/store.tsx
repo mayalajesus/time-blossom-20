@@ -938,6 +938,7 @@ interface StoreValue {
   setTrello: (patch: Partial<TrelloState>) => StoreResult;
   setWorkspaceSettings: (patch: Partial<WorkspaceSettings>) => StoreResult;
   setUserPreferences: (patch: Partial<UserPreferences>) => StoreResult;
+  updateCurrentMemberName: (name: string) => StoreResult;
   updateCurrentMemberEmail: (email: string) => StoreResult;
   switchWorkspace: (workspaceId: string) => StoreResult;
   createWorkspace: (name: string) => StoreResult;
@@ -1682,6 +1683,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { success: true };
     };
 
+    const updateCurrentMemberName = (name: string): StoreResult => {
+      if (!currentMember || currentMember.status !== "active")
+        return { success: false, error: "Choose an active account." };
+      const normalizedName = name.trim().replace(/\s+/g, " ");
+      if (!normalizedName) return { success: false, error: "A name is required." };
+      if (normalizedName.split(" ").length < 2)
+        return { success: false, error: "Enter your first and last name." };
+      if (normalizedName.length > 120)
+        return { success: false, error: "Name must be 120 characters or fewer." };
+      const initials = initialsFromName(normalizedName);
+      setAccount((current) => ({
+        ...current,
+        identities: current.identities.map((identity) =>
+          identity.id === activeMemberId
+            ? { ...identity, name: normalizedName, initials }
+            : identity,
+        ),
+      }));
+      setMembers((list) =>
+        list.map((member) =>
+          member.id === activeMemberId ? { ...member, name: normalizedName, initials } : member,
+        ),
+      );
+      return { success: true };
+    };
+
     const switchWorkspace = (workspaceId: string): StoreResult => {
       if (workspaceId === activeWorkspaceId) return { success: true };
       const target = account.workspaces.find((data) => data.workspace.id === workspaceId);
@@ -2074,6 +2101,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTrello,
       setWorkspaceSettings,
       setUserPreferences,
+      updateCurrentMemberName,
       updateCurrentMemberEmail,
       switchWorkspace,
       createWorkspace,

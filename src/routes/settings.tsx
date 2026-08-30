@@ -38,12 +38,32 @@ export const Route = createFileRoute("/settings")({
   component: SettingsPage,
 });
 
+function splitAccountName(name: string): { firstName: string; lastName: string } {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
 function SettingsPage() {
-  const { preferences, currentMember, setUserPreferences, updateCurrentMemberEmail } = useStore();
+  const {
+    preferences,
+    currentMember,
+    setUserPreferences,
+    updateCurrentMemberName,
+    updateCurrentMemberEmail,
+  } = useStore();
   const { configured, session } = useAuth();
   const dataSource = useMemo(() => createSupabaseDataSource(), []);
   const { t, error } = useI18n();
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
+  const [accountFirstName, setAccountFirstName] = useState(
+    splitAccountName(currentMember?.name ?? "").firstName,
+  );
+  const [accountLastName, setAccountLastName] = useState(
+    splitAccountName(currentMember?.name ?? "").lastName,
+  );
   const [accountEmail, setAccountEmail] = useState(
     session?.user.email ?? currentMember?.email ?? "",
   );
@@ -53,11 +73,14 @@ function SettingsPage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const name = splitAccountName(currentMember?.name ?? "");
+    setAccountFirstName(name.firstName);
+    setAccountLastName(name.lastName);
     setAccountEmail(session?.user.email ?? currentMember?.email ?? "");
     setPassword("");
     setPasswordConfirmation("");
     setAccountError(null);
-  }, [currentMember?.id, currentMember?.email, session?.user.email]);
+  }, [currentMember?.id, currentMember?.name, currentMember?.email, session?.user.email]);
 
   const toggles = [
     {
@@ -155,6 +178,21 @@ function SettingsPage() {
   };
 
   const saveAccount = async () => {
+    const firstName = accountFirstName.trim().replace(/\s+/g, " ");
+    const lastName = accountLastName.trim().replace(/\s+/g, " ");
+    if (!firstName) {
+      setAccountError("A first name is required.");
+      return;
+    }
+    if (!lastName) {
+      setAccountError("A last name is required.");
+      return;
+    }
+    const nextName = `${firstName} ${lastName}`;
+    if (nextName.length > 120) {
+      setAccountError("Name must be 120 characters or fewer.");
+      return;
+    }
     if (password && password.length < 8) {
       setAccountError("Password must be at least 8 characters.");
       return;
@@ -165,6 +203,13 @@ function SettingsPage() {
     }
 
     if (configured) {
+      if (session && nextName !== currentMember?.name) {
+        const nameResult = await dataSource.updateProfileName(session.user.id, nextName);
+        if (!nameResult.success) {
+          setAccountError(nameResult.error);
+          return;
+        }
+      }
       const nextEmail = accountEmail.trim();
       const currentEmail = session?.user.email ?? "";
       if (nextEmail && nextEmail !== currentEmail) {
@@ -182,9 +227,21 @@ function SettingsPage() {
         }
       }
     } else {
+      const nameResult = updateCurrentMemberName(nextName);
+      if (!nameResult.success) {
+        setAccountError(nameResult.error);
+        return;
+      }
       const result = updateCurrentMemberEmail(accountEmail.trim() || currentMember?.email || "");
       if (!result.success) {
         setAccountError(result.error);
+        return;
+      }
+    }
+    if (configured && nextName !== currentMember?.name) {
+      const nameResult = updateCurrentMemberName(nextName);
+      if (!nameResult.success) {
+        setAccountError(nameResult.error);
         return;
       }
     }
@@ -216,12 +273,12 @@ function SettingsPage() {
         description={t("Manage your account and personal preferences.")}
       />
 
-      <Card id="account" className="scroll-mt-24 space-y-5 p-5">
-        <div>
+      <Card id="account" className="scroll-mt-24 space-y-4 p-4">
+        <div className="space-y-1">
           <Typography type="h2" weight="semibold">
             {t("Account")}
           </Typography>
-          <Typography type="body-sm" color="muted" className="mt-1">
+          <Typography type="body-sm" color="muted">
             {t("Manage your profile and account details.")}
           </Typography>
         </div>
@@ -230,12 +287,9 @@ function SettingsPage() {
           <FormAlert title={t("Could not save account")} description={error(accountError)} />
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <ProfileAvatar member={currentMember} avatarUrl={preferences.avatarUrl} size="lg" />
           <div className="min-w-0">
-            <Typography type="body-sm" weight="semibold" truncate>
-              {currentMember.name}
-            </Typography>
             <input
               ref={avatarInputRef}
               accept="image/jpeg,image/png,image/webp,image/gif"
@@ -248,7 +302,7 @@ function SettingsPage() {
                 if (file) void savePhoto(file);
               }}
             />
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" type="button" onPress={() => avatarInputRef.current?.click()}>
                 {t("Change profile photo")}
               </Button>
@@ -267,12 +321,48 @@ function SettingsPage() {
         </div>
 
         <Form
-          className="space-y-4 pt-5"
+          className="space-y-3 pt-1"
           onSubmit={(event) => {
             event.preventDefault();
             void saveAccount();
           }}
         >
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <TextField
+              isRequired
+              fullWidth
+              className="min-w-0 flex-1"
+              name="account-first-name"
+              value={accountFirstName}
+              validate={(value) => (value.trim() ? null : t("A first name is required."))}
+              onChange={(value) => {
+                setAccountFirstName(value);
+                setAccountError(null);
+              }}
+            >
+              <Label>{t("First name")}</Label>
+              <Input variant="secondary" placeholder={t("Your first name")} maxLength={60} />
+              <FieldError />
+            </TextField>
+
+            <TextField
+              isRequired
+              fullWidth
+              className="min-w-0 flex-1"
+              name="account-last-name"
+              value={accountLastName}
+              validate={(value) => (value.trim() ? null : t("A last name is required."))}
+              onChange={(value) => {
+                setAccountLastName(value);
+                setAccountError(null);
+              }}
+            >
+              <Label>{t("Last name")}</Label>
+              <Input variant="secondary" placeholder={t("Your last name")} maxLength={60} />
+              <FieldError />
+            </TextField>
+          </div>
+
           <TextField
             isRequired
             fullWidth
@@ -329,7 +419,7 @@ function SettingsPage() {
             <FieldError />
           </TextField>
 
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end pt-1">
             <Button type="submit" isDisabled={!(accountEmail || currentMember.email).trim()}>
               {t("Save account")}
             </Button>
@@ -337,12 +427,12 @@ function SettingsPage() {
         </Form>
       </Card>
 
-      <Card id="personal-preferences" className="scroll-mt-24 space-y-5 p-5">
-        <div>
+      <Card id="personal-preferences" className="scroll-mt-24 space-y-4 p-4">
+        <div className="space-y-1">
           <Typography type="h2" weight="semibold">
-            {t("Personal preferences")}
+            {t("Preferences")}
           </Typography>
-          <Typography type="body-sm" color="muted" className="mt-1">
+          <Typography type="body-sm" color="muted">
             {t("These preferences apply only to your account.")}
           </Typography>
         </div>
@@ -354,10 +444,11 @@ function SettingsPage() {
           />
         ) : null}
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           <Label>{t("Language")}</Label>
           <Select
             aria-label={t("Language")}
+            fullWidth
             variant="secondary"
             value={preferences.language}
             onChange={(key) =>
@@ -382,7 +473,7 @@ function SettingsPage() {
           <Description>{t("Choose the language for your account.")}</Description>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           <Label>{t("Theme")}</Label>
           <Tabs
             className="w-full"
@@ -400,7 +491,7 @@ function SettingsPage() {
               </Tabs.List>
             </Tabs.ListContainer>
             {themeOptions.map((option) => (
-              <Tabs.Panel key={option.id} className="pt-3" id={option.id}>
+              <Tabs.Panel key={option.id} className="px-0 pt-2" id={option.id}>
                 {t(option.hint)}
               </Tabs.Panel>
             ))}
@@ -408,24 +499,27 @@ function SettingsPage() {
           <Description>{t("Choose how Time Blossom should look for your account.")}</Description>
         </div>
 
-        {toggles.map((item) => (
-          <Switch
-            key={item.key}
-            aria-label={t(item.title)}
-            isSelected={preferences[item.key]}
-            onChange={(selected: boolean) =>
-              savePreference({ [item.key]: selected } as Partial<typeof preferences>)
-            }
-          >
-            <Switch.Control>
-              <Switch.Thumb />
-            </Switch.Control>
-            <Switch.Content>
-              <Label>{t(item.title)}</Label>
-              <Description>{t(item.hint)}</Description>
-            </Switch.Content>
-          </Switch>
-        ))}
+        <div className="space-y-3">
+          {toggles.map((item) => (
+            <Switch
+              key={item.key}
+              aria-label={t(item.title)}
+              className="w-full"
+              isSelected={preferences[item.key]}
+              onChange={(selected: boolean) =>
+                savePreference({ [item.key]: selected } as Partial<typeof preferences>)
+              }
+            >
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+              <Switch.Content className="min-w-0">
+                <Label>{t(item.title)}</Label>
+                <Description>{t(item.hint)}</Description>
+              </Switch.Content>
+            </Switch>
+          ))}
+        </div>
       </Card>
     </div>
   );

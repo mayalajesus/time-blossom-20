@@ -255,6 +255,26 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
         response.success ? ok(await mapPreferences(client!, response.data)) : response,
       ),
 
+    updateProfileName: (userId, name) =>
+      call(async () => {
+        const normalizedName = name.trim();
+        const initials = normalizedName
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((part) => part[0]?.toUpperCase() ?? "")
+          .join("");
+        const response = await client!
+          .from("profiles")
+          .update({
+            name: normalizedName,
+            initials: initials || "?",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+        return { data: null, error: response.error };
+      }),
+
     uploadAvatar: (userId, image) =>
       call(async () => {
         const path = `${userId}/avatar-${Date.now()}.webp`;

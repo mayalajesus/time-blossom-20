@@ -23,6 +23,7 @@ export interface AppDataSource {
     userId: string,
     patch: Partial<UserPreferences>,
   ): Promise<DataSourceResult<UserPreferences>>;
+  updateProfileName(userId: string, name: string): Promise<DataSourceResult<null>>;
   uploadAvatar(userId: string, image: Blob): Promise<DataSourceResult<string>>;
   removeAvatar(userId: string): Promise<DataSourceResult<null>>;
   listWorkspaces(userId: string): Promise<DataSourceResult<Workspace[]>>;
