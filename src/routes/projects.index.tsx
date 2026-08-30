@@ -36,7 +36,7 @@ import { RouterLink } from "@/components/router-link";
 import { FormAlert } from "@/components/form-feedback";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { CardsSkeleton, EmptyBlock } from "@/components/states";
-import { formatDate, formatDuration, getLocalToday } from "@/lib/format";
+import { formatDate, formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import type { Project } from "@/lib/mock-data";
 import { useSimulatedLoad, useStore } from "@/lib/store";
@@ -66,6 +66,7 @@ function ProjectsPage() {
     entries,
     members,
     settings,
+    today,
     currentUserId,
     can,
     addProject,
@@ -87,6 +88,9 @@ function ProjectsPage() {
   const [assignedMemberIds, setAssignedMemberIds] = useState<string[]>([currentUserId]);
   const [pendingMembers, setPendingMembers] = useState<Project | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
+  const pendingDeleteHasEntries = pendingDelete
+    ? entries.some((entry) => entry.projectId === pendingDelete.id)
+    : false;
 
   const visible = projects.filter((p) => {
     if (filter === "all") return true;
@@ -105,7 +109,7 @@ function ProjectsPage() {
       billable: projectBillable,
       status: "active",
       color: "accent",
-      lastActivity: getLocalToday(),
+      lastActivity: today,
       memberIds: assignedMemberIds,
     });
     if (!result.success) {
@@ -505,17 +509,24 @@ function ProjectsPage() {
                   />
                 ) : null}
                 <Typography type="body-sm" color="muted">
-                  {t(
-                    "This permanently deletes {name} and removes its project link from tracked entries. This action cannot be undone.",
-                    { name: pendingDelete?.name ?? t("This project") },
-                  )}
+                  {pendingDeleteHasEntries
+                    ? error(
+                        "This project has tracked time. Keep it archived to preserve reports and history.",
+                      )
+                    : t("This permanently deletes {name}. This action cannot be undone.", {
+                        name: pendingDelete?.name ?? t("This project"),
+                      })}
                 </Typography>
               </AlertDialog.Body>
               <AlertDialog.Footer>
                 <Button slot="close" variant="tertiary">
                   {t("Cancel")}
                 </Button>
-                <Button variant="danger" onPress={deleteProjectPermanently}>
+                <Button
+                  variant="danger"
+                  isDisabled={pendingDeleteHasEntries}
+                  onPress={deleteProjectPermanently}
+                >
                   {t("Delete project")}
                 </Button>
               </AlertDialog.Footer>

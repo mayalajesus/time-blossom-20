@@ -135,11 +135,15 @@ const ptBR: Record<string, string> = {
   "Could not delete project": "Não conseguimos excluir este projeto",
   "This permanently deletes {name} and removes its project link from tracked entries. This action cannot be undone.":
     "Isto exclui {name} permanentemente e remove o vínculo do projeto dos registros de horas. Esta ação não pode ser desfeita.",
+  "This permanently deletes {name}. This action cannot be undone.":
+    "Isto exclui {name} permanentemente. Esta ação não pode ser desfeita.",
   "Archive project": "Arquivar projeto",
   "Archive project?": "Arquivar projeto?",
   "Could not archive project": "Não conseguimos arquivar este projeto",
   "Existing time entries will remain available in reports and history.":
     "Os registros de horas existentes continuarão disponíveis nos relatórios e no histórico.",
+  "This project has tracked time. Keep it archived to preserve reports and history.":
+    "Este projeto possui horas registradas. Mantenha-o arquivado para preservar relatórios e histórico.",
   "Project members updated": "Membros do projeto atualizados",
   "Project name is required": "O nome do projeto é obrigatório",
   "e.g. Brand refresh": "ex.: Atualização da marca",
@@ -340,6 +344,9 @@ const ptBR: Record<string, string> = {
     "Esta conta não pode atualizar o cronômetro ativo.",
   "There is no active timer to update.": "Ainda não há um cronômetro ativo para atualizar.",
   "A task is required.": "Uma tarefa é obrigatória.",
+  "Overlapping time": "Horários sobrepostos",
+  "This time overlaps another entry. It was saved anyway.":
+    "Este horário se sobrepõe a outro registro. Ele foi salvo mesmo assim.",
   "Choose an existing project or No project.": "Escolha um projeto existente ou Sem projeto.",
   "This project is not assigned to your team member.":
     "Este projeto ainda não está atribuído a este membro da equipe.",

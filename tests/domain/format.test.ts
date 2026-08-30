@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  dateTimeToTimestamp,
   formatDateRange,
+  getEndDateForEntry,
   getElapsedSeconds,
+  getLocalToday,
+  getManualEntryDefaults,
   getReportPeriodRange,
+  nowTime,
   parseDurationInput,
   getWeekBounds,
 } from "../../src/lib/format";
@@ -51,5 +56,34 @@ describe("time domain formatting", () => {
       endDate: "2026-08-27",
     });
     expect(formatDateRange("2026-08-27", "2026-08-27", "pt-BR")).toContain("27");
+  });
+
+  it("uses the configured IANA timezone for timer dates and clocks", () => {
+    const reference = new Date("2026-08-30T02:30:00.000Z");
+    expect(getLocalToday(reference, "America/Sao_Paulo")).toBe("2026-08-29");
+    expect(nowTime("America/Sao_Paulo", reference)).toBe("23:30");
+    expect(dateTimeToTimestamp("2026-08-29", "23:30", 0, "America/Sao_Paulo")).toBe(
+      reference.getTime(),
+    );
+  });
+
+  it("keeps a session that crosses midnight as one entry with an end date", () => {
+    expect(
+      getEndDateForEntry({
+        date: "2026-08-29",
+        start: "23:30",
+        end: "01:30",
+        seconds: 7_200,
+      }),
+    ).toBe("2026-08-30");
+
+    expect(
+      getManualEntryDefaults(new Date("2026-08-30T03:30:00.000Z"), "America/Sao_Paulo"),
+    ).toEqual({
+      date: "2026-08-29",
+      start: "23:30",
+      end: "00:30",
+      endDate: "2026-08-30",
+    });
   });
 });

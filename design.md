@@ -158,6 +158,34 @@ system before they can track time.
   Archived projects stay hidden for new assignments but remain available when
   editing a historical entry; the popover remains viewport-constrained and
   never changes the Tracker table geometry.
+
+## Phase 1A product rules
+
+- A timer may start without a task; in that case it receives `Untitled task`
+  so it can persist safely and be named while running. A non-empty task remains
+  required for manual and edited time entries. Notes and project assignment
+  remain optional.
+- Overlapping entries for the same user are allowed because legitimate work
+  can be duplicated or reconciled later, but every create, edit, duplicate or
+  timer stop that introduces an overlap gives a non-blocking warning. Adjacent
+  entries whose end and start times are equal do not overlap.
+- Work that crosses midnight remains one entry. The entry keeps its start date,
+  records an explicit end date when it differs, and uses elapsed seconds as the
+  authoritative value for totals and reports.
+- Billability defaults to the selected project's setting. Entries without a
+  project use the workspace default. The user may override that value per timer
+  or entry without changing either default.
+- Archiving a project prevents new assignments while preserving its name,
+  client and all existing entries in history and reports. Historical entries
+  may retain the archived project, and a project with tracked time cannot be
+  permanently deleted.
+- Timer dates, clock values and report period boundaries use the active user's
+  IANA time zone preference. New local profiles default to the device time zone;
+  UTC is the safe fallback when it cannot be resolved.
+- Running and paused are both active timer states. At most one active timer is
+  stored for each user and workspace, and manual creation is unavailable until
+  that timer is stopped.
+
 - The live timer is a persistent state, not a page-local counter. A timestamp
   is the source of truth for running time, while paused time is stored as
   accumulated seconds. The active timer survives reloads, route changes and

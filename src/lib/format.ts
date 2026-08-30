@@ -265,17 +265,95 @@ type TimeEntryDateShape = {
   seconds?: number | undefined;
 };
 
-export function dateTimeToTimestamp(date: string, time: string, seconds = 0): number | null {
+type ZonedDateTimeParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+};
+
+function zonedDateTimeParts(reference: Date, timeZone: string): ZonedDateTimeParts | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(reference);
+    const value = (type: Intl.DateTimeFormatPartTypes) =>
+      Number(parts.find((part) => part.type === type)?.value ?? Number.NaN);
+    const result = {
+      year: value("year"),
+      month: value("month"),
+      day: value("day"),
+      hour: value("hour"),
+      minute: value("minute"),
+      second: value("second"),
+    };
+    return Object.values(result).every(Number.isFinite) ? result : null;
+  } catch {
+    return null;
+  }
+}
+
+export function dateTimeToTimestamp(
+  date: string,
+  time: string,
+  seconds = 0,
+  timeZone?: string,
+): number | null {
   const minutes = timeToMinutes(time);
   if (minutes === null || !isValidDateOnly(date) || !Number.isFinite(seconds)) return null;
   const parsed = parseDateOnly(date);
+  const wholeSeconds = Math.max(0, Math.floor(seconds));
+  if (timeZone) {
+    const desired = {
+      year: parsed.getFullYear(),
+      month: parsed.getMonth() + 1,
+      day: parsed.getDate(),
+      hour: Math.floor(minutes / 60),
+      minute: minutes % 60,
+      second: wholeSeconds,
+    };
+    const desiredAsUtc = Date.UTC(
+      desired.year,
+      desired.month - 1,
+      desired.day,
+      desired.hour,
+      desired.minute,
+      desired.second,
+    );
+    let timestamp = desiredAsUtc;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const observed = zonedDateTimeParts(new Date(timestamp), timeZone);
+      if (!observed) return null;
+      const observedAsUtc = Date.UTC(
+        observed.year,
+        observed.month - 1,
+        observed.day,
+        observed.hour,
+        observed.minute,
+        observed.second,
+      );
+      const adjustment = desiredAsUtc - observedAsUtc;
+      timestamp += adjustment;
+      if (adjustment === 0) break;
+    }
+    return timestamp;
+  }
   return new Date(
     parsed.getFullYear(),
     parsed.getMonth(),
     parsed.getDate(),
     Math.floor(minutes / 60),
     minutes % 60,
-    Math.max(0, Math.floor(seconds)),
+    wholeSeconds,
     0,
   ).getTime();
 }
@@ -473,11 +551,23 @@ export function addSecondsToTime(start: string, seconds: number): string {
   return addSecondsToDateTime("2000-01-01", start, seconds).end;
 }
 
-export function nowTime(): string {
-  return formatLocalTime(new Date());
+export function nowTime(timeZone?: string, reference = new Date()): string {
+  if (timeZone) {
+    const parts = zonedDateTimeParts(reference, timeZone);
+    if (parts) {
+      return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
+    }
+  }
+  return formatLocalTime(reference);
 }
 
-export function getLocalToday(reference = new Date()): string {
+export function getLocalToday(reference = new Date(), timeZone?: string): string {
+  if (timeZone) {
+    const parts = zonedDateTimeParts(reference, timeZone);
+    if (parts) {
+      return `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+    }
+  }
   return toIsoDate(reference);
 }
 
@@ -489,7 +579,10 @@ function formatLocalTime(date: Date): string {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-export function getManualEntryDefaults(reference = new Date()): {
+export function getManualEntryDefaults(
+  reference = new Date(),
+  timeZone?: string,
+): {
   date: string;
   start: string;
   end: string;
@@ -498,9 +591,9 @@ export function getManualEntryDefaults(reference = new Date()): {
   const startReference = new Date(reference.getTime() - 60 * 60 * 1000);
 
   return {
-    date: toIsoDate(reference),
-    start: formatLocalTime(startReference),
-    end: formatLocalTime(reference),
-    endDate: toIsoDate(reference),
+    date: getLocalToday(startReference, timeZone),
+    start: nowTime(timeZone, startReference),
+    end: nowTime(timeZone, reference),
+    endDate: getLocalToday(reference, timeZone),
   };
 }

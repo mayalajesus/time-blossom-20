@@ -21,7 +21,8 @@ and external task integrations remain deferred.
 
 When `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are present, the
 authentication, account preferences, avatar storage and invitation flows use
-Supabase. The migration and Edge Function deployment notes are in
+Supabase. The shared Neon/Supabase migration process is documented in
+`db/README.md`; Supabase Edge Function deployment notes are in
 `supabase/README.md`. Keep service-role keys on the server only.
 
 ## Run locally

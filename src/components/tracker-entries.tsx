@@ -541,6 +541,9 @@ function TrackerGroupSummaryRow({
     toast.success(t("Entry duplicated"), {
       description: `${entry.task} · ${formatDuration(entry.seconds, locale)}`,
     });
+    if (result.warning) {
+      toast.info(t("Overlapping time"), { description: error(result.warning) });
+    }
   };
 
   const handleSummaryClick = (event: React.MouseEvent) => {
@@ -689,7 +692,7 @@ function TrackerEntryRow({
   onDeactivate: () => void;
   onRequestDelete: (entry: TimeEntry) => void;
 }) {
-  const { projects, clients, timer, startTimer, addEntry, updateEntry } = useStore();
+  const { projects, clients, timer, preferences, startTimer, addEntry, updateEntry } = useStore();
   const { locale, t, error } = useI18n();
   const rowRef = useRef<HTMLTableRowElement | null>(null);
   const focusRef = useRef<HTMLInputElement | null>(null);
@@ -760,7 +763,7 @@ function TrackerEntryRow({
     return null;
   };
 
-  const notifySaved = (candidate: EntryDraft) => {
+  const notifySaved = (candidate: EntryDraft, warning?: string) => {
     savedDraftRef.current = candidate;
     setDraft(candidate);
     setValidationMessage(null);
@@ -768,6 +771,7 @@ function TrackerEntryRow({
     toast.success(t("Entry updated"), {
       description: `${candidate.task} · ${durationSeconds === null ? candidate.duration : formatDuration(durationSeconds, locale)}`,
     });
+    if (warning) toast.info(t("Overlapping time"), { description: error(warning) });
   };
 
   const commitField = (
@@ -809,7 +813,7 @@ function TrackerEntryRow({
       return false;
     }
 
-    notifySaved(candidate);
+    notifySaved(candidate, result.warning);
     return true;
   };
 
@@ -844,15 +848,15 @@ function TrackerEntryRow({
       end,
       endDate: endDate !== draft.date ? endDate : undefined,
       seconds: elapsedSeconds,
-      startTimestamp: dateTimeToTimestamp(draft.date, start) ?? undefined,
-      endTimestamp: dateTimeToTimestamp(endDate, end) ?? undefined,
+      startTimestamp: dateTimeToTimestamp(draft.date, start, 0, preferences.timezone) ?? undefined,
+      endTimestamp: dateTimeToTimestamp(endDate, end, 0, preferences.timezone) ?? undefined,
     });
     if (!result.success) {
       setValidationMessage(error(result.error));
       return false;
     }
 
-    notifySaved(candidate);
+    notifySaved(candidate, result.warning);
     if (close) onDeactivate();
     return true;
   };
@@ -867,7 +871,7 @@ function TrackerEntryRow({
     }
 
     const finish = addSecondsToDateTime(draft.date, draft.start, totalSeconds);
-    const startTimestamp = dateTimeToTimestamp(draft.date, draft.start);
+    const startTimestamp = dateTimeToTimestamp(draft.date, draft.start, 0, preferences.timezone);
     const endTimestamp = startTimestamp === null ? null : startTimestamp + totalSeconds * 1000;
     const candidate = {
       ...draft,
@@ -902,7 +906,7 @@ function TrackerEntryRow({
       return false;
     }
 
-    notifySaved(candidate);
+    notifySaved(candidate, result.warning);
     if (close) onDeactivate();
     return true;
   };
@@ -1031,6 +1035,9 @@ function TrackerEntryRow({
     toast.success(t("Entry duplicated"), {
       description: `${entry.task} · ${formatDuration(entry.seconds, locale)}`,
     });
+    if (result.warning) {
+      toast.info(t("Overlapping time"), { description: error(result.warning) });
+    }
   };
 
   const actionCell = (

@@ -1,4 +1,4 @@
-import { Input, Kbd, Label, ListBox, Modal, TextField, Typography } from "@heroui/react";
+import { Input, Kbd, Label, ListBox, Modal, TextField, Typography, toast } from "@heroui/react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Calendar,
@@ -38,7 +38,7 @@ export function CommandMenu({
 }) {
   const navigate = useNavigate();
   const { projects, clients, timer, startTimer, stopTimer } = useStore();
-  const { t } = useI18n();
+  const { t, error } = useI18n();
   const [query, setQuery] = useState("");
 
   const close = () => {
@@ -113,7 +113,14 @@ export function CommandMenu({
         hint: timer.status === "idle" ? t("Begin tracking now") : t("Save the running entry"),
         icon: <Play className="size-4" />,
         group: "Actions",
-        run: () => (timer.status === "idle" ? startTimer("Quick task", null) : stopTimer()),
+        run: () => {
+          const result = timer.status === "idle" ? startTimer("Quick task", null) : stopTimer();
+          if (!result.success) {
+            toast.danger(error(result.error));
+          } else if (result.warning) {
+            toast.info(t("Overlapping time"), { description: error(result.warning) });
+          }
+        },
       },
       ...(timer.status === "idle"
         ? [
@@ -156,7 +163,18 @@ export function CommandMenu({
     }));
 
     return [...actions, ...nav, ...projectCommands, ...clientCommands];
-  }, [clients, navigate, onLogTime, projects, query, startTimer, stopTimer, t, timer.status]);
+  }, [
+    clients,
+    error,
+    navigate,
+    onLogTime,
+    projects,
+    query,
+    startTimer,
+    stopTimer,
+    t,
+    timer.status,
+  ]);
 
   const filtered = commands.filter((c) =>
     `${c.label} ${c.group}`.toLowerCase().includes(query.trim().toLowerCase()),

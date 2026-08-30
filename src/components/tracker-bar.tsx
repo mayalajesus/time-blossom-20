@@ -7,6 +7,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Toolbar,
+  toast,
 } from "@heroui/react";
 import { CircleDollar, Square } from "@gravity-ui/icons";
 import { useEffect, useState } from "react";
@@ -154,7 +155,14 @@ export function TrackerBar() {
                   isIconOnly
                   isSelected={false}
                   onPress={() => {
-                    stopTimer();
+                    const result = stopTimer();
+                    if (!result.success) {
+                      setTimerError(result.error);
+                      return;
+                    }
+                    if (result.warning) {
+                      toast.info(t("Overlapping time"), { description: error(result.warning) });
+                    }
                     setTask("");
                     setActiveTask("");
                     setProjectId(null);

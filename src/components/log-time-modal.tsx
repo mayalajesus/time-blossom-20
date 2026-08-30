@@ -43,12 +43,15 @@ export function LogTimeModal({
   onOpenChange: (open: boolean) => void;
   entry?: TimeEntry | null;
 }) {
-  const { projects, clients, settings, addEntry, updateEntry, currentUserId, timer } = useStore();
+  const { projects, clients, settings, preferences, addEntry, updateEntry, currentUserId, timer } =
+    useStore();
   const { locale, t, error } = useI18n();
   const [timeMode, setTimeMode] = useState<"range" | "duration">("range");
   const [task, setTask] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [date, setDate] = useState(() => getManualEntryDefaults().date);
+  const [date, setDate] = useState(
+    () => getManualEntryDefaults(new Date(), preferences.timezone).date,
+  );
   const [start, setStart] = useState("09:00");
   const [end, setEnd] = useState("10:00");
   const [duration, setDuration] = useState("1:00");
@@ -58,7 +61,7 @@ export function LogTimeModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    const defaults = getManualEntryDefaults();
+    const defaults = getManualEntryDefaults(new Date(), preferences.timezone);
     setTask(entry?.task ?? "");
     setProjectId(entry?.projectId ?? null);
     setDate(entry?.date ?? defaults.date);
@@ -75,7 +78,7 @@ export function LogTimeModal({
           : settings.defaultBillable),
     );
     setSaveError(null);
-  }, [entry, isOpen, projects, settings.defaultBillable]);
+  }, [entry, isOpen, preferences.timezone, projects, settings.defaultBillable]);
 
   const originalEndDate = entry ? getEndDateForEntry(entry) : undefined;
   const preserveOriginalRange = Boolean(entry && start === entry.start && end === entry.end);
@@ -114,7 +117,7 @@ export function LogTimeModal({
   const submit = () => {
     if (invalid) return;
     const cleanDescription = description.trim();
-    const startTimestamp = dateTimeToTimestamp(date, start);
+    const startTimestamp = dateTimeToTimestamp(date, start, 0, preferences.timezone);
     const timestampPatch =
       startTimestamp === null
         ? {}
@@ -154,6 +157,9 @@ export function LogTimeModal({
     if (!result.success) {
       setSaveError(result.error);
       return;
+    }
+    if (result.warning) {
+      toast.info(t("Overlapping time"), { description: error(result.warning) });
     }
     toast.success(t(entry ? "Time entry updated" : "Time entry added"), {
       description: `${task.trim()} · ${formatDuration(entrySeconds, locale)}`,
