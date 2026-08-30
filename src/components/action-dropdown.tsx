@@ -34,7 +34,19 @@ export function ActionDropdown({
               {...(item.isDisabled ? { isDisabled: true } : {})}
               {...(item.tone === "danger" ? { variant: "danger" as const } : {})}
             >
-              {item.icon}
+              {item.icon ? (
+                <span
+                  className={
+                    item.tone === "danger"
+                      ? "text-danger"
+                      : item.tone === "warning"
+                        ? "text-warning"
+                        : undefined
+                  }
+                >
+                  {item.icon}
+                </span>
+              ) : null}
               <Label className={item.tone === "warning" ? "text-warning" : undefined}>
                 {item.label}
               </Label>

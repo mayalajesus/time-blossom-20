@@ -1,4 +1,5 @@
 import {
+  AlertDialog,
   Button,
   Card,
   Chip,
@@ -25,6 +26,7 @@ import {
   Persons,
   Plus,
   Power,
+  TrashBin,
 } from "@gravity-ui/icons";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
@@ -67,6 +69,7 @@ function ProjectsPage() {
     can,
     addProject,
     updateProject,
+    deleteProject,
   } = useStore();
   const { locale, t, error } = useI18n();
   const loading = useSimulatedLoad(500);
@@ -78,6 +81,8 @@ function ProjectsPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [pendingArchive, setPendingArchive] = useState<Project | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [assignedMemberIds, setAssignedMemberIds] = useState<string[]>([currentUserId]);
   const [pendingMembers, setPendingMembers] = useState<Project | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
@@ -157,6 +162,18 @@ function ProjectsPage() {
     toast(t("Project archived"), { description: pendingArchive.name });
     setStatusError(null);
     setPendingArchive(null);
+  };
+
+  const deleteProjectPermanently = () => {
+    if (!pendingDelete) return;
+    const result = deleteProject(pendingDelete.id);
+    if (!result.success) {
+      setDeleteError(error(result.error));
+      return;
+    }
+    toast(t("Project deleted"), { description: pendingDelete.name });
+    setDeleteError(null);
+    setPendingDelete(null);
   };
 
   const openMemberManager = (project: Project) => {
@@ -312,18 +329,28 @@ function ProjectsPage() {
                           label: project.billable ? t("Make internal") : t("Make billable"),
                           icon: <CircleDollar className="size-4" />,
                         },
-                        project.status === "archived"
-                          ? {
-                              id: "restore",
-                              label: t("Restore project"),
-                              icon: <ArrowRotateLeft className="size-4" />,
-                            }
-                          : {
-                              id: "archive",
-                              label: t("Archive project"),
-                              icon: <Archive className="size-4 text-warning" />,
-                              tone: "warning" as const,
-                            },
+                        ...(project.status === "archived"
+                          ? [
+                              {
+                                id: "restore",
+                                label: t("Restore project"),
+                                icon: <ArrowRotateLeft className="size-4" />,
+                              },
+                              {
+                                id: "delete",
+                                label: t("Delete project"),
+                                icon: <TrashBin className="size-4" />,
+                                tone: "danger" as const,
+                              },
+                            ]
+                          : [
+                              {
+                                id: "archive",
+                                label: t("Archive project"),
+                                icon: <Archive className="size-4 text-warning" />,
+                                tone: "warning" as const,
+                              },
+                            ]),
                       ]}
                       onAction={(key) => {
                         if (key === "members") openMemberManager(project);
@@ -337,6 +364,10 @@ function ProjectsPage() {
                         if (key === "billable") toggleProjectBillable(project);
                         if (key === "archive") setPendingArchive(project);
                         if (key === "restore") restoreProject(project);
+                        if (key === "delete") {
+                          setDeleteError(null);
+                          setPendingDelete(project);
+                        }
                       }}
                     />
                   ) : null}
@@ -416,6 +447,50 @@ function ProjectsPage() {
           </Modal.Container>
         </Modal.Backdrop>
       </Modal>
+
+      <AlertDialog
+        isOpen={pendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDelete(null);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <AlertDialog.Trigger aria-label={t("Delete project")} className="sr-only" tabIndex={-1} />
+        <AlertDialog.Backdrop>
+          <AlertDialog.Container>
+            <AlertDialog.Dialog className="sm:max-w-[400px]">
+              <AlertDialog.CloseTrigger />
+              <AlertDialog.Header>
+                <AlertDialog.Icon status="danger" />
+                <AlertDialog.Heading className="text-danger-soft-foreground">
+                  {t("Delete project permanently?")}
+                </AlertDialog.Heading>
+              </AlertDialog.Header>
+              <AlertDialog.Body>
+                {deleteError ? (
+                  <FormAlert title={t("Could not delete project")} description={deleteError} />
+                ) : null}
+                <Typography type="body-sm" color="muted">
+                  {t(
+                    "This permanently deletes {name} and removes its project link from tracked entries. This action cannot be undone.",
+                    { name: pendingDelete?.name ?? t("This project") },
+                  )}
+                </Typography>
+              </AlertDialog.Body>
+              <AlertDialog.Footer>
+                <Button slot="close" variant="tertiary">
+                  {t("Cancel")}
+                </Button>
+                <Button variant="danger" onPress={deleteProjectPermanently}>
+                  {t("Delete project")}
+                </Button>
+              </AlertDialog.Footer>
+            </AlertDialog.Dialog>
+          </AlertDialog.Container>
+        </AlertDialog.Backdrop>
+      </AlertDialog>
 
       <Modal isOpen={newOpen} onOpenChange={setNewOpen}>
         <ModalTriggerRegistration />

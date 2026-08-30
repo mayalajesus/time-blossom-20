@@ -129,6 +129,12 @@ const ptBR: Record<string, string> = {
   "Make internal": "Tornar interno",
   "Make billable": "Tornar faturável",
   "Restore project": "Restaurar projeto",
+  "Delete project": "Excluir projeto",
+  "Delete project?": "Excluir projeto?",
+  "Delete project permanently?": "Excluir projeto permanentemente?",
+  "Could not delete project": "Não foi possível excluir o projeto",
+  "This permanently deletes {name} and removes its project link from tracked entries. This action cannot be undone.":
+    "Isto exclui {name} permanentemente e remove o vínculo do projeto dos registros de horas. Esta ação não pode ser desfeita.",
   "Archive project": "Arquivar projeto",
   "Archive project?": "Arquivar projeto?",
   "Could not archive project": "Não foi possível arquivar o projeto",
@@ -145,6 +151,7 @@ const ptBR: Record<string, string> = {
   "Project marked internal": "Projeto marcado como interno",
   "Project marked billable": "Projeto marcado como faturável",
   "Project archived": "Projeto arquivado",
+  "Project deleted": "Projeto excluído",
   "Could not update project": "Não foi possível atualizar o projeto",
   "Manage the people and companies connected to your projects.":
     "Gerencie as pessoas e empresas ligadas aos seus projetos.",
@@ -361,6 +368,9 @@ const ptBR: Record<string, string> = {
   "Only active members can be assigned to a project.":
     "Somente membros ativos podem ser atribuídos a um projeto.",
   "This project no longer exists.": "Este projeto não existe mais.",
+  "Archive the project before deleting it.": "Arquive o projeto antes de excluí-lo.",
+  "Stop the active timer before deleting a project.":
+    "Pare o cronômetro ativo antes de excluir um projeto.",
   "A project must keep a valid client.": "Um projeto deve manter um cliente válido.",
   "Only Admins and the Owner can manage clients.":
     "Somente Administradores e o Proprietário podem gerenciar clientes.",

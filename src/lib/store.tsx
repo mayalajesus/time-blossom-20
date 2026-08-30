@@ -926,6 +926,7 @@ interface StoreValue {
   restoreEntry: (entry: TimeEntry) => StoreResult;
   addProject: (project: Omit<Project, "id">) => StoreResult;
   updateProject: (id: string, patch: Partial<Omit<Project, "id">>) => StoreResult;
+  deleteProject: (id: string) => StoreResult;
   addClient: (client: Omit<Client, "id">) => StoreResult;
   updateClient: (id: string, patch: Partial<Client>) => StoreResult;
   deleteClient: (id: string) => StoreResult;
@@ -1404,6 +1405,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       )
         return { success: false, error: "Only active members can be assigned to a project." };
       setProjects((list) => list.map((project) => (project.id === id ? next : project)));
+      return { success: true };
+    };
+
+    const deleteProject = (id: string): StoreResult => {
+      if (!can("manage-projects"))
+        return { success: false, error: "Only Admins and the Owner can manage projects." };
+      const current = projects.find((project) => project.id === id);
+      if (!current) return { success: false, error: "This project no longer exists." };
+      if (current.status !== "archived")
+        return { success: false, error: "Archive the project before deleting it." };
+      if (timerRef.current.status !== "idle")
+        return { success: false, error: "Stop the active timer before deleting a project." };
+      setProjects((list) => list.filter((project) => project.id !== id));
+      setEntries((list) =>
+        list.map((entry) => (entry.projectId === id ? { ...entry, projectId: null } : entry)),
+      );
       return { success: true };
     };
 
@@ -2089,6 +2106,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       restoreEntry,
       addProject,
       updateProject,
+      deleteProject,
       addClient,
       updateClient,
       deleteClient,
