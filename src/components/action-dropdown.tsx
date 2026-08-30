@@ -40,10 +40,10 @@ export function ActionDropdown({
                   <Chip.Label>{item.label}</Chip.Label>
                 </Chip>
               ) : (
-                <>
+                <Label className="flex items-center gap-3">
                   {item.icon ? <span>{item.icon}</span> : null}
-                  <Label>{item.label}</Label>
-                </>
+                  {item.label}
+                </Label>
               )}
               {item.trailing ? (
                 <span className="ml-auto flex shrink-0 items-center">{item.trailing}</span>

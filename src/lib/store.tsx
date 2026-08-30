@@ -96,6 +96,10 @@ export type { Permission } from "./permissions";
 
 export type StoreResult = { success: true; id?: string } | { success: false; error: string };
 
+type AddEntryOptions = {
+  allowWhileTimerActive?: boolean;
+};
+
 export interface WorkspaceData {
   workspace: Workspace;
   memberships: WorkspaceMembership[];
@@ -923,7 +927,7 @@ interface StoreValue {
   pauseTimer: () => void;
   resumeTimer: () => void;
   stopTimer: () => void;
-  addEntry: (entry: Omit<TimeEntry, "id">) => StoreResult;
+  addEntry: (entry: Omit<TimeEntry, "id">, options?: AddEntryOptions) => StoreResult;
   updateEntry: (id: string, patch: Partial<Omit<TimeEntry, "id">>) => StoreResult;
   deleteEntry: (id: string) => StoreResult;
   restoreEntry: (entry: TimeEntry) => StoreResult;
@@ -1282,10 +1286,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setElapsed(0);
     };
 
-    const addEntry = (entry: Omit<TimeEntry, "id">): StoreResult => {
+    const addEntry = (
+      entry: Omit<TimeEntry, "id">,
+      options: AddEntryOptions = {},
+    ): StoreResult => {
       if (!can("manage-own-entries") || entry.userId !== activeMemberId)
         return { success: false, error: "You can only create your own time entries." };
-      if (timerRef.current.status !== "idle")
+      if (!options.allowWhileTimerActive && timerRef.current.status !== "idle")
         return { success: false, error: "Stop the active timer before adding time manually." };
       const validation = validateEntry(entry);
       if (!validation.success) return validation;

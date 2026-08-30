@@ -4,6 +4,7 @@ import {
   Input,
   Label,
   Modal,
+  Surface,
   Table,
   TextField,
   TimeField,
@@ -13,7 +14,7 @@ import {
 } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
-import { ChevronDown, CircleExclamation, Play, TrashBin } from "@gravity-ui/icons";
+import { ChevronDown, ChevronUp, CircleExclamation, Copy, Play, TrashBin } from "@gravity-ui/icons";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
@@ -308,8 +309,8 @@ function groupEntries(days: TrackerDay[]): TrackerGroup[] {
     .sort(compareGroupRecency);
 }
 
-function trackerEntryRowKey(group: TrackerGroup, entry: TimeEntry, index: number): string {
-  return `${group.id}-entry-${encodeURIComponent(entry.id)}-${index}`;
+function trackerEntryRowKey(_group: TrackerGroup, entry: TimeEntry, _index: number): string {
+  return `tracker-entry-${encodeURIComponent(entry.id)}`;
 }
 
 export function TrackerEntries({ days }: { days: TrackerDay[] }) {
@@ -328,6 +329,11 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
       ),
     [groups],
   );
+  const selectedRowKeys = useMemo(() => {
+    const selected = new Set(expandedGroups);
+    if (activeCell) selected.add(activeCell.rowKey);
+    return selected;
+  }, [activeCell, expandedGroups]);
 
   useEffect(() => {
     if (activeCell && !rowKeys.has(activeCell.rowKey)) {
@@ -380,6 +386,7 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
         scrollHint={t("Scroll horizontally to see all columns")}
         minWidth="min-w-[1040px] lg:min-w-0"
         contentClassName="table-fixed"
+        selectedKeys={selectedRowKeys}
       >
         <Table.Header>
           <Table.Column isRowHeader className="w-[21%] whitespace-nowrap">
@@ -409,6 +416,7 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
                     <TrackerEntryRow
                       key={rowKey ?? entry.id}
                       entry={entry}
+                      rowId={rowKey ?? entry.id}
                       activeField={activeCell?.rowKey === rowKey ? activeCell.field : null}
                       onActivate={(field) => setActiveCell({ rowKey: rowKey ?? entry.id, field })}
                       onDeactivate={() => setActiveCell(null)}
@@ -432,7 +440,8 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
                       <TrackerEntryRow
                         key={rowKey}
                         entry={entry}
-                        rowId={index === 0 ? `${group.id}-details` : undefined}
+                        rowId={rowKey}
+                        isGroupedChild
                         activeField={activeCell?.rowKey === rowKey ? activeCell.field : null}
                         onActivate={(field) => setActiveCell({ rowKey, field })}
                         onDeactivate={() => setActiveCell(null)}
@@ -491,8 +500,9 @@ function TrackerGroupSummaryRow({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const { projects, clients, timer, startTimer } = useStore();
+  const { projects, clients, timer, startTimer, addEntry } = useStore();
   const { locale, t, error } = useI18n();
+  const [isHovered, setIsHovered] = useState(false);
   const project = projects.find((item) => item.id === group.projectId);
   const projectName = project?.name ?? t("No project");
   const clientName = project
@@ -500,6 +510,7 @@ function TrackerGroupSummaryRow({
     : t("No client");
   const summaryCellClass = "overflow-hidden";
   const summaryTextClass = "block min-w-0 truncate whitespace-nowrap";
+  const summarySurfaceVariant = isExpanded ? (isHovered ? "tertiary" : "secondary") : "transparent";
   const toggleLabel = t(
     `${isExpanded ? "Collapse" : "Expand"} {count} entries for {task}; {type}`,
     {
@@ -516,6 +527,22 @@ function TrackerGroupSummaryRow({
       toast.danger(t("We couldn't start the timer"), { description: error(result.error) });
   };
 
+  const duplicateLatestEntry = () => {
+    const entry = group.entries[0];
+    if (!entry) return;
+    const { id: _id, ...duplicate } = entry;
+    const result = addEntry(duplicate, { allowWhileTimerActive: true });
+    if (!result.success) {
+      toast.danger(t("We couldn't duplicate this time entry"), {
+        description: error(result.error),
+      });
+      return;
+    }
+    toast.success(t("Entry duplicated"), {
+      description: `${entry.task} · ${formatDuration(entry.seconds, locale)}`,
+    });
+  };
+
   const handleSummaryClick = (event: React.MouseEvent) => {
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest("[data-tracker-action], [data-tracker-group-toggle]")) return;
@@ -523,73 +550,123 @@ function TrackerGroupSummaryRow({
   };
 
   return (
-    <Table.Row data-tracker-group={group.id} onClick={handleSummaryClick} className="">
-      <Table.Cell className={`${summaryCellClass} min-w-0`}>
-        <div className="flex min-h-[3.5rem] min-w-0 flex-col justify-center">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="inline-flex h-8 min-h-8 min-w-0 max-w-full justify-start px-1 py-1 text-left"
-            aria-label={toggleLabel}
-            aria-expanded={isExpanded}
-            data-tracker-group-toggle
-            aria-controls={`${group.id}-details`}
-            onPress={onToggle}
-          >
-            <span className="min-w-0 truncate">{group.task}</span>
-            <ChevronDown className="ml-1 size-4 shrink-0" aria-hidden="true" />
-          </Button>
-          <span className="truncate pl-1">
-            {t(group.entries.length === 1 ? "{count} entry" : "{count} entries", {
-              count: group.entries.length,
-            })}
+    <Table.Row
+      id={group.id}
+      data-tracker-group={group.id}
+      onClick={handleSummaryClick}
+      onHoverChange={setIsHovered}
+    >
+      <Table.Cell className={`${summaryCellClass} min-w-0 p-0`}>
+        <Surface variant={summarySurfaceVariant} className="min-h-20 px-4 py-3">
+          <div className="flex min-h-[3.5rem] min-w-0 flex-col justify-center">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="inline-flex h-8 min-h-8 min-w-0 max-w-full justify-start px-1 py-1 text-left"
+              aria-label={toggleLabel}
+              aria-expanded={isExpanded}
+              data-tracker-group-toggle
+              aria-controls={
+                group.entries[0] ? trackerEntryRowKey(group, group.entries[0], 0) : undefined
+              }
+              onPress={onToggle}
+            >
+              <span className="min-w-0 truncate">{group.task}</span>
+              {isExpanded ? (
+                <ChevronUp className="ml-1 size-4 shrink-0" aria-hidden="true" />
+              ) : (
+                <ChevronDown className="ml-1 size-4 shrink-0" aria-hidden="true" />
+              )}
+            </Button>
+            <span className="truncate pl-1">
+              {t(group.entries.length === 1 ? "{count} entry" : "{count} entries", {
+                count: group.entries.length,
+              })}
+            </span>
+          </div>
+        </Surface>
+      </Table.Cell>
+      <Table.Cell className={`${summaryCellClass} p-0`}>
+        <Surface variant={summarySurfaceVariant} className="flex min-h-20 items-center px-4 py-3">
+          <span className="flex min-w-0 flex-col">
+            <span className={summaryTextClass}>{projectName}</span>
+            <span className={summaryTextClass}>{clientName}</span>
           </span>
-        </div>
+        </Surface>
       </Table.Cell>
-      <Table.Cell className={summaryCellClass}>
-        <span className="flex min-w-0 flex-col">
-          <span className={summaryTextClass}>{projectName}</span>
-          <span className={summaryTextClass}>{clientName}</span>
-        </span>
+      <Table.Cell className={`${summaryCellClass} p-0 text-center`}>
+        <Surface
+          variant={summarySurfaceVariant}
+          className="flex min-h-20 items-center justify-center px-4 py-3"
+        >
+          <span className={`${summaryTextClass} text-center`}>{group.start}</span>
+        </Surface>
       </Table.Cell>
-      <Table.Cell className={`${summaryCellClass} text-center`}>
-        <span className={`${summaryTextClass} text-center`}>{group.start}</span>
+      <Table.Cell className={`${summaryCellClass} p-0 text-center`}>
+        <Surface
+          variant={summarySurfaceVariant}
+          className="flex min-h-20 items-center justify-center px-4 py-3"
+        >
+          <span className={`${summaryTextClass} text-center`}>
+            <EndTimeValue startDate={group.date} end={group.end} endDate={group.endDate} />
+          </span>
+        </Surface>
       </Table.Cell>
-      <Table.Cell className={`${summaryCellClass} text-center`}>
-        <span className={`${summaryTextClass} text-center`}>
-          <EndTimeValue startDate={group.date} end={group.end} endDate={group.endDate} />
-        </span>
+      <Table.Cell className={`${summaryCellClass} p-0 text-center`}>
+        <Surface
+          variant={summarySurfaceVariant}
+          className="flex min-h-20 items-center justify-center px-4 py-3"
+        >
+          <span className={`${summaryTextClass} text-center`}>
+            {formatDate(group.date, locale)}
+          </span>
+        </Surface>
       </Table.Cell>
-      <Table.Cell className={`${summaryCellClass} text-center`}>
-        <span className={`${summaryTextClass} text-center`}>{formatDate(group.date, locale)}</span>
+      <Table.Cell className={`${summaryCellClass} p-0 text-center`}>
+        <Surface
+          variant={summarySurfaceVariant}
+          className="flex min-h-20 items-center justify-center px-4 py-3"
+        >
+          <span className={summaryTextClass}>{formatDuration(group.totalSeconds, locale)}</span>
+        </Surface>
       </Table.Cell>
-      <Table.Cell className={`${summaryCellClass} text-center`}>
-        <span className={summaryTextClass}>{formatDuration(group.totalSeconds, locale)}</span>
-      </Table.Cell>
-      <Table.Cell className={trackerActionCellClass}>
-        <div className={trackerActionLayoutClass} data-tracker-action>
-          <Button
-            isIconOnly
-            aria-label={t("Start {task} again", { task: group.task })}
-            isDisabled={timer.status !== "idle"}
-            className={trackerActionButtonClass}
-            variant="tertiary"
-            onPress={startAgain}
-          >
-            <Play className="size-4" />
-          </Button>
-          <ActionDropdown
-            ariaLabel={t("Actions for {task} group", { task: group.task })}
-            items={[
-              {
-                id: "toggle",
-                label: t(isExpanded ? "Collapse group" : "Expand group"),
-                icon: <ChevronDown className="size-4" />,
-              },
-            ]}
-            onAction={(key) => key === "toggle" && onToggle()}
-          />
-        </div>
+      <Table.Cell className="overflow-hidden whitespace-nowrap p-0">
+        <Surface
+          variant={summarySurfaceVariant}
+          className="flex min-h-20 items-center justify-end px-2 py-3"
+        >
+          <div className={trackerActionLayoutClass} data-tracker-action>
+            <Button
+              isIconOnly
+              aria-label={t("Start {task} again", { task: group.task })}
+              isDisabled={timer.status !== "idle"}
+              className={trackerActionButtonClass}
+              variant={isHovered || isExpanded ? "tertiary" : "ghost"}
+              onPress={startAgain}
+            >
+              <Play className="size-4" />
+            </Button>
+            <ActionDropdown
+              ariaLabel={t("Actions for {task} group", { task: group.task })}
+              items={[
+                {
+                  id: "duplicate",
+                  label: t("Duplicate entry"),
+                  icon: <Copy className="size-4" />,
+                },
+                {
+                  id: "toggle",
+                  label: t(isExpanded ? "Collapse group" : "Expand group"),
+                  icon: <ChevronDown className="size-4" />,
+                },
+              ]}
+              onAction={(key) => {
+                if (key === "duplicate") duplicateLatestEntry();
+                if (key === "toggle") onToggle();
+              }}
+            />
+          </div>
+        </Surface>
       </Table.Cell>
     </Table.Row>
   );
@@ -598,6 +675,7 @@ function TrackerGroupSummaryRow({
 function TrackerEntryRow({
   entry,
   rowId,
+  isGroupedChild = false,
   activeField,
   onActivate,
   onDeactivate,
@@ -605,12 +683,13 @@ function TrackerEntryRow({
 }: {
   entry: TimeEntry;
   rowId?: string | undefined;
+  isGroupedChild?: boolean;
   activeField: TrackerEditableField | null;
   onActivate: (field: TrackerEditableField) => void;
   onDeactivate: () => void;
   onRequestDelete: (entry: TimeEntry) => void;
 }) {
-  const { projects, clients, timer, startTimer, updateEntry } = useStore();
+  const { projects, clients, timer, startTimer, addEntry, updateEntry } = useStore();
   const { locale, t, error } = useI18n();
   const rowRef = useRef<HTMLTableRowElement | null>(null);
   const focusRef = useRef<HTMLInputElement | null>(null);
@@ -619,6 +698,7 @@ function TrackerEntryRow({
   const savedDraftRef = useRef<EntryDraft>(toDraft(entry));
   const [draft, setDraft] = useState<EntryDraft>(() => toDraft(entry));
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     if (activeField) return;
@@ -939,6 +1019,20 @@ function TrackerEntryRow({
       toast.danger(t("We couldn't start the timer"), { description: error(result.error) });
   };
 
+  const duplicateEntry = () => {
+    const { id: _id, ...duplicate } = entry;
+    const result = addEntry(duplicate, { allowWhileTimerActive: true });
+    if (!result.success) {
+      toast.danger(t("We couldn't duplicate this time entry"), {
+        description: error(result.error),
+      });
+      return;
+    }
+    toast.success(t("Entry duplicated"), {
+      description: `${entry.task} · ${formatDuration(entry.seconds, locale)}`,
+    });
+  };
+
   const actionCell = (
     <Table.Cell className={trackerActionCellClass}>
       <div className={trackerActionLayoutClass} data-tracker-action>
@@ -947,7 +1041,7 @@ function TrackerEntryRow({
           aria-label={t("Start {task} again", { task: entry.task })}
           isDisabled={timer.status !== "idle"}
           className={trackerActionButtonClass}
-          variant="tertiary"
+          variant={isHovered || Boolean(activeField) ? "tertiary" : "ghost"}
           onPress={startAgain}
         >
           <Play className="size-4" />
@@ -956,13 +1050,21 @@ function TrackerEntryRow({
           ariaLabel={t("Actions for {task}", { task: entry.task })}
           items={[
             {
+              id: "duplicate",
+              label: t("Duplicate entry"),
+              icon: <Copy className="size-4" />,
+            },
+            {
               id: "delete",
               label: t("Delete entry"),
               icon: <TrashBin className="size-4" />,
               tone: "danger",
             },
           ]}
-          onAction={(key) => key === "delete" && onRequestDelete(entry)}
+          onAction={(key) => {
+            if (key === "duplicate") duplicateEntry();
+            if (key === "delete") onRequestDelete(entry);
+          }}
         />
       </div>
     </Table.Cell>
@@ -1047,9 +1149,9 @@ function TrackerEntryRow({
       {...(rowId ? { id: rowId } : {})}
       ref={rowRef}
       data-tracker-entry="true"
-      className=""
+      onHoverChange={setIsHovered}
     >
-      <Table.Cell className={`${trackerCellClass} min-w-0`}>
+      <Table.Cell className={`${trackerCellClass} min-w-0 ${isGroupedChild ? "pl-8" : ""}`.trim()}>
         <div className="flex min-w-0 items-center gap-2">
           {activeField === "task" ? (
             <div className="flex min-w-0 flex-1 items-start gap-1">

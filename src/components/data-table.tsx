@@ -78,6 +78,7 @@ export function DataTable({
   pagination,
   footer,
   scrollHint,
+  selectedKeys,
 }: {
   label: string;
   children: ReactNode;
@@ -87,6 +88,7 @@ export function DataTable({
   pagination?: DataTablePagination;
   footer?: ReactNode;
   scrollHint?: string;
+  selectedKeys?: ReadonlySet<string>;
 }) {
   const descriptionId = useId();
   const regionRef = useRef<HTMLElement>(null);
@@ -136,6 +138,7 @@ export function DataTable({
           <Table.Content
             aria-label={label}
             className={`w-full ${minWidth} ${contentClassName ?? ""}`.trim()}
+            {...(selectedKeys ? { selectionMode: "multiple", selectedKeys } : {})}
           >
             {children}
           </Table.Content>
