@@ -126,7 +126,7 @@ function ReportsNavigation({
   const activeReportView = getReportView(location.search);
 
   const reportLinks = (
-    <nav aria-label={t("Report views")} className={collapsed ? "space-y-0.5" : "space-y-0.5"}>
+    <nav aria-label={t("Report views")} className="space-y-0.5">
       {reportViews.map((view) => {
         const active = reportsActive && activeReportView === view.id;
         return (

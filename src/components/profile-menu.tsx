@@ -44,7 +44,7 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
             : "flex h-10 w-10 min-w-10 items-center justify-center p-0"
         }
       >
-        <ProfileAvatar member={currentMember} avatarUrl={preferences.avatarUrl} />
+        <ProfileAvatar member={currentMember} avatarUrl={preferences.avatarUrl} size="sm" />
         {showName ? (
           <span className="min-w-0 truncate">
             <Typography type="body-sm" weight="semibold" truncate>

@@ -139,7 +139,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
       <div className="min-h-screen">
         <aside
           className={`fixed inset-y-0 left-0 z-30 hidden h-screen shrink-0 flex-col overflow-hidden p-2 md:flex ${
-            collapsed ? "w-16" : "w-56"
+            collapsed ? "w-20" : "w-56"
           }`}
         >
           <div
@@ -174,7 +174,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
           <Separator orientation="vertical" className="absolute right-0 top-0 h-full" />
         </aside>
 
-        <div className={`min-h-screen min-w-0 ${collapsed ? "md:pl-16" : "md:pl-56"}`}>
+        <div className={`min-h-screen min-w-0 ${collapsed ? "md:pl-20" : "md:pl-56"}`}>
           <header className="sticky top-0 z-10">
             <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
               <div className="md:hidden">

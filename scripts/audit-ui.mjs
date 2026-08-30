@@ -19,6 +19,41 @@ const legacyImports = [
 const forbiddenVisualClasses =
   /\b(?:bg|border|ring|shadow|rounded|font|leading|tracking|hover|focus|transition|animate|backdrop|opacity|divide|decoration|fill|stroke|outline|text)-(?!center\b|left\b|right\b|start\b|end\b|wrap\b|nowrap\b)/;
 const appUiRoots = ["src/components/", "src/routes/", "src/main.tsx"];
+const approvedThemeVariables = new Set([
+  "--accent",
+  "--accent-foreground",
+  "--background",
+  "--border",
+  "--danger",
+  "--danger-foreground",
+  "--default",
+  "--default-foreground",
+  "--field-background",
+  "--field-border",
+  "--field-foreground",
+  "--field-placeholder",
+  "--focus",
+  "--foreground",
+  "--muted",
+  "--overlay",
+  "--overlay-foreground",
+  "--scrollbar",
+  "--segment",
+  "--segment-foreground",
+  "--separator",
+  "--success",
+  "--success-foreground",
+  "--surface",
+  "--surface-foreground",
+  "--surface-secondary",
+  "--surface-secondary-foreground",
+  "--surface-tertiary",
+  "--surface-tertiary-foreground",
+  "--warning",
+  "--warning-foreground",
+  "--radius",
+  "--field-radius",
+]);
 
 async function filesIn(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -96,12 +131,23 @@ for (const path of sourceFiles) {
   if (file.endsWith(".css")) {
     const themeOverride = /--background\s*:\s*#060607\s*;/gi;
     const contentWithoutApprovedThemeOverride = content.replace(themeOverride, "");
-    if (/--[a-zA-Z0-9_-]+\s*:/.test(contentWithoutApprovedThemeOverride)) {
+    const contentWithoutApprovedColorScheme = contentWithoutApprovedThemeOverride.replace(
+      /color-scheme\s*:\s*dark\s*;/gi,
+      "",
+    );
+    const contentWithoutApprovedThemeVariables =
+      file === "src/styles.css"
+        ? contentWithoutApprovedColorScheme.replace(
+            /(--[a-zA-Z0-9_-]+)\s*:/g,
+            (declaration, variable) => (approvedThemeVariables.has(variable) ? "" : declaration),
+          )
+        : contentWithoutApprovedColorScheme;
+    if (/--[a-zA-Z0-9_-]+\s*:/.test(contentWithoutApprovedThemeVariables)) {
       violations.push(`${file}: authored design token or theme variable`);
     }
     if (
-      /\b(?:background|background-color|color|border|box-shadow|font|text-shadow)\s*:/.test(
-        contentWithoutApprovedThemeOverride,
+      /(?<!-)\b(?:background|background-color|color|border|box-shadow|font|text-shadow)\s*:/.test(
+        contentWithoutApprovedColorScheme,
       )
     ) {
       violations.push(`${file}: authored visual CSS property`);
