@@ -152,6 +152,7 @@ export function TrackerBar() {
               >
                 <ToggleButton
                   aria-label={t("Stop")}
+                  className="size-9 min-h-9 min-w-9"
                   isIconOnly
                   isSelected={false}
                   onPress={() => {
@@ -183,6 +184,7 @@ export function TrackerBar() {
             >
               <ToggleButton
                 aria-label={t("Billable")}
+                className="size-9 min-h-9 min-w-9"
                 isIconOnly
                 isSelected={active ? timer.billable : billable}
                 onChange={(selected: boolean) => {
