@@ -708,6 +708,13 @@ const ptBR: Record<string, string> = {
   "Workspace action unavailable": "Ação do workspace indisponível",
   "Create a workspace to keep your projects, clients and time separate.":
     "Crie um workspace para manter seus projetos, clientes e horas separados.",
+  "Archived workspaces are read-only. Restore it first.":
+    "Workspaces arquivados são somente leitura. Restaure-o primeiro.",
+  "This workspace is already archived.": "Este workspace já está arquivado.",
+  "Archiving the current workspace will switch you to the first available active workspace.":
+    "Ao arquivar o workspace atual, você será direcionado para o primeiro workspace ativo disponível.",
+  "Keep at least one active workspace before archiving the current one.":
+    "Mantenha pelo menos um workspace ativo antes de arquivar o workspace atual.",
   "Up to 5 workspaces created by you, including archived ones.":
     "Até 5 workspaces criados por você, incluindo os arquivados.",
   "Workspaces where you collaborate with another owner.":

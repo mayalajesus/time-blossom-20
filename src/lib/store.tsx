@@ -763,16 +763,19 @@ function readActiveWorkspaceId(account: PersistedAccount, memberId: string): str
       (membership) => membership.userId === memberId && membership.status === "active",
     ),
   );
+  const active = accessible.filter((data) => data.workspace.status === "active");
   if (typeof window !== "undefined") {
     try {
       const stored = window.localStorage.getItem(ACTIVE_WORKSPACE_STORAGE_KEY);
-      if (stored && accessible.some((data) => data.workspace.id === stored)) return stored;
+      const storedWorkspace = accessible.find((data) => data.workspace.id === stored);
+      if (storedWorkspace?.workspace.status === "active") return stored;
+      if (storedWorkspace && active.length === 0) return stored;
       window.localStorage.removeItem(ACTIVE_WORKSPACE_STORAGE_KEY);
     } catch {
       // First accessible workspace fallback.
     }
   }
-  return accessible[0]?.workspace.id ?? account.workspaces[0]?.workspace.id ?? "w1";
+  return active[0]?.workspace.id ?? accessible[0]?.workspace.id ?? "w1";
 }
 
 function readSessionStatus(): SessionStatus {
@@ -1730,6 +1733,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (workspaceId === activeWorkspaceId) return { success: true };
       const target = account.workspaces.find((data) => data.workspace.id === workspaceId);
       if (!target) return { success: false, error: "This workspace could not be found." };
+      if (target.workspace.status === "archived")
+        return { success: false, error: "Archived workspaces are read-only. Restore it first." };
       const membership = target.memberships.find(
         (candidate) => candidate.userId === activeMemberId,
       );
@@ -1888,28 +1893,82 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const target = account.workspaces.find((data) => data.workspace.id === workspaceId);
       if (!target) return { success: false, error: "This workspace could not be found." };
       const membership = target.memberships.find((item) => item.userId === activeMemberId);
-      if (!membership || membership.role !== "Owner")
+      if (!membership || membership.role !== "Owner" || membership.status !== "active")
         return { success: false, error: "Only the workspace Owner can archive it." };
+      if (target.workspace.status === "archived")
+        return { success: false, error: "This workspace is already archived." };
       if (timerRef.current.status !== "idle")
         return {
           success: false,
           error: "Pause or stop the active timer before archiving a workspace.",
         };
+
+      const isCurrentWorkspace = workspaceId === activeWorkspaceId;
+      const nextWorkspace = isCurrentWorkspace
+        ? (account.workspaces.find(
+            (data) =>
+              data.workspace.id !== workspaceId &&
+              data.workspace.status === "active" &&
+              data.memberships.some(
+                (item) => item.userId === activeMemberId && item.status === "active",
+              ),
+          ) ?? null)
+        : null;
+      if (isCurrentWorkspace && !nextWorkspace)
+        return {
+          success: false,
+          error: "Keep at least one active workspace before archiving the current one.",
+        };
+
+      const currentSnapshot: WorkspaceData | null = isCurrentWorkspace
+        ? {
+            ...target,
+            entries,
+            projects,
+            clients,
+            memberships: membersToMemberships(activeWorkspaceId, members),
+            settings,
+            trello,
+          }
+        : null;
+      const archivedAt = new Date().toISOString();
       setAccount((current) => ({
         ...current,
-        workspaces: current.workspaces.map((data) =>
-          data.workspace.id === workspaceId
-            ? {
-                ...data,
-                workspace: {
-                  ...data.workspace,
-                  status: "archived",
-                  archivedAt: new Date().toISOString(),
-                },
-              }
-            : data,
-        ),
+        workspaces: current.workspaces.map((data) => {
+          if (data.workspace.id !== workspaceId) return data;
+          const source = currentSnapshot ?? data;
+          return {
+            ...source,
+            workspace: {
+              ...source.workspace,
+              status: "archived",
+              archivedAt,
+            },
+          };
+        }),
       }));
+
+      if (nextWorkspace) {
+        setActiveWorkspaceId(nextWorkspace.workspace.id);
+        setEntries(nextWorkspace.entries);
+        setProjects(nextWorkspace.projects);
+        setClients(nextWorkspace.clients);
+        setMembers(
+          nextWorkspace.memberships
+            .map((item) => membershipToMember(item, account.identities))
+            .filter((member): member is Member => member !== null),
+        );
+        setSettingsState(nextWorkspace.settings);
+        setTrelloState(nextWorkspace.trello);
+        const nextTimer = readPersistedTimer(
+          activeMemberId,
+          nextWorkspace.workspace.id,
+          nextWorkspace.projects,
+        );
+        timerRef.current = nextTimer;
+        setTimer(nextTimer);
+        setElapsed(elapsedForTimer(nextTimer));
+      }
       return { success: true };
     };
 

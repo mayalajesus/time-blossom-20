@@ -115,8 +115,11 @@ there is no action menu, and personal preferences are managed in Settings.
   a generic workspace icon without a logo or initials avatar; the optional
   workspace logo is reserved for report PDFs.
 - Owners can edit, archive and restore their own workspaces. Archived
-  workspaces are read-only. Members of another owner's workspace can leave it;
-  an Owner must archive their workspace instead.
+  workspaces are read-only, remain visible on the Workspaces page for
+  restoration, and never appear in the workspace switcher. Archiving the
+  current workspace moves the user to the first available active workspace;
+  the last active workspace cannot be archived. Members of another owner's
+  workspace can leave it; an Owner must archive their workspace instead.
 - Workspace name, default billability and week start are edited together in the
   workspace edit modal; personal preferences remain in Settings.
 - A running timer belongs to its source workspace. Switching workspace asks the

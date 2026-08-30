@@ -56,10 +56,11 @@ export function WorkspaceSwitcher({
   const [pendingWorkspaceId, setPendingWorkspaceId] = useState<string | null>(null);
 
   if (!currentWorkspace) return null;
-  const currentSummary = workspaces.find((workspace) => workspace.id === activeWorkspaceId);
+  const activeWorkspaces = workspaces.filter((workspace) => workspace.status === "active");
+  const currentSummary = activeWorkspaces.find((workspace) => workspace.id === activeWorkspaceId);
   if (!currentSummary) return null;
-  const own = workspaces.filter((workspace) => workspace.isOwned);
-  const shared = workspaces.filter((workspace) => !workspace.isOwned);
+  const own = activeWorkspaces.filter((workspace) => workspace.isOwned);
+  const shared = activeWorkspaces.filter((workspace) => !workspace.isOwned);
 
   const showResult = (result: ReturnType<typeof switchWorkspace>) => {
     if (!result.success) toast(error(result.error));
@@ -89,7 +90,9 @@ export function WorkspaceSwitcher({
     showResult(result);
   };
 
-  const pendingWorkspace = workspaces.find((workspace) => workspace.id === pendingWorkspaceId);
+  const pendingWorkspace = activeWorkspaces.find(
+    (workspace) => workspace.id === pendingWorkspaceId,
+  );
   const triggerContent = (
     <>
       <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center">

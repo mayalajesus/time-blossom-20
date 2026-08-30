@@ -129,6 +129,11 @@ function WorkspacesPage() {
 
   const owned = workspaces.filter((workspace) => workspace.isOwned);
   const shared = workspaces.filter((workspace) => !workspace.isOwned);
+  const isArchivingCurrent =
+    confirmation?.kind === "archive" && confirmation.workspace.id === activeWorkspaceId;
+  const hasAnotherActiveWorkspace = workspaces.some(
+    (workspace) => workspace.id !== activeWorkspaceId && workspace.status === "active",
+  );
 
   useEffect(() => {
     if (editWorkspace) {
@@ -470,7 +475,13 @@ function WorkspacesPage() {
               <Modal.Body>
                 <Typography type="body-sm" color="muted">
                   {confirmation?.kind === "archive"
-                    ? t("Archived workspaces become read-only until the Owner restores them.")
+                    ? isArchivingCurrent
+                      ? hasAnotherActiveWorkspace
+                        ? t(
+                            "Archiving the current workspace will switch you to the first available active workspace.",
+                          )
+                        : t("Keep at least one active workspace before archiving the current one.")
+                      : t("Archived workspaces become read-only until the Owner restores them.")
                     : confirmation?.kind === "restore"
                       ? t("This workspace will become available for tracking again.")
                       : t(
@@ -490,6 +501,7 @@ function WorkspacesPage() {
                         ? "secondary"
                         : "primary"
                   }
+                  isDisabled={isArchivingCurrent && !hasAnotherActiveWorkspace}
                   className={confirmation?.kind === "archive" ? "text-warning" : undefined}
                   onPress={confirmWorkspaceAction}
                 >
