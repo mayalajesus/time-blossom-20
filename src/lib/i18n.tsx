@@ -11,14 +11,14 @@ export const localeOptions: Array<{ id: Locale; label: string }> = [
 ];
 
 const ptBR: Record<string, string> = {
-  Tracker: "Controle de tempo",
+  Tracker: "Rastreador de tempo",
   Projects: "Projetos",
   Clients: "Clientes",
   Team: "Equipe",
   Reports: "Relatórios",
   Integrations: "Integrações",
   Settings: "Configurações",
-  "Go to tracker": "Ir para o controle de tempo",
+  "Go to tracker": "Ir para o rastreador de tempo",
   "Manage projects": "Gerenciar projetos",
   "Manage clients": "Gerenciar clientes",
   "Members and roles": "Membros e funções",
@@ -53,7 +53,7 @@ const ptBR: Record<string, string> = {
   "Next month": "Próximo mês",
   "Select {label}": "Selecionar {label}",
   "Open {label} calendar": "Abrir calendário de {label}",
-  "Choose tracking date range": "Escolher período do controle de tempo",
+  "Choose tracking date range": "Escolher período do rastreador de tempo",
   Today: "Hoje",
   Yesterday: "Ontem",
   "This week": "Esta semana",
@@ -106,7 +106,7 @@ const ptBR: Record<string, string> = {
   "Delete time entry?": "Excluir registro de horas?",
   "This removes {task}. You can undo it from the confirmation toast for 20 seconds.":
     "Isto remove {task}. Você pode desfazer pela notificação de confirmação durante 20 segundos.",
-  "Tracker period": "Período do controle de tempo",
+  "Tracker period": "Período do rastreador de tempo",
   tracked: "registradas",
   "No time tracked in this period": "Nenhuma hora registrada neste período",
   "Start the timer above or add an entry for a date in this period.":
@@ -636,11 +636,11 @@ const ptBR: Record<string, string> = {
   "Project details — Time Blossom": "Detalhes do projeto — Time Blossom",
   "Could not create client": "Não conseguimos adicionar este cliente",
   "Choose valid personal preferences.": "Escolha preferências pessoais válidas.",
-  "Time Blossom — Simple time tracking": "Time Blossom — Controle de tempo simples",
+  "Time Blossom — Simple time tracking": "Time Blossom — Rastreador de tempo simples",
   "Time Blossom — Time tracking for small teams":
-    "Time Blossom — Controle de tempo para pequenas equipes",
+    "Time Blossom — Rastreador de tempo para pequenas equipes",
   "Time Blossom is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.":
-    "Time Blossom é um controle de tempo simples para freelancers e pequenas equipes: cronômetro, registros, relatórios e faturamento de clientes.",
+    "Time Blossom é um rastreador de tempo simples para freelancers e pequenas equipes: cronômetro, registros, relatórios e faturamento de clientes.",
   "Track hours, manage projects and bill clients with a calm, focused workspace.":
     "Acompanhe horas, gerencie projetos e fature clientes em um workspace calmo e focado.",
   "Start the live timer, log time and manage your entries in one focused workspace.":
@@ -664,7 +664,7 @@ const ptBR: Record<string, string> = {
   "Filter and understand tracked time.": "Filtre e entenda as horas registradas.",
   "Connect Time Blossom to Trello and sync cards into tracked tasks.":
     "Conecte o Time Blossom ao Trello e sincronize cartões como tarefas registradas.",
-  "Trello sync for your time tracking.": "Sincronização do Trello para seu controle de tempo.",
+  "Trello sync for your time tracking.": "Sincronização do Trello para seu rastreador de tempo.",
   "Workspace settings and personal preferences.":
     "Configurações do workspace e preferências pessoais.",
   "Configure your Time Blossom workspace.": "Configure seu workspace do Time Blossom.",
@@ -761,7 +761,7 @@ const ptBR: Record<string, string> = {
   "Sign in": "Entrar",
   "Create your account": "Crie sua conta",
   "Create account": "Criar conta",
-  "Access your time tracking workspace.": "Acesse seu workspace de controle de tempo.",
+  "Access your time tracking workspace.": "Acesse seu workspace do rastreador de tempo.",
   "Start a focused workspace for your team.": "Comece um workspace focado para sua equipe.",
   "Authentication failed": "Não conseguimos entrar na sua conta",
   "Forgot password?": "Esqueceu a senha?",
