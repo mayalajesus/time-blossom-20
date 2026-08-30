@@ -175,7 +175,11 @@ function AppShellContent({ children }: { children: ReactNode }) {
         </aside>
 
         <div className={`min-h-screen min-w-0 ${collapsed ? "md:pl-20" : "md:pl-56"}`}>
-          <header className="sticky top-0 z-10">
+          <header
+            className={`fixed inset-x-0 top-0 z-20 bg-background ${
+              collapsed ? "md:left-20" : "md:left-56"
+            }`}
+          >
             <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
               <div className="md:hidden">
                 <Button
@@ -202,6 +206,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
             </div>
             <Separator />
           </header>
+
+          <div aria-hidden="true" className="h-20 shrink-0" />
 
           <main
             id="main-content"
