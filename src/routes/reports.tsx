@@ -48,10 +48,13 @@ import {
   formatDate,
   formatDateRange,
   formatDuration,
+  getDayOffset,
   getEndDateForEntry,
   getEntryEndDayOffset,
+  getMonthBounds,
   getReportPeriodRange,
   getWeekBounds,
+  getYearBounds,
   isValidDateOnly,
   normalizeSearch,
   shiftDate,
@@ -438,11 +441,41 @@ function ReportsPage() {
     });
   };
 
-  const shiftWeeklyPeriod = (direction: -1 | 1) => {
+  const shiftReportPeriod = (direction: -1 | 1) => {
+    const preset = search.preset;
+    let nextRange: DateRange;
+
+    if (search.view === "weekly") {
+      nextRange = {
+        startDate: shiftDate(range.startDate, direction * 7),
+        endDate: shiftDate(range.endDate, direction * 7),
+      };
+    } else if (preset === "this-month" || preset === "last-month") {
+      const anchor = shiftDate(range.startDate, direction === 1 ? 31 : -1);
+      nextRange = getMonthBounds(anchor);
+    } else if (preset === "this-year" || preset === "last-year") {
+      const anchor = shiftDate(range.startDate, direction === 1 ? 366 : -1);
+      nextRange = getYearBounds(anchor);
+    } else {
+      const periodLength =
+        preset === "today" || preset === "yesterday"
+          ? 1
+          : preset === "last-two-weeks"
+            ? 14
+            : preset === "this-week" || preset === "last-week"
+              ? 7
+              : getDayOffset(range.startDate, range.endDate) + 1;
+
+      nextRange = {
+        startDate: shiftDate(range.startDate, direction * periodLength),
+        endDate: shiftDate(range.endDate, direction * periodLength),
+      };
+    }
+
     updateSearch({
       preset: "custom",
-      start: shiftDate(range.startDate, direction * 7),
-      end: shiftDate(range.endDate, direction * 7),
+      start: nextRange.startDate,
+      end: nextRange.endDate,
     });
   };
 
@@ -759,9 +792,9 @@ function ReportsPage() {
         clients={clients}
         projects={projects}
         showTeam={showTeam}
-        weeklyNavigation={search.view === "weekly"}
+        weeklyNavigation
         onPeriodChange={updatePeriod}
-        onPeriodShift={shiftWeeklyPeriod}
+        onPeriodShift={shiftReportPeriod}
         onChange={(patch) => {
           const next = { ...filterValues, ...patch };
           updateSearch({
@@ -1222,7 +1255,7 @@ function ReportColumnPicker({
             Object.entries(triggerProps).filter(([, value]) => value !== undefined),
           );
           return (
-            <Button {...buttonProps} variant="secondary" size="sm" aria-label={t("Choose columns")}>
+            <Button {...buttonProps} variant="tertiary" size="sm" aria-label={t("Choose columns")}>
               {t("Columns")}
             </Button>
           );
@@ -1440,34 +1473,37 @@ function GroupSelect({
 }) {
   const { t } = useI18n();
   return (
-    <Dropdown>
-      <ButtonGroup variant="secondary" size="sm" className="w-44">
-        <Button type="button" aria-label={t(label)} className="h-9 min-w-0 flex-1 justify-start">
-          {t(options.find((option) => option.id === value)?.label ?? label)}
-        </Button>
-        <Dropdown.Trigger
+    <ButtonGroup variant="tertiary" size="sm" className="w-44">
+      <Button type="button" aria-label={t(label)} className="h-9 min-w-0 flex-1 justify-start">
+        {t(options.find((option) => option.id === value)?.label ?? label)}
+      </Button>
+      <Dropdown>
+        <Button
+          isIconOnly
+          variant="tertiary"
           aria-label={t("Open {label}", { label: t(label) })}
           className="h-9 w-9 min-w-9 shrink-0 px-0"
         >
+          <ButtonGroup.Separator />
           <ChevronDown aria-hidden="true" className="size-4" />
-        </Dropdown.Trigger>
-      </ButtonGroup>
-      <Dropdown.Popover>
-        <Dropdown.Menu
-          aria-label={t(label)}
-          selectionMode="single"
-          selectedKeys={new Set([value])}
-          onAction={(key) => onChange(String(key) as GroupDimension | "none")}
-        >
-          {options.map((option) => (
-            <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
-              <Label>{t(option.label)}</Label>
-              <Dropdown.ItemIndicator />
-            </Dropdown.Item>
-          ))}
-        </Dropdown.Menu>
-      </Dropdown.Popover>
-    </Dropdown>
+        </Button>
+        <Dropdown.Popover>
+          <Dropdown.Menu
+            aria-label={t(label)}
+            selectionMode="single"
+            selectedKeys={new Set([value])}
+            onAction={(key) => onChange(String(key) as GroupDimension | "none")}
+          >
+            {options.map((option) => (
+              <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
+                <Label>{t(option.label)}</Label>
+                <Dropdown.ItemIndicator />
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown.Popover>
+      </Dropdown>
+    </ButtonGroup>
   );
 }
 

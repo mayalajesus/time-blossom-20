@@ -1,5 +1,4 @@
 import {
-  Autocomplete,
   Button,
   ButtonGroup,
   DateField,
@@ -10,9 +9,9 @@ import {
   Input,
   InputGroup,
   Label,
-  ListBox,
   RangeCalendar,
   SearchField,
+  Separator,
   TextField,
   Toolbar,
   Typography,
@@ -20,6 +19,7 @@ import {
 } from "@heroui/react";
 import {
   ArrowRotateLeft,
+  Calendar,
   ChartColumn,
   ChevronDown,
   ChevronLeft,
@@ -80,10 +80,16 @@ function ReportFilterValue({ children }: { children: string }) {
   );
 }
 
-function ReportFilterIcon({ children }: { children: ReactNode }) {
+function ReportFilterIcon({
+  children,
+  slot = "description",
+}: {
+  children: ReactNode;
+  slot?: string | null;
+}) {
   return (
     <Typography
-      slot="description"
+      slot={slot}
       type="body-sm"
       color="muted"
       weight="normal"
@@ -104,15 +110,39 @@ function ReportPeriodNavigation({
   navigationLabel: string;
   previousLabel: string;
   nextLabel: string;
-  onPeriodShift?: (direction: -1 | 1) => void;
+  onPeriodShift: (direction: -1 | 1) => void;
 }) {
   return (
-    <ButtonGroup variant="tertiary" size="sm" aria-label={navigationLabel}>
-      <Button isIconOnly aria-label={previousLabel} onPress={() => onPeriodShift?.(-1)}>
-        <ChevronLeft aria-hidden="true" className={reportFilterIconClassName} />
+    <ButtonGroup
+      variant="tertiary"
+      size="sm"
+      slot={null}
+      className="relative shrink-0"
+      aria-label={navigationLabel}
+    >
+      <ButtonGroup.Separator className="start-0" />
+      <Button
+        isIconOnly
+        slot={null}
+        aria-label={previousLabel}
+        className="h-9 w-8 min-w-8 shrink-0 px-0"
+        onPress={() => onPeriodShift(-1)}
+      >
+        <ReportFilterIcon slot={null}>
+          <ChevronLeft aria-hidden="true" className={reportFilterIconClassName} />
+        </ReportFilterIcon>
       </Button>
-      <Button isIconOnly aria-label={nextLabel} onPress={() => onPeriodShift?.(1)}>
-        <ChevronRight aria-hidden="true" className={reportFilterIconClassName} />
+      <ButtonGroup.Separator className="start-8" />
+      <Button
+        isIconOnly
+        slot={null}
+        aria-label={nextLabel}
+        className="h-9 w-8 min-w-8 shrink-0 px-0"
+        onPress={() => onPeriodShift(1)}
+      >
+        <ReportFilterIcon slot={null}>
+          <ChevronRight aria-hidden="true" className={reportFilterIconClassName} />
+        </ReportFilterIcon>
       </Button>
     </ButtonGroup>
   );
@@ -185,12 +215,15 @@ function selectedLabel(options: ReportFilterOption[], values: string[], empty: s
   return `${values.length} selected`;
 }
 
-function ReportMultiSelect({
+function ReportFilterDropdown({
   label,
   icon,
   options,
   values,
   onChange,
+  searchable,
+  multiple,
+  separator = "button-group",
   className,
 }: {
   label: string;
@@ -198,65 +231,123 @@ function ReportMultiSelect({
   options: ReportFilterOption[];
   values: string[];
   onChange: (values: string[]) => void;
+  searchable: boolean;
+  multiple: boolean;
+  separator?: "button-group" | "vertical";
   className?: string;
 }) {
   const { t } = useI18n();
   const { contains } = useFilter({ sensitivity: "base" });
+  const [query, setQuery] = useState("");
+  const filteredOptions = useMemo(() => {
+    if (!searchable || query.trim().length === 0) return options;
+    return options.filter(
+      (option) => contains(option.label, query) || contains(option.description ?? "", query),
+    );
+  }, [contains, options, query, searchable]);
+  const selectionMode = multiple ? "multiple" : "single";
 
   return (
-    <Autocomplete<ReportFilterOption, "multiple">
-      variant="secondary"
-      {...(className ? { className } : {})}
+    <ButtonGroup
+      variant="tertiary"
+      size="sm"
+      className={className ? `min-w-0 ${className}` : "min-w-0"}
       aria-label={t("{label} filter", { label })}
-      selectionMode="multiple"
-      value={values}
-      onChange={(keys) => {
-        const selectedVisibleIds = keys.map(String);
-        onChange(selectedVisibleIds);
-      }}
     >
-      <Autocomplete.Trigger className="h-9 w-full min-w-0 items-center gap-2">
+      <Button
+        type="button"
+        aria-label={t("{label} filter", { label })}
+        className="h-9 min-w-0 flex-1 justify-start gap-2"
+      >
         <ReportFilterIcon>{icon}</ReportFilterIcon>
-        <Autocomplete.Value className="min-w-0 truncate">
-          {() => <ReportFilterValue>{selectedLabel(options, values, label)}</ReportFilterValue>}
-        </Autocomplete.Value>
-        <Autocomplete.Indicator />
-      </Autocomplete.Trigger>
-      <Autocomplete.Popover className="w-64 max-w-[calc(100vw-2rem)] min-w-0">
-        <Autocomplete.Filter filter={contains}>
-          <SearchField
-            autoFocus
-            aria-label={t("Search {label} options", { label: label.toLowerCase() })}
-            name={`report-${label.toLowerCase()}-search`}
-            variant="secondary"
-          >
-            <SearchField.Group>
-              <SearchField.SearchIcon />
-              <SearchField.Input
-                placeholder={t("Search {label}...", { label: label.toLowerCase() })}
-              />
-              <SearchField.ClearButton />
-            </SearchField.Group>
-          </SearchField>
-          <ListBox
-            aria-label={t("{label} options", { label })}
-            renderEmptyState={() => <EmptyState>{t("No results")}</EmptyState>}
-          >
-            {options.map((option) => (
-              <ListBox.Item
-                key={option.id}
-                id={option.id}
-                textValue={`${option.label} ${option.description ?? ""}`}
+        <ReportFilterValue>{selectedLabel(options, values, label)}</ReportFilterValue>
+      </Button>
+      <Dropdown>
+        <Button
+          isIconOnly
+          variant="tertiary"
+          aria-label={t("Open {label}", { label })}
+          className="h-9 w-9 min-w-9 shrink-0 px-0"
+        >
+          {separator === "vertical" ? (
+            <Separator
+              orientation="vertical"
+              variant="tertiary"
+              className="mx-1 h-5 shrink-0 self-center"
+            />
+          ) : (
+            <ButtonGroup.Separator />
+          )}
+          <ReportFilterIcon>
+            <ChevronDown aria-hidden="true" className={reportFilterIconClassName} />
+          </ReportFilterIcon>
+        </Button>
+        <Dropdown.Popover
+          className="w-64 max-w-[calc(100vw-2rem)] min-w-0"
+          onOpenChange={(isOpen) => {
+            if (!isOpen) setQuery("");
+          }}
+        >
+          {searchable ? (
+            <div className="p-2">
+              <SearchField
+                autoFocus
+                aria-label={t("Search {label} options", { label: label.toLowerCase() })}
+                name={`report-${label.toLowerCase()}-search`}
+                value={query}
+                onChange={setQuery}
+                variant="secondary"
               >
-                {option.label}
-                <ListBox.ItemIndicator />
-              </ListBox.Item>
-            ))}
-          </ListBox>
-        </Autocomplete.Filter>
-      </Autocomplete.Popover>
-    </Autocomplete>
+                <SearchField.Group>
+                  <SearchField.SearchIcon />
+                  <SearchField.Input
+                    placeholder={t("Search {label}...", { label: label.toLowerCase() })}
+                  />
+                  <SearchField.ClearButton />
+                </SearchField.Group>
+              </SearchField>
+            </div>
+          ) : null}
+          {filteredOptions.length === 0 ? (
+            <EmptyState>{t("No results")}</EmptyState>
+          ) : (
+            <Dropdown.Menu
+              aria-label={t("{label} options", { label })}
+              selectionMode={selectionMode}
+              selectedKeys={new Set(values)}
+              onSelectionChange={(keys) => {
+                if (keys === "all") {
+                  onChange(options.map((option) => option.id));
+                  return;
+                }
+                const nextValues = [...keys].map(String);
+                onChange(multiple ? nextValues : nextValues.slice(-1));
+              }}
+            >
+              {filteredOptions.map((option) => (
+                <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
+                  <Label>{option.label}</Label>
+                  <Dropdown.ItemIndicator />
+                </Dropdown.Item>
+              ))}
+            </Dropdown.Menu>
+          )}
+        </Dropdown.Popover>
+      </Dropdown>
+    </ButtonGroup>
   );
+}
+
+function ReportMultiSelect(props: {
+  label: string;
+  icon: ReactNode;
+  options: ReportFilterOption[];
+  values: string[];
+  onChange: (values: string[]) => void;
+  separator?: "button-group" | "vertical";
+  className?: string;
+}) {
+  return <ReportFilterDropdown {...props} searchable multiple />;
 }
 
 function ReportSingleSelect({
@@ -274,47 +365,17 @@ function ReportSingleSelect({
   onChange: (value: string) => void;
   className?: string;
 }) {
-  const { t } = useI18n();
   return (
-    <Dropdown>
-      <ButtonGroup
-        variant="secondary"
-        size="sm"
-        className={className ? `min-w-0 ${className}` : "min-w-0"}
-      >
-        <Button
-          type="button"
-          aria-label={t("{label} filter", { label })}
-          className="h-9 min-w-0 flex-1 justify-start gap-2"
-        >
-          <ReportFilterIcon>{icon}</ReportFilterIcon>
-          <ReportFilterValue>
-            {options.find((option) => option.id === value)?.label ?? label}
-          </ReportFilterValue>
-        </Button>
-        <Dropdown.Trigger
-          aria-label={t("Open {label}", { label })}
-          className="h-9 w-9 min-w-9 shrink-0 px-0"
-        >
-          <ChevronDown aria-hidden="true" className={reportFilterIconClassName} />
-        </Dropdown.Trigger>
-      </ButtonGroup>
-      <Dropdown.Popover>
-        <Dropdown.Menu
-          aria-label={t("{label} options", { label })}
-          selectionMode="single"
-          selectedKeys={new Set([value])}
-          onAction={(key) => onChange(String(key))}
-        >
-          {options.map((option) => (
-            <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
-              <Label>{option.label}</Label>
-              <Dropdown.ItemIndicator />
-            </Dropdown.Item>
-          ))}
-        </Dropdown.Menu>
-      </Dropdown.Popover>
-    </Dropdown>
+    <ReportFilterDropdown
+      label={label}
+      icon={icon}
+      options={options}
+      values={[value]}
+      onChange={(values) => onChange(values[0] ?? value)}
+      searchable={false}
+      multiple={false}
+      {...(className ? { className } : {})}
+    />
   );
 }
 
@@ -324,6 +385,10 @@ function ReportPeriodPicker({
   today,
   weekStartsOn,
   weeklyNavigation = false,
+  navigationLabel,
+  previousLabel,
+  nextLabel,
+  onPeriodShift,
   onChange,
 }: {
   preset: ReportPeriodPreset;
@@ -331,6 +396,10 @@ function ReportPeriodPicker({
   today: string;
   weekStartsOn: 0 | 1;
   weeklyNavigation?: boolean;
+  navigationLabel?: string;
+  previousLabel?: string;
+  nextLabel?: string;
+  onPeriodShift?: (direction: -1 | 1) => void;
   onChange: (preset: ReportPeriodPreset, range: DateRange) => void;
 }) {
   const { locale, t } = useI18n();
@@ -341,13 +410,13 @@ function ReportPeriodPicker({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    if (!isOpen) setCalendarValue(toRangeValue(range));
-  }, [isOpen, range]);
+    setCalendarValue(toRangeValue(range));
+  }, [range.endDate, range.startDate]);
 
   return (
     <I18nProvider locale={locale}>
       <DateRangePicker
-        className="w-60 min-w-60 shrink-0"
+        className={weeklyNavigation ? "w-fit min-w-0 shrink-0" : "w-60 min-w-60 shrink-0"}
         aria-label={t("Date range: {range}", { range: formatReportPeriod(range, locale) })}
         value={calendarValue}
         isOpen={isOpen}
@@ -362,28 +431,55 @@ function ReportPeriodPicker({
         }}
       >
         <Label className="sr-only">{t("Report period")}</Label>
-        <DateField.Group
-          className="h-9 w-full min-w-0"
-          variant="secondary"
-          aria-label={t("Selected report period")}
-        >
-          <DateField.Prefix className="pointer-events-auto">
-            <DateRangePicker.Trigger
-              ref={triggerRef}
-              className="h-8 w-8 shrink-0 px-0"
-              aria-label={t("Open {label} calendar", { label: t("Date range") })}
+        <div className="flex min-w-0 items-center">
+          <DateField.Group
+            className={`h-9 min-w-0 gap-0 overflow-hidden p-1 ${
+              weeklyNavigation
+                ? "w-fit flex-none rounded-s-[calc(var(--radius)*3)] rounded-e-none"
+                : "w-fit rounded-[calc(var(--radius)*3)]"
+            }`}
+            variant="secondary"
+            aria-label={t("Selected report period")}
+          >
+            <DateField.Prefix className="pointer-events-auto ms-1 me-0 shrink-0 p-0">
+              <DateRangePicker.Trigger
+                ref={triggerRef}
+                className="flex size-7 min-w-7 shrink-0 items-center justify-center px-0"
+                aria-label={t("Open {label} calendar", { label: t("Date range") })}
+              >
+                <Calendar aria-hidden="true" className={reportFilterIconClassName} />
+              </DateRangePicker.Trigger>
+            </DateField.Prefix>
+            <DateField.Input
+              slot="start"
+              className="w-fit min-w-0 flex-none gap-0 overflow-hidden p-0 whitespace-nowrap"
             >
-              <DateRangePicker.TriggerIndicator className={reportFilterIconClassName} />
-            </DateRangePicker.Trigger>
-          </DateField.Prefix>
-          <DateField.Input slot="start">
-            {(segment) => <DateField.Segment segment={segment} />}
-          </DateField.Input>
-          <DateRangePicker.RangeSeparator>–</DateRangePicker.RangeSeparator>
-          <DateField.Input slot="end">
-            {(segment) => <DateField.Segment segment={segment} />}
-          </DateField.Input>
-        </DateField.Group>
+              {(segment) => (
+                <DateField.Segment segment={segment} className="px-0 whitespace-nowrap" />
+              )}
+            </DateField.Input>
+            <DateRangePicker.RangeSeparator className="px-1">–</DateRangePicker.RangeSeparator>
+            <DateField.Input
+              slot="end"
+              className="w-fit min-w-0 flex-none gap-0 overflow-hidden p-0 pe-2 whitespace-nowrap"
+            >
+              {(segment) => (
+                <DateField.Segment segment={segment} className="px-0 whitespace-nowrap" />
+              )}
+            </DateField.Input>
+          </DateField.Group>
+          {weeklyNavigation && navigationLabel && previousLabel && nextLabel && onPeriodShift ? (
+            <ReportPeriodNavigation
+              navigationLabel={navigationLabel}
+              previousLabel={previousLabel}
+              nextLabel={nextLabel}
+              onPeriodShift={(direction) => {
+                setIsOpen(false);
+                onPeriodShift(direction);
+              }}
+            />
+          ) : null}
+        </div>
 
         <DateRangePicker.Popover
           placement="bottom start"
@@ -415,52 +511,55 @@ function ReportPeriodPicker({
               ))}
             </div>
             <div className="p-0 sm:hidden">
-              <Dropdown>
-                <ButtonGroup variant="secondary" size="sm" className="w-full">
+              <ButtonGroup variant="tertiary" size="sm" className="w-full">
+                <Button
+                  type="button"
+                  aria-label={t("Date range preset")}
+                  className="h-9 min-w-0 flex-1 justify-start"
+                >
+                  {t(reportPeriodPresets.find((option) => option.id === preset)?.label ?? "Custom")}
+                </Button>
+                <Dropdown>
                   <Button
-                    type="button"
-                    aria-label={t("Date range preset")}
-                    className="h-9 min-w-0 flex-1 justify-start"
-                  >
-                    {t(
-                      reportPeriodPresets.find((option) => option.id === preset)?.label ?? "Custom",
-                    )}
-                  </Button>
-                  <Dropdown.Trigger
+                    isIconOnly
+                    variant="tertiary"
                     aria-label={t("Choose date range preset")}
                     className="h-9 w-9 min-w-9 shrink-0 px-0"
                   >
-                    <ChevronDown aria-hidden="true" className={reportFilterIconClassName} />
-                  </Dropdown.Trigger>
-                </ButtonGroup>
-                <Dropdown.Popover>
-                  <Dropdown.Menu
-                    aria-label={t("Date range presets")}
-                    selectionMode="single"
-                    selectedKeys={new Set([preset])}
-                    onAction={(key) => {
-                      const nextPreset = String(key) as ReportPeriodPreset;
-                      if (nextPreset === "custom") return;
-                      const nextRange = getReportPeriodRange(nextPreset, today, weekStartsOn);
-                      setCalendarValue(toRangeValue(nextRange));
-                      onChange(nextPreset, nextRange);
-                      setIsOpen(false);
-                    }}
-                  >
-                    {reportPeriodPresets.map((option) => (
-                      <Dropdown.Item
-                        key={option.id}
-                        id={option.id}
-                        textValue={option.label}
-                        isDisabled={option.id === "custom"}
-                      >
-                        <Label>{t(option.label)}</Label>
-                        <Dropdown.ItemIndicator />
-                      </Dropdown.Item>
-                    ))}
-                  </Dropdown.Menu>
-                </Dropdown.Popover>
-              </Dropdown>
+                    <ButtonGroup.Separator />
+                    <ReportFilterIcon>
+                      <ChevronDown aria-hidden="true" className={reportFilterIconClassName} />
+                    </ReportFilterIcon>
+                  </Button>
+                  <Dropdown.Popover>
+                    <Dropdown.Menu
+                      aria-label={t("Date range presets")}
+                      selectionMode="single"
+                      selectedKeys={new Set([preset])}
+                      onAction={(key) => {
+                        const nextPreset = String(key) as ReportPeriodPreset;
+                        if (nextPreset === "custom") return;
+                        const nextRange = getReportPeriodRange(nextPreset, today, weekStartsOn);
+                        setCalendarValue(toRangeValue(nextRange));
+                        onChange(nextPreset, nextRange);
+                        setIsOpen(false);
+                      }}
+                    >
+                      {reportPeriodPresets.map((option) => (
+                        <Dropdown.Item
+                          key={option.id}
+                          id={option.id}
+                          textValue={option.label}
+                          isDisabled={option.id === "custom"}
+                        >
+                          <Label>{t(option.label)}</Label>
+                          <Dropdown.ItemIndicator />
+                        </Dropdown.Item>
+                      ))}
+                    </Dropdown.Menu>
+                  </Dropdown.Popover>
+                </Dropdown>
+              </ButtonGroup>
             </div>
             <div className="min-w-0 flex-1 p-3 sm:w-64 sm:flex-none">
               <RangeCalendar
@@ -569,8 +668,8 @@ export function ReportFiltersBar({
   ].filter(Boolean).length;
   const hasActiveFilters = activeFilterCount > 0;
   const dataFilterControls: ReactElement[] = [];
-  const multiSelectClassName = weeklyNavigation ? "w-28 shrink-0" : "w-32 shrink-0";
-  const billabilityClassName = weeklyNavigation ? "w-36 shrink-0" : "w-40 shrink-0";
+  const multiSelectClassName = "min-w-0 flex-[1_1_0%]";
+  const billabilityClassName = "min-w-0 flex-[1.2_1_0%]";
 
   if (visible.includes("member") && showTeam) {
     dataFilterControls.push(
@@ -635,34 +734,31 @@ export function ReportFiltersBar({
     <Toolbar
       orientation="horizontal"
       aria-label={t("Report filters")}
-      className="w-full max-w-full min-w-0 flex flex-nowrap items-center justify-between gap-3 overflow-visible"
+      className="w-full max-w-full min-w-0 flex flex-wrap items-center justify-between gap-3 overflow-visible"
     >
-      <div className="flex min-w-0 shrink-0 items-center gap-2">
-        {weeklyNavigation ? (
-          <ReportPeriodNavigation
-            navigationLabel={t("Report period navigation")}
-            previousLabel={t("Previous {unit}", { unit: t("week") })}
-            nextLabel={t("Next {unit}", { unit: t("week") })}
-            {...(onPeriodShift ? { onPeriodShift } : {})}
-          />
-        ) : null}
+      <div className="ms-auto flex w-full min-w-0 max-w-full flex-1 flex-nowrap items-center justify-end gap-2 overflow-hidden">
         <ReportPeriodPicker
           preset={preset}
           range={range}
           today={today}
           weekStartsOn={weekStartsOn}
           weeklyNavigation={weeklyNavigation}
+          {...(weeklyNavigation
+            ? {
+                navigationLabel: t("Report period navigation"),
+                previousLabel: t("Previous {unit}", { unit: t("range") }),
+                nextLabel: t("Next {unit}", { unit: t("range") }),
+                ...(onPeriodShift ? { onPeriodShift } : {}),
+              }
+            : {})}
           onChange={onPeriodChange}
         />
-      </div>
-
-      <div className="flex w-fit min-w-0 shrink-0 flex-nowrap items-center justify-end gap-2">
         {dataFilterControls.map((control, index) => (
           <Fragment key={`report-filter-${index}`}>{control}</Fragment>
         ))}
         {visible.includes("description") ? (
           <TextField
-            className={weeklyNavigation ? "w-36 shrink-0" : "w-40 shrink-0"}
+            className="min-w-0 flex-[1.2_1_0%]"
             name="report-description-filter"
             value={values.description}
             onChange={(description) => onChange({ description })}
