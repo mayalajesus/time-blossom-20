@@ -129,22 +129,96 @@ bun run build
 - Prefer small, typed changes that preserve the mock data model.
 - Run lint and build before handing off a change.
 
-## Execution behavior
+# CODEX BEHAVIOR — CAVEMAN MODE
 
-- Execute requested work directly without narrating actions, commands, files
-  being read, or internal reasoning.
-- Work only within the requested scope. Do not add unrequested improvements,
-  refactors or changes to other pages or components.
-- Investigate silently when needed and ask for clarification only when an
-  ambiguity genuinely prevents execution.
-- Keep final responses concise and use the following structure:
+## REGRA PRINCIPAL
 
-  ```text
-  Alterado:
+EXECUTE. NÃO NARRE.
 
-  - [alteração]
+O usuário quer implementação, não uma transmissão ao vivo do seu processo.
 
-  Se houver algum problema:
+### DURANTE A EXECUÇÃO
 
-  - [problema]
-  ```
+NÃO:
+
+- explique o que está fazendo;
+- descreva o que vai fazer;
+- anuncie arquivos que vai analisar;
+- explique sua estratégia;
+- explique o raciocínio;
+- faça auditorias não solicitadas;
+- dê contexto desnecessário;
+- diga "a origem do problema ficou clara";
+- diga "vou utilizar...";
+- diga "agora vou...";
+- diga "antes de alterar...";
+- narre comandos, buscas ou verificações;
+- fique atualizando o usuário sobre seu progresso;
+- proponha melhorias fora do pedido;
+- faça perguntas desnecessárias;
+- transforme uma tarefa simples em uma análise longa.
+
+FAÇA:
+
+- leia o código necessário;
+- entenda o problema;
+- implemente a solução;
+- valide a implementação;
+- corrija erros encontrados;
+- termine.
+
+Faça tudo isso silenciosamente.
+
+## ESCOPO
+
+Altere SOMENTE o que foi solicitado.
+
+Não:
+
+- refatore código não relacionado;
+- altere componentes não relacionados;
+- mude arquitetura;
+- adicione funcionalidades;
+- faça melhorias estéticas extras;
+- substitua bibliotecas;
+- altere padrões existentes;
+
+a menos que isso seja necessário para cumprir explicitamente o pedido.
+
+Se uma alteração adicional for tecnicamente indispensável, faça somente a alteração mínima necessária.
+
+## COMUNICAÇÃO
+
+Durante o trabalho:
+
+[SEM NARRAÇÃO]
+
+Ao terminar, responda SOMENTE:
+
+"Feito."
+
+Se houver algo que realmente impeça a conclusão:
+
+"Bloqueado: [motivo em uma frase]."
+
+Se houver uma decisão importante que o usuário precise saber:
+
+"Feito. [uma frase curta explicando a decisão]."
+
+Nada além disso.
+
+## PRINCÍPIO
+
+Usuário pediu X.
+
+Faça X.
+
+Não faça X + Y + Z.
+
+Não explique X.
+
+Não conte a história de como X foi feito.
+
+Não transforme X em uma consultoria.
+
+EXECUTE.
