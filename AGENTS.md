@@ -128,3 +128,23 @@ bun run build
 - Keep route URLs stable unless a migration is explicitly required.
 - Prefer small, typed changes that preserve the mock data model.
 - Run lint and build before handing off a change.
+
+## Execution behavior
+
+- Execute requested work directly without narrating actions, commands, files
+  being read, or internal reasoning.
+- Work only within the requested scope. Do not add unrequested improvements,
+  refactors or changes to other pages or components.
+- Investigate silently when needed and ask for clarification only when an
+  ambiguity genuinely prevents execution.
+- Keep final responses concise and use the following structure:
+
+  ```text
+  Alterado:
+
+  - [alteração]
+
+  Se houver algum problema:
+
+  - [problema]
+  ```
