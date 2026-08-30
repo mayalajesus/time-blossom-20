@@ -212,38 +212,41 @@ function ProjectsPage() {
         description={t("Time tracked per project across the workspace.")}
         actions={
           <>
-            <Dropdown>
-              <ButtonGroup variant="secondary" size="sm" className="w-28 shrink-0">
+            <ButtonGroup variant="tertiary" size="sm" className="w-28 shrink-0">
+              <Button
+                type="button"
+                aria-label={t("Filter projects")}
+                className="h-9 min-w-0 flex-1 justify-start px-3"
+              >
+                {projectFilterOptions.find((option) => option.id === filter)?.label}
+              </Button>
+              <Dropdown>
                 <Button
-                  type="button"
-                  aria-label={t("Filter projects")}
-                  className="h-9 min-w-0 flex-1 justify-start px-3"
-                >
-                  {projectFilterOptions.find((option) => option.id === filter)?.label}
-                </Button>
-                <Dropdown.Trigger
+                  isIconOnly
+                  variant="tertiary"
                   aria-label={t("Open project filters")}
                   className="h-9 w-9 min-w-9 shrink-0 px-0"
                 >
+                  <ButtonGroup.Separator />
                   <ChevronDown aria-hidden="true" className="size-4" />
-                </Dropdown.Trigger>
-              </ButtonGroup>
-              <Dropdown.Popover>
-                <Dropdown.Menu
-                  aria-label={t("Filter projects")}
-                  selectionMode="single"
-                  selectedKeys={new Set([filter])}
-                  onAction={(key) => setFilter(String(key))}
-                >
-                  {projectFilterOptions.map((option) => (
-                    <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
-                      <Label>{option.label}</Label>
-                      <Dropdown.ItemIndicator />
-                    </Dropdown.Item>
-                  ))}
-                </Dropdown.Menu>
-              </Dropdown.Popover>
-            </Dropdown>
+                </Button>
+                <Dropdown.Popover>
+                  <Dropdown.Menu
+                    aria-label={t("Filter projects")}
+                    selectionMode="single"
+                    selectedKeys={new Set([filter])}
+                    onAction={(key) => setFilter(String(key))}
+                  >
+                    {projectFilterOptions.map((option) => (
+                      <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
+                        <Label>{option.label}</Label>
+                        <Dropdown.ItemIndicator />
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
+            </ButtonGroup>
             {can("manage-projects") ? (
               <Button
                 onPress={() => {
@@ -562,47 +565,49 @@ function ProjectsPage() {
 
                   <div className="flex flex-col gap-2">
                     <Label>{t("Client")}</Label>
-                    <Dropdown>
-                      <ButtonGroup variant="secondary" size="sm" className="w-full">
+                    <ButtonGroup variant="secondary" size="sm" className="w-full">
+                      <Button
+                        type="button"
+                        aria-label={t("Client")}
+                        className="h-9 min-w-0 flex-1 justify-start"
+                      >
+                        {clients.find((client) => client.id === clientId)?.name ??
+                          t("Select a client")}
+                      </Button>
+                      <Dropdown>
                         <Button
-                          type="button"
-                          aria-label={t("Client")}
-                          className="h-9 min-w-0 flex-1 justify-start"
-                        >
-                          {clients.find((client) => client.id === clientId)?.name ??
-                            t("Select a client")}
-                        </Button>
-                        <Dropdown.Trigger
+                          isIconOnly
                           aria-label={t("Choose client")}
                           className="h-9 w-9 min-w-9 shrink-0 px-0"
                         >
+                          <ButtonGroup.Separator />
                           <ChevronDown aria-hidden="true" className="size-4" />
-                        </Dropdown.Trigger>
-                      </ButtonGroup>
-                      <Dropdown.Popover>
-                        <Dropdown.Menu
-                          aria-label={t("Client")}
-                          selectionMode="single"
-                          selectedKeys={new Set([clientId || "none"])}
-                          onAction={(key) => {
-                            const value = String(key);
-                            setClientId(value === "none" ? "" : value);
-                            setCreateError(null);
-                          }}
-                        >
-                          <Dropdown.Item id="none" textValue={t("Select a client")} isDisabled>
-                            <Label>{t("Select a client")}</Label>
-                            <Dropdown.ItemIndicator />
-                          </Dropdown.Item>
-                          {clients.map((c) => (
-                            <Dropdown.Item key={c.id} id={c.id} textValue={c.name}>
-                              <Label>{c.name}</Label>
+                        </Button>
+                        <Dropdown.Popover>
+                          <Dropdown.Menu
+                            aria-label={t("Client")}
+                            selectionMode="single"
+                            selectedKeys={new Set([clientId || "none"])}
+                            onAction={(key) => {
+                              const value = String(key);
+                              setClientId(value === "none" ? "" : value);
+                              setCreateError(null);
+                            }}
+                          >
+                            <Dropdown.Item id="none" textValue={t("Select a client")} isDisabled>
+                              <Label>{t("Select a client")}</Label>
                               <Dropdown.ItemIndicator />
                             </Dropdown.Item>
-                          ))}
-                        </Dropdown.Menu>
-                      </Dropdown.Popover>
-                    </Dropdown>
+                            {clients.map((c) => (
+                              <Dropdown.Item key={c.id} id={c.id} textValue={c.name}>
+                                <Label>{c.name}</Label>
+                                <Dropdown.ItemIndicator />
+                              </Dropdown.Item>
+                            ))}
+                          </Dropdown.Menu>
+                        </Dropdown.Popover>
+                      </Dropdown>
+                    </ButtonGroup>
                     <Description>{t("Every project is connected to one client.")}</Description>
                   </div>
 
