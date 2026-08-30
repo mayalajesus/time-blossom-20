@@ -22,7 +22,6 @@ export function TrackerBar() {
     timer,
     elapsed,
     projects,
-    preferences,
     settings,
     startTimer,
     updateTimer,
@@ -36,20 +35,7 @@ export function TrackerBar() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [billable, setBillable] = useState(settings.defaultBillable);
   const [timerError, setTimerError] = useState<string | null>(null);
-  const [systemDark, setSystemDark] = useState(
-    () =>
-      typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches,
-  );
   const active = timer.status !== "idle";
-  const darkTheme = preferences.theme === "dark" || (preferences.theme === "system" && systemDark);
-
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const update = () => setSystemDark(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
 
   useEffect(() => {
     setActiveTask(active ? timer.task : "");
@@ -86,7 +72,7 @@ export function TrackerBar() {
             <Label className="sr-only">{t("What are you working on?")}</Label>
             <Input
               placeholder={t("What are you working on?")}
-              variant={darkTheme ? "primary" : "secondary"}
+              variant="secondary"
               onBlur={() => {
                 if (!active) return;
                 if (activeTask.trim()) {
@@ -110,7 +96,7 @@ export function TrackerBar() {
               ariaLabel={t("Project")}
               value={(active ? timer.projectId : projectId) ?? "none"}
               allowArchivedId={active ? timer.projectId : null}
-              variant={darkTheme ? "primary" : "secondary"}
+              variant="secondary"
               onChange={(value) => {
                 const nextProjectId = value === "none" || value === "all" ? null : value;
                 if (active) {
