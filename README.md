@@ -19,11 +19,14 @@ introduced. The first backend milestone covers authentication, workspaces,
 members, projects, clients, timers, entries, preferences and reports; billing
 and external task integrations remain deferred.
 
-When `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` are present, the
-authentication, account preferences, avatar storage and invitation flows use
-Supabase. The shared Neon/Supabase migration process is documented in
-`db/README.md`; Supabase Edge Function deployment notes are in
-`supabase/README.md`. Keep service-role keys on the server only.
+Authentication uses the provider selected by `VITE_AUTH_PROVIDER`. Production
+uses Supabase with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`;
+homologation uses Neon Auth with `VITE_NEON_AUTH_URL`. The Neon Auth URL is
+provided by Neon Auth and is different from `DATABASE_URL`. Both providers use
+the same application auth flow. The shared Neon/Supabase migration process is
+documented in `db/README.md`; Supabase Edge Function deployment notes are in
+`supabase/README.md`. Keep service-role keys and database URLs on the server
+only.
 
 ## Run locally
 

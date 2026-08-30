@@ -27,9 +27,10 @@ string kept outside browser-visible `VITE_*` variables.
 
 The runner always applies `db/migrations` first. For Supabase it then applies
 `db/providers/supabase`, which owns Auth synchronization, RLS, invitation RPCs
-and avatar storage policies. Neon authorization remains an application/API
-responsibility. Do not use `supabase db push`; Supabase CLI is only used for
-Edge Function deployment.
+and avatar storage policies. Homologation uses Neon Auth; its Auth endpoint is
+configured through `VITE_NEON_AUTH_URL` and is separate from `DATABASE_URL`.
+Do not use `supabase db push`; Supabase CLI is only used for Edge Function
+deployment.
 
 Applied files are recorded in `public.schema_migrations` with a SHA-256
 checksum. Never edit an applied migration; add a later migration. Preview the

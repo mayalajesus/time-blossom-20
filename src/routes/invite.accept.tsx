@@ -6,6 +6,7 @@ import { FormAlert } from "@/components/form-feedback";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
 import { createSupabaseDataSource } from "@/lib/supabase-data-source";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export const Route = createFileRoute("/invite/accept")({ component: InviteAcceptPage });
 
@@ -26,6 +27,10 @@ function InviteAcceptPage() {
   const accept = async () => {
     if (!invitationId) {
       setErrorMessage("This invitation link is missing or invalid.");
+      return;
+    }
+    if (!isSupabaseConfigured) {
+      setErrorMessage("Invitation management is not configured for this environment.");
       return;
     }
     setBusy(true);

@@ -1,6 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { supabase, isSupabaseConfigured } from "./supabase";
+import { authClient, isAuthConfigured } from "./auth-client";
 import { resetSessionDefaultAvatar } from "./default-avatar";
 
 interface AuthContextValue {
@@ -13,22 +13,22 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(isSupabaseConfigured);
+  const [loading, setLoading] = useState(isAuthConfigured);
 
   useEffect(() => {
-    if (!supabase) {
+    if (!authClient) {
       setLoading(false);
       return;
     }
 
     let mounted = true;
-    void supabase.auth.getSession().then(({ data }) => {
+    void authClient.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session);
       setLoading(false);
     });
 
-    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+    const { data } = authClient.onAuthStateChange((event, nextSession) => {
       if (event === "SIGNED_IN") resetSessionDefaultAvatar();
       if (mounted) setSession(nextSession);
     });
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ configured: isSupabaseConfigured, loading, session }),
+    () => ({ configured: isAuthConfigured, loading, session }),
     [loading, session],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

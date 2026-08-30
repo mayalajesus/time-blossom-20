@@ -1,15 +1,16 @@
-import type { AuthError, AuthResponse, Session } from "@supabase/supabase-js";
-import { getAuthRedirect, supabase } from "./supabase";
+import type { Session } from "@supabase/supabase-js";
+import { authClient } from "./auth-client";
+import { getAuthRedirect } from "./supabase";
 
 export type AuthResult<T = undefined> =
   { success: true; data?: T } | { success: false; error: string };
 
-function getError(error: AuthError | null): AuthResult<never> | null {
+function getError(error: { message: string } | null): AuthResult<never> | null {
   return error ? { success: false, error: error.message } : null;
 }
 
 function requireClient(): AuthResult<never> | null {
-  return supabase ? null : { success: false, error: "Authentication is currently unavailable." };
+  return authClient ? null : { success: false, error: "Authentication is currently unavailable." };
 }
 
 export async function signInWithPassword(
@@ -18,7 +19,7 @@ export async function signInWithPassword(
 ): Promise<AuthResult<Session>> {
   const unavailable = requireClient();
   if (unavailable) return unavailable;
-  const response: AuthResponse = await supabase!.auth.signInWithPassword({ email, password });
+  const response = await authClient!.signInWithPassword({ email, password });
   const failure = getError(response.error);
   return (
     failure ??
@@ -32,7 +33,7 @@ export async function signUpWithPassword(
 ): Promise<AuthResult<Session>> {
   const unavailable = requireClient();
   if (unavailable) return unavailable;
-  const response = await supabase!.auth.signUp({
+  const response = await authClient!.signUp({
     email,
     password,
     options: { emailRedirectTo: getAuthRedirect() },
@@ -47,7 +48,7 @@ export async function signUpWithPassword(
 export async function signInWithGoogle(): Promise<AuthResult> {
   const unavailable = requireClient();
   if (unavailable) return unavailable;
-  const { error } = await supabase!.auth.signInWithOAuth({
+  const { error } = await authClient!.signInWithOAuth({
     provider: "google",
     options: { redirectTo: getAuthRedirect() },
   });
@@ -57,14 +58,14 @@ export async function signInWithGoogle(): Promise<AuthResult> {
 export async function signOut(): Promise<AuthResult> {
   const unavailable = requireClient();
   if (unavailable) return unavailable;
-  const { error } = await supabase!.auth.signOut();
+  const { error } = await authClient!.signOut();
   return getError(error) ?? { success: true };
 }
 
 export async function requestPasswordReset(email: string): Promise<AuthResult> {
   const unavailable = requireClient();
   if (unavailable) return unavailable;
-  const { error } = await supabase!.auth.resetPasswordForEmail(email, {
+  const { error } = await authClient!.resetPasswordForEmail(email, {
     redirectTo: getAuthRedirect("/settings"),
   });
   return getError(error) ?? { success: true };
@@ -73,13 +74,13 @@ export async function requestPasswordReset(email: string): Promise<AuthResult> {
 export async function updatePassword(password: string): Promise<AuthResult> {
   const unavailable = requireClient();
   if (unavailable) return unavailable;
-  const { error } = await supabase!.auth.updateUser({ password });
+  const { error } = await authClient!.updateUser({ password });
   return getError(error) ?? { success: true };
 }
 
 export async function updateEmail(email: string): Promise<AuthResult> {
   const unavailable = requireClient();
   if (unavailable) return unavailable;
-  const { error } = await supabase!.auth.updateUser({ email });
+  const { error } = await authClient!.updateUser({ email });
   return getError(error) ?? { success: true };
 }

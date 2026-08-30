@@ -26,6 +26,7 @@ import { useStore, type ThemeMode } from "@/lib/store";
 import { updateEmail, updatePassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { createSupabaseDataSource } from "@/lib/supabase-data-source";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   currencyOptions,
   formatMoney,
@@ -125,7 +126,7 @@ function SettingsPage() {
   ];
 
   const savePreference = async (patch: Partial<typeof preferences>) => {
-    if (configured && session) {
+    if (isSupabaseConfigured && session) {
       const remote = await dataSource.updatePreferences(session.user.id, patch);
       if (!remote.success) {
         setPreferenceError(remote.error);
@@ -160,7 +161,7 @@ function SettingsPage() {
     try {
       const avatarUrl = await prepareAvatarImage(file);
       let savedAvatarUrl = avatarUrl;
-      if (configured && session) {
+      if (isSupabaseConfigured && session) {
         const image = await fetch(avatarUrl).then((response) => response.blob());
         const remote = await dataSource.uploadAvatar(session.user.id, image);
         if (!remote.success) {
@@ -189,7 +190,7 @@ function SettingsPage() {
   };
 
   const removePhoto = async () => {
-    if (configured && session) {
+    if (isSupabaseConfigured && session) {
       const remote = await dataSource.removeAvatar(session.user.id);
       if (!remote.success) {
         setAccountError(remote.error);
@@ -231,7 +232,7 @@ function SettingsPage() {
     }
 
     if (configured) {
-      if (session && nextName !== currentMember?.name) {
+      if (isSupabaseConfigured && session && nextName !== currentMember?.name) {
         const nameResult = await dataSource.updateProfileName(session.user.id, nextName);
         if (!nameResult.success) {
           setAccountError(nameResult.error);

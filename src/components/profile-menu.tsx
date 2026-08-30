@@ -9,6 +9,7 @@ import { signOut as signOutRemote } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { resetSessionDefaultAvatar } from "@/lib/default-avatar";
 import { createSupabaseDataSource } from "@/lib/supabase-data-source";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export function ProfileMenu({ showName = false }: { showName?: boolean }) {
   const { currentMember, preferences, setUserPreferences, signOut } = useStore();
@@ -26,7 +27,7 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
   ];
 
   const handleThemeChange = async (theme: ThemeMode) => {
-    if (configured && session) {
+    if (isSupabaseConfigured && session) {
       const remote = await dataSource.updatePreferences(session.user.id, { theme });
       if (!remote.success) {
         toast.danger(t("We couldn't save your preferences"), {
