@@ -107,6 +107,18 @@ describe("starting a timer from an earlier entry", () => {
     expect(originalEntry).toEqual(snapshot);
   });
 
+  it("keeps favorite metadata when the task becomes recent again", () => {
+    const favorite = {
+      task: originalEntry.task,
+      projectId: originalEntry.projectId,
+      billable: originalEntry.billable,
+      favorite: true,
+    };
+    const refreshed = rememberRecentTimerTask([favorite], originalEntry);
+
+    expect(refreshed[0]).toEqual(favorite);
+  });
+
   it("distinguishes missing, inactive, unassigned, and explicit no-project starts", () => {
     expect(
       validateTimerTaskStart(originalEntry, {

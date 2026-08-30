@@ -187,6 +187,12 @@ system before they can track time.
 - Running and paused are both active timer states. At most one active timer is
   stored for each user and workspace, and manual creation is unavailable until
   that timer is stopped.
+- Starting again from a historical entry copies its task, project and
+  billability into a new timer without changing the entry. Missing, archived,
+  inactive or unassigned projects stop the action with a clear error instead
+  of silently choosing a replacement; an explicitly unassigned entry may start
+  without a project. The restarted task moves to the front of recent tasks and
+  preserves favorite metadata.
 - When personal reminders are enabled, a non-blocking reminder appears at each
   completed 60-minute boundary of a running timer. Reloading derives the next
   boundary from persisted elapsed time, and a reminder that becomes due in a
