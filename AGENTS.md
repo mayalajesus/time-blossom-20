@@ -10,8 +10,8 @@ useful without enterprise-style clutter.
 
 - React 19, TypeScript and Vite.
 - Vite and file-based TanStack Router routes under `src/routes`.
-- HeroUI for product UI, Tailwind CSS only for layout and sizing utilities, and
-  Lucide only for decorative icons.
+- HeroUI for product UI, Gravity UI for the complete icon system, and Tailwind
+  CSS only for layout and sizing utilities.
 - The frontend keeps a local preview adapter for development and QA. The
   Supabase adapter is the production path; never expose administrative keys in
   browser code.
@@ -92,6 +92,8 @@ such as `node_modules`, `dist`, `.output` or `.wrangler`.
   zero-data conditions.
 - Keep keyboard focus visible, icon buttons labelled and responsive layouts free
   of accidental horizontal overflow.
+- Use only real icons exported by `@gravity-ui/icons`. Do not import another icon
+  library, handcraft SVG icons, or create text/CSS substitutes for missing icons.
 - Hidden file inputs are allowed only as the technical browser API behind a
   visible HeroUI upload button. Native markup in boot/error fallbacks and
   generated PDF/print HTML is explicitly out of the app shell.

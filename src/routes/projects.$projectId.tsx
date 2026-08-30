@@ -1,6 +1,6 @@
 import { Button, Chip } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, Clock } from "lucide-react";
+import { ArrowLeft, Clock } from "@gravity-ui/icons";
 import { EntriesTable } from "@/components/entries-table";
 import { RouterLink } from "@/components/router-link";
 import { PageHeader, StatCard } from "@/components/page-header";

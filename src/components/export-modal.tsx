@@ -9,7 +9,7 @@ import {
   Typography,
   toast,
 } from "@heroui/react";
-import { Download } from "lucide-react";
+import { ArrowDownToLine } from "@gravity-ui/icons";
 import { useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
@@ -142,7 +142,7 @@ export function ExportModal({
                   {t("Close")}
                 </Button>
                 <Button type="submit" isDisabled={isExporting}>
-                  <Download className="size-4" />
+                  <ArrowDownToLine className="size-4" />
                   {t("Export")}
                 </Button>
               </Modal.Footer>

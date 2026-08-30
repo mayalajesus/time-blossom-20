@@ -13,7 +13,7 @@ import {
 } from "@heroui/react";
 import { Time } from "@internationalized/date";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
-import { ChevronDown, CircleAlert, Play, Trash2 } from "lucide-react";
+import { ChevronDown, CircleExclamation, Play, TrashBin } from "@gravity-ui/icons";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
@@ -145,7 +145,7 @@ function InlineValidationTooltip({ message, label }: { message: string | null; l
         className="inline-flex size-6 min-w-6 shrink-0 items-center justify-center"
         data-tracker-editor="true"
       >
-        <CircleAlert aria-hidden="true" className="size-3.5" />
+        <CircleExclamation aria-hidden="true" className="size-3.5" />
       </Tooltip.Trigger>
       <Tooltip.Content className="max-w-xs break-words" showArrow>
         {message}
@@ -954,7 +954,7 @@ function TrackerEntryRow({
             {
               id: "delete",
               label: t("Delete entry"),
-              icon: <Trash2 className="size-4" />,
+              icon: <TrashBin className="size-4" />,
               tone: "danger",
             },
           ]}

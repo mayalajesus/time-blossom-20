@@ -16,7 +16,7 @@ import {
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Mail, Send, Trash2, UserRoundCheck } from "lucide-react";
+import { Envelope, PaperPlane, PersonPencil, PersonPlus, TrashBin } from "@gravity-ui/icons";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
@@ -166,7 +166,7 @@ function TeamPage() {
         actions={
           can("manage-members") ? (
             <Button onPress={openInvite}>
-              <Send className="size-4" />
+              <PaperPlane className="size-4" />
               {t("Invite member")}
             </Button>
           ) : null
@@ -243,19 +243,19 @@ function TeamPage() {
                                     id: "role",
                                     label:
                                       member.role === "Admin" ? t("Make member") : t("Make admin"),
-                                    icon: <UserRoundCheck className="size-4" />,
+                                    icon: <PersonPencil className="size-4" />,
                                   },
                                 ]
                               : []),
                             {
                               id: "resend",
                               label: t("Resend invite"),
-                              icon: <Mail className="size-4" />,
+                              icon: <Envelope className="size-4" />,
                             },
                             {
                               id: "cancel",
                               label: t("Cancel invite"),
-                              icon: <Trash2 className="size-4" />,
+                              icon: <TrashBin className="size-4" />,
                               tone: "danger",
                             },
                           ]}
@@ -277,7 +277,7 @@ function TeamPage() {
                             {
                               id: "restore",
                               label: t("Restore access"),
-                              icon: <UserRoundCheck className="size-4" />,
+                              icon: <PersonPlus className="size-4" />,
                             },
                           ]}
                           onAction={(key) => {
@@ -296,14 +296,14 @@ function TeamPage() {
                                     id: "role",
                                     label:
                                       member.role === "Admin" ? t("Make member") : t("Make admin"),
-                                    icon: <UserRoundCheck className="size-4" />,
+                                    icon: <PersonPencil className="size-4" />,
                                   },
                                 ]
                               : []),
                             {
                               id: "remove",
                               label: t("Remove from team"),
-                              icon: <Trash2 className="size-4" />,
+                              icon: <TrashBin className="size-4" />,
                               tone: "danger",
                             },
                           ]}

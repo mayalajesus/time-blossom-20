@@ -1,6 +1,6 @@
 import { Description, Dropdown, Label, toast, Typography } from "@heroui/react";
 import { useNavigate } from "@tanstack/react-router";
-import { LogOut, Settings } from "lucide-react";
+import { ArrowRightFromSquare, Gear } from "@gravity-ui/icons";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
@@ -68,11 +68,11 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
         </div>
         <Dropdown.Menu onAction={(key) => handleAction(String(key))}>
           <Dropdown.Item id="settings">
-            <Settings className="size-4" />
+            <Gear className="size-4" />
             <Label>{t("Settings")}</Label>
           </Dropdown.Item>
           <Dropdown.Item id="sign-out" variant="danger">
-            <LogOut className="size-4" />
+            <ArrowRightFromSquare className="size-4" />
             <Label>{t("Sign out")}</Label>
           </Dropdown.Item>
         </Dropdown.Menu>

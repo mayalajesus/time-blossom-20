@@ -1,6 +1,6 @@
 import { Button, Card, Chip, Typography } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Trello } from "lucide-react";
+import { PlugConnection } from "@gravity-ui/icons";
 import { PageHeader } from "@/components/page-header";
 import { formatLocalDateTime } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
@@ -70,7 +70,7 @@ function IntegrationsPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="flex size-10 items-center justify-center p-2">
-              <Trello className="size-5" />
+              <PlugConnection className="size-5" />
             </div>
             <div className="space-y-1">
               <Typography type="body-sm" weight="semibold">

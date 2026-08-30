@@ -12,7 +12,7 @@ import {
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Building2, Plus, Trash2 } from "lucide-react";
+import { Person, Plus, TrashBin } from "@gravity-ui/icons";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
@@ -119,7 +119,7 @@ function ClientsPage() {
         <TableSkeleton rows={4} />
       ) : clients.length === 0 ? (
         <EmptyBlock
-          icon={<Building2 className="size-5" />}
+          icon={<Person className="size-5" />}
           title={t("No clients yet")}
           description={t("Add a client to connect projects and organize tracked time.")}
           action={
@@ -155,7 +155,7 @@ function ClientsPage() {
                           {
                             id: "delete",
                             label: t("Delete client"),
-                            icon: <Trash2 className="size-4" />,
+                            icon: <TrashBin className="size-4" />,
                             tone: "danger",
                           },
                         ]}

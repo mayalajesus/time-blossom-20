@@ -19,13 +19,13 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Archive,
-  ArchiveRestore,
-  CircleDollarSign,
-  FolderKanban,
+  ArrowRotateLeft,
+  CircleDollar,
+  Folder,
+  Persons,
   Plus,
   Power,
-  Users,
-} from "lucide-react";
+} from "@gravity-ui/icons";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { PageHeader } from "@/components/page-header";
@@ -237,7 +237,7 @@ function ProjectsPage() {
         <CardsSkeleton count={6} />
       ) : visible.length === 0 ? (
         <EmptyBlock
-          icon={<FolderKanban className="size-5" />}
+          icon={<Folder className="size-5" />}
           title={t("No projects here")}
           description={t("Change the status filter or create a new project to get started.")}
           action={
@@ -284,7 +284,7 @@ function ProjectsPage() {
                         {
                           id: "members",
                           label: t("Manage members"),
-                          icon: <Users className="size-4" />,
+                          icon: <Persons className="size-4" />,
                         },
                         ...(project.status === "archived"
                           ? []
@@ -310,13 +310,13 @@ function ProjectsPage() {
                         {
                           id: "billable",
                           label: project.billable ? t("Make internal") : t("Make billable"),
-                          icon: <CircleDollarSign className="size-4" />,
+                          icon: <CircleDollar className="size-4" />,
                         },
                         project.status === "archived"
                           ? {
                               id: "restore",
                               label: t("Restore project"),
-                              icon: <ArchiveRestore className="size-4" />,
+                              icon: <ArrowRotateLeft className="size-4" />,
                             }
                           : {
                               id: "archive",

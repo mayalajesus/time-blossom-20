@@ -1,6 +1,6 @@
 import { Card, Input, Label, TextField, Typography } from "@heroui/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { SearchIcon } from "lucide-react";
+import { Magnifier } from "@gravity-ui/icons";
 import { PageHeader } from "@/components/page-header";
 import { RouterLink } from "@/components/router-link";
 import { EmptyBlock } from "@/components/states";
@@ -61,7 +61,7 @@ function SearchPage() {
 
       {empty ? (
         <EmptyBlock
-          icon={<SearchIcon className="size-5" />}
+          icon={<Magnifier className="size-5" />}
           title={term ? t("No matches") : t("Start typing")}
           description={
             term

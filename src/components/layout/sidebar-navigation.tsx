@@ -1,35 +1,35 @@
 import { Button, Popover, ScrollShadow, Separator, Typography } from "@heroui/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
-  BarChart3,
-  Building2,
+  ChartColumn,
   ChevronDown,
   ChevronRight,
   Clock,
-  FolderKanban,
-  Layers3,
+  Folder,
+  Layers,
+  Person,
+  Persons,
   Puzzle,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+} from "@gravity-ui/icons";
+import type { ComponentType, SVGProps } from "react";
 import { useI18n } from "@/lib/i18n";
 
 type NavigationItem = {
   to: string;
   label: string;
-  icon: LucideIcon;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
 };
 
 const workspaceNavigation: NavigationItem[] = [
   { to: "/tracker", label: "Tracker", icon: Clock },
-  { to: "/projects", label: "Projects", icon: FolderKanban },
-  { to: "/clients", label: "Clients", icon: Building2 },
-  { to: "/team", label: "Team", icon: Users },
+  { to: "/projects", label: "Projects", icon: Folder },
+  { to: "/clients", label: "Clients", icon: Person },
+  { to: "/team", label: "Team", icon: Persons },
 ];
 
 const managementNavigation: NavigationItem[] = [
   { to: "/integrations", label: "Integrations", icon: Puzzle },
-  { to: "/workspaces", label: "Workspaces", icon: Layers3 },
+  { to: "/workspaces", label: "Workspaces", icon: Layers },
 ];
 
 const reportViews = [
@@ -77,8 +77,8 @@ function NavigationLink({
 
   return (
     <Button
-      aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? t(item.label) : undefined}
+      {...(active ? { "aria-current": "page" as const } : {})}
+      {...(collapsed ? { "aria-label": t(item.label) } : {})}
       isIconOnly={collapsed}
       variant={active ? "tertiary" : "ghost"}
       className={
@@ -132,7 +132,7 @@ function ReportsNavigation({
         return (
           <Button
             key={view.id}
-            aria-current={active ? "page" : undefined}
+            {...(active ? { "aria-current": "page" as const } : {})}
             variant={active ? "tertiary" : "ghost"}
             className="h-10 min-h-10 w-full justify-start px-3 py-0"
             onPress={() => {
@@ -166,7 +166,7 @@ function ReportsNavigation({
             className="mx-auto block h-10 min-h-10 w-10 px-2.5 py-0"
           >
             <span className="flex size-5 shrink-0 items-center justify-center">
-              <BarChart3 aria-hidden="true" className="size-4" />
+              <ChartColumn aria-hidden="true" className="size-4" />
             </span>
           </Button>
         </Popover.Trigger>
@@ -191,7 +191,7 @@ function ReportsNavigation({
         onPress={() => onReportsOpenChange(!reportsOpen)}
       >
         <span className="flex size-5 shrink-0 items-center justify-center">
-          <BarChart3 aria-hidden="true" className="size-4" />
+          <ChartColumn aria-hidden="true" className="size-4" />
         </span>
         <Typography
           type="body-sm"

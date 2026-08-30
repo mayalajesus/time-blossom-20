@@ -18,7 +18,7 @@ import {
   Typography,
 } from "@heroui/react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { Clock, Menu, PanelLeft } from "lucide-react";
+import { Bars, Clock, LayoutSideContentLeft } from "@gravity-ui/icons";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { CommandMenu } from "@/components/command-menu";
 import { HeaderTimerControl } from "@/components/header-timer-control";
@@ -156,7 +156,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
               className={`shrink-0 ${collapsed ? "size-10 min-w-10" : ""}`}
               onPress={() => setCollapsed((c) => !c)}
             >
-              <PanelLeft aria-hidden="true" className="size-4" />
+              <LayoutSideContentLeft aria-hidden="true" className="size-4" />
             </Button>
           </div>
 
@@ -185,7 +185,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
                   variant="tertiary"
                   onPress={() => setMobileNavOpen(true)}
                 >
-                  <Menu aria-hidden="true" className="size-4" />
+                  <Bars aria-hidden="true" className="size-4" />
                 </Button>
               </div>
               <div className="min-w-0 flex-1">

@@ -20,14 +20,14 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Archive,
-  ArchiveRestore,
-  ExternalLink,
-  Layers3,
-  LogOut,
+  ArrowRightFromSquare,
+  ArrowRotateLeft,
+  ArrowUpRightFromSquare,
+  CloudArrowUpIn,
+  Layers,
   Pencil,
   Plus,
-  Upload,
-} from "lucide-react";
+} from "@gravity-ui/icons";
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { FormAlert } from "@/components/form-feedback";
@@ -320,7 +320,7 @@ function WorkspacesPage() {
               aria-label={t("Open {name}", { name: workspace.name })}
               onPress={() => openWorkspace(workspace.id)}
             >
-              <ExternalLink aria-hidden="true" />
+              <ArrowUpRightFromSquare aria-hidden="true" />
             </Button>
             {canEdit ? (
               <Button
@@ -352,7 +352,7 @@ function WorkspacesPage() {
                 aria-label={t("Restore {name}", { name: workspace.name })}
                 onPress={() => setConfirmation({ kind: "restore", workspace })}
               >
-                <ArchiveRestore aria-hidden="true" />
+                <ArrowRotateLeft aria-hidden="true" />
               </Button>
             ) : null}
             {!workspace.isOwned ? (
@@ -363,7 +363,7 @@ function WorkspacesPage() {
                 aria-label={t("Leave {name}", { name: workspace.name })}
                 onPress={() => setConfirmation({ kind: "leave", workspace })}
               >
-                <LogOut aria-hidden="true" />
+                <ArrowRightFromSquare aria-hidden="true" />
               </Button>
             ) : null}
           </Toolbar>
@@ -404,7 +404,7 @@ function WorkspacesPage() {
         </section>
       ) : (
         <EmptyBlock
-          icon={<Layers3 className="size-5" />}
+          icon={<Layers className="size-5" />}
           title={t("No workspaces yet")}
           description={t("Create a workspace to keep your projects, clients and time separate.")}
           action={<Button onPress={openCreate}>{t("New workspace")}</Button>}
@@ -629,7 +629,7 @@ function WorkspaceFormModal({
                         variant="secondary"
                         onPress={() => inputRef.current?.click()}
                       >
-                        <Upload className="size-4" />
+                        <CloudArrowUpIn className="size-4" />
                         {t("Upload logo")}
                       </Button>
                       {logoDataUrl ? (

@@ -52,7 +52,7 @@ system before they can track time.
   their primary separation mechanism; focus may use the shared accent ring.
 - Use strong, readable headings and compact supporting text. Keep dense data
   scannable with tabular numerals and aligned values.
-- Use Lucide icons with labels or tooltips. Do not use decorative icon-only
+- Use `@gravity-ui/icons` icons with labels or tooltips. Do not use decorative icon-only
   controls without an accessible name.
 
 ## Layout

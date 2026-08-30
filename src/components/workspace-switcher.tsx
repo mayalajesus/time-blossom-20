@@ -1,5 +1,5 @@
 import { Button, Card, Description, Dropdown, Modal, Typography, toast } from "@heroui/react";
-import { Check, ChevronDown, Layers3 } from "lucide-react";
+import { Check, ChevronDown, Layers } from "@gravity-ui/icons";
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useStore, type WorkspaceSummary } from "@/lib/store";
@@ -15,7 +15,7 @@ function WorkspaceItem({ workspace, active }: { workspace: WorkspaceSummary; act
       className="min-h-10 px-2.5 py-1"
     >
       <span aria-hidden="true" className="flex size-4 shrink-0 items-center justify-center">
-        <Layers3 className="size-3.5" />
+        <Layers className="size-3.5" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-2">
@@ -93,7 +93,7 @@ export function WorkspaceSwitcher({
   const triggerContent = (
     <>
       <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center">
-        <Layers3 className="size-4" />
+        <Layers className="size-4" />
       </span>
       {!collapsed ? (
         <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
@@ -203,7 +203,7 @@ export function WorkspaceSwitcher({
                   )}
                 </Typography>
                 <div className="flex items-center gap-2 p-3">
-                  <Layers3 aria-hidden="true" className="size-4" />
+                  <Layers aria-hidden="true" className="size-4" />
                   <div className="min-w-0">
                     <Typography type="body-sm" weight="semibold" truncate>
                       {currentSummary.name}

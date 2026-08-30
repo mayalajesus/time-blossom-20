@@ -18,6 +18,7 @@
     "test:a11y": "playwright test tests/a11y"
   },
   "dependencies": {
+    "@gravity-ui/icons": "^2.22.0",
     "@heroui/react": "^3.2.4",
     "@heroui/styles": "^3.2.4",
     "@internationalized/date": "^3.12.3",
@@ -28,7 +29,6 @@
     "@tanstack/router-plugin": "1.168.23",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "lucide-react": "^0.575.0",
     "pdf-lib": "^1.17.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

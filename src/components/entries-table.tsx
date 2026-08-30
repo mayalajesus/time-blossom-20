@@ -1,5 +1,5 @@
 import { Button, Chip, Modal, Table, Typography, toast } from "@heroui/react";
-import { CircleDollarSign, Pencil, Trash2 } from "lucide-react";
+import { CircleDollar, Pencil, TrashBin } from "@gravity-ui/icons";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
@@ -102,12 +102,12 @@ export function EntriesTable({
                           {
                             id: "billable",
                             label: entry.billable ? t("Mark as internal") : t("Mark as billable"),
-                            icon: <CircleDollarSign className="size-4" />,
+                            icon: <CircleDollar className="size-4" />,
                           },
                           {
                             id: "delete",
                             label: t("Delete entry"),
-                            icon: <Trash2 className="size-4" />,
+                            icon: <TrashBin className="size-4" />,
                             tone: "danger",
                           },
                         ]}

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "@gravity-ui/icons";
 import { Button, I18nProvider, Popover, RangeCalendar } from "@heroui/react";
 import { CalendarDate } from "@internationalized/date";
 import type { RangeValue } from "@react-types/shared";

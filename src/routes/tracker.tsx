@@ -1,6 +1,6 @@
 import { Button, Typography } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { CalendarPlus, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Clock } from "@gravity-ui/icons";
 import { useMemo, useState } from "react";
 import { LogTimeModal } from "@/components/log-time-modal";
 import { PageHeader } from "@/components/page-header";
@@ -143,7 +143,7 @@ function TrackerPage() {
               isDisabled={timer.status !== "idle"}
               onPress={openLog}
             >
-              <CalendarPlus className="size-4" />
+              <Calendar className="size-4" />
               {t("Add entry")}
             </Button>
           </div>
@@ -163,7 +163,7 @@ function TrackerPage() {
                 isDisabled={timer.status !== "idle"}
                 onPress={openLog}
               >
-                <CalendarPlus className="size-4" />
+                <Calendar className="size-4" />
                 {t("Add entry")}
               </Button>
             }

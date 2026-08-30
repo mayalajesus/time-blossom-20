@@ -12,7 +12,13 @@ import {
   Typography,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight, Download, FileBarChart, RotateCcw } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowRotateLeft,
+  ChartColumn,
+  ChevronDown,
+  ChevronRight,
+} from "@gravity-ui/icons";
 import { useMemo, useState, type ReactNode } from "react";
 import {
   Bar,
@@ -735,7 +741,7 @@ function ReportsPage() {
         actions={
           <div className="flex items-center gap-2">
             <Button variant="secondary" onPress={() => setExportOpen(true)}>
-              <Download className="size-4" />
+              <ArrowDownToLine className="size-4" />
               {t("Export")}
             </Button>
           </div>
@@ -1051,12 +1057,12 @@ function EmptyReport({ onClear }: { onClear: () => void }) {
   const { t } = useI18n();
   return (
     <EmptyBlock
-      icon={<FileBarChart className="size-5" />}
+      icon={<ChartColumn className="size-5" />}
       title={t("No time entries match")}
       description={t("Try a wider period or clear one of the active filters.")}
       action={
         <Button variant="secondary" onPress={onClear}>
-          <RotateCcw className="size-4" />
+          <ArrowRotateLeft className="size-4" />
           {t("Clear filters")}
         </Button>
       }

@@ -1,6 +1,6 @@
 import { Dropdown, Label } from "@heroui/react";
 import type { ReactNode } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { Ellipsis } from "@gravity-ui/icons";
 
 export type ActionDropdownItem = {
   id: string;
@@ -23,7 +23,7 @@ export function ActionDropdown({
   return (
     <Dropdown>
       <Dropdown.Trigger aria-label={ariaLabel} className="h-8 w-8 min-w-8 shrink-0 p-0">
-        <MoreHorizontal className="size-4" />
+        <Ellipsis className="size-4" />
       </Dropdown.Trigger>
       <Dropdown.Popover placement="bottom end" className="max-w-[calc(100vw-1.5rem)] min-w-48">
         <Dropdown.Menu onAction={(key) => onAction(String(key))}>

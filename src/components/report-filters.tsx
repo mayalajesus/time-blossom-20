@@ -16,15 +16,16 @@ import {
   Typography,
 } from "@heroui/react";
 import {
-  Building2,
+  ArrowRotateLeft,
+  ChartColumn,
   ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
+  CircleDollar,
   Folder,
-  RotateCcw,
-  Search,
-  Users,
-} from "lucide-react";
+  Magnifier,
+  Person,
+  Persons,
+} from "@gravity-ui/icons";
 import {
   Fragment,
   useEffect,
@@ -134,7 +135,7 @@ function ReportFilterActions({
       onPress={onClear}
     >
       <ReportFilterIcon>
-        <RotateCcw aria-hidden="true" className={reportFilterIconClassName} />
+        <ArrowRotateLeft aria-hidden="true" className={reportFilterIconClassName} />
       </ReportFilterIcon>
     </Button>
   );
@@ -226,7 +227,7 @@ function ReportMultiSelect({
   return (
     <Select<object, "multiple">
       variant="primary"
-      className={className}
+      {...(className ? { className } : {})}
       aria-label={t("{label} filter", { label })}
       selectionMode="multiple"
       value={values}
@@ -313,7 +314,7 @@ function ReportSingleSelect({
   return (
     <Select
       variant="primary"
-      className={className}
+      {...(className ? { className } : {})}
       aria-label={t("{label} filter", { label })}
       value={value}
       onChange={(key) => {
@@ -587,7 +588,7 @@ export function ReportFiltersBar({
       <ReportMultiSelect
         key="member"
         label={t("Team")}
-        icon={<Users aria-hidden="true" className={reportFilterIconClassName} />}
+        icon={<Persons aria-hidden="true" className={reportFilterIconClassName} />}
         options={memberOptions}
         values={values.memberIds}
         onChange={(memberIds) => onChange({ memberIds })}
@@ -600,7 +601,7 @@ export function ReportFiltersBar({
       <ReportMultiSelect
         key="client"
         label={t("Client")}
-        icon={<Building2 aria-hidden="true" className={reportFilterIconClassName} />}
+        icon={<Person aria-hidden="true" className={reportFilterIconClassName} />}
         options={clientOptions}
         values={values.clientIds}
         onChange={(clientIds) => onChange({ clientIds })}
@@ -626,7 +627,7 @@ export function ReportFiltersBar({
       <ReportSingleSelect
         key="billability"
         label={t("Billability")}
-        icon={<CircleDollarSign aria-hidden="true" className={reportFilterIconClassName} />}
+        icon={<CircleDollar aria-hidden="true" className={reportFilterIconClassName} />}
         value={values.billability}
         options={[
           { id: "all", label: t("All billability") },
@@ -653,7 +654,7 @@ export function ReportFiltersBar({
             navigationLabel={t("Report period navigation")}
             previousLabel={t("Previous {unit}", { unit: t("week") })}
             nextLabel={t("Next {unit}", { unit: t("week") })}
-            onPeriodShift={onPeriodShift}
+            {...(onPeriodShift ? { onPeriodShift } : {})}
           />
         ) : null}
         <ReportPeriodPicker
@@ -681,7 +682,7 @@ export function ReportFiltersBar({
             <InputGroup className="min-w-0" variant="primary">
               <InputGroup.Prefix>
                 <ReportFilterIcon>
-                  <Search aria-hidden="true" className={reportFilterIconClassName} />
+                  <Magnifier aria-hidden="true" className={reportFilterIconClassName} />
                 </ReportFilterIcon>
               </InputGroup.Prefix>
               <InputGroup.Input placeholder={t("Description")} />

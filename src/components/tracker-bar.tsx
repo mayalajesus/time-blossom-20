@@ -8,7 +8,7 @@ import {
   ToggleButtonGroup,
   Toolbar,
 } from "@heroui/react";
-import { CircleDollarSign, Square } from "lucide-react";
+import { CircleDollar, Square } from "@gravity-ui/icons";
 import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { ProjectSelect } from "@/components/project-select";
@@ -171,7 +171,7 @@ export function TrackerBar() {
                   else setBillable(selected);
                 }}
               >
-                <CircleDollarSign aria-hidden="true" />
+                <CircleDollar aria-hidden="true" />
               </ToggleButton>
             </ToggleButtonGroup>
           </Toolbar>
