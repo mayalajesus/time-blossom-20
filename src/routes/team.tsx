@@ -379,7 +379,7 @@ function TeamPage() {
                     }}
                   >
                     <Label>{t("Email")}</Label>
-                    <Input placeholder={t("name@company.com")} />
+                    <Input variant="secondary" placeholder={t("name@company.com")} />
                     <Description>
                       {t("The invitation will be prepared for future delivery.")}
                     </Description>
@@ -391,6 +391,7 @@ function TeamPage() {
                     <Select
                       aria-label={t("Invitation role")}
                       fullWidth
+                      variant="secondary"
                       value={role}
                       onChange={(key) => setRole(String(key ?? "Member") as InviteRole)}
                     >

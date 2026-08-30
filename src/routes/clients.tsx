@@ -213,7 +213,7 @@ function ClientsPage() {
                     }}
                   >
                     <Label>{t("Name")}</Label>
-                    <Input placeholder={t("e.g. Northwind Coffee")} />
+                    <Input variant="secondary" placeholder={t("e.g. Northwind Coffee")} />
                     <FieldError />
                   </TextField>
 
@@ -233,7 +233,7 @@ function ClientsPage() {
                     }}
                   >
                     <Label>{t("Contact")}</Label>
-                    <Input placeholder={t("name@company.com")} />
+                    <Input variant="secondary" placeholder={t("name@company.com")} />
                     <Description>{t("Optional")}</Description>
                     <FieldError />
                   </TextField>

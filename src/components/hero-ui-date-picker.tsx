@@ -27,6 +27,7 @@ export function HeroUIDatePicker({
   onEscape,
   className,
   compact = false,
+  variant,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -36,10 +37,12 @@ export function HeroUIDatePicker({
   onEscape?: () => void;
   className?: string;
   compact?: boolean;
+  variant?: "primary" | "secondary";
 }) {
   const { settings } = useStore();
   const { locale, t } = useI18n();
   const calendarValue = toCalendarDate(value);
+  const fieldVariant = variant ?? (compact ? "secondary" : "primary");
   const [isOpen, setIsOpen] = useState(autoFocus);
   const [isShortViewport, setIsShortViewport] = useState(false);
 
@@ -95,7 +98,7 @@ export function HeroUIDatePicker({
         >
           <DateField.Group
             fullWidth={!compact}
-            variant={compact ? "secondary" : "primary"}
+            variant={fieldVariant}
             className={
               compact
                 ? "h-8 min-h-8 w-fit min-w-0 max-w-full overflow-hidden px-2 py-1"

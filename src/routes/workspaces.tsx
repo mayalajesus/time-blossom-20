@@ -599,7 +599,7 @@ function WorkspaceFormModal({
                   onChange={onNameChange}
                 >
                   <Label>{t("Name")}</Label>
-                  <Input placeholder={t("Workspace name")} />
+                  <Input variant="secondary" placeholder={t("Workspace name")} />
                   <FieldError />
                 </TextField>
                 <div className="space-y-2">

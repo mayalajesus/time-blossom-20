@@ -288,7 +288,7 @@ function SettingsPage() {
             }}
           >
             <Label>{t("Email")}</Label>
-            <Input placeholder="name@company.com" />
+            <Input variant="secondary" placeholder="name@company.com" />
             <FieldError />
           </TextField>
 
@@ -306,7 +306,10 @@ function SettingsPage() {
             }}
           >
             <Label>{t("Password")}</Label>
-            <Input placeholder={t("Leave blank to keep your current password.")} />
+            <Input
+              variant="secondary"
+              placeholder={t("Leave blank to keep your current password.")}
+            />
             <FieldError />
           </TextField>
 
@@ -322,7 +325,7 @@ function SettingsPage() {
             }}
           >
             <Label>{t("Confirm password")}</Label>
-            <Input placeholder={t("Repeat your new password.")} />
+            <Input variant="secondary" placeholder={t("Repeat your new password.")} />
             <FieldError />
           </TextField>
 
@@ -355,6 +358,7 @@ function SettingsPage() {
           <Label>{t("Language")}</Label>
           <Select
             aria-label={t("Language")}
+            variant="secondary"
             value={preferences.language}
             onChange={(key) =>
               savePreference({ language: String(key ?? "en-US") as typeof preferences.language })

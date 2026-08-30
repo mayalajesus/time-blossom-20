@@ -208,7 +208,7 @@ export function LogTimeModal({
                   }}
                 >
                   <Label>{t("Task")}</Label>
-                  <Input placeholder={t("e.g. Landing page revisions")} />
+                  <Input variant="secondary" placeholder={t("e.g. Landing page revisions")} />
                   <FieldError />
                 </TextField>
 
@@ -218,6 +218,7 @@ export function LogTimeModal({
                     <HeroUIDatePicker
                       value={date}
                       label={t("Date")}
+                      variant="secondary"
                       isInvalid={Boolean(dateError)}
                       onChange={(next) => {
                         setDate(next);
@@ -232,6 +233,7 @@ export function LogTimeModal({
                     <ProjectSelect
                       ariaLabel={t("Project")}
                       value={projectId ?? "none"}
+                      variant="secondary"
                       allowArchivedId={entry?.projectId ?? null}
                       onChange={(value) => {
                         const nextProjectId = value === "none" || value === "all" ? null : value;
@@ -280,7 +282,7 @@ export function LogTimeModal({
                 <div className="grid gap-4 sm:grid-cols-2">
                   <TextField fullWidth name="start" type="time" value={start} onChange={setStart}>
                     <Label>{t("Start")}</Label>
-                    <Input />
+                    <Input variant="secondary" />
                   </TextField>
                   {timeMode === "range" ? (
                     <TextField
@@ -292,7 +294,7 @@ export function LogTimeModal({
                       onChange={setEnd}
                     >
                       <Label>{t("End")}</Label>
-                      <Input />
+                      <Input variant="secondary" />
                       <FieldError>{timeError}</FieldError>
                     </TextField>
                   ) : (
@@ -309,7 +311,7 @@ export function LogTimeModal({
                       }
                     >
                       <Label>{t("Duration")}</Label>
-                      <Input placeholder={t("e.g. 2:45, 00:00:49 or 45s")} />
+                      <Input variant="secondary" placeholder={t("e.g. 2:45, 00:00:49 or 45s")} />
                       <FieldError />
                     </TextField>
                   )}
@@ -329,7 +331,7 @@ export function LogTimeModal({
                   onChange={setDescription}
                 >
                   <Label>{t("Notes")}</Label>
-                  <TextArea placeholder={t("Optional details")} />
+                  <TextArea variant="secondary" placeholder={t("Optional details")} />
                   <Description>{t("Keep useful context attached to this entry.")}</Description>
                 </TextField>
 
