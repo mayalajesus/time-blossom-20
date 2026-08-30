@@ -1,11 +1,11 @@
 import { toast } from "@heroui/react";
-import { formatClock } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { TimerActionButton } from "@/components/timer-action-button";
+import { TimerDurationEditor } from "@/components/timer-duration-editor";
 
 export function HeaderTimerControl() {
-  const { timer, elapsed, startTimer, pauseTimer, resumeTimer } = useStore();
+  const { timer, elapsed, startTimer, pauseTimer, resumeTimer, setTimerElapsed } = useStore();
   const { t, error } = useI18n();
 
   const handleAction = () => {
@@ -27,13 +27,11 @@ export function HeaderTimerControl() {
 
   return (
     <div className="flex items-center gap-2" data-header-timer-control data-status={timer.status}>
-      <span
-        aria-atomic="true"
-        aria-live="polite"
-        aria-label={`${t("Timer")}: ${formatClock(elapsed)}`}
-      >
-        {formatClock(elapsed)}
-      </span>
+      <TimerDurationEditor
+        elapsed={elapsed}
+        isReadOnly={timer.status === "idle"}
+        onElapsedChange={setTimerElapsed}
+      />
       <TimerActionButton status={timer.status} onPress={handleAction} />
     </div>
   );

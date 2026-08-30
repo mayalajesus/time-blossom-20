@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { ProjectSelect } from "@/components/project-select";
 import { TimerActionButton } from "@/components/timer-action-button";
-import { formatClock } from "@/lib/format";
+import { TimerDurationEditor } from "@/components/timer-duration-editor";
 import { useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 
@@ -25,6 +25,7 @@ export function TrackerBar() {
     settings,
     startTimer,
     updateTimer,
+    setTimerElapsed,
     pauseTimer,
     resumeTimer,
     stopTimer,
@@ -88,7 +89,7 @@ export function TrackerBar() {
             />
           </TextField>
 
-          <Separator orientation="vertical" className="hidden sm:block" />
+          <Separator orientation="vertical" className="hidden h-6 sm:block" />
 
           <div className="min-w-0">
             <Label className="sr-only">{t("Project")}</Label>
@@ -114,14 +115,16 @@ export function TrackerBar() {
             />
           </div>
 
-          <span
-            className="min-w-0 whitespace-nowrap text-left sm:text-right"
-            aria-atomic="true"
-            aria-live="polite"
-            aria-label={`${t("Timer")}: ${formatClock(elapsed)}`}
-          >
-            {formatClock(elapsed)}
-          </span>
+          <Separator orientation="vertical" className="hidden h-6 sm:block" />
+
+          <TimerDurationEditor
+            elapsed={elapsed}
+            isReadOnly={!active}
+            onElapsedChange={(seconds) => {
+              const result = setTimerElapsed(seconds);
+              setTimerError(result.success ? null : result.error);
+            }}
+          />
 
           <Toolbar aria-label={t("Timer")} className="shrink-0 gap-1">
             <TimerActionButton
@@ -138,13 +141,13 @@ export function TrackerBar() {
               }}
             />
 
-            <ToggleButtonGroup
-              aria-label={t("Timer")}
-              size="sm"
-              className="shrink-0 gap-0.5"
-              selectionMode="multiple"
-            >
-              {timer.status !== "idle" ? (
+            {timer.status !== "idle" ? (
+              <ToggleButtonGroup
+                aria-label={t("Timer")}
+                size="sm"
+                className="shrink-0 gap-0.5"
+                selectionMode="multiple"
+              >
                 <ToggleButton
                   aria-label={t("Stop")}
                   isIconOnly
@@ -159,8 +162,17 @@ export function TrackerBar() {
                 >
                   <Square aria-hidden="true" />
                 </ToggleButton>
-              ) : null}
+              </ToggleButtonGroup>
+            ) : null}
 
+            <Separator orientation="vertical" className="hidden h-6 sm:block" />
+
+            <ToggleButtonGroup
+              aria-label={t("Timer")}
+              size="sm"
+              className="shrink-0 gap-0.5"
+              selectionMode="multiple"
+            >
               <ToggleButton
                 aria-label={t("Billable")}
                 isIconOnly

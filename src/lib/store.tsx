@@ -916,6 +916,7 @@ interface StoreValue {
     projectId?: string | null;
     billable?: boolean;
   }) => StoreResult;
+  setTimerElapsed: (seconds: number) => StoreResult;
   pauseTimer: () => void;
   resumeTimer: () => void;
   stopTimer: () => void;
@@ -1194,6 +1195,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...(patch.task !== undefined ? { task: patch.task.trim() } : {}),
       };
       timerRef.current = next;
+      setTimer(next);
+      return { success: true };
+    };
+
+    const setTimerElapsed = (seconds: number): StoreResult => {
+      if (!can("track-own-time"))
+        return { success: false, error: "Your account cannot update the active timer." };
+      const current = timerRef.current;
+      if (current.status === "idle")
+        return { success: false, error: "There is no active timer to update." };
+      if (!Number.isFinite(seconds) || seconds < 0)
+        return { success: false, error: "Enter a valid timer duration." };
+
+      const nextElapsed = Math.floor(seconds);
+      const next = {
+        ...current,
+        accumulated: nextElapsed,
+        startedAt: current.status === "running" ? Date.now() : null,
+      };
+      timerRef.current = next;
+      setElapsed(nextElapsed);
       setTimer(next);
       return { success: true };
     };
@@ -2030,6 +2052,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       today,
       startTimer,
       updateTimer,
+      setTimerElapsed,
       pauseTimer,
       resumeTimer,
       stopTimer,
