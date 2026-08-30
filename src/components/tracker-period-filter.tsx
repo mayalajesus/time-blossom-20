@@ -3,14 +3,10 @@ import { Button, I18nProvider, Popover, RangeCalendar } from "@heroui/react";
 import { CalendarDate } from "@internationalized/date";
 import type { RangeValue } from "@react-types/shared";
 import { useEffect, useState } from "react";
-import { getISOWeek } from "date-fns";
 import {
-  formatDateRange,
   formatCompactDateRange,
   formatTrackerPeriodLabel,
-  formatWeekRange,
   getWeekBounds,
-  parseDateOnly,
   type TrackerPeriod,
 } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
@@ -72,17 +68,6 @@ export function TrackerPeriodFilter({
           ? translatedLabel
           : formatCompactDateRange(period.startDate, period.endDate, locale)
         : translatedLabel;
-  const rangeLabel =
-    period.unit === "week"
-      ? formatWeekRange(period.startDate, period.endDate, locale)
-      : formatDateRange(period.startDate, period.endDate, locale);
-  const periodMeta =
-    period.unit === "week"
-      ? `W${getISOWeek(parseDateOnly(period.startDate))}`
-      : period.unit === "custom"
-        ? ""
-        : rangeLabel;
-
   useEffect(() => {
     if (!isOpen) setRangeValue(toCalendarRange(period));
   }, [isOpen, period]);
@@ -116,17 +101,10 @@ export function TrackerPeriodFilter({
           variant="secondary"
           size="sm"
           aria-label={t("Open period calendar: {label}", { label: translatedLabel })}
-          className="flex h-9 w-[11rem] min-w-[11rem] max-w-[11rem] shrink-0 items-center justify-start gap-2 px-3 text-left"
+          className="flex h-9 w-fit min-w-0 max-w-full shrink-0 items-center justify-center gap-2 px-3 text-center"
         >
           <Calendar aria-hidden="true" className="size-4 shrink-0" />
-          <span className="flex min-w-0 max-w-full items-center gap-1 whitespace-nowrap">
-            <span className="min-w-0 truncate">{displayLabel}</span>
-            {periodMeta && (
-              <span className={period.unit === "week" ? "shrink-0" : "min-w-0 truncate"}>
-                • {periodMeta}
-              </span>
-            )}
-          </span>
+          <span className="min-w-0 max-w-full truncate whitespace-nowrap">{displayLabel}</span>
         </Button>
       </Popover.Trigger>
       <Popover.Content
@@ -145,12 +123,20 @@ export function TrackerPeriodFilter({
               onChange={handleRangeChange}
               className="w-full max-w-full p-3"
             >
-              <RangeCalendar.Header className="flex items-center justify-between gap-2">
-                <RangeCalendar.NavButton slot="previous" aria-label={t("Previous month")}>
+              <RangeCalendar.Header className="relative flex items-center justify-center gap-2">
+                <RangeCalendar.NavButton
+                  slot="previous"
+                  aria-label={t("Previous month")}
+                  className="absolute start-0"
+                >
                   <ChevronLeft className="size-4" />
                 </RangeCalendar.NavButton>
-                <RangeCalendar.Heading />
-                <RangeCalendar.NavButton slot="next" aria-label={t("Next month")}>
+                <RangeCalendar.Heading className="w-full text-center" />
+                <RangeCalendar.NavButton
+                  slot="next"
+                  aria-label={t("Next month")}
+                  className="absolute end-0"
+                >
                   <ChevronRight className="size-4" />
                 </RangeCalendar.NavButton>
               </RangeCalendar.Header>
