@@ -1,9 +1,18 @@
 {
+  "functions": {
+    "api/data.mjs": { "maxDuration": 30 }
+  },
   "rewrites": [
     { "source": "/api/data", "destination": "/api/data.mjs" },
     { "source": "/((?!.*\\.).*)", "destination": "/index.html" }
   ],
   "headers": [
+    {
+      "source": "/api/data",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, private" }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

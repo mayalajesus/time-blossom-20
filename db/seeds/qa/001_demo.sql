@@ -6,10 +6,25 @@ begin
 end;
 $$;
 
+do $$
+declare
+  fixture_ids text[] := array['qa|owner-0001', 'qa|member-0002'];
+begin
+  delete from public.active_timers where user_id = any(fixture_ids);
+  delete from public.time_entries where user_id = any(fixture_ids);
+  delete from public.workspace_invitations
+   where invited_by = any(fixture_ids) or auth_user_id = any(fixture_ids);
+  delete from public.workspaces where owner_id = any(fixture_ids);
+  delete from public.workspace_members where user_id = any(fixture_ids);
+  delete from public.profiles where id = any(fixture_ids);
+end;
+$$;
+
 insert into public.profiles (id, auth_issuer, name, email, initials)
 values
-  ('qa|owner-0001', 'qa-fixture', 'QA Owner', 'owner@example.test', 'QO'),
-  ('qa|member-0002', 'qa-fixture', 'QA Member', 'member@example.test', 'QM')
+  ((select id::text from neon_auth."user" where email = 'owner@example.test'), 'neon', 'QA Owner', 'owner@example.test', 'QO'),
+  ((select id::text from neon_auth."user" where email = 'admin@example.test'), 'neon', 'QA Admin', 'admin@example.test', 'QA'),
+  ((select id::text from neon_auth."user" where email = 'member@example.test'), 'neon', 'QA Member', 'member@example.test', 'QM')
 on conflict (id) do update
   set name = excluded.name,
       email = excluded.email,
@@ -18,8 +33,9 @@ on conflict (id) do update
 
 insert into public.user_preferences (user_id, language, timezone)
 values
-  ('qa|owner-0001', 'en-US', 'America/Sao_Paulo'),
-  ('qa|member-0002', 'pt-BR', 'America/Sao_Paulo')
+  ((select id::text from neon_auth."user" where email = 'owner@example.test'), 'en-US', 'America/Sao_Paulo'),
+  ((select id::text from neon_auth."user" where email = 'admin@example.test'), 'en-US', 'America/Sao_Paulo'),
+  ((select id::text from neon_auth."user" where email = 'member@example.test'), 'pt-BR', 'America/Sao_Paulo')
 on conflict (user_id) do update
   set language = excluded.language,
       timezone = excluded.timezone,
@@ -29,7 +45,7 @@ insert into public.workspaces (id, name, owner_id, status)
 values (
   '10000000-0000-4000-8000-000000000001',
   'QA Time Blossom',
-  'qa|owner-0001',
+  (select id::text from neon_auth."user" where email = 'owner@example.test'),
   'active'
 )
 on conflict (id) do update
@@ -44,8 +60,25 @@ insert into public.workspace_members (
 )
 values (
   '10000000-0000-4000-8000-000000000001',
-  'qa|member-0002',
+  (select id::text from neon_auth."user" where email = 'member@example.test'),
   'Member',
+  'active',
+  now()
+)
+on conflict (workspace_id, user_id) do update
+  set role = excluded.role, status = excluded.status;
+
+insert into public.workspace_members (
+  workspace_id,
+  user_id,
+  role,
+  status,
+  joined_at
+)
+values (
+  '10000000-0000-4000-8000-000000000001',
+  (select id::text from neon_auth."user" where email = 'admin@example.test'),
+  'Admin',
   'active',
   now()
 )
@@ -93,12 +126,17 @@ values
   (
     '10000000-0000-4000-8000-000000000001',
     '30000000-0000-4000-8000-000000000001',
-    'qa|owner-0001'
+    (select id::text from neon_auth."user" where email = 'owner@example.test')
   ),
   (
     '10000000-0000-4000-8000-000000000001',
     '30000000-0000-4000-8000-000000000001',
-    'qa|member-0002'
+    (select id::text from neon_auth."user" where email = 'member@example.test')
+  ),
+  (
+    '10000000-0000-4000-8000-000000000001',
+    '30000000-0000-4000-8000-000000000001',
+    (select id::text from neon_auth."user" where email = 'admin@example.test')
   )
 on conflict (project_id, user_id) do nothing;
 
@@ -116,7 +154,7 @@ values (
   '10000000-0000-4000-8000-000000000001',
   'invitee@example.test',
   'Member',
-  'qa|owner-0001',
+  (select id::text from neon_auth."user" where email = 'owner@example.test'),
   'pending',
   now() + interval '7 days'
 )
@@ -142,7 +180,7 @@ insert into public.time_entries (
 values (
   '50000000-0000-4000-8000-000000000001',
   '10000000-0000-4000-8000-000000000001',
-  'qa|owner-0001',
+  (select id::text from neon_auth."user" where email = 'owner@example.test'),
   date '2026-08-30',
   time '09:00',
   time '10:00',
@@ -174,7 +212,7 @@ insert into public.active_timers (
   start_clock
 )
 values (
-  'qa|member-0002',
+  (select id::text from neon_auth."user" where email = 'member@example.test'),
   '10000000-0000-4000-8000-000000000001',
   'paused',
   'QA paused timer',

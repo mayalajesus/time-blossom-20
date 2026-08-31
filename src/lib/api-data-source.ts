@@ -29,7 +29,9 @@ async function session(): Promise<DataSourceResult<Session>> {
 
 async function token(currentSession: Session): Promise<string> {
   if (currentSession.access_token) return currentSession.access_token;
-  return (await authClient?.getJWTToken?.()) ?? "";
+  const sessionToken = (await authClient?.getJWTToken?.()) ?? "";
+  if (!sessionToken) throw new Error("Your authentication session is unavailable.");
+  return sessionToken;
 }
 
 async function request<T>(
@@ -40,31 +42,42 @@ async function request<T>(
   if (!currentSession.success) return fail<T>(currentSession.error);
 
   try {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
     const response = await fetch(endpoint, {
       method: "POST",
+      credentials: "include",
+      signal: controller.signal,
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${await token(currentSession.data)}`,
       },
       body: JSON.stringify({ operation, ...payload }),
     });
+    window.clearTimeout(timeout);
     const body = (await response.json().catch(() => null)) as { data?: T; error?: string } | null;
-    if (!response.ok) return fail(body?.error ?? "The data request failed.");
-    if (body?.error) return fail(body.error);
+    const message = body?.error?.trim() || `The data request failed (${response.status}).`;
+    if (!response.ok) return fail(message);
+    if (body?.error) return fail(message);
     return ok(body?.data as T);
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "The data request failed.");
+    return fail(
+      error instanceof DOMException && error.name === "AbortError"
+        ? "The data request timed out."
+        : error instanceof Error
+          ? error.message
+          : "The data request failed.",
+    );
   }
 }
 
 export function createApiDataSource(): AccountDataSource {
   return {
-    loadAccount: (userId) => request<PersistedAccount>("loadAccount", { userId }),
-    syncAccount: (userId, account) => request<null>("syncAccount", { userId, account }),
-    getActiveTimer: (userId, workspaceId) =>
-      request<TimerState | null>("getActiveTimer", { userId, workspaceId }),
-    saveActiveTimer: (userId, timer) => request<TimerState>("saveActiveTimer", { userId, timer }),
-    clearActiveTimer: (userId, workspaceId) =>
-      request<null>("clearActiveTimer", { userId, workspaceId }),
+    loadAccount: () => request<PersistedAccount>("loadAccount"),
+    syncAccount: (_userId, account) => request<null>("syncAccount", { account }),
+    getActiveTimer: (_userId, workspaceId) =>
+      request<TimerState | null>("getActiveTimer", { workspaceId }),
+    saveActiveTimer: (_userId, timer) => request<TimerState>("saveActiveTimer", { timer }),
+    clearActiveTimer: (_userId, workspaceId) => request<null>("clearActiveTimer", { workspaceId }),
   };
 }

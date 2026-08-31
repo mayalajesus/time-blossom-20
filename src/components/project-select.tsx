@@ -1,5 +1,6 @@
 import { Autocomplete, EmptyState, ListBox, SearchField, useFilter } from "@heroui/react";
 import { useMemo, useState } from "react";
+import { ProjectLabel } from "@/components/project-color";
 import { useStore } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 
@@ -97,7 +98,7 @@ export function ProjectSelect({
                   id={project.id}
                   textValue={`${project.name} ${clientNameFor(project.clientId)}`}
                 >
-                  {project.name}
+                  <ProjectLabel project={project} label={project.name} />
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
               ))}

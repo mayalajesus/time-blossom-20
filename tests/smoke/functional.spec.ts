@@ -1,0 +1,77 @@
+import { expect, test } from "@playwright/test";
+import { cleanQaData } from "../support/qa-db.mjs";
+import { signInAs } from "../support/qa-auth";
+
+const marker = `E2E ${Date.now()}`;
+const clientName = `${marker} Client`;
+const projectName = `${marker} Project`;
+
+function waitForAccountSync(page: import("@playwright/test").Page) {
+  return page.waitForResponse((response) => {
+    if (!response.url().includes("/api/data") || response.status() !== 200) return false;
+    try {
+      return response.request().postDataJSON()?.operation === "syncAccount";
+    } catch {
+      return false;
+    }
+  });
+}
+
+test.afterAll(async () => {
+  await cleanQaData(marker);
+});
+
+test("owner persists client, project and timer data in Neon", async ({ page }) => {
+  await signInAs(page, "owner");
+
+  await page.goto("/clients");
+  await page.getByRole("button", { name: /New client|Novo cliente/ }).click();
+  const clientDialog = page.getByRole("dialog");
+  await clientDialog.getByLabel(/Name|Nome/, { exact: true }).fill(clientName);
+  await clientDialog.getByLabel(/Contact|Contato/, { exact: true }).fill("e2e@example.test");
+  const clientSync = waitForAccountSync(page);
+  await clientDialog.getByRole("button", { name: /Create client|Criar cliente/ }).click();
+  await clientSync;
+  await expect(page.getByRole("rowheader", { name: clientName, exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("rowheader", { name: clientName, exact: true })).toBeVisible();
+
+  await page.goto("/projects");
+  await page.getByRole("button", { name: /New project|Novo projeto/ }).click();
+  const projectDialog = page.getByRole("dialog");
+  await projectDialog.getByLabel(/Name|Nome/, { exact: true }).fill(projectName);
+  await projectDialog.getByRole("button", { name: /Client|Cliente/, exact: true }).click();
+  await page.getByRole("menuitemradio", { name: clientName, exact: true }).click();
+  const projectSync = waitForAccountSync(page);
+  await projectDialog.getByRole("button", { name: /Create project|Criar projeto/ }).click();
+  await projectSync;
+  await expect(page.getByRole("link", { name: projectName, exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("link", { name: projectName, exact: true })).toBeVisible();
+
+  await page.goto("/tracker");
+  const trackerBar = page.locator("[data-tracker-bar]");
+  await page
+    .getByLabel(/What are you working on\?|No que você está trabalhando\?/)
+    .fill(`${marker} Timer`);
+  await trackerBar.getByRole("button", { name: /Start|Iniciar/, exact: true }).click();
+  await expect(trackerBar.getByRole("button", { name: /Stop|Parar/, exact: true })).toBeVisible();
+  await page.waitForTimeout(1100);
+  await trackerBar.getByRole("button", { name: /Stop|Parar/, exact: true }).click();
+  await page.waitForTimeout(1000);
+  await expect(page.getByRole("row").filter({ hasText: `${marker} Timer` })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("row").filter({ hasText: `${marker} Timer` })).toBeVisible();
+});
+
+for (const role of ["owner", "admin", "member"] as const) {
+  test(`${role} can load authenticated private routes with real account data`, async ({ page }) => {
+    await signInAs(page, role);
+    for (const route of ["/tracker", "/projects", "/clients", "/team", "/reports", "/settings"]) {
+      await page.goto(route);
+      await expect(page.locator("#main-content")).toBeVisible();
+      await expect(page.locator("body")).not.toContainText("The data request failed");
+      await expect(page.locator("body")).not.toContainText("A data request failed");
+    }
+  });
+}

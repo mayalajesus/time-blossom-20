@@ -146,6 +146,7 @@ export type ReportKpiProps = Omit<ReportWidgetProps, "children"> & {
   secondaryInformation?: ReactNode;
   variation?: ReportKpiVariation | null;
   neutralComparisonLabel?: string;
+  showNeutralComparison?: boolean;
 };
 
 function KpiVariation({
@@ -186,6 +187,7 @@ export function ReportKpi({
   secondaryInformation,
   variation,
   neutralComparisonLabel = "No comparison",
+  showNeutralComparison = true,
   width = "compact",
   ...widgetProps
 }: ReportKpiProps) {
@@ -201,9 +203,11 @@ export function ReportKpi({
               {secondaryInformation}
             </Typography>
           ) : null}
-          <div className="ml-auto">
-            <KpiVariation variation={variation} neutralLabel={neutralComparisonLabel} />
-          </div>
+          {variation || showNeutralComparison ? (
+            <div className="ml-auto">
+              <KpiVariation variation={variation} neutralLabel={neutralComparisonLabel} />
+            </div>
+          ) : null}
         </div>
       </div>
     </ReportWidget>

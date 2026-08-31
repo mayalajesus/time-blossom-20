@@ -43,7 +43,7 @@ const publicAuthPaths = new Set([
 ]);
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { preferences, sessionStatus } = useStore();
+  const { preferences } = useStore();
   const { configured, loading: authLoading, session } = useAuth();
   const currentLocation = useLocation();
   const navigate = useNavigate();
@@ -89,16 +89,50 @@ export function AppShell({ children }: { children: ReactNode }) {
     <Surface variant="transparent" className="min-h-screen bg-background">
       <AppI18nProvider locale={preferences.language}>
         <HeroI18nProvider locale={preferences.language}>
-          {isPublicAuthPath ? (
-            children
-          ) : sessionStatus === "signed-out" ? (
-            <SignedOutScreen />
-          ) : (
-            <AppShellContent>{children}</AppShellContent>
-          )}
+          {isPublicAuthPath ? children : <AppDataGate>{children}</AppDataGate>}
         </HeroI18nProvider>
       </AppI18nProvider>
     </Surface>
+  );
+}
+
+function AppDataGate({ children }: { children: ReactNode }) {
+  const { sessionStatus, accountLoading, accountError, retryAccountLoad } = useStore();
+  const { t, error } = useI18n();
+
+  if (accountLoading) {
+    return (
+      <Surface
+        variant="transparent"
+        className="flex min-h-screen items-center justify-center bg-background p-4"
+      >
+        <Spinner role="status" aria-label={t("Loading data")} />
+      </Surface>
+    );
+  }
+
+  if (accountError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-4 py-10">
+        <Card className="w-full max-w-md p-6 text-center">
+          <Typography type="h1" weight="semibold">
+            {t("We couldn't load your account")}
+          </Typography>
+          <Typography type="body-sm" color="muted" className="mt-2">
+            {error(accountError)}
+          </Typography>
+          <Button className="mt-5" onPress={retryAccountLoad}>
+            {t("Try again")}
+          </Button>
+        </Card>
+      </main>
+    );
+  }
+
+  return sessionStatus === "signed-out" ? (
+    <SignedOutScreen />
+  ) : (
+    <AppShellContent>{children}</AppShellContent>
   );
 }
 

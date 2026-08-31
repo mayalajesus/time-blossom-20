@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ReactNode } from "react";
 import { useAuth } from "./auth-context";
 import { createApiDataSource } from "./api-data-source";
@@ -25,7 +33,7 @@ import {
   hasPermission,
   type Permission,
 } from "./permissions";
-import { resetSessionDefaultAvatar } from "./default-avatar";
+import { isDefaultAvatarUrl, resetSessionDefaultAvatar } from "./default-avatar";
 import {
   defaultCurrencyForLocale,
   isCurrencyCode,
@@ -226,7 +234,8 @@ function isValidAvatarUrl(value: unknown): value is string | null {
     (typeof value === "string" &&
       ((/^data:image\/(?:png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
         value.length <= 1_500_000) ||
-        /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/sign\/avatars\//.test(value)))
+        /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/sign\/avatars\//.test(value) ||
+        isDefaultAvatarUrl(value)))
   );
 }
 
@@ -830,6 +839,7 @@ interface StoreValue {
   trello: TrelloState;
   settings: WorkspaceSettings;
   preferences: UserPreferences;
+  preferencesByUserId: Record<string, UserPreferences>;
   billingPreferencesByUserId: Record<string, BillingPreference>;
   currentMember: Member | null;
   currentWorkspace: Workspace | null;
@@ -837,6 +847,9 @@ interface StoreValue {
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string;
   sessionStatus: SessionStatus;
+  accountLoading: boolean;
+  accountError: string | null;
+  retryAccountLoad: () => void;
   can: (permission: Permission) => boolean;
   canTrackProject: (projectId: string) => boolean;
   findEntryConflict: (
@@ -905,6 +918,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [activeMemberId, setActiveMemberId] = useState(() => session?.user.id ?? "");
   const [activeWorkspaceId, setActiveWorkspaceId] = useState("");
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>("signed-out");
+  const [accountLoading, setAccountLoading] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [accountReloadKey, setAccountReloadKey] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [timerHydrated, setTimerHydrated] = useState(false);
   const skipAccountSyncRef = useRef(false);
@@ -946,11 +962,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (timer.status === "idle" || timer.workspaceId !== activeWorkspaceId) return recent;
     return rememberRecentTimerTask(recent, timer);
   }, [activeMemberId, activeWorkspaceId, entries, timer]);
+  const retryAccountLoad = useCallback(() => setAccountReloadKey((value) => value + 1), []);
 
   useEffect(() => {
     let cancelled = false;
     if (authLoading) return;
     if (!session) {
+      setAccountLoading(false);
+      setAccountError(null);
       setHydrated(false);
       setTimerHydrated(false);
       setSessionStatus("signed-out");
@@ -966,22 +985,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     setSessionStatus("active");
+    setAccountLoading(true);
+    setAccountError(null);
     setHydrated(false);
     setTimerHydrated(false);
     setActiveMemberId(session.user.id);
     void dataSource.loadAccount(session.user.id).then((result) => {
       if (cancelled) return;
-      if (!result.success) return;
+      if (!result.success) {
+        setAccountLoading(false);
+        setAccountError(result.error);
+        return;
+      }
       const loadedAccount = result.data;
-      const nextWorkspace =
-        loadedAccount.workspaces.find(
-          (data) =>
-            data.workspace.status === "active" &&
-            data.memberships.some(
-              (membership) =>
-                membership.userId === session.user.id && membership.status === "active",
-            ),
-        ) ?? loadedAccount.workspaces[0];
+      const nextWorkspace = loadedAccount.workspaces.find(
+        (data) =>
+          data.workspace.status === "active" &&
+          data.memberships.some(
+            (membership) => membership.userId === session.user.id && membership.status === "active",
+          ),
+      );
+      if (!nextWorkspace) {
+        setAccountLoading(false);
+        setAccountError("Your account must have an active workspace.");
+        return;
+      }
       const nextMembers =
         nextWorkspace?.memberships
           .map((membership) => membershipToMember(membership, loadedAccount.identities))
@@ -997,11 +1025,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTrelloState(nextWorkspace?.trello ?? initialTrello);
       setTimer(initialTimer);
       setHydrated(true);
+      setAccountLoading(false);
+      setAccountError(null);
     });
     return () => {
       cancelled = true;
     };
-  }, [authLoading, dataSource, session]);
+  }, [accountReloadKey, authLoading, dataSource, session]);
 
   useEffect(() => {
     if (!hydrated || !session || !activeWorkspaceId) return;
@@ -2226,6 +2256,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       trello,
       settings,
       preferences,
+      preferencesByUserId: account.preferencesByUserId,
       billingPreferencesByUserId,
       currentMember,
       currentWorkspace,
@@ -2233,6 +2264,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       workspaces: summaries,
       activeWorkspaceId,
       sessionStatus,
+      accountLoading,
+      accountError,
+      retryAccountLoad,
       can,
       canTrackProject,
       findEntryConflict,
@@ -2278,6 +2312,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
   }, [
     account,
+    accountError,
+    accountLoading,
     activeMemberId,
     activeWorkspaceId,
     clients,
@@ -2291,6 +2327,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     billingPreferencesByUserId,
     projects,
     recentTasks,
+    retryAccountLoad,
     sessionStatus,
     settings,
     timer,

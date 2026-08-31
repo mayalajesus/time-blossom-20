@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   Chip,
+  ColorSwatchPicker,
   Description,
   EmptyState,
   FieldError,
@@ -20,14 +21,16 @@ import {
   Typography,
   useFilter,
   toast,
+  parseColor,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Archive,
   ArrowRotateLeft,
   ChevronDown,
-  CircleDollar,
+  Copy,
   Folder,
+  Pencil,
   Persons,
   Plus,
   Power,
@@ -36,6 +39,8 @@ import {
 } from "@gravity-ui/icons";
 import { useMemo, useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
+import { BillableIndicator } from "@/components/billable-indicator";
+import { ProjectColorDot } from "@/components/project-color";
 import { PageHeader } from "@/components/page-header";
 import { RouterLink } from "@/components/router-link";
 import { FormAlert } from "@/components/form-feedback";
@@ -44,6 +49,7 @@ import { CardsSkeleton, EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import type { Project } from "@/lib/mock-data";
+import { defaultProjectColor, projectColorOptions, projectColorValue } from "@/lib/project-colors";
 import { useSimulatedLoad, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/projects/")({
@@ -82,8 +88,10 @@ function ProjectsPage() {
   const loading = useSimulatedLoad(500);
   const [filter, setFilter] = useState<string>("active");
   const [newOpen, setNewOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [name, setName] = useState("");
   const [clientId, setClientId] = useState("");
+  const [projectColor, setProjectColor] = useState(defaultProjectColor);
   const [projectBillable, setProjectBillable] = useState(settings.defaultBillable);
   const [createError, setCreateError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -108,28 +116,69 @@ function ProjectsPage() {
   const projectSeconds = (id: string) =>
     entries.filter((e) => e.projectId === id).reduce((sum, e) => sum + e.seconds, 0);
 
-  const create = () => {
+  const openProjectForm = (project?: Project) => {
+    setCreateError(null);
+    setEditingProject(project ?? null);
+    setName(project?.name ?? "");
+    setClientId(project?.clientId ?? "");
+    setProjectColor(projectColorValue(project?.color));
+    setProjectBillable(project?.billable ?? settings.defaultBillable);
+    setAssignedMemberIds(project?.memberIds ?? [currentUserId]);
+    setMemberQuery("");
+    setNewOpen(true);
+  };
+
+  const closeProjectForm = () => {
+    setNewOpen(false);
+    setEditingProject(null);
+    setCreateError(null);
+    setMemberQuery("");
+  };
+
+  const saveProject = () => {
     if (!name.trim() || !clientId) return;
-    const result = addProject({
-      name: name.trim(),
-      clientId,
-      billable: projectBillable,
-      status: "active",
-      color: "accent",
-      lastActivity: today,
-      memberIds: assignedMemberIds,
-    });
+    const result = editingProject
+      ? updateProject(editingProject.id, {
+          name: name.trim(),
+          clientId,
+          billable: projectBillable,
+          color: projectColor,
+          memberIds: assignedMemberIds,
+        })
+      : addProject({
+          name: name.trim(),
+          clientId,
+          billable: projectBillable,
+          status: "active",
+          color: projectColor,
+          lastActivity: today,
+          memberIds: assignedMemberIds,
+        });
     if (!result.success) {
       setCreateError(error(result.error));
       return;
     }
-    toast.success(t("Project is ready"), { description: name.trim() });
-    setName("");
-    setClientId("");
-    setProjectBillable(settings.defaultBillable);
-    setAssignedMemberIds([currentUserId]);
-    setCreateError(null);
-    setNewOpen(false);
+    toast.success(t(editingProject ? "Project updated" : "Project is ready"), {
+      description: name.trim(),
+    });
+    closeProjectForm();
+  };
+
+  const duplicateProject = (project: Project) => {
+    const { id: _id, status: _status, ...copy } = project;
+    const result = addProject({
+      ...copy,
+      name: t("Copy of {name}", { name: project.name }),
+      color: projectColorValue(project.color),
+      status: "active",
+      lastActivity: today,
+    });
+    if (!result.success) {
+      setStatusError(error(result.error));
+      return;
+    }
+    setStatusError(null);
+    toast.success(t("Project duplicated"), { description: project.name });
   };
 
   const toggleProjectStatus = (projectId: string, isActive: boolean, name: string) => {
@@ -287,13 +336,7 @@ function ProjectsPage() {
               </Dropdown>
             </ButtonGroup>
             {can("manage-projects") ? (
-              <Button
-                onPress={() => {
-                  setProjectBillable(settings.defaultBillable);
-                  setAssignedMemberIds([currentUserId]);
-                  setNewOpen(true);
-                }}
-              >
+              <Button onPress={() => openProjectForm()}>
                 <Plus className="size-4" />
                 {t("New project")}
               </Button>
@@ -315,15 +358,7 @@ function ProjectsPage() {
           description={t("Change the status filter or create a new project to get started.")}
           action={
             can("manage-projects") ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                onPress={() => {
-                  setProjectBillable(settings.defaultBillable);
-                  setAssignedMemberIds([currentUserId]);
-                  setNewOpen(true);
-                }}
-              >
+              <Button size="sm" variant="secondary" onPress={() => openProjectForm()}>
                 {t("New project")}
               </Button>
             ) : null
@@ -332,21 +367,45 @@ function ProjectsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((project) => (
-            <Card key={project.id} className="min-h-[160px] min-w-0">
+            <Card key={project.id} className="flex min-h-[176px] min-w-0 flex-col gap-5">
               <Card.Header className="flex-row items-start justify-between gap-3 p-0">
-                <Card.Title className="min-w-0 flex-1 truncate">
-                  <RouterLink
-                    to="/projects/$projectId"
-                    params={{ projectId: project.id }}
-                    className="block w-full truncate"
-                  >
-                    {project.name}
-                  </RouterLink>
-                </Card.Title>
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <ProjectColorDot color={project.color} className="mt-2 size-3" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Card.Title className="min-w-0 truncate">
+                      <RouterLink
+                        to="/projects/$projectId"
+                        params={{ projectId: project.id }}
+                        className="block w-full truncate"
+                      >
+                        {project.name}
+                      </RouterLink>
+                    </Card.Title>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Chip
+                        size="sm"
+                        variant="soft"
+                        color={
+                          project.status === "active"
+                            ? "success"
+                            : project.status === "on-hold"
+                              ? "warning"
+                              : "default"
+                        }
+                      >
+                        {t(
+                          project.status === "on-hold"
+                            ? "Inactive"
+                            : project.status === "archived"
+                              ? "Archived"
+                              : "Active",
+                        )}
+                      </Chip>
+                      <BillableIndicator billable={project.billable} />
+                    </div>
+                  </div>
+                </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <Chip color={project.billable ? "success" : "default"} size="sm" variant="soft">
-                    {project.billable ? t("Billable") : t("Internal")}
-                  </Chip>
                   {can("manage-projects") ? (
                     <ActionDropdown
                       ariaLabel={t("{kind} actions for {name}", {
@@ -358,6 +417,16 @@ function ProjectsPage() {
                           id: "members",
                           label: t("Manage members"),
                           icon: <Persons className="size-4" />,
+                        },
+                        {
+                          id: "edit",
+                          label: t("Edit project"),
+                          icon: <Pencil className="size-4" />,
+                        },
+                        {
+                          id: "duplicate",
+                          label: t("Duplicate project"),
+                          icon: <Copy className="size-4" />,
                         },
                         ...(project.status === "archived"
                           ? []
@@ -383,7 +452,9 @@ function ProjectsPage() {
                         {
                           id: "billable",
                           label: project.billable ? t("Make internal") : t("Make billable"),
-                          icon: <CircleDollar className="size-4" />,
+                          icon: (
+                            <BillableIndicator billable={!project.billable} mode="icon" size="md" />
+                          ),
                         },
                         ...(project.status === "archived"
                           ? [
@@ -419,6 +490,8 @@ function ProjectsPage() {
                       ]}
                       onAction={(key) => {
                         if (key === "members") openMemberManager(project);
+                        if (key === "edit") openProjectForm(project);
+                        if (key === "duplicate") duplicateProject(project);
                         if (key === "status") {
                           toggleProjectStatus(
                             project.id,
@@ -570,19 +643,25 @@ function ProjectsPage() {
         </AlertDialog.Backdrop>
       </AlertDialog>
 
-      <Modal isOpen={newOpen} onOpenChange={setNewOpen}>
+      <Modal
+        isOpen={newOpen}
+        onOpenChange={(open) => {
+          if (open) setNewOpen(true);
+          else closeProjectForm();
+        }}
+      >
         <ModalTriggerRegistration />
         <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
               <Modal.Header>
-                <Modal.Heading>{t("New project")}</Modal.Heading>
+                <Modal.Heading>{t(editingProject ? "Edit project" : "New project")}</Modal.Heading>
               </Modal.Header>
               <Form
                 onSubmit={(event) => {
                   event.preventDefault();
-                  create();
+                  saveProject();
                 }}
               >
                 <Modal.Body className="flex flex-col gap-4">
@@ -608,6 +687,29 @@ function ProjectsPage() {
                     <Input variant="secondary" placeholder={t("e.g. Brand refresh")} />
                     <FieldError />
                   </TextField>
+
+                  <div className="space-y-2">
+                    <Label>{t("Project color")}</Label>
+                    <ColorSwatchPicker
+                      aria-label={t("Project color")}
+                      value={parseColor(projectColorValue(projectColor))}
+                      onChange={(color) =>
+                        setProjectColor(typeof color === "string" ? color : color.toString("hex"))
+                      }
+                      size="md"
+                    >
+                      {projectColorOptions.map((option) => (
+                        <ColorSwatchPicker.Item
+                          key={option.id}
+                          color={parseColor(option.value)}
+                          aria-label={t(option.label)}
+                        >
+                          <ColorSwatchPicker.Swatch />
+                          <ColorSwatchPicker.Indicator />
+                        </ColorSwatchPicker.Item>
+                      ))}
+                    </ColorSwatchPicker>
+                  </div>
 
                   <div className="flex flex-col gap-2">
                     <Label>{t("Client")}</Label>
@@ -662,7 +764,10 @@ function ProjectsPage() {
                       <Switch.Thumb />
                     </Switch.Control>
                     <Switch.Content>
-                      <Label>{t("Billable")}</Label>
+                      <div className="flex items-center gap-2">
+                        <BillableIndicator billable={projectBillable} mode="icon" />
+                        <Label>{t("Billable")}</Label>
+                      </div>
                       <Description>{t("New entries use this as their default.")}</Description>
                     </Switch.Content>
                   </Switch>
@@ -772,7 +877,7 @@ function ProjectsPage() {
                     {t("Cancel")}
                   </Button>
                   <Button type="submit" isDisabled={!name.trim() || !clientId}>
-                    {t("Create project")}
+                    {t(editingProject ? "Save changes" : "Create project")}
                   </Button>
                 </Modal.Footer>
               </Form>

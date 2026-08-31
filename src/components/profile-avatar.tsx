@@ -1,5 +1,4 @@
 import { Avatar } from "@heroui/react";
-import { useState } from "react";
 import type { Member } from "@/lib/mock-data";
 import { getSessionDefaultAvatarUrl } from "@/lib/default-avatar";
 
@@ -8,15 +7,13 @@ export function ProfileAvatar({
   avatarUrl,
   size = "sm",
 }: {
-  member: Pick<Member, "name">;
+  member: Pick<Member, "id" | "name">;
   avatarUrl: string | null;
   size?: "sm" | "md" | "lg";
 }) {
-  const [sessionDefaultAvatarUrl] = useState(getSessionDefaultAvatarUrl);
-
   return (
     <Avatar size={size}>
-      <Avatar.Image alt={member.name} src={avatarUrl ?? sessionDefaultAvatarUrl} />
+      <Avatar.Image alt={member.name} src={avatarUrl ?? getSessionDefaultAvatarUrl(member.id)} />
       <Avatar.Fallback aria-hidden="true" />
     </Avatar>
   );

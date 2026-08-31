@@ -12,6 +12,7 @@ import {
   toast,
 } from "@heroui/react";
 import { useEffect, useState } from "react";
+import { BillableIndicator } from "@/components/billable-indicator";
 import { FormAlert } from "@/components/form-feedback";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
@@ -370,7 +371,10 @@ export function LogTimeModal({
                     <Switch.Thumb />
                   </Switch.Control>
                   <Switch.Content>
-                    <Label>{t("Billable")}</Label>
+                    <div className="flex items-center gap-2">
+                      <BillableIndicator billable={billable} mode="icon" />
+                      <Label>{t("Billable")}</Label>
+                    </div>
                   </Switch.Content>
                 </Switch>
               </Modal.Body>

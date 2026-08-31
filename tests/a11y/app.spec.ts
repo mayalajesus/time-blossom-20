@@ -1,8 +1,10 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { signInAs } from "../support/qa-auth";
 
 for (const route of ["/tracker", "/reports", "/settings"]) {
   test(`has no critical accessibility violations on ${route}`, async ({ page }) => {
+    await signInAs(page, "owner");
     await page.goto(route);
     const results = await new AxeBuilder({ page }).analyze();
     const critical = results.violations.filter((violation) => violation.impact === "critical");

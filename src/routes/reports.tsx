@@ -7,6 +7,8 @@ import {
   Input,
   Label,
   Popover,
+  ProgressBar,
+  ProgressCircle,
   Table,
   TextField,
   Tooltip,
@@ -22,10 +24,15 @@ import {
   ChevronDown,
   ChevronRight,
   CircleInfo,
+  Cloud,
   Minus,
+  Moon,
+  Sparkles,
+  Sun,
 } from "@gravity-ui/icons";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
@@ -36,6 +43,7 @@ import {
   Line,
   Pie,
   PieChart,
+  ReferenceDot,
   XAxis,
   YAxis,
 } from "recharts";
@@ -806,6 +814,10 @@ function ReportsPage() {
     if (search.view === "overview") {
       const summary = reportAnalytics.summary;
       const exportedProjects = overviewProjectRows(reportAnalytics, projects, clients);
+      const evolution = overviewEvolutionRows(reportAnalytics, locale);
+      const hasPreviousActivity = reportAnalytics.comparison.previous.totalSeconds > 0;
+      const consistencyPercentage = overviewConsistencyPercentage(reportAnalytics);
+      const weekdayRows = overviewWeekdayRows(reportAnalytics, locale);
       return {
         ...exportContext,
         title: `time-blossom-${search.view}`,
@@ -844,31 +856,31 @@ function ReportsPage() {
             title: t("Activity evolution"),
             columns: [
               t("Period"),
-              t("Billable"),
-              t("Internal"),
               t("Tracked"),
-              t("Previous period"),
-              t("Difference"),
+              t("Trend"),
+              ...(hasPreviousActivity ? [t("Previous period"), t("Difference")] : []),
             ],
-            rows: reportAnalytics.temporal.map((bucket, index) => {
-              const previous = reportAnalytics.previousTemporal[index]?.totalSeconds ?? 0;
-              const difference = bucket.totalSeconds - previous;
+            rows: evolution.map((bucket) => {
+              const difference = bucket.difference;
               const differencePrefix = difference > 0 ? "+" : difference < 0 ? "−" : "";
               return {
-                [t("Period")]: formatOverviewBucket(bucket, locale),
-                [t("Billable")]: formatDuration(bucket.billableSeconds, locale),
-                [t("Internal")]: formatDuration(bucket.internalSeconds, locale),
-                [t("Tracked")]: formatDuration(bucket.totalSeconds, locale),
-                [t("Previous period")]: formatDuration(previous, locale),
-                [t("Difference")]: `${differencePrefix}${formatDuration(
-                  Math.abs(difference),
-                  locale,
-                )}`,
+                [t("Period")]: bucket.label,
+                [t("Tracked")]: formatDuration(bucket.currentTotal, locale),
+                [t("Trend")]: formatDuration(bucket.trend, locale),
+                ...(hasPreviousActivity
+                  ? {
+                      [t("Previous period")]: formatDuration(bucket.previous, locale),
+                      [t("Difference")]: `${differencePrefix}${formatDuration(
+                        Math.abs(difference),
+                        locale,
+                      )}`,
+                    }
+                  : {}),
               };
             }),
           },
           {
-            title: t("Billing distribution"),
+            title: t("Time composition"),
             columns: [t("Billing"), t("Tracked"), t("Share")],
             rows: [
               {
@@ -902,16 +914,51 @@ function ReportsPage() {
               t("Project"),
               t("Client"),
               t("Tracked"),
-              t("Billable"),
+              t("Share"),
               t("Estimated billable value"),
             ],
             rows: exportedProjects.map((project) => ({
               [t("Project")]: project.id === "none" ? t("No project") : project.project,
               [t("Client")]: project.client ?? t("No client"),
               [t("Tracked")]: formatDuration(project.seconds, locale),
-              [t("Billable")]: formatDuration(project.billableSeconds, locale),
+              [t("Share")]: `${Math.round(project.percentage)}%`,
               [t("Estimated billable value")]:
                 formatMoneyTotals(project.valueByCurrency, locale) || "—",
+            })),
+          },
+          {
+            title: t("Work rhythm"),
+            columns: [t("Metric"), t("Value")],
+            rows: [
+              {
+                [t("Metric")]: t("Average session"),
+                [t("Value")]: formatDuration(summary.averageEntryDurationSeconds, locale),
+              },
+              {
+                [t("Metric")]: t("Longest session"),
+                [t("Value")]: formatDuration(summary.longestEntryDurationSeconds, locale),
+              },
+              {
+                [t("Metric")]: t("Consistency"),
+                [t("Value")]: `${Math.round(consistencyPercentage)}%`,
+              },
+              {
+                [t("Metric")]: t("Peak day"),
+                [t("Value")]: summary.busiestDay
+                  ? `${formatDate(summary.busiestDay.id, locale)} · ${formatDuration(
+                      summary.busiestDay.seconds,
+                      locale,
+                    )}`
+                  : "—",
+              },
+            ],
+          },
+          {
+            title: t("Activity by weekday"),
+            columns: [t("Day"), t("Tracked")],
+            rows: weekdayRows.map((weekday) => ({
+              [t("Day")]: weekday.fullLabel,
+              [t("Tracked")]: formatDuration(weekday.seconds, locale),
             })),
           },
         ],
@@ -1175,21 +1222,70 @@ function formatOverviewBucket(
   return new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" }).format(start);
 }
 
+function overviewEvolutionRows(analytics: ReportAnalytics, locale: Locale) {
+  const trendWindow = analytics.granularity === "day" ? 3 : 2;
+  const points = analytics.temporal.map((bucket, index) => {
+    const previous = analytics.previousTemporal[index]?.totalSeconds ?? 0;
+    return {
+      label: formatOverviewBucket(bucket, locale),
+      currentTotal: bucket.totalSeconds,
+      previous,
+      difference: bucket.totalSeconds - previous,
+    };
+  });
+
+  return points.map((point, index) => {
+    const firstIndex = Math.max(0, index - trendWindow + 1);
+    const trendPoints = points.slice(firstIndex, index + 1);
+    const trend =
+      trendPoints.reduce((sum, current) => sum + current.currentTotal, 0) / trendPoints.length;
+    return {
+      ...point,
+      trend,
+      percentageChange: point.previous > 0 ? (point.difference / point.previous) * 100 : null,
+    };
+  });
+}
+
+function formatDurationAxis(seconds: number, locale: Locale): string {
+  if (seconds < 3_600) return formatDuration(seconds, locale);
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(seconds / 3_600)}h`;
+}
+
+function overviewWeekdayRows(analytics: ReportAnalytics, locale: Locale) {
+  const weekdayOrder = [1, 2, 3, 4, 5, 6, 0] as const;
+  return weekdayOrder.map((weekday) => {
+    const activity = analytics.weekdayActivity.find((item) => item.weekday === weekday)!;
+    const date = new Date(Date.UTC(2026, 7, 3 + ((weekday + 6) % 7)));
+    return {
+      weekday: new Intl.DateTimeFormat(locale, {
+        weekday: "short",
+        timeZone: "UTC",
+      }).format(date),
+      fullLabel: new Intl.DateTimeFormat(locale, {
+        weekday: "long",
+        timeZone: "UTC",
+      }).format(date),
+      seconds: activity.totalSeconds,
+    };
+  });
+}
+
+function overviewConsistencyPercentage(analytics: ReportAnalytics): number {
+  const periodDays = Math.max(
+    1,
+    getDayOffset(analytics.period.startDate, analytics.period.endDate) + 1,
+  );
+  return (analytics.summary.activeDays / periodDays) * 100;
+}
+
 function comparisonVariation(
   comparison: ReportAnalytics["comparison"]["metrics"]["totalSeconds"],
   locale: Locale,
   t: Translate,
   colorByDirection = false,
 ) {
-  if (comparison.current === 0 && comparison.previous === 0) return null;
-  if (comparison.previous === 0) {
-    return {
-      label: "+100%",
-      accessibleLabel: `100% ${t("more than previous period")}`,
-      direction: "up" as const,
-      tone: colorByDirection ? ("positive" as const) : ("neutral" as const),
-    };
-  }
+  if (comparison.previous === 0) return null;
 
   const change = comparison.percentageChange ?? 0;
   const formatted = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
@@ -1244,6 +1340,7 @@ function overviewProjectRows(analytics: ReportAnalytics, projects: Project[], cl
       project: dimension.label,
       client: project ? clientMap.get(project.clientId)?.name : null,
       seconds: dimension.seconds,
+      percentage: dimension.percentage,
       billableSeconds: financial?.billableSeconds ?? 0,
       valueByCurrency: financial?.valueByCurrency ?? {},
     };
@@ -1353,6 +1450,12 @@ function OverviewDashboard({
     t,
     true,
   );
+  const dailyAverageVariation = comparisonVariation(
+    analytics.comparison.metrics.averageSecondsPerActiveDay,
+    locale,
+    t,
+    true,
+  );
   const monetaryTotals = currencyOptions.filter(
     (currency) =>
       summary.billableValueByCurrency[currency] !== undefined ||
@@ -1366,14 +1469,17 @@ function OverviewDashboard({
       percentageChange: null,
     };
     const deltaPrefix = comparison.delta > 0 ? "+" : comparison.delta < 0 ? "−" : "";
-    const percentageChange = comparison.percentageChange ?? (comparison.current > 0 ? 100 : 0);
+    const percentageChange = comparison.previous > 0 ? (comparison.percentageChange ?? 0) : null;
     const percentagePrefix = percentageChange > 0 ? "+" : percentageChange < 0 ? "−" : "";
     return {
       currency,
       value: formatMoney(comparison.current, currency, locale),
       previous: formatMoney(comparison.previous, currency, locale),
       delta: `${deltaPrefix}${formatMoney(Math.abs(comparison.delta), currency, locale)}`,
-      comparison: `${percentagePrefix}${percentageFormatter.format(Math.abs(percentageChange))}%`,
+      comparison:
+        percentageChange === null
+          ? null
+          : `${percentagePrefix}${percentageFormatter.format(Math.abs(percentageChange))}%`,
       direction: comparison.delta > 0 ? "up" : comparison.delta < 0 ? "down" : "neutral",
     };
   });
@@ -1381,21 +1487,9 @@ function OverviewDashboard({
     (first, second) => second.seconds - first.seconds,
   )[0];
   const hasPredominantShift = Boolean(predominantShift && predominantShift.seconds > 0);
-  const predominantShiftLabel = hasPredominantShift
-    ? t(shiftLabels[predominantShift!.shift])
-    : t("No activity");
-  const evolutionData = analytics.temporal.map((bucket, index) => {
-    const previous = analytics.previousTemporal[index]?.totalSeconds ?? 0;
-    return {
-      label: formatOverviewBucket(bucket, locale),
-      billable: bucket.billableSeconds,
-      internal: bucket.internalSeconds,
-      currentTotal: bucket.totalSeconds,
-      previous,
-      difference: bucket.totalSeconds - previous,
-    };
-  });
+  const evolutionData = overviewEvolutionRows(analytics, locale);
   const hasPreviousActivity = analytics.comparison.previous.totalSeconds > 0;
+  const hasTrend = evolutionData.filter((item) => item.currentTotal > 0).length > 1;
   const evolutionTicks =
     evolutionData.length <= 8
       ? evolutionData.map((item) => item.label)
@@ -1406,6 +1500,7 @@ function OverviewDashboard({
   const shiftData = analytics.shifts.map((shift) => {
     const percentage = summary.totalSeconds > 0 ? (shift.seconds / summary.totalSeconds) * 100 : 0;
     return {
+      id: shift.shift,
       shift: t(shiftLabels[shift.shift]),
       seconds: shift.seconds,
       percentage,
@@ -1430,21 +1525,47 @@ function OverviewDashboard({
     summary.totalSeconds > 0
       ? percentageFormatter.format((summary.internalSeconds / summary.totalSeconds) * 100)
       : "0";
-  const evolutionSummary = `${t("Current period")}: ${formatDuration(
-    summary.totalSeconds,
-    locale,
-  )}. ${t("Previous period")}: ${formatDuration(
-    analytics.comparison.previous.totalSeconds,
-    locale,
-  )}.`;
+  const highestActivityPeriod = evolutionData.reduce<(typeof evolutionData)[number] | null>(
+    (highest, item) => (!highest || item.currentTotal > highest.currentTotal ? item : highest),
+    null,
+  );
+  const consistencyPercentage = overviewConsistencyPercentage(analytics);
+  const weekdayData = overviewWeekdayRows(analytics, locale);
+  const evolutionSummary = [
+    `${t("Current period")}: ${formatDuration(summary.totalSeconds, locale)}`,
+    ...(hasPreviousActivity
+      ? [
+          `${t("Previous period")}: ${formatDuration(
+            analytics.comparison.previous.totalSeconds,
+            locale,
+          )}`,
+        ]
+      : []),
+    ...(highestActivityPeriod && highestActivityPeriod.currentTotal > 0
+      ? [
+          `${t("Highest activity period")}: ${highestActivityPeriod.label}, ${formatDuration(
+            highestActivityPeriod.currentTotal,
+            locale,
+          )}`,
+        ]
+      : []),
+  ].join(". ");
   const shiftSummary = shiftData.map((item) => `${item.shift}: ${item.display}`).join(". ");
   const projectSummary = projectData
-    .map((item) => `${item.project}: ${formatDuration(item.seconds, locale)}`)
+    .map(
+      (item) =>
+        `${item.project}: ${formatDuration(item.seconds, locale)}, ${percentageFormatter.format(
+          item.percentage,
+        )}%.`,
+    )
+    .join(". ");
+  const weekdaySummary = weekdayData
+    .map((item) => `${item.fullLabel}: ${formatDuration(item.seconds, locale)}`)
     .join(". ");
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12">
-      <div className="grid min-w-0 lg:col-span-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+      <div className="grid min-w-0 xl:col-span-3">
         <ReportKpi
           title={
             <OverviewTooltipTitle
@@ -1455,19 +1576,17 @@ function OverviewDashboard({
           value={formatDuration(summary.totalSeconds, locale)}
           variation={trackedVariation}
           neutralComparisonLabel={t("No comparison")}
+          showNeutralComparison={false}
           contentDescription={`${t("Tracked")}: ${formatDuration(
             summary.totalSeconds,
             locale,
           )}. ${t("Active days")}: ${summary.activeDays}. ${t("Average/day")}: ${formatDuration(
             summary.averageSecondsPerActiveDay,
             locale,
-          )}. ${t("Previous period")}: ${formatDuration(
-            analytics.comparison.previous.totalSeconds,
-            locale,
           )}.`}
         />
       </div>
-      <div className="grid min-w-0 lg:col-span-4">
+      <div className="grid min-w-0 xl:col-span-3">
         <ReportKpi
           title={
             <OverviewTooltipTitle
@@ -1478,6 +1597,7 @@ function OverviewDashboard({
           value={formatDuration(summary.billableSeconds, locale)}
           variation={billableVariation}
           neutralComparisonLabel={t("No comparison")}
+          showNeutralComparison={false}
           contentDescription={`${t("Billable")}: ${formatDuration(
             summary.billableSeconds,
             locale,
@@ -1486,7 +1606,7 @@ function OverviewDashboard({
           )}: ${formatDuration(summary.internalSeconds, locale)}.`}
         />
       </div>
-      <div className="grid min-w-0 md:col-span-2 lg:col-span-4">
+      <div className="grid min-w-0 xl:col-span-3">
         <ReportWidget
           title={
             <OverviewTooltipTitle
@@ -1499,87 +1619,117 @@ function OverviewDashboard({
           contentDescription={periodValueData
             .map(
               (item) =>
-                `${item.currency}: ${item.value}. ${t("Previous")}: ${item.previous}. ${t(
-                  "Change",
-                )}: ${item.delta}.`,
+                `${item.currency}: ${item.value}.${
+                  item.comparison
+                    ? ` ${t("Previous")}: ${item.previous}. ${t("Change")}: ${item.delta}.`
+                    : ""
+                }`,
             )
             .join(" ")}
         >
-          <div className="min-h-[72px] space-y-3">
+          <div className="space-y-3">
             {periodValueData.map((item) => {
               const DirectionIcon =
                 item.direction === "up" ? ArrowUp : item.direction === "down" ? ArrowDown : Minus;
               return (
-                <div key={item.currency} className="min-w-0 space-y-3">
+                <div
+                  key={item.currency}
+                  className="flex min-w-0 flex-wrap items-center justify-between gap-2"
+                >
                   <div className="flex min-w-0 items-baseline gap-2">
-                    <Typography type="h2" weight="semibold">
+                    <Typography type={periodValueData.length > 1 ? "h3" : "h2"} weight="semibold">
                       {item.value}
                     </Typography>
                     <Typography type="body-xs" color="muted" weight="semibold">
                       {item.currency}
                     </Typography>
                   </div>
-                  <div className="flex justify-end">
-                    <OverviewAccessibleTooltip
-                      label={`${t("Change")}: ${item.comparison}. ${t("Previous")}: ${item.previous}`}
-                      content={`${t("Previous")}: ${item.previous} · ${t("Change")}: ${item.delta}`}
-                    >
-                      <Chip
-                        size="sm"
-                        variant="soft"
-                        color={
-                          item.direction === "up"
-                            ? "success"
-                            : item.direction === "down"
-                              ? "danger"
-                              : "default"
-                        }
+                  {item.comparison ? (
+                    <div className="shrink-0">
+                      <OverviewAccessibleTooltip
+                        label={`${t("Change")}: ${item.comparison}. ${t("Previous")}: ${item.previous}`}
+                        content={`${t("Previous")}: ${item.previous} · ${t("Change")}: ${item.delta}`}
                       >
-                        <DirectionIcon aria-hidden="true" className="size-3" />
-                        <Chip.Label>{item.comparison}</Chip.Label>
-                      </Chip>
-                    </OverviewAccessibleTooltip>
-                  </div>
+                        <Chip
+                          size="sm"
+                          variant="soft"
+                          color={
+                            item.direction === "up"
+                              ? "success"
+                              : item.direction === "down"
+                                ? "danger"
+                                : "default"
+                          }
+                        >
+                          <DirectionIcon aria-hidden="true" className="size-3" />
+                          <Chip.Label>{item.comparison}</Chip.Label>
+                        </Chip>
+                      </OverviewAccessibleTooltip>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
           </div>
         </ReportWidget>
       </div>
-      <div className="grid min-w-0 md:col-span-2 lg:col-span-8">
+      <div className="grid min-w-0 xl:col-span-3">
+        <ReportKpi
+          title={
+            <OverviewTooltipTitle
+              label={t("Average/day")}
+              help={t("Average tracked time on days with activity.")}
+            />
+          }
+          value={formatDuration(summary.averageSecondsPerActiveDay, locale)}
+          variation={dailyAverageVariation}
+          neutralComparisonLabel={t("No comparison")}
+          showNeutralComparison={false}
+          contentDescription={`${t("Average/day")}: ${formatDuration(
+            summary.averageSecondsPerActiveDay,
+            locale,
+          )}. ${t("Active days")}: ${summary.activeDays}.`}
+        />
+      </div>
+      <div className="grid min-w-0 md:col-span-2 xl:col-span-12">
         <ReportChartWidget
           title={
             <OverviewTooltipTitle
               label={t("Activity evolution")}
-              help={t("The line compares the previous equivalent period with the current one.")}
+              help={t(
+                "Area shows tracked time, the solid line shows its trend and the dashed line shows the previous equivalent period.",
+              )}
             />
           }
-          action={
+          contentDescription={evolutionSummary}
+          config={{
+            currentTotal: { label: t("Tracked"), color: reportChartColors.accent },
+            trend: { label: t("Trend"), color: reportChartColors.success },
+            previous: { label: t("Previous period"), color: reportChartColors.muted },
+          }}
+          summary={evolutionSummary}
+          width="compact"
+          height="tall"
+          legend={
             <ReportChartLegend
               accessibleLabel={t("Chart legend")}
               items={[
-                { key: "billable", label: t("Billable"), tone: "success" },
-                { key: "internal", label: t("Internal"), tone: "default" },
+                { key: "current", label: t("Tracked"), tone: "accent" },
+                ...(hasTrend
+                  ? [{ key: "trend", label: t("Trend"), tone: "success" as const }]
+                  : []),
                 ...(hasPreviousActivity
                   ? [
                       {
                         key: "previous",
                         label: t("Previous period"),
-                        tone: "accent" as const,
+                        tone: "default" as const,
                       },
                     ]
                   : []),
               ]}
             />
           }
-          contentDescription={evolutionSummary}
-          config={{
-            billable: { label: t("Billable"), color: reportChartColors.success },
-            internal: { label: t("Internal"), color: reportChartColors.muted },
-            previous: { label: t("Previous period"), color: reportChartColors.accent },
-          }}
-          summary={evolutionSummary}
-          width="compact"
           isEmpty={summary.totalSeconds === 0}
           emptyState={{ title: t("No chart data") }}
         >
@@ -1593,54 +1743,152 @@ function OverviewDashboard({
               minTickGap={24}
               tickFormatter={(value) => shortenReportChartLabel(value, 12)}
             />
-            <YAxis {...reportChartAxisProps} hide />
+            <YAxis
+              {...reportChartAxisProps}
+              width={44}
+              tickCount={4}
+              tickFormatter={(value) => formatDurationAxis(Number(value), locale)}
+            />
             <ChartTooltip
               {...reportChartTooltipProps}
               content={
                 <ChartTooltipContent
                   valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
                   footerFormatter={(payload) => {
-                    const datum = payload[0]?.payload as { difference?: number } | undefined;
+                    const datum = payload[0]?.payload as
+                      { difference?: number; percentageChange?: number | null } | undefined;
                     const difference = datum?.difference ?? 0;
                     const prefix = difference > 0 ? "+" : difference < 0 ? "−" : "";
+                    const percentageChange = datum?.percentageChange;
+                    if (typeof percentageChange !== "number") return null;
                     return `${t("Difference")}: ${prefix}${formatDuration(
                       Math.abs(difference),
                       locale,
-                    )}`;
+                    )} (${prefix}${percentageFormatter.format(Math.abs(percentageChange))}%)`;
                   }}
                 />
               }
             />
-            <Bar
-              {...reportVerticalBarProps}
-              dataKey="internal"
-              stackId="tracked"
-              fill={reportChartColors.muted}
-              radius={[0, 0, 4, 4]}
+            <Area
+              type="linear"
+              dataKey="currentTotal"
+              stroke={reportChartColors.accent}
+              strokeWidth={2}
+              fill={reportChartColors.accent}
+              fillOpacity={0.16}
+              dot={false}
+              activeDot={false}
+              isAnimationActive={false}
             />
-            <Bar
-              {...reportVerticalBarProps}
-              dataKey="billable"
-              stackId="tracked"
-              fill={reportChartColors.success}
-            />
-            {hasPreviousActivity ? (
+            {hasTrend ? (
               <Line
-                dataKey="previous"
-                type="monotone"
-                stroke={reportChartColors.accent}
+                dataKey="trend"
+                type="linear"
+                stroke={reportChartColors.success}
                 strokeWidth={2}
                 dot={false}
                 activeDot={false}
                 isAnimationActive={false}
               />
             ) : null}
+            {hasPreviousActivity ? (
+              <Line
+                dataKey="previous"
+                type="linear"
+                stroke={reportChartColors.muted}
+                strokeWidth={2}
+                strokeDasharray="4 4"
+                dot={false}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+            ) : null}
+            {highestActivityPeriod && highestActivityPeriod.currentTotal > 0 ? (
+              <ReferenceDot
+                x={highestActivityPeriod.label}
+                y={highestActivityPeriod.currentTotal}
+                r={4}
+                fill={reportChartColors.accent}
+                stroke={reportChartColors.foreground}
+              />
+            ) : null}
           </ComposedChart>
         </ReportChartWidget>
       </div>
-      <div className="grid min-w-0 lg:col-span-4">
+      <div className="grid min-w-0 md:col-span-2 xl:col-span-6">
+        <ReportWidget
+          title={t("Top projects")}
+          contentDescription={projectSummary || t("No activity")}
+          isEmpty={projectData.length === 0}
+          emptyState={{ title: t("No projects found") }}
+        >
+          <DataTable
+            label={t("Top projects")}
+            minWidth="min-w-[560px]"
+            scrollHint={t("Scroll horizontally to see all columns")}
+          >
+            <Table.Header>
+              {["Project / client", "Tracked", "Estimated billable value"].map((label, index) => (
+                <Table.Column key={label} isRowHeader={index === 0}>
+                  {t(label)}
+                </Table.Column>
+              ))}
+            </Table.Header>
+            <Table.Body>
+              {projectData.map((project) => (
+                <Table.Row key={project.id}>
+                  <Table.Cell>
+                    <div className="min-w-0">
+                      <ProjectLabel
+                        project={project.projectColor ? { color: project.projectColor } : null}
+                        label={project.id === "none" ? t("No project") : project.project}
+                      />
+                      <Typography type="body-xs" color="muted" truncate>
+                        {project.client ?? t("No client")}
+                      </Typography>
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <div className="w-40 max-w-full space-y-2">
+                      <div className="flex items-center justify-between gap-3 whitespace-nowrap">
+                        <Typography type="body-sm" weight="semibold">
+                          {formatDuration(project.seconds, locale)}
+                        </Typography>
+                        <Typography type="body-xs" color="muted">
+                          {percentageFormatter.format(project.percentage)}%
+                        </Typography>
+                      </div>
+                      <ProgressBar
+                        aria-label={`${project.project}: ${percentageFormatter.format(
+                          project.percentage,
+                        )}%`}
+                        color="accent"
+                        size="sm"
+                        value={project.percentage}
+                      >
+                        <ProgressBar.Track>
+                          <ProgressBar.Fill />
+                        </ProgressBar.Track>
+                      </ProgressBar>
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell className="whitespace-nowrap">
+                    {formatMoneyTotals(project.valueByCurrency, locale) || "—"}
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </DataTable>
+        </ReportWidget>
+      </div>
+      <div className="grid min-w-0 xl:col-span-3">
         <ReportChartWidget
-          title={t("Billing distribution")}
+          title={
+            <OverviewTooltipTitle
+              label={t("Time composition")}
+              help={t("Shows how tracked time is split between billable and internal entries.")}
+            />
+          }
           contentDescription={`${t("Billable")}: ${formatDuration(
             summary.billableSeconds,
             locale,
@@ -1654,7 +1902,7 @@ function OverviewDashboard({
           }}
           summary={`${t("Billable")}: ${billablePercentage}%. ${t(
             "Internal",
-          )}: ${internalPercentage}%.`}
+          )}: ${internalPercentage}%. ${billablePercentage}% ${t("of tracked time is billable")}.`}
           width="compact"
           height="compact"
           legend={
@@ -1682,7 +1930,14 @@ function OverviewDashboard({
               content={
                 <ChartTooltipContent
                   hideLabel
-                  valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
+                  valueFormatter={(value) => {
+                    const seconds = Number(value ?? 0);
+                    const percentage =
+                      summary.totalSeconds > 0 ? (seconds / summary.totalSeconds) * 100 : 0;
+                    return `${formatDuration(seconds, locale)} · ${percentageFormatter.format(
+                      percentage,
+                    )}%`;
+                  }}
                 />
               }
             />
@@ -1690,12 +1945,18 @@ function OverviewDashboard({
               data={billingData}
               dataKey="value"
               nameKey="name"
+              cx="50%"
+              cy="50%"
+              startAngle={90}
+              endAngle={-270}
               innerRadius="58%"
               outerRadius="82%"
+              cornerRadius={4}
+              paddingAngle={billingData.length > 1 ? 2 : 0}
               isAnimationActive={false}
             >
               <ChartLabel
-                value={formatDuration(summary.totalSeconds, locale)}
+                value={`${billablePercentage}%`}
                 position="center"
                 fill={reportChartColors.foreground}
               />
@@ -1706,96 +1967,165 @@ function OverviewDashboard({
           </PieChart>
         </ReportChartWidget>
       </div>
-      <div className="grid min-w-0 lg:col-span-4">
-        <ReportChartWidget
+      <div className="grid min-w-0 xl:col-span-3">
+        <ReportWidget
           title={t("Hours by shift")}
-          description={t("Predominant shift: {shift}", { shift: predominantShiftLabel })}
           contentDescription={shiftSummary || t("No activity")}
-          config={{ seconds: { label: t("Tracked"), color: reportChartColors.accent } }}
-          summary={shiftSummary || t("No activity")}
           width="compact"
           isEmpty={summary.totalSeconds === 0}
           emptyState={{ title: t("No chart data") }}
         >
-          <BarChart
-            accessibilityLayer
-            data={shiftData}
-            layout="vertical"
-            margin={{ left: 0, right: 8 }}
-          >
-            <XAxis {...reportChartAxisProps} type="number" dataKey="seconds" hide />
-            <YAxis
-              {...reportChartAxisProps}
-              dataKey="shift"
-              type="category"
-              width={72}
-              tickFormatter={(value) => shortenReportChartLabel(value, 10)}
-            />
-            <ChartTooltip
-              {...reportChartTooltipProps}
-              content={
-                <ChartTooltipContent
-                  hideLabel
-                  valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
-                  footerFormatter={(payload) => {
-                    const datum = payload[0]?.payload as { percentage?: number } | undefined;
-                    return `${t("Share")}: ${percentageFormatter.format(datum?.percentage ?? 0)}%`;
-                  }}
-                />
-              }
-            />
-            <Bar {...reportHorizontalBarProps} dataKey="seconds" fill={reportChartColors.accent} />
-          </BarChart>
-        </ReportChartWidget>
+          <div className="grid grid-cols-2 gap-4 py-1">
+            {shiftData.map((item) => {
+              const ShiftIcon =
+                item.id === "overnight"
+                  ? Sparkles
+                  : item.id === "morning"
+                    ? Sun
+                    : item.id === "afternoon"
+                      ? Cloud
+                      : Moon;
+              const progressColor =
+                item.id === "morning" ? "warning" : item.id === "afternoon" ? "accent" : "default";
+              const isPredominant = hasPredominantShift && predominantShift?.shift === item.id;
+
+              return (
+                <div key={item.id} className="flex min-w-0 flex-col items-center gap-2">
+                  <OverviewAccessibleTooltip
+                    label={`${item.shift}: ${item.display}`}
+                    content={`${item.shift}: ${item.display}`}
+                    className="relative items-center justify-center"
+                  >
+                    <ProgressCircle
+                      aria-hidden="true"
+                      color={progressColor}
+                      size="lg"
+                      value={item.percentage}
+                    >
+                      <ProgressCircle.Track>
+                        <ProgressCircle.TrackCircle />
+                        <ProgressCircle.FillCircle />
+                      </ProgressCircle.Track>
+                    </ProgressCircle>
+                    <ShiftIcon aria-hidden="true" className="pointer-events-none absolute size-5" />
+                  </OverviewAccessibleTooltip>
+                  <div className="min-w-0 space-y-1">
+                    <Typography type="body-sm" weight="semibold">
+                      {item.shift}
+                    </Typography>
+                    <Typography type="body-xs" color="muted">
+                      {formatDuration(item.seconds, locale)} ·{" "}
+                      {percentageFormatter.format(item.percentage)}%
+                    </Typography>
+                    {isPredominant ? (
+                      <Chip size="sm" variant="soft" color="default">
+                        <Chip.Label>{t("Predominant")}</Chip.Label>
+                      </Chip>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </ReportWidget>
       </div>
-      <div className="grid min-w-0 md:col-span-2 lg:col-span-8">
+      <div className="grid min-w-0 md:col-span-2 xl:col-span-12">
         <ReportWidget
-          title={t("Top projects")}
-          contentDescription={projectSummary || t("No activity")}
-          isEmpty={projectData.length === 0}
-          emptyState={{ title: t("No projects found") }}
+          title={
+            <OverviewTooltipTitle
+              label={t("Work rhythm")}
+              help={t("Consistency is the share of selected days with registered activity.")}
+            />
+          }
+          contentDescription={`${weekdaySummary}. ${t("Average session")}: ${formatDuration(
+            summary.averageEntryDurationSeconds,
+            locale,
+          )}. ${t("Longest session")}: ${formatDuration(
+            summary.longestEntryDurationSeconds,
+            locale,
+          )}. ${t("Consistency")}: ${percentageFormatter.format(consistencyPercentage)}%.`}
+          isEmpty={summary.totalSeconds === 0}
+          emptyState={{ title: t("No chart data") }}
         >
-          <DataTable
-            label={t("Top projects")}
-            minWidth="min-w-[640px]"
-            scrollHint={t("Scroll horizontally to see all columns")}
-          >
-            <Table.Header>
-              {["Project / client", "Tracked", "Billable", "Estimated billable value"].map(
-                (label, index) => (
-                  <Table.Column key={label} isRowHeader={index === 0}>
-                    {t(label)}
-                  </Table.Column>
-                ),
-              )}
-            </Table.Header>
-            <Table.Body>
-              {projectData.map((project) => (
-                <Table.Row key={project.id}>
-                  <Table.Cell>
-                    <div className="min-w-0">
-                      <ProjectLabel
-                        project={project.projectColor ? { color: project.projectColor } : null}
-                        label={project.id === "none" ? t("No project") : project.project}
+          <div className="grid min-w-0 gap-6 xl:grid-cols-12">
+            <div className="min-w-0 space-y-3 xl:col-span-8">
+              <Typography type="body-xs" color="muted" weight="semibold">
+                {t("Activity by weekday")}
+              </Typography>
+              <ReportChart
+                config={{
+                  seconds: { label: t("Tracked"), color: reportChartColors.accent },
+                }}
+                summary={weekdaySummary}
+                height="compact"
+              >
+                <BarChart accessibilityLayer data={weekdayData} margin={{ left: 0, right: 8 }}>
+                  <CartesianGrid {...reportChartGridProps} />
+                  <XAxis
+                    {...reportChartAxisProps}
+                    dataKey="weekday"
+                    interval={0}
+                    tickFormatter={(value) => shortenReportChartLabel(value, 5)}
+                  />
+                  <YAxis {...reportChartAxisProps} hide />
+                  <ChartTooltip
+                    {...reportChartTooltipProps}
+                    content={
+                      <ChartTooltipContent
+                        valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
                       />
-                      <Typography type="body-xs" color="muted" truncate>
-                        {project.client ?? t("No client")}
-                      </Typography>
-                    </div>
-                  </Table.Cell>
-                  <Table.Cell className="whitespace-nowrap">
-                    {formatDuration(project.seconds, locale)}
-                  </Table.Cell>
-                  <Table.Cell className="whitespace-nowrap">
-                    {formatDuration(project.billableSeconds, locale)}
-                  </Table.Cell>
-                  <Table.Cell className="whitespace-nowrap">
-                    {formatMoneyTotals(project.valueByCurrency, locale) || "—"}
-                  </Table.Cell>
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </DataTable>
+                    }
+                  />
+                  <Bar
+                    {...reportVerticalBarProps}
+                    dataKey="seconds"
+                    fill={reportChartColors.accent}
+                  />
+                </BarChart>
+              </ReportChart>
+            </div>
+            <div className="grid grid-cols-2 gap-5 xl:col-span-4">
+              <ActivitySummaryItem
+                label={t("Average session")}
+                value={formatDuration(summary.averageEntryDurationSeconds, locale)}
+              />
+              <ActivitySummaryItem
+                label={t("Longest session")}
+                value={formatDuration(summary.longestEntryDurationSeconds, locale)}
+              />
+              <div className="space-y-2">
+                <ActivitySummaryItem
+                  label={t("Consistency")}
+                  value={`${percentageFormatter.format(consistencyPercentage)}%`}
+                />
+                <ProgressBar
+                  aria-label={`${t("Consistency")}: ${percentageFormatter.format(
+                    consistencyPercentage,
+                  )}%`}
+                  color="accent"
+                  size="sm"
+                  value={consistencyPercentage}
+                >
+                  <ProgressBar.Track>
+                    <ProgressBar.Fill />
+                  </ProgressBar.Track>
+                </ProgressBar>
+              </div>
+              <ActivitySummaryItem
+                label={t("Peak day")}
+                value={
+                  summary.busiestDay ? (
+                    <span>
+                      {formatDuration(summary.busiestDay.seconds, locale)} ·{" "}
+                      {formatDate(summary.busiestDay.id, locale)}
+                    </span>
+                  ) : (
+                    "—"
+                  )
+                }
+              />
+            </div>
+          </div>
         </ReportWidget>
       </div>
     </div>

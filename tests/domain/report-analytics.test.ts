@@ -278,6 +278,7 @@ describe("report analytics metrics", () => {
       activeDays: 2,
       averageSecondsPerActiveDay: 5_400,
       averageEntryDurationSeconds: 5_400,
+      longestEntryDurationSeconds: 7_200,
       noProjectSeconds: 3_600,
     });
     expect(metrics.billablePercentage).toBeCloseTo(66.6667, 3);
@@ -320,6 +321,74 @@ describe("report analytics metrics", () => {
     );
   });
 
+  it("keeps comparison unavailable without a previous baseline and stable when periods match", () => {
+    const withoutBaseline = calculateReportAnalytics(
+      options(
+        [entry("current", "2026-08-10", "09:00", "10:00", 3_600)],
+        "2026-08-10",
+        "2026-08-10",
+      ),
+    );
+    expect(withoutBaseline.comparison.metrics.totalSeconds).toEqual({
+      current: 3_600,
+      previous: 0,
+      delta: 3_600,
+      percentageChange: null,
+    });
+
+    const matchingPeriods = calculateReportAnalytics(
+      options(
+        [
+          entry("previous", "2026-08-09", "09:00", "10:00", 3_600),
+          entry("current", "2026-08-10", "09:00", "10:00", 3_600),
+        ],
+        "2026-08-10",
+        "2026-08-10",
+      ),
+    );
+    expect(matchingPeriods.comparison.metrics.totalSeconds).toEqual({
+      current: 3_600,
+      previous: 3_600,
+      delta: 0,
+      percentageChange: 0,
+    });
+  });
+
+  it("aligns previous temporal buckets with the current monthly intervals", () => {
+    const range = { startDate: "2026-02-01", endDate: "2026-08-02" };
+    const previousPeriod = getPreviousEquivalentPeriod(range);
+    const analytics = calculateReportAnalytics({
+      ...options(
+        [entry("previous", previousPeriod.startDate, "09:00", "10:00", 3_600)],
+        range.startDate,
+        range.endDate,
+      ),
+      range,
+    });
+
+    expect(analytics.granularity).toBe("month");
+    expect(analytics.previousTemporal).toHaveLength(analytics.temporal.length);
+    expect(analytics.previousTemporal[0]).toMatchObject({
+      startDate: previousPeriod.startDate,
+      totalSeconds: 3_600,
+      granularity: "month",
+    });
+    expect(analytics.previousTemporal.at(-1)?.endDate).toBe(previousPeriod.endDate);
+    analytics.temporal.forEach((bucket, index) => {
+      const previousBucket = analytics.previousTemporal[index]!;
+      const bucketDays =
+        (Date.parse(`${bucket.endDate}T00:00:00Z`) - Date.parse(`${bucket.startDate}T00:00:00Z`)) /
+          86_400_000 +
+        1;
+      const previousBucketDays =
+        (Date.parse(`${previousBucket.endDate}T00:00:00Z`) -
+          Date.parse(`${previousBucket.startDate}T00:00:00Z`)) /
+          86_400_000 +
+        1;
+      expect(previousBucketDays).toBe(bucketDays);
+    });
+  });
+
   it("returns stable zero values for a period without activity", () => {
     const analytics = calculateReportAnalytics(
       options([], "2026-08-10", "2026-08-12", { emptyCurrency: "BRL" }),
@@ -334,6 +403,7 @@ describe("report analytics metrics", () => {
       activeDays: 0,
       averageSecondsPerActiveDay: 0,
       averageEntryDurationSeconds: 0,
+      longestEntryDurationSeconds: 0,
       topProject: null,
       topClient: null,
       topTask: null,

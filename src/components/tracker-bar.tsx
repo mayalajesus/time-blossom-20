@@ -9,8 +9,9 @@ import {
   Toolbar,
   toast,
 } from "@heroui/react";
-import { CircleDollar, Square } from "@gravity-ui/icons";
+import { Square } from "@gravity-ui/icons";
 import { useEffect, useState } from "react";
+import { BillableIndicator } from "@/components/billable-indicator";
 import { FormAlert } from "@/components/form-feedback";
 import { formatOverlapConflict } from "@/components/overlap-confirmation";
 import { ProjectSelect } from "@/components/project-select";
@@ -197,7 +198,11 @@ export function TrackerBar() {
                   else setBillable(selected);
                 }}
               >
-                <CircleDollar aria-hidden="true" />
+                <BillableIndicator
+                  billable={active ? timer.billable : billable}
+                  mode="icon"
+                  size="md"
+                />
               </ToggleButton>
             </ToggleButtonGroup>
           </Toolbar>

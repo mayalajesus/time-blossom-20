@@ -250,11 +250,18 @@ const ptBR: Record<string, string> = {
     "As comparações usam o período anterior equivalente.",
   "Only entries marked as billable are included in this total.":
     "Somente lançamentos marcados como faturáveis entram neste total.",
-  "The line compares the previous equivalent period with the current one.":
-    "A linha compara o período anterior equivalente com o período atual.",
+  "Average tracked time on days with activity.":
+    "Média do tempo registrado nos dias com atividade.",
+  "Bars show tracked time; the line shows the previous equivalent period.":
+    "As barras mostram o tempo registrado; a linha mostra o período anterior equivalente.",
+  "Area shows tracked time, the solid line shows its trend and the dashed line shows the previous equivalent period.":
+    "A área mostra o tempo registrado, a linha contínua mostra a tendência e a linha tracejada mostra o período anterior equivalente.",
   "Current period": "Período atual",
   "Previous period": "Período anterior",
+  Trend: "Tendência",
   Difference: "Diferença",
+  "Highest activity period": "Período de maior atividade",
+  "Previous period had no activity": "O período anterior não teve atividade",
   "Estimate based on billable time and the hourly-rate snapshot of each entry.":
     "Estimativa baseada no tempo faturável e no snapshot do valor/hora de cada lançamento.",
   Change: "Variação",
@@ -279,10 +286,20 @@ const ptBR: Record<string, string> = {
   "Hours by shift": "Horas por turno",
   "Top projects": "Principais projetos",
   "Projects with the most tracked time.": "Projetos com mais tempo registrado.",
-  "Billing distribution": "Distribuição de cobrança",
+  "Time composition": "Composição do tempo",
+  "Shows how tracked time is split between billable and internal entries.":
+    "Mostra como o tempo registrado se divide entre lançamentos faturáveis e internos.",
+  "of tracked time is billable": "do tempo registrado é faturável",
   "Billable versus internal time.": "Tempo faturável versus interno.",
   "Activity summary": "Resumo de atividade",
   "Highlights from the selected period.": "Destaques do período selecionado.",
+  "Work rhythm": "Ritmo de trabalho",
+  "Average session": "Sessão média",
+  "Longest session": "Maior sessão",
+  Consistency: "Consistência",
+  "Peak day": "Dia de pico",
+  "Consistency is the share of selected days with registered activity.":
+    "Consistência é a proporção dos dias selecionados com atividade registrada.",
   "No currency conversion applied.": "Nenhuma conversão de moeda foi aplicada.",
   "Average {value} per active day": "Média de {value} por dia ativo",
   "No comparison": "Sem comparação",
@@ -299,6 +316,7 @@ const ptBR: Record<string, string> = {
   Night: "Noite",
   "Predominant shift": "Turno predominante",
   "Predominant shift: {shift}": "Turno predominante: {shift}",
+  Predominant: "Predominante",
   "Registered activity": "Atividade registrada",
   "Registered activity by time of day.": "Atividade registrada por período do dia.",
   "Shift evolution": "Evolução dos turnos",

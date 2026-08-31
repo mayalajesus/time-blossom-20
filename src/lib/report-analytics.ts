@@ -48,6 +48,7 @@ export type ReportMetrics = {
   activeDays: number;
   averageSecondsPerActiveDay: number;
   averageEntryDurationSeconds: number;
+  longestEntryDurationSeconds: number;
   topProject: AnalyticsDimension | null;
   topClient: AnalyticsDimension | null;
   topTask: AnalyticsDimension | null;
@@ -526,6 +527,10 @@ export function calculateReportMetrics(input: ReportAnalyticsInput): ReportMetri
     activeDays,
     averageSecondsPerActiveDay: activeDays > 0 ? totalSeconds / activeDays : 0,
     averageEntryDurationSeconds: entryCount > 0 ? totalSeconds / entryCount : 0,
+    longestEntryDurationSeconds: slices.reduce(
+      (longest, slice) => Math.max(longest, slice.seconds),
+      0,
+    ),
     topProject: topDimension(projectTotals, totalSeconds),
     topClient: topDimension(clientTotals, totalSeconds),
     topTask: topDimension(taskTotals, totalSeconds),
@@ -612,26 +617,59 @@ export function groupEntriesByTime(
   const weekStartsOn = options.weekStartsOn ?? 1;
   const granularity = getTemporalGranularity(options.range);
   const buckets = createTemporalBuckets(options.range, granularity, weekStartsOn);
-  const bucketsByKey = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+  return populateTemporalBuckets(entries, options.range, buckets, timeZone);
+}
+
+function populateTemporalBuckets(
+  entries: readonly TimeEntry[],
+  range: DateRange,
+  buckets: TemporalBucket[],
+  timeZone: string,
+): TemporalBucket[] {
+  const bucketsByDate = new Map<string, TemporalBucket>();
+  for (const bucket of buckets) {
+    for (const date of listDateRange(bucket.startDate, bucket.endDate)) {
+      bucketsByDate.set(date, bucket);
+    }
+  }
   const entriesByBucket = new Map<string, Set<number>>();
-  const slices = clippedEntrySlices(entries, options.range, timeZone).flatMap((slice) =>
+  const slices = clippedEntrySlices(entries, range, timeZone).flatMap((slice) =>
     splitSliceByDay(slice, timeZone),
   );
 
   for (const slice of slices) {
-    const key = temporalKey(slice.date, granularity, weekStartsOn);
-    const bucket = bucketsByKey.get(key);
+    const bucket = bucketsByDate.get(slice.date);
     if (!bucket) continue;
     bucket.totalSeconds += slice.seconds;
     if (slice.entry.billable) bucket.billableSeconds += slice.seconds;
     else bucket.internalSeconds += slice.seconds;
-    const bucketEntries = entriesByBucket.get(key) ?? new Set<number>();
+    const bucketEntries = entriesByBucket.get(bucket.key) ?? new Set<number>();
     bucketEntries.add(slice.entryIndex);
-    entriesByBucket.set(key, bucketEntries);
+    entriesByBucket.set(bucket.key, bucketEntries);
   }
 
   for (const bucket of buckets) bucket.entryCount = entriesByBucket.get(bucket.key)?.size ?? 0;
   return buckets;
+}
+
+function createEquivalentTemporalBuckets(
+  currentBuckets: readonly TemporalBucket[],
+  periodDays: number,
+): TemporalBucket[] {
+  return currentBuckets.map((bucket) => {
+    const startDate = shiftDate(bucket.startDate, -periodDays);
+    const endDate = shiftDate(bucket.endDate, -periodDays);
+    return {
+      key: startDate,
+      granularity: bucket.granularity,
+      startDate,
+      endDate,
+      totalSeconds: 0,
+      billableSeconds: 0,
+      internalSeconds: 0,
+      entryCount: 0,
+    };
+  });
 }
 
 type FinancialDimensionAccumulator = {
@@ -1003,6 +1041,8 @@ export function calculateReportAnalytics(input: ReportAnalyticsInput): ReportAna
   const previousPeriod = getPreviousEquivalentPeriod(input.range);
   const current = calculateReportMetrics(input);
   const previous = calculateReportMetrics({ ...input, range: previousPeriod });
+  const granularity = getTemporalGranularity(input.range);
+  const periodDays = listDateRange(input.range.startDate, input.range.endDate).length;
   const temporalOptions = {
     range: input.range,
     ...(input.timeZone ? { timeZone: input.timeZone } : {}),
@@ -1020,18 +1060,20 @@ export function calculateReportAnalytics(input: ReportAnalyticsInput): ReportAna
     range: previousPeriod,
     ...(input.timeZone ? { timeZone: input.timeZone } : {}),
   };
-  const previousTemporalOptions = {
-    range: previousPeriod,
-    ...(input.timeZone ? { timeZone: input.timeZone } : {}),
-    ...(input.weekStartsOn !== undefined ? { weekStartsOn: input.weekStartsOn } : {}),
-  };
+  const temporal = groupEntriesByTime(input.entries, temporalOptions);
+  const previousTemporal = populateTemporalBuckets(
+    input.entries,
+    previousPeriod,
+    createEquivalentTemporalBuckets(temporal, periodDays),
+    input.timeZone ?? DEFAULT_TIME_ZONE,
+  );
 
   return {
     period: input.range,
-    granularity: getTemporalGranularity(input.range),
+    granularity,
     summary: current,
-    temporal: groupEntriesByTime(input.entries, temporalOptions),
-    previousTemporal: groupEntriesByTime(input.entries, previousTemporalOptions),
+    temporal,
+    previousTemporal,
     shifts: groupEntriesByShift(input.entries, shiftOptions),
     shiftTemporal: groupEntriesByShiftAndTime(input.entries, temporalOptions),
     previousShifts: groupEntriesByShift(input.entries, previousShiftOptions),

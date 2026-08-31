@@ -31,6 +31,7 @@ import {
 } from "@gravity-ui/icons";
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
+import { BillableIndicator } from "@/components/billable-indicator";
 import { FormAlert } from "@/components/form-feedback";
 import { DataTable } from "@/components/data-table";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
@@ -689,7 +690,13 @@ function WorkspaceFormModal({
                         <Switch.Thumb />
                       </Switch.Control>
                       <Switch.Content>
-                        <Label>{t("Billable by default")}</Label>
+                        <div className="flex items-center gap-2">
+                          <BillableIndicator
+                            billable={workspaceSettings.defaultBillable}
+                            mode="icon"
+                          />
+                          <Label>{t("Billable by default")}</Label>
+                        </div>
                         <Description>{t("New entries start marked as billable.")}</Description>
                       </Switch.Content>
                     </Switch>

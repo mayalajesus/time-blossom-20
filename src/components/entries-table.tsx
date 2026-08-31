@@ -1,5 +1,7 @@
-import { Button, Chip, Modal, Table, Typography, toast } from "@heroui/react";
-import { CircleDollar, Pencil, TrashBin } from "@gravity-ui/icons";
+import { Button, Modal, Table, Typography, toast } from "@heroui/react";
+import { Pencil, TrashBin } from "@gravity-ui/icons";
+import { BillableIndicator } from "@/components/billable-indicator";
+import { ProjectLabel } from "@/components/project-color";
 import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
@@ -45,10 +47,7 @@ export function EntriesTable({
     });
   };
 
-  const projectName = (id: string | null) =>
-    id === null
-      ? t("No project")
-      : (projects.find((p) => p.id === id)?.name ?? t("Unknown project"));
+  const projectFor = (id: string | null) => (id ? projects.find((p) => p.id === id) : null);
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "—";
 
   return (
@@ -75,7 +74,15 @@ export function EntriesTable({
                     {entry.description ? <span>{entry.description}</span> : null}
                   </div>
                 </Table.Cell>
-                <Table.Cell>{projectName(entry.projectId)}</Table.Cell>
+                <Table.Cell>
+                  <ProjectLabel
+                    project={projectFor(entry.projectId) ?? null}
+                    label={
+                      projectFor(entry.projectId)?.name ??
+                      t(entry.projectId === null ? "No project" : "Unknown project")
+                    }
+                  />
+                </Table.Cell>
                 {showMember ? <Table.Cell>{memberName(entry.userId)}</Table.Cell> : null}
                 {showDate ? <Table.Cell>{formatDate(entry.date, locale)}</Table.Cell> : null}
                 <Table.Cell>
@@ -86,9 +93,7 @@ export function EntriesTable({
                 </Table.Cell>
                 <Table.Cell>{formatDuration(entry.seconds, locale)}</Table.Cell>
                 <Table.Cell>
-                  <Chip color={entry.billable ? "success" : "default"} size="sm" variant="soft">
-                    {entry.billable ? t("Billable") : t("Internal")}
-                  </Chip>
+                  <BillableIndicator billable={entry.billable} />
                 </Table.Cell>
                 <Table.Cell>
                   {isOwnEntry ? (
@@ -104,7 +109,9 @@ export function EntriesTable({
                           {
                             id: "billable",
                             label: entry.billable ? t("Mark as internal") : t("Mark as billable"),
-                            icon: <CircleDollar className="size-4" />,
+                            icon: (
+                              <BillableIndicator billable={!entry.billable} mode="icon" size="md" />
+                            ),
                           },
                           {
                             id: "delete",

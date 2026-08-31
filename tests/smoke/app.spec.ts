@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { qaCredentials, signInAs } from "../support/qa-auth";
 
 const routes = [
   "/tracker",
@@ -13,11 +14,8 @@ const routes = [
 ];
 const publicRoutes = ["/login", "/signup", "/forgot-password", "/auth/callback", "/invite/accept"];
 
-test.beforeEach(async ({ page }) => {
-  await page.goto("/");
-});
-
 test("all primary routes reload into the designed app shell", async ({ page }) => {
+  await signInAs(page, "owner");
   for (const route of routes) {
     await page.goto(route);
     await expect(page.locator("#main-content")).toBeVisible();
@@ -36,19 +34,22 @@ test("authentication routes reload into a structured page", async ({ page }) => 
 });
 
 test("settings preserves language and theme controls", async ({ page }) => {
+  await signInAs(page, "owner");
   await page.goto("/settings");
-  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Preferences", exact: true })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Light" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Dark" })).toBeVisible();
-  await page.getByRole("tab", { name: "Dark" }).click();
+  await expect(page.getByRole("heading", { name: /Settings|Configurações/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Preferences|Preferências/, exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Light|Claro/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Dark|Escuro/ })).toBeVisible();
+  await page.getByRole("tab", { name: /Dark|Escuro/ }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await page.getByRole("tab", { name: "Light" }).click();
+  await page.getByRole("tab", { name: /Light|Claro/ }).click();
   await expect(page.locator("html")).toHaveClass(/light/);
 });
 
 test("profile menu is keyboard reachable from the sidebar", async ({ page }) => {
-  await page.goto("/tracker");
+  await signInAs(page, "owner");
   const profile = page.getByRole("button", { name: /Open account menu for/ });
   await profile.focus();
   await expect(profile).toBeFocused();
@@ -56,4 +57,43 @@ test("profile menu is keyboard reachable from the sidebar", async ({ page }) => 
   await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menuitem", { name: "Settings" })).toHaveCount(0);
+});
+
+test("account loading failures expose a recoverable error state", async ({ page }) => {
+  const credentials = qaCredentials("owner");
+  let failNextRequest = true;
+  await page.route("**/api/data", async (route) => {
+    if (failNextRequest) {
+      failNextRequest = false;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "The data request failed." }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/login");
+  await page.getByLabel("Email", { exact: true }).fill(credentials.email);
+  await page.getByLabel("Password", { exact: true }).fill(credentials.password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: /We couldn't load your account|Não conseguimos carregar sua conta/,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Try again|Tentar novamente/ }).click();
+  await expect(page.locator("#main-content")).toBeVisible();
+});
+
+test("members cannot access owner and admin actions", async ({ page }) => {
+  await signInAs(page, "member");
+  await page.goto("/projects");
+  await expect(page.getByRole("button", { name: /New project|Novo projeto/ })).toHaveCount(0);
+  await page.goto("/clients");
+  await expect(page.getByRole("button", { name: /New client|Novo cliente/ })).toHaveCount(0);
+  await page.goto("/team");
+  await expect(page.getByRole("button", { name: /Invite member|Convidar membro/ })).toHaveCount(0);
 });

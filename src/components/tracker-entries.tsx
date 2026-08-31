@@ -16,11 +16,13 @@ import { Time } from "@internationalized/date";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { ChevronDown, ChevronUp, CircleExclamation, Copy, Play, TrashBin } from "@gravity-ui/icons";
 import { ActionDropdown } from "@/components/action-dropdown";
+import { BillableIndicator } from "@/components/billable-indicator";
 import { DataTable } from "@/components/data-table";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { OverlapConfirmation } from "@/components/overlap-confirmation";
 import { ProjectSelect } from "@/components/project-select";
+import { ProjectColorDot } from "@/components/project-color";
 import { useStore } from "@/lib/store";
 import {
   addSecondsToDateTime,
@@ -592,7 +594,10 @@ function TrackerGroupSummaryRow({
       <Table.Cell className={`${summaryCellClass} p-0`}>
         <Surface variant={summarySurfaceVariant} className="flex min-h-20 items-center px-4 py-3">
           <span className="flex min-w-0 flex-col">
-            <span className={`${summaryTextClass} font-medium`}>{projectName}</span>
+            <span className={`${summaryTextClass} flex items-center gap-2 font-medium`}>
+              {project ? <ProjectColorDot color={project.color} /> : null}
+              <span className="min-w-0 truncate">{projectName}</span>
+            </span>
             <span className={`${summaryTextClass} text-xs font-light`}>{clientName}</span>
           </span>
         </Surface>
@@ -1274,7 +1279,9 @@ function TrackerEntryRow({
                 const next = !entry.billable;
                 if (commitField("billable", next)) onDeactivate();
               }}
-            />
+            >
+              <BillableIndicator billable={entry.billable} mode="icon" />
+            </Button>
           </div>
           {activeField === "description" ? (
             <div className="flex min-w-0 items-start gap-1">
@@ -1349,7 +1356,10 @@ function TrackerEntryRow({
             onPress={() => onActivate("project")}
           >
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="block w-full min-w-0 truncate font-medium">{projectName}</span>
+              <span className="flex w-full min-w-0 items-center gap-2 truncate font-medium">
+                {project ? <ProjectColorDot color={project.color} /> : null}
+                <span className="min-w-0 truncate">{projectName}</span>
+              </span>
               <span className="block w-full min-w-0 truncate text-xs font-light">{clientName}</span>
             </span>
           </Button>

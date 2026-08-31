@@ -1,5 +1,4 @@
 import {
-  Avatar,
   Button,
   ButtonGroup,
   Chip,
@@ -30,6 +29,7 @@ import { DataTable } from "@/components/data-table";
 import { FormAlert } from "@/components/form-feedback";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { PageHeader } from "@/components/page-header";
+import { ProfileAvatar } from "@/components/profile-avatar";
 import { TableSkeleton } from "@/components/states";
 import { formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
@@ -56,6 +56,7 @@ function TeamPage() {
     entries,
     can,
     currentMember,
+    preferencesByUserId,
     inviteMember,
     resendInvite,
     cancelInvite,
@@ -208,9 +209,11 @@ function TeamPage() {
                 <Table.Row key={member.id}>
                   <Table.Cell>
                     <div className="flex min-w-0 items-center gap-3">
-                      <Avatar size="sm">
-                        <Avatar.Fallback>{member.initials}</Avatar.Fallback>
-                      </Avatar>
+                      <ProfileAvatar
+                        member={member}
+                        avatarUrl={preferencesByUserId[member.id]?.avatarUrl ?? null}
+                        size="sm"
+                      />
                       <div className="flex min-w-0 flex-col">
                         <span className="truncate">{invited ? member.email : member.name}</span>
                         <span className="truncate">

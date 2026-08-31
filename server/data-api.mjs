@@ -4,6 +4,21 @@ import pg from "pg";
 const { Pool } = pg;
 const pools = new Map();
 const jwks = new Map();
+const defaultAvatarUrls = [
+  "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg",
+  "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg",
+  "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/orange.jpg",
+  "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/red.jpg",
+  "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/purple.jpg",
+];
+
+class DataApiError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.name = "DataApiError";
+    this.status = status;
+  }
+}
 
 function envValue(env, key) {
   return env?.[key] ?? process.env[key] ?? "";
@@ -64,19 +79,48 @@ function numberValue(value, fallback = 0) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
+function avatarDataValue(value) {
+  if (typeof value !== "string") return null;
+  if (
+    /^data:image\/(?:png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
+    value.length <= 1_500_000
+  )
+    return value;
+  return defaultAvatarUrls.includes(value) ? value : null;
+}
+
+function defaultAvatarForUser(userId) {
+  let hash = 0;
+  for (const character of userId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return defaultAvatarUrls[hash % defaultAvatarUrls.length];
+}
+
+async function hasColumn(client, tableName, columnName) {
+  const result = await client.query(
+    `select exists (
+       select 1
+         from information_schema.columns
+        where table_schema = 'public' and table_name = $1 and column_name = $2
+     ) as present`,
+    [tableName, columnName],
+  );
+  return Boolean(result.rows[0]?.present);
+}
+
 async function authenticate(request, config) {
-  const authorization = request.headers.authorization ?? "";
+  const authorization = request.headers?.authorization ?? request.headers?.Authorization ?? "";
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
-  if (!token) throw new Error("Authentication is required.");
+  if (!token) throw new DataApiError(401, "Authentication is required.");
 
   if (config.databaseProvider === "supabase") {
     if (!config.supabaseUrl || !config.supabasePublishableKey) {
-      throw new Error("Supabase authentication is not configured.");
+      throw new DataApiError(500, "Supabase authentication is not configured.");
     }
     const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
       headers: { apikey: config.supabasePublishableKey, authorization: `Bearer ${token}` },
     });
-    if (!response.ok) throw new Error("The authentication token is invalid or expired.");
+    if (!response.ok)
+      throw new DataApiError(401, "The authentication token is invalid or expired.");
     const user = await response.json();
     return {
       id: user.id,
@@ -86,7 +130,7 @@ async function authenticate(request, config) {
   }
 
   if (config.databaseProvider !== "neon" || !config.neonAuthUrl) {
-    throw new Error("Neon authentication is not configured.");
+    throw new DataApiError(500, "Neon authentication is not configured.");
   }
   const sessionResult = await getPool(config).query(
     `select u.id::text, u.email, u.name
@@ -108,8 +152,14 @@ async function authenticate(request, config) {
     keySet = createRemoteJWKSet(new URL(`${config.neonAuthUrl}/.well-known/jwks.json`));
     jwks.set(config.neonAuthUrl, keySet);
   }
-  const verified = await jwtVerify(token, keySet);
-  if (!verified.payload.sub) throw new Error("The authentication token has no user subject.");
+  let verified;
+  try {
+    verified = await jwtVerify(token, keySet);
+  } catch {
+    throw new DataApiError(401, "The authentication token is invalid or expired.");
+  }
+  if (!verified.payload.sub)
+    throw new DataApiError(401, "The authentication token has no user subject.");
   return {
     id: verified.payload.sub,
     email: typeof verified.payload.email === "string" ? verified.payload.email : "",
@@ -117,14 +167,59 @@ async function authenticate(request, config) {
   };
 }
 
+async function workspaceAccess(client, userId, workspaceId) {
+  const result = await client.query(
+    `select w.status, w.owner_id, wm.role, wm.status as membership_status
+       from public.workspace_members wm
+       join public.workspaces w on w.id = wm.workspace_id
+      where wm.workspace_id = $1 and wm.user_id = $2
+      limit 1`,
+    [workspaceId, userId],
+  );
+  return result.rows[0] ?? null;
+}
+
+async function requireWorkspaceAccess(client, userId, workspaceId, allowArchived = false) {
+  const access = await workspaceAccess(client, userId, workspaceId);
+  if (!access || access.membership_status !== "active") {
+    throw new DataApiError(403, "You do not have access to this workspace.");
+  }
+  if (!allowArchived && access.status !== "active") {
+    throw new DataApiError(403, "Archived workspaces are read-only.");
+  }
+  return access;
+}
+
+function requirePayloadUser(user, body) {
+  if (body.userId !== undefined && body.userId !== user.id) {
+    throw new DataApiError(403, "The authenticated user does not match the request.");
+  }
+}
+
 async function ensureProfile(client, user, config) {
-  const name = user.name.trim().replace(/\s+/g, " ");
-  const email = user.email.trim().toLowerCase();
+  const existingProfile = await client.query(
+    `select name, email from public.profiles where id = $1 limit 1`,
+    [user.id],
+  );
+  const storedProfile = existingProfile.rows[0];
+  const authenticatedName = user.name.trim().replace(/\s+/g, " ");
+  const authenticatedEmail = user.email.trim().toLowerCase();
+  const name =
+    authenticatedName && authenticatedName.split(" ").length >= 2
+      ? authenticatedName
+      : String(storedProfile?.name ?? "")
+          .trim()
+          .replace(/\s+/g, " ");
+  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authenticatedEmail)
+    ? authenticatedEmail
+    : String(storedProfile?.email ?? "")
+        .trim()
+        .toLowerCase();
   if (!name || name.split(" ").length < 2) {
-    throw new Error("A first and last name are required.");
+    throw new DataApiError(400, "A first and last name are required.");
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new Error("A valid email is required.");
+    throw new DataApiError(400, "A valid email is required.");
   }
   const initials =
     name
@@ -170,7 +265,7 @@ async function loadAccount(client, user, config) {
     `select w.id::text, w.name, w.owner_id, w.status, w.created_at, w.archived_at
        from public.workspaces w
        join public.workspace_members access on access.workspace_id = w.id
-      where access.user_id = $1
+      where access.user_id = $1 and access.status = 'active'
       order by w.created_at asc`,
     [user.id],
   );
@@ -212,11 +307,40 @@ async function loadAccount(client, user, config) {
     [workspaceIds],
   );
   const entries = await client.query(
-    `select id::text, workspace_id::text, date::text, start_time::text, end_time::text, end_date::text, start_at, end_at, duration_seconds, user_id, project_id::text, task, description, billable, hourly_rate, currency from public.time_entries where workspace_id = any($1::uuid[]) order by date asc, start_time asc`,
-    [workspaceIds],
+    `select id::text, workspace_id::text, date::text, start_time::text, end_time::text, end_date::text, start_at, end_at, duration_seconds, user_id, project_id::text, task, description, billable, hourly_rate, currency
+       from public.time_entries e
+      where e.workspace_id = any($1::uuid[])
+        and (
+          e.user_id = $2
+          or exists (
+            select 1
+              from public.workspace_members viewer
+             where viewer.workspace_id = e.workspace_id
+               and viewer.user_id = $2
+               and viewer.status = 'active'
+               and viewer.role in ('Admin', 'Owner')
+          )
+        )
+      order by date asc, start_time asc`,
+    [workspaceIds, user.id],
   );
+  const hasAvatarData = await hasColumn(client, "user_preferences", "avatar_data_url");
+  if (hasAvatarData) {
+    for (const id of ids) {
+      await client.query(
+        `insert into public.user_preferences (user_id, avatar_data_url)
+         values ($1, $2)
+         on conflict (user_id) do update
+           set avatar_data_url = coalesce(nullif(public.user_preferences.avatar_data_url, ''), excluded.avatar_data_url),
+               updated_at = now()`,
+        [id, defaultAvatarForUser(id)],
+      );
+    }
+  }
   const preferences = await client.query(
-    `select user_id, language, theme, timezone, reminders, weekly_digest, idle_detection, hourly_rate, currency from public.user_preferences where user_id = any($1::text[])`,
+    `select user_id, language, theme, timezone, reminders, weekly_digest, idle_detection, hourly_rate, currency, ${
+      hasAvatarData ? "avatar_data_url" : "null::text as avatar_data_url"
+    } from public.user_preferences where user_id = any($1::text[])`,
     [ids],
   );
   const settingsByWorkspace = new Map(settings.rows.map((row) => [row.workspace_id, row]));
@@ -293,7 +417,7 @@ async function loadAccount(client, user, config) {
           idleDetection: row?.idle_detection ?? true,
           language: row?.language === "pt-BR" ? "pt-BR" : "en-US",
           theme: row?.theme === "light" || row?.theme === "dark" ? row.theme : "system",
-          avatarUrl: null,
+          avatarUrl: avatarDataValue(row?.avatar_data_url),
           timezone: row?.timezone ?? "UTC",
           hourlyRate: numberValue(row?.hourly_rate),
           currency: ["BRL", "USD", "EUR", "GBP"].includes(row?.currency) ? row.currency : "USD",
@@ -328,41 +452,129 @@ async function loadAccount(client, user, config) {
   };
 }
 
-async function syncAccount(client, user, config, account) {
-  if (!account || !Array.isArray(account.identities) || !Array.isArray(account.workspaces))
-    throw new Error("Invalid account payload.");
-  await ensureProfile(client, user, config);
-  const identities = account.identities.filter((item) => item && typeof item.id === "string");
-  for (const identity of identities) {
+async function syncEntries(client, userId, workspaceId, entries, ownOnly) {
+  if (!Array.isArray(entries)) throw new DataApiError(400, "Invalid time entries payload.");
+  const entryIds = entries.map((entry) => uuid(entry.id));
+  if (new Set(entryIds).size !== entryIds.length) {
+    throw new DataApiError(400, "The data payload contains duplicate time entry identifiers.");
+  }
+
+  if (ownOnly) {
     await client.query(
-      `insert into public.profiles (id, auth_issuer, name, email, initials)
-       values ($1, $2, $3, $4, $5)
-       on conflict (id) do update set name = excluded.name, email = excluded.email, initials = excluded.initials, updated_at = now()`,
+      `delete from public.time_entries
+        where workspace_id = $1 and user_id = $2 and not (id = any($3::uuid[]))`,
+      [workspaceId, userId, entryIds],
+    );
+  } else {
+    await client.query(
+      `delete from public.time_entries where workspace_id = $1 and not (id = any($2::uuid[]))`,
+      [workspaceId, entryIds],
+    );
+  }
+
+  for (const [index, entry] of entries.entries()) {
+    if (typeof entry.userId !== "string" || (ownOnly && entry.userId !== userId)) {
+      throw new DataApiError(403, "You can only update your own time entries.");
+    }
+    const endDate = entry.endDate ?? entry.date;
+    const seconds = Number(entry.seconds);
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      throw new DataApiError(400, "The data payload contains an invalid duration.");
+    }
+    const hourlyRate = entry.hourlyRate === undefined ? null : Number(entry.hourlyRate);
+    if (hourlyRate !== null && (!Number.isFinite(hourlyRate) || hourlyRate < 0)) {
+      throw new DataApiError(400, "The data payload contains an invalid hourly rate.");
+    }
+    const startAt =
+      typeof entry.startTimestamp === "number"
+        ? new Date(entry.startTimestamp).toISOString()
+        : null;
+    const endAt =
+      typeof entry.endTimestamp === "number" ? new Date(entry.endTimestamp).toISOString() : null;
+    await client.query(
+      `insert into public.time_entries (id, workspace_id, user_id, date, start_time, end_time, end_date, start_at, end_at, duration_seconds, project_id, task, description, billable, hourly_rate, currency)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+       on conflict (id) do update set date = excluded.date, start_time = excluded.start_time, end_date = excluded.end_date, end_time = excluded.end_time, start_at = excluded.start_at, end_at = excluded.end_at, duration_seconds = excluded.duration_seconds, project_id = excluded.project_id, task = excluded.task, description = excluded.description, billable = excluded.billable, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now()`,
       [
-        identity.id,
-        config.databaseProvider,
-        String(identity.name ?? ""),
-        String(identity.email ?? ""),
-        String(identity.initials ?? "?"),
+        entryIds[index],
+        workspaceId,
+        entry.userId,
+        dateValue(entry.date),
+        timeValue(entry.start),
+        timeValue(entry.end),
+        dateValue(endDate),
+        startAt,
+        endAt,
+        Math.floor(seconds),
+        entry.projectId ? uuid(entry.projectId) : null,
+        String(entry.task).trim(),
+        entry.description ?? null,
+        Boolean(entry.billable),
+        hourlyRate,
+        entry.currency ?? null,
       ],
     );
-    const preferences = account.preferencesByUserId?.[identity.id];
-    if (preferences) {
+  }
+}
+
+async function syncAccount(client, user, config, account) {
+  if (!account || !Array.isArray(account.identities) || !Array.isArray(account.workspaces))
+    throw new DataApiError(400, "Invalid account payload.");
+  await ensureProfile(client, user, config);
+  const identities = new Map(
+    account.identities
+      .filter((item) => item && typeof item.id === "string")
+      .map((identity) => [identity.id, identity]),
+  );
+  const ownIdentity = identities.get(user.id);
+  if (!ownIdentity) throw new DataApiError(400, "The authenticated profile is missing.");
+  const ownName = String(ownIdentity.name ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  const ownEmail = String(ownIdentity.email ?? "")
+    .trim()
+    .toLowerCase();
+  if (!ownName || ownName.split(" ").length < 2) {
+    throw new DataApiError(400, "A first and last name are required.");
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownEmail)) {
+    throw new DataApiError(400, "A valid email is required.");
+  }
+  const ownInitials = ownName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+  await client.query(
+    `update public.profiles set name = $2, email = $3, initials = $4, updated_at = now() where id = $1`,
+    [user.id, ownName, ownEmail, ownInitials],
+  );
+  const ownPreferences = account.preferencesByUserId?.[user.id];
+  if (ownPreferences) {
+    const preferenceValues = [
+      user.id,
+      ownPreferences.language,
+      ownPreferences.theme,
+      ownPreferences.timezone,
+      ownPreferences.reminders,
+      ownPreferences.weeklyDigest,
+      ownPreferences.idleDetection,
+      numberValue(ownPreferences.hourlyRate),
+      ownPreferences.currency,
+    ];
+    if (await hasColumn(client, "user_preferences", "avatar_data_url")) {
+      await client.query(
+        `insert into public.user_preferences (user_id, language, theme, timezone, reminders, weekly_digest, idle_detection, hourly_rate, currency, avatar_data_url)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         on conflict (user_id) do update set language = excluded.language, theme = excluded.theme, timezone = excluded.timezone, reminders = excluded.reminders, weekly_digest = excluded.weekly_digest, idle_detection = excluded.idle_detection, hourly_rate = excluded.hourly_rate, currency = excluded.currency, avatar_data_url = excluded.avatar_data_url, updated_at = now()`,
+        [...preferenceValues, avatarDataValue(ownPreferences.avatarUrl)],
+      );
+    } else {
       await client.query(
         `insert into public.user_preferences (user_id, language, theme, timezone, reminders, weekly_digest, idle_detection, hourly_rate, currency)
          values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          on conflict (user_id) do update set language = excluded.language, theme = excluded.theme, timezone = excluded.timezone, reminders = excluded.reminders, weekly_digest = excluded.weekly_digest, idle_detection = excluded.idle_detection, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now()`,
-        [
-          identity.id,
-          preferences.language,
-          preferences.theme,
-          preferences.timezone,
-          preferences.reminders,
-          preferences.weeklyDigest,
-          preferences.idleDetection,
-          numberValue(preferences.hourlyRate),
-          preferences.currency,
-        ],
+        preferenceValues,
       );
     }
   }
@@ -373,41 +585,136 @@ async function syncAccount(client, user, config, account) {
       `select owner_id from public.workspaces where id = $1`,
       [workspaceId],
     );
+    let access = existingWorkspace.rows[0]
+      ? await workspaceAccess(client, user.id, workspaceId)
+      : { role: "Owner", membership_status: "active", status: "active", owner_id: user.id };
     if (existingWorkspace.rows[0]) {
-      const access = await client.query(
-        `select 1 from public.workspace_members where workspace_id = $1 and user_id = $2 limit 1`,
-        [workspaceId, user.id],
-      );
-      if (!access.rowCount || existingWorkspace.rows[0].owner_id !== ownerId) {
-        throw new Error("You do not have permission to update this workspace.");
+      if (!access || access.membership_status !== "active") {
+        throw new DataApiError(403, "You do not have permission to update this workspace.");
       }
-    } else if (ownerId !== user.id) {
-      throw new Error("Only the authenticated user can create a workspace.");
+      if (existingWorkspace.rows[0].owner_id !== ownerId) {
+        throw new DataApiError(403, "The workspace owner cannot be changed.");
+      }
+      if (
+        access.role !== "Owner" &&
+        (data.workspace.name !== existingWorkspace.rows[0].name ||
+          data.workspace.status !== existingWorkspace.rows[0].status)
+      ) {
+        throw new DataApiError(403, "Only the workspace Owner can edit it.");
+      }
+    } else if (ownerId !== user.id || access.role !== "Owner") {
+      throw new DataApiError(403, "Only the authenticated user can create a workspace.");
     }
-    await client.query(
-      `insert into public.workspaces (id, name, owner_id, status, created_at, archived_at)
-       values ($1, $2, $3, $4, $5, $6)
-       on conflict (id) do update set name = excluded.name, owner_id = excluded.owner_id, status = excluded.status, archived_at = excluded.archived_at`,
-      [
-        workspaceId,
-        String(data.workspace.name).trim(),
-        ownerId,
-        data.workspace.status,
-        data.workspace.createdAt,
-        data.workspace.archivedAt ?? null,
-      ],
-    );
-    await client.query(
-      `insert into public.workspace_settings (workspace_id, default_billable, week_start)
-       values ($1, $2, $3)
-       on conflict (workspace_id) do update set default_billable = excluded.default_billable, week_start = excluded.week_start, updated_at = now()`,
-      [
-        workspaceId,
-        data.settings?.defaultBillable ?? true,
-        data.settings?.weekStart === "sunday" ? "sunday" : "monday",
-      ],
-    );
+    if (existingWorkspace.rows[0] && access.status === "archived" && access.role !== "Owner") {
+      continue;
+    }
+    if (access.role !== "Member") {
+      await client.query(
+        `insert into public.workspaces (id, name, owner_id, status, created_at, archived_at)
+         values ($1, $2, $3, $4, $5, $6)
+         on conflict (id) do update set name = excluded.name, owner_id = excluded.owner_id, status = excluded.status, archived_at = excluded.archived_at`,
+        [
+          workspaceId,
+          String(data.workspace.name).trim(),
+          ownerId,
+          data.workspace.status,
+          data.workspace.createdAt,
+          data.workspace.archivedAt ?? null,
+        ],
+      );
+      await client.query(
+        `insert into public.workspace_settings (workspace_id, default_billable, week_start)
+         values ($1, $2, $3)
+         on conflict (workspace_id) do update set default_billable = excluded.default_billable, week_start = excluded.week_start, updated_at = now()`,
+        [
+          workspaceId,
+          data.settings?.defaultBillable ?? true,
+          data.settings?.weekStart === "sunday" ? "sunday" : "monday",
+        ],
+      );
+    }
     const memberships = Array.isArray(data.memberships) ? data.memberships : [];
+    if (access.role === "Member") {
+      await syncEntries(client, user.id, workspaceId, data.entries ?? [], true);
+      continue;
+    }
+    const membershipByUserId = new Map();
+    for (const membership of memberships) {
+      if (!membership || typeof membership.userId !== "string") {
+        throw new DataApiError(400, "Invalid workspace membership payload.");
+      }
+      if (
+        !["Owner", "Admin", "Member"].includes(membership.role) ||
+        !["active", "invited", "removed"].includes(membership.status)
+      ) {
+        throw new DataApiError(400, "Invalid workspace membership payload.");
+      }
+      membershipByUserId.set(membership.userId, membership);
+      const identity = identities.get(membership.userId);
+      if (!identity) throw new DataApiError(400, "A workspace member profile is missing.");
+      const existingMembership = await client.query(
+        `select role, status from public.workspace_members where workspace_id = $1 and user_id = $2`,
+        [workspaceId, membership.userId],
+      );
+      const previousMembership = existingMembership.rows[0];
+      if (membership.userId !== user.id) {
+        const existingProfile = await client.query(`select 1 from public.profiles where id = $1`, [
+          membership.userId,
+        ]);
+        if (!existingProfile.rowCount) {
+          await client.query(
+            `insert into public.profiles (id, auth_issuer, name, email, initials) values ($1, $2, $3, $4, $5)`,
+            [
+              membership.userId,
+              config.databaseProvider,
+              String(identity.name ?? "Invited user"),
+              String(identity.email ?? ""),
+              String(identity.initials ?? "IU"),
+            ],
+          );
+        }
+      }
+      if (
+        membership.role === "Owner" &&
+        (membership.userId !== ownerId || membership.status !== "active")
+      ) {
+        throw new DataApiError(400, "A workspace must have one active Owner.");
+      }
+      if (
+        access.role === "Admin" &&
+        membership.userId !== user.id &&
+        (membership.role === "Owner" ||
+          (previousMembership?.role === "Owner" && membership.role !== "Owner") ||
+          (previousMembership?.role === "Admin" &&
+            (membership.role !== "Admin" || membership.status !== previousMembership.status)))
+      ) {
+        throw new DataApiError(403, "Admins cannot manage Owners or Admins.");
+      }
+    }
+    const ownerMembership = membershipByUserId.get(ownerId);
+    if (
+      !ownerMembership ||
+      ownerMembership.role !== "Owner" ||
+      ownerMembership.status !== "active"
+    ) {
+      throw new DataApiError(400, "A workspace must have one active Owner.");
+    }
+    if (!membershipByUserId.has(user.id) || membershipByUserId.get(user.id).status !== "active") {
+      throw new DataApiError(403, "You cannot remove your own workspace access.");
+    }
+    const existingMemberships = await client.query(
+      `select user_id, role from public.workspace_members where workspace_id = $1`,
+      [workspaceId],
+    );
+    for (const existingMembership of existingMemberships.rows) {
+      if (membershipByUserId.has(existingMembership.user_id)) continue;
+      if (
+        existingMembership.role === "Owner" ||
+        (access.role === "Admin" && existingMembership.role === "Admin")
+      ) {
+        throw new DataApiError(403, "You cannot remove this workspace member.");
+      }
+    }
     await client.query(
       `delete from public.time_entries where workspace_id = $1 and not (id = any($2::uuid[]))`,
       [workspaceId, (data.entries ?? []).map((entry) => uuid(entry.id))],
@@ -461,11 +768,15 @@ async function syncAccount(client, user, config, account) {
           dateValue(project.lastActivity),
         ],
       );
-      for (const memberId of project.memberIds ?? [])
+      for (const memberId of project.memberIds ?? []) {
+        if (membershipByUserId.get(memberId)?.status !== "active") {
+          throw new DataApiError(400, "Only active members can be assigned to a project.");
+        }
         await client.query(
           `insert into public.project_members (workspace_id, project_id, user_id) values ($1, $2, $3) on conflict do nothing`,
           [workspaceId, projectId, memberId],
         );
+      }
     }
     for (const entry of data.entries ?? []) {
       const endDate = entry.endDate ?? entry.date;
@@ -520,6 +831,7 @@ async function operation(request, user, config, body) {
   const pool = getPool(config);
   const client = await pool.connect();
   try {
+    requirePayloadUser(user, body ?? {});
     if (body.operation === "loadAccount") return await loadAccount(client, user, config);
     if (body.operation === "syncAccount") {
       await client.query("begin");
@@ -534,6 +846,7 @@ async function operation(request, user, config, body) {
     }
     if (body.operation === "getActiveTimer") {
       const workspaceId = uuid(body.workspaceId);
+      await requireWorkspaceAccess(client, user.id, workspaceId);
       const result = await client.query(
         `select user_id, workspace_id::text, status, task, project_id::text, billable, started_at, started_date::text, accumulated_seconds, start_clock::text, hourly_rate, currency from public.active_timers where user_id = $1 and workspace_id = $2`,
         [user.id, workspaceId],
@@ -542,7 +855,40 @@ async function operation(request, user, config, body) {
     }
     if (body.operation === "saveActiveTimer") {
       const timer = body.timer;
+      if (!timer || typeof timer !== "object") {
+        throw new DataApiError(400, "Invalid timer payload.");
+      }
       const workspaceId = uuid(timer.workspaceId);
+      const access = await requireWorkspaceAccess(client, user.id, workspaceId);
+      if (timer.status !== "running" && timer.status !== "paused") {
+        throw new DataApiError(400, "Invalid timer status.");
+      }
+      if (typeof timer.task !== "string" || !timer.task.trim()) {
+        throw new DataApiError(400, "A task is required.");
+      }
+      if (!Number.isFinite(Number(timer.accumulated)) || Number(timer.accumulated) < 0) {
+        throw new DataApiError(400, "The data payload contains an invalid timer duration.");
+      }
+      if (timer.projectId) {
+        const projectId = uuid(timer.projectId);
+        const project = await client.query(
+          `select p.status,
+                  exists (
+                    select 1 from public.project_members pm
+                    where pm.project_id = p.id and pm.workspace_id = p.workspace_id and pm.user_id = $2
+                  ) as assigned
+             from public.projects p
+            where p.id = $1 and p.workspace_id = $3`,
+          [projectId, user.id, workspaceId],
+        );
+        if (!project.rows[0]) throw new DataApiError(400, "This project no longer exists.");
+        if (project.rows[0].status !== "active") {
+          throw new DataApiError(400, "This project cannot be used for a timer.");
+        }
+        if (access.role === "Member" && !project.rows[0].assigned) {
+          throw new DataApiError(403, "This project is not assigned to your team member.");
+        }
+      }
       const result = await client.query(
         `insert into public.active_timers (user_id, workspace_id, status, task, project_id, billable, started_at, started_date, accumulated_seconds, start_clock, hourly_rate, currency) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) on conflict (user_id, workspace_id) do update set status = excluded.status, task = excluded.task, project_id = excluded.project_id, billable = excluded.billable, started_at = excluded.started_at, started_date = excluded.started_date, accumulated_seconds = excluded.accumulated_seconds, start_clock = excluded.start_clock, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now() returning user_id, workspace_id::text, status, task, project_id::text, billable, started_at, started_date::text, accumulated_seconds, start_clock::text, hourly_rate, currency`,
         [
@@ -563,13 +909,15 @@ async function operation(request, user, config, body) {
       return timerFromRow(result.rows[0]);
     }
     if (body.operation === "clearActiveTimer") {
+      const workspaceId = uuid(body.workspaceId);
+      await requireWorkspaceAccess(client, user.id, workspaceId, true);
       await client.query(
         `delete from public.active_timers where user_id = $1 and workspace_id = $2`,
-        [user.id, uuid(body.workspaceId)],
+        [user.id, workspaceId],
       );
       return null;
     }
-    throw new Error("Unsupported data operation.");
+    throw new DataApiError(400, "Unsupported data operation.");
   } finally {
     client.release();
   }
@@ -579,19 +927,31 @@ async function readBody(request) {
   if (request.body && typeof request.body === "object") return request.body;
   let raw = "";
   for await (const chunk of request) raw += chunk;
-  return raw ? JSON.parse(raw) : {};
+  if (!raw.trim()) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new DataApiError(400, "The request body must be valid JSON.");
+  }
+}
+
+function sendJson(response, status, payload) {
+  response.statusCode = status;
+  response.setHeader("content-type", "application/json; charset=utf-8");
+  response.setHeader("cache-control", "no-store, private");
+  response.end(JSON.stringify(payload));
 }
 
 export async function handleDataRequest(request, response, env = {}) {
-  if (request.method === "OPTIONS") {
+  const method = String(request.method ?? "").toUpperCase();
+  if (method === "OPTIONS") {
     response.statusCode = 204;
+    response.setHeader("cache-control", "no-store, private");
     response.end();
     return;
   }
-  if (request.method !== "POST") {
-    response.statusCode = 405;
-    response.setHeader("content-type", "application/json");
-    response.end(JSON.stringify({ error: "Method not allowed." }));
+  if (method !== "POST") {
+    sendJson(response, 405, { error: "Method not allowed." });
     return;
   }
   try {
@@ -599,19 +959,18 @@ export async function handleDataRequest(request, response, env = {}) {
     const user = await authenticate(request, config);
     const body = await readBody(request);
     const data = await operation(request, user, config, body);
-    response.statusCode = 200;
-    response.setHeader("content-type", "application/json");
-    response.end(JSON.stringify({ data }));
+    sendJson(response, 200, { data });
   } catch (error) {
-    response.statusCode = /Authentication|token|configured|required/.test(error?.message ?? "")
-      ? 401
-      : 400;
-    response.setHeader("content-type", "application/json");
-    response.end(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : String(error) || "The data request failed.",
-      }),
-    );
+    const message =
+      error instanceof Error && error.message.trim() ? error.message : "The data request failed.";
+    console.error("[time-blossom data api]", {
+      name: error instanceof Error ? error.name : typeof error,
+      message,
+      code: error?.code,
+    });
+    sendJson(response, typeof error?.status === "number" ? error.status : 500, {
+      error: message,
+    });
   }
 }
 
