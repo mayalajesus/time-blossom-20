@@ -4,7 +4,6 @@ import {
   Button,
   Chip,
   ColorSwatchPicker,
-  Description,
   EmptyState,
   FieldError,
   Form,
@@ -12,11 +11,15 @@ import {
   Label,
   Modal,
   SearchField,
+  Switch,
+  Tag,
+  TagGroup,
   ButtonGroup,
   Dropdown,
-  Switch,
   Table,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
   useFilter,
   toast,
@@ -34,7 +37,6 @@ import {
   Plus,
   Power,
   TrashBin,
-  Xmark,
 } from "@gravity-ui/icons";
 import { useMemo, useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
@@ -47,6 +49,7 @@ import { FormAlert } from "@/components/form-feedback";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
+import { getSessionDefaultAvatarUrl } from "@/lib/default-avatar";
 import { useI18n } from "@/lib/i18n";
 import type { Project } from "@/lib/mock-data";
 import {
@@ -81,6 +84,7 @@ function ProjectsPage() {
     entries,
     members,
     settings,
+    preferencesByUserId,
     today,
     currentUserId,
     can,
@@ -289,6 +293,46 @@ function ProjectsPage() {
     );
     setMemberQuery("");
   };
+  const renderAssignedMemberTags = () => (
+    <TagGroup
+      aria-label={t("Selected members")}
+      size="sm"
+      onRemove={(keys) => {
+        const removedIds = new Set(Array.from(keys, String));
+        removedIds.delete(currentUserId);
+        setAssignedMemberIds((current) => current.filter((id) => !removedIds.has(id)));
+      }}
+    >
+      <Label>{t("Selected members")}</Label>
+      <TagGroup.List
+        items={assignedMembers}
+        renderEmptyState={() => (
+          <EmptyState className="p-1">{t("No members selected")}</EmptyState>
+        )}
+      >
+        {(member) => (
+          <Tag key={member.id} id={member.id} textValue={member.name}>
+            <Avatar className="size-4 shrink-0" size="sm">
+              <Avatar.Image
+                alt={member.name}
+                src={
+                  preferencesByUserId[member.id]?.avatarUrl ??
+                  getSessionDefaultAvatarUrl(member.id)
+                }
+              />
+              <Avatar.Fallback>{member.initials}</Avatar.Fallback>
+            </Avatar>
+            <span className="max-w-40 truncate">{member.name}</span>
+            <Tag.RemoveButton
+              aria-label={t("Remove {name}", { name: member.name })}
+              className={member.id === currentUserId ? "hidden" : undefined}
+              isDisabled={member.id === currentUserId}
+            />
+          </Tag>
+        )}
+      </TagGroup.List>
+    </TagGroup>
+  );
   const projectFilterOptions = [
     { id: "all", label: t("All") },
     { id: "active", label: t("Active") },
@@ -644,8 +688,10 @@ function ProjectsPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t(editingProject ? "Edit project" : "New project")}</Modal.Heading>
+              <Modal.Header className="pb-2">
+                <Modal.Heading className="text-lg font-semibold tracking-tight">
+                  {t(editingProject ? "Edit project" : "New project")}
+                </Modal.Heading>
               </Modal.Header>
               <Form
                 onSubmit={(event) => {
@@ -653,7 +699,7 @@ function ProjectsPage() {
                   saveProject();
                 }}
               >
-                <Modal.Body className="flex flex-col gap-4">
+                <Modal.Body className="flex flex-col gap-5 py-2">
                   {createError ? (
                     <FormAlert
                       title={t("We couldn't create this project")}
@@ -661,21 +707,41 @@ function ProjectsPage() {
                     />
                   ) : null}
 
-                  <TextField
-                    isRequired
-                    fullWidth
-                    name="project-name"
-                    value={name}
-                    validate={(value) => (value.trim() ? null : t("Project name is required"))}
-                    onChange={(value) => {
-                      setName(value);
-                      setCreateError(null);
-                    }}
-                  >
-                    <Label>{t("Name")}</Label>
-                    <Input variant="secondary" placeholder={t("e.g. Brand refresh")} />
-                    <FieldError />
-                  </TextField>
+                  <div className="flex min-w-0 items-end gap-3">
+                    <TextField
+                      isRequired
+                      fullWidth
+                      className="min-w-0 flex-1"
+                      name="project-name"
+                      value={name}
+                      validate={(value) => (value.trim() ? null : t("Project name is required"))}
+                      onChange={(value) => {
+                        setName(value);
+                        setCreateError(null);
+                      }}
+                    >
+                      <Label>{t("Name")}</Label>
+                      <Input variant="secondary" placeholder={t("e.g. Brand refresh")} />
+                      <FieldError />
+                    </TextField>
+
+                    <ToggleButtonGroup
+                      aria-label={t("Billable")}
+                      size="sm"
+                      className="shrink-0 gap-0.5"
+                      selectionMode="multiple"
+                    >
+                      <ToggleButton
+                        aria-label={t("Billable")}
+                        className="size-9 min-h-9 min-w-9"
+                        isIconOnly
+                        isSelected={projectBillable}
+                        onChange={(selected: boolean) => setProjectBillable(selected)}
+                      >
+                        <BillableIndicator billable={projectBillable} mode="icon" size="md" />
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                  </div>
 
                   <div className="space-y-2">
                     <Label>{t("Project color")}</Label>
@@ -721,6 +787,7 @@ function ProjectsPage() {
                       >
                         <Dropdown.Menu
                           aria-label={t("Client")}
+                          className="max-h-60 overflow-y-auto"
                           selectionMode="single"
                           selectedKeys={new Set([clientId || "none"])}
                           onAction={(key) => {
@@ -742,29 +809,10 @@ function ProjectsPage() {
                         </Dropdown.Menu>
                       </Dropdown.Popover>
                     </Dropdown>
-                    <Description>{t("Every project is connected to one client.")}</Description>
                   </div>
 
-                  <Switch
-                    isSelected={projectBillable}
-                    onChange={(selected) => setProjectBillable(selected)}
-                  >
-                    <Switch.Control>
-                      <Switch.Thumb />
-                    </Switch.Control>
-                    <Switch.Content>
-                      <div className="flex items-center gap-2">
-                        <BillableIndicator billable={projectBillable} mode="icon" />
-                        <Label>{t("Billable")}</Label>
-                      </div>
-                      <Description>{t("New entries use this as their default.")}</Description>
-                    </Switch.Content>
-                  </Switch>
-
-                  <div className="space-y-3">
-                    <div>
-                      <Label>{t("Project members")}</Label>
-                    </div>
+                  <div className="space-y-2">
+                    <Label>{t("Project members")}</Label>
                     <Dropdown>
                       <Button
                         type="button"
@@ -827,41 +875,10 @@ function ProjectsPage() {
                         </div>
                       </Dropdown.Popover>
                     </Dropdown>
-                    <div className="space-y-2">
-                      <Label>{t("Selected members")}</Label>
-                      {assignedMembers.length === 0 ? (
-                        <Typography type="body-sm" color="muted">
-                          {t("No members selected")}
-                        </Typography>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {assignedMembers.map((member) => (
-                            <Chip key={member.id} size="sm" variant="soft">
-                              <Chip.Label>{member.name}</Chip.Label>
-                              {member.id === currentUserId ? null : (
-                                <Button
-                                  isIconOnly
-                                  size="sm"
-                                  variant="tertiary"
-                                  aria-label={t("Remove {name}", { name: member.name })}
-                                  className="-mr-1 size-5 min-w-5 p-0"
-                                  onPress={() =>
-                                    setAssignedMemberIds((current) =>
-                                      current.filter((id) => id !== member.id),
-                                    )
-                                  }
-                                >
-                                  <Xmark aria-hidden="true" className="size-3" />
-                                </Button>
-                              )}
-                            </Chip>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <div className="pt-1">{renderAssignedMemberTags()}</div>
                   </div>
                 </Modal.Body>
-                <Modal.Footer>
+                <Modal.Footer className="gap-2 pt-3">
                   <Button slot="close" type="button" variant="secondary">
                     {t("Cancel")}
                   </Button>
@@ -962,38 +979,7 @@ function ProjectsPage() {
                     </div>
                   </Dropdown.Popover>
                 </Dropdown>
-                <div className="space-y-2">
-                  <Label>{t("Selected members")}</Label>
-                  {assignedMembers.length === 0 ? (
-                    <Typography type="body-sm" color="muted">
-                      {t("No members selected")}
-                    </Typography>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {assignedMembers.map((member) => (
-                        <Chip key={member.id} size="sm" variant="soft">
-                          <Chip.Label>{member.name}</Chip.Label>
-                          {member.id === currentUserId ? null : (
-                            <Button
-                              isIconOnly
-                              size="sm"
-                              variant="tertiary"
-                              aria-label={t("Remove {name}", { name: member.name })}
-                              className="-mr-1 size-5 min-w-5 p-0"
-                              onPress={() =>
-                                setAssignedMemberIds((current) =>
-                                  current.filter((id) => id !== member.id),
-                                )
-                              }
-                            >
-                              <Xmark aria-hidden="true" className="size-3" />
-                            </Button>
-                          )}
-                        </Chip>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                {renderAssignedMemberTags()}
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">

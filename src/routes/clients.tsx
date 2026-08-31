@@ -184,8 +184,10 @@ function ClientsPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("New client")}</Modal.Heading>
+              <Modal.Header className="pb-2">
+                <Modal.Heading className="text-lg font-semibold tracking-tight">
+                  {t("New client")}
+                </Modal.Heading>
               </Modal.Header>
               <Form
                 onSubmit={(event) => {
@@ -193,7 +195,7 @@ function ClientsPage() {
                   create();
                 }}
               >
-                <Modal.Body className="flex flex-col gap-4">
+                <Modal.Body className="flex flex-col gap-5 py-2">
                   {createError ? (
                     <FormAlert title={t("We couldn't add this client")} description={createError} />
                   ) : null}
@@ -231,11 +233,11 @@ function ClientsPage() {
                   >
                     <Label>{t("Contact")}</Label>
                     <Input variant="secondary" placeholder={t("name@company.com")} />
-                    <Description>{t("Optional")}</Description>
+                    <Description className="text-xs">{t("Optional")}</Description>
                     <FieldError />
                   </TextField>
                 </Modal.Body>
-                <Modal.Footer>
+                <Modal.Footer className="gap-2 pt-3">
                   <Button slot="close" type="button" variant="secondary">
                     {t("Cancel")}
                   </Button>

@@ -601,8 +601,10 @@ function WorkspaceFormModal({
         <Modal.Container size="sm">
           <Modal.Dialog>
             <Modal.CloseTrigger />
-            <Modal.Header>
-              <Modal.Heading>{title}</Modal.Heading>
+            <Modal.Header className="pb-2">
+              <Modal.Heading className="text-lg font-semibold tracking-tight">
+                {title}
+              </Modal.Heading>
             </Modal.Header>
             <Form
               onSubmit={(event) => {
@@ -611,7 +613,7 @@ function WorkspaceFormModal({
               }}
               className="min-h-0"
             >
-              <Modal.Body className="space-y-5">
+              <Modal.Body className="flex flex-col gap-5 py-2">
                 {errorMessage ? (
                   <FormAlert
                     title={t("We couldn't save this workspace")}
@@ -667,12 +669,12 @@ function WorkspaceFormModal({
                       ) : null}
                     </div>
                   </div>
-                  <Description>
-                    {t("PNG, JPG or WebP up to 500 KB. Used in report PDFs.")}
+                  <Description className="text-xs">
+                    {t("PNG, JPG or WebP up to 500 KB.")}
                   </Description>
                 </div>
                 {workspaceSettings ? (
-                  <div className="space-y-5 pt-5">
+                  <div className="space-y-5 border-t border-divider pt-5">
                     <div>
                       <Typography type="h3" weight="semibold">
                         {t("Workspace settings")}
@@ -721,6 +723,7 @@ function WorkspaceFormModal({
                         <Dropdown.Popover>
                           <Dropdown.Menu
                             aria-label={t("Week starts on")}
+                            className="max-h-60 overflow-y-auto"
                             selectionMode="single"
                             selectedKeys={new Set([workspaceSettings.weekStart])}
                             onAction={(key) =>
@@ -744,7 +747,7 @@ function WorkspaceFormModal({
                   </div>
                 ) : null}
               </Modal.Body>
-              <Modal.Footer>
+              <Modal.Footer className="gap-2 pt-3">
                 <Button type="button" variant="tertiary" onPress={() => onOpenChange(false)}>
                   {t("Cancel")}
                 </Button>

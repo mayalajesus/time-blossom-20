@@ -938,8 +938,7 @@ const ptBR: Record<string, string> = {
   "Workspace logo": "Logo do workspace",
   "Upload logo": "Enviar logo",
   Remove: "Remover",
-  "PNG, JPG or WebP up to 500 KB. Used in report PDFs.":
-    "PNG, JPG ou WebP de até 500 KB. Usado nos PDFs dos relatórios.",
+  "PNG, JPG or WebP up to 500 KB.": "PNG, JPG ou WebP de até 500 KB.",
   "Could not save workspace": "Não conseguimos salvar este workspace",
   "Workspace created": "Workspace criado",
   "Workspace updated": "Workspace atualizado",

@@ -13,6 +13,7 @@ export interface ProjectSelectProps {
   allowArchivedId?: string | null;
   ariaLabel: string;
   variant?: "primary" | "secondary";
+  listClassName?: string;
 }
 
 export function ProjectSelect({
@@ -22,6 +23,7 @@ export function ProjectSelect({
   allowArchivedId = null,
   ariaLabel,
   variant = "secondary",
+  listClassName = "max-h-72 overflow-y-auto",
 }: ProjectSelectProps) {
   const { projects, clients, canTrackProject } = useStore();
   const { t } = useI18n();
@@ -78,7 +80,7 @@ export function ProjectSelect({
             </SearchField>
             <ListBox
               aria-label={t("Projects")}
-              className="max-h-72 overflow-y-auto"
+              className={listClassName}
               renderEmptyState={() => <EmptyState>{t("No projects found")}</EmptyState>}
             >
               {includeAll ? (

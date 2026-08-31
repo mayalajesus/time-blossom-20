@@ -6,9 +6,10 @@ import {
   Input,
   Label,
   Modal,
-  Switch,
   TextArea,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   toast,
 } from "@heroui/react";
 import { useEffect, useState } from "react";
@@ -200,8 +201,10 @@ export function LogTimeModal({
         <Modal.Container size="sm">
           <Modal.Dialog className="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col overflow-hidden">
             <Modal.CloseTrigger />
-            <Modal.Header className="shrink-0">
-              <Modal.Heading>{t(entry ? "Edit time entry" : "Log time manually")}</Modal.Heading>
+            <Modal.Header className="shrink-0 pb-2">
+              <Modal.Heading className="text-lg font-semibold tracking-tight">
+                {t(entry ? "Edit time entry" : "Log time manually")}
+              </Modal.Heading>
             </Modal.Header>
             <Form
               className="flex min-h-0 flex-1 flex-col overflow-visible"
@@ -210,7 +213,7 @@ export function LogTimeModal({
                 submit();
               }}
             >
-              <Modal.Body className="min-h-0 flex-1 overflow-y-auto overscroll-contain flex flex-col gap-4">
+              <Modal.Body className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain py-2">
                 {saveError ? (
                   <FormAlert
                     title={t("We couldn't save this time entry")}
@@ -224,23 +227,43 @@ export function LogTimeModal({
                   />
                 ) : null}
 
-                <TextField
-                  isRequired
-                  fullWidth
-                  name="task"
-                  value={task}
-                  validate={(value) => (value.trim() ? null : t("Task is required"))}
-                  onChange={(value) => {
-                    setTask(value);
-                    setSaveError(null);
-                  }}
-                >
-                  <Label>{t("Task")}</Label>
-                  <Input variant="secondary" placeholder={t("e.g. Landing page revisions")} />
-                  <FieldError />
-                </TextField>
+                <div className="flex min-w-0 items-end gap-3">
+                  <TextField
+                    isRequired
+                    fullWidth
+                    className="min-w-0 flex-1"
+                    name="task"
+                    value={task}
+                    validate={(value) => (value.trim() ? null : t("Task is required"))}
+                    onChange={(value) => {
+                      setTask(value);
+                      setSaveError(null);
+                    }}
+                  >
+                    <Label>{t("Task")}</Label>
+                    <Input variant="secondary" placeholder={t("e.g. Landing page revisions")} />
+                    <FieldError />
+                  </TextField>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                  <ToggleButtonGroup
+                    aria-label={t("Billable")}
+                    size="sm"
+                    className="shrink-0 gap-0.5"
+                    selectionMode="multiple"
+                  >
+                    <ToggleButton
+                      aria-label={t("Billable")}
+                      className="size-9 min-h-9 min-w-9"
+                      isIconOnly
+                      isSelected={billable}
+                      onChange={(selected: boolean) => setBillable(selected)}
+                    >
+                      <BillableIndicator billable={billable} mode="icon" size="md" />
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div className="flex min-w-0 flex-col gap-2">
                     <Label>{t("Date")}</Label>
                     <HeroUIDatePicker
@@ -262,6 +285,7 @@ export function LogTimeModal({
                       ariaLabel={t("Project")}
                       value={projectId ?? "none"}
                       variant="secondary"
+                      listClassName="max-h-60 overflow-y-auto"
                       allowArchivedId={entry?.projectId ?? null}
                       onChange={(value) => {
                         const nextProjectId = value === "none" || value === "all" ? null : value;
@@ -277,14 +301,15 @@ export function LogTimeModal({
                         setSaveError(null);
                       }}
                     />
+                    {selectedProject ? (
+                      <Description className="text-xs">
+                        {t("Client: {name}", {
+                          name: selectedClient?.name ?? t("Unknown client"),
+                        })}
+                      </Description>
+                    ) : null}
                   </div>
                 </div>
-
-                {selectedProject ? (
-                  <Description>
-                    {t("Client: {name}", { name: selectedClient?.name ?? t("Unknown client") })}
-                  </Description>
-                ) : null}
 
                 <div
                   className="flex flex-wrap items-center gap-2"
@@ -307,50 +332,54 @@ export function LogTimeModal({
                   </Button>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <TextField fullWidth name="start" type="time" value={start} onChange={setStart}>
-                    <Label>{t("Start")}</Label>
-                    <Input variant="secondary" />
-                  </TextField>
-                  {timeMode === "range" ? (
-                    <TextField
-                      fullWidth
-                      name="end"
-                      type="time"
-                      value={end}
-                      isInvalid={Boolean(timeError)}
-                      onChange={setEnd}
-                    >
-                      <Label>{t("End")}</Label>
+                <div className="space-y-2">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <TextField fullWidth name="start" type="time" value={start} onChange={setStart}>
+                      <Label>{t("Start")}</Label>
                       <Input variant="secondary" />
-                      <FieldError>{timeError}</FieldError>
                     </TextField>
-                  ) : (
-                    <TextField
-                      fullWidth
-                      name="duration"
-                      value={duration}
-                      isInvalid={Boolean(timeError)}
-                      onChange={setDuration}
-                      validate={(value) =>
-                        parseDurationInput(value) === null
-                          ? t("Use H:MM, H:MM:SS, HHMM, HMM, 2h or Ns")
-                          : null
-                      }
-                    >
-                      <Label>{t("Duration")}</Label>
-                      <Input variant="secondary" placeholder={t("e.g. 2:45, 00:00:49 or 45s")} />
-                      <FieldError />
-                    </TextField>
-                  )}
-                </div>
+                    {timeMode === "range" ? (
+                      <TextField
+                        fullWidth
+                        name="end"
+                        type="time"
+                        value={end}
+                        isInvalid={Boolean(timeError)}
+                        onChange={setEnd}
+                      >
+                        <Label>{t("End")}</Label>
+                        <Input variant="secondary" />
+                        <FieldError>{timeError}</FieldError>
+                      </TextField>
+                    ) : (
+                      <TextField
+                        fullWidth
+                        name="duration"
+                        value={duration}
+                        isInvalid={Boolean(timeError)}
+                        onChange={setDuration}
+                        validate={(value) =>
+                          parseDurationInput(value) === null
+                            ? t("Use H:MM, H:MM:SS, HHMM, HMM, 2h or Ns")
+                            : null
+                        }
+                      >
+                        <Label>{t("Duration")}</Label>
+                        <Input variant="secondary" placeholder={t("e.g. 2:45, 00:00:49 or 45s")} />
+                        <FieldError />
+                      </TextField>
+                    )}
+                  </div>
 
-                <Description>
-                  {t("Duration: {value}", {
-                    value:
-                      entrySeconds > 0 ? formatDuration(entrySeconds, locale) : t("invalid range"),
-                  })}
-                </Description>
+                  <Description className="text-xs">
+                    {t("Duration: {value}", {
+                      value:
+                        entrySeconds > 0
+                          ? formatDuration(entrySeconds, locale)
+                          : t("invalid range"),
+                    })}
+                  </Description>
+                </div>
 
                 <TextField
                   fullWidth
@@ -359,26 +388,18 @@ export function LogTimeModal({
                   onChange={setDescription}
                 >
                   <Label>{t("Notes")}</Label>
-                  <TextArea variant="secondary" placeholder={t("Optional details")} />
-                  <Description>{t("Keep useful context attached to this entry.")}</Description>
+                  <TextArea
+                    className="resize-none"
+                    rows={3}
+                    variant="secondary"
+                    placeholder={t("Optional details")}
+                  />
+                  <Description className="text-xs">
+                    {t("Keep useful context attached to this entry.")}
+                  </Description>
                 </TextField>
-
-                <Switch
-                  isSelected={billable}
-                  onChange={(selected: boolean) => setBillable(selected)}
-                >
-                  <Switch.Control>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                  <Switch.Content>
-                    <div className="flex items-center gap-2">
-                      <BillableIndicator billable={billable} mode="icon" />
-                      <Label>{t("Billable")}</Label>
-                    </div>
-                  </Switch.Content>
-                </Switch>
               </Modal.Body>
-              <Modal.Footer className="shrink-0">
+              <Modal.Footer className="shrink-0 gap-2 pt-3">
                 <Button slot="close" type="button" variant="secondary">
                   {t("Cancel")}
                 </Button>

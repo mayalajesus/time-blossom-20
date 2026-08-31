@@ -1,6 +1,5 @@
 import {
   Button,
-  ButtonGroup,
   Chip,
   Description,
   Dropdown,
@@ -343,8 +342,10 @@ function TeamPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Invite member")}</Modal.Heading>
+              <Modal.Header className="pb-2">
+                <Modal.Heading className="text-lg font-semibold tracking-tight">
+                  {t("Invite member")}
+                </Modal.Heading>
               </Modal.Header>
               <Form
                 onSubmit={(event) => {
@@ -352,7 +353,7 @@ function TeamPage() {
                   submitInvite();
                 }}
               >
-                <Modal.Body className="flex flex-col gap-4">
+                <Modal.Body className="flex flex-col gap-5 py-2">
                   {inviteError ? (
                     <FormAlert
                       title={t("We couldn't prepare this invitation")}
@@ -384,7 +385,7 @@ function TeamPage() {
                   >
                     <Label>{t("Email")}</Label>
                     <Input variant="secondary" placeholder={t("name@company.com")} />
-                    <Description>
+                    <Description className="text-xs">
                       {t("The invitation will be prepared for future delivery.")}
                     </Description>
                     <FieldError />
@@ -393,24 +394,19 @@ function TeamPage() {
                   <div className="flex flex-col gap-2">
                     <Label>{t("Role")}</Label>
                     <Dropdown>
-                      <ButtonGroup variant="secondary" size="sm" className="w-full">
-                        <Button
-                          type="button"
-                          aria-label={t("Invitation role")}
-                          className="h-9 min-w-0 flex-1 justify-start"
-                        >
-                          {t(role)}
-                        </Button>
-                        <Dropdown.Trigger
-                          aria-label={t("Choose invitation role")}
-                          className="h-9 w-9 min-w-9 shrink-0 px-0"
-                        >
-                          <ChevronDown aria-hidden="true" className="size-4" />
-                        </Dropdown.Trigger>
-                      </ButtonGroup>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        aria-label={t("Choose invitation role")}
+                        className="h-9 w-full justify-between gap-2 px-3"
+                      >
+                        <span className="truncate text-sm">{t(role)}</span>
+                        <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
+                      </Button>
                       <Dropdown.Popover>
                         <Dropdown.Menu
                           aria-label={t("Invitation role")}
+                          className="max-h-60 overflow-y-auto"
                           selectionMode="single"
                           selectedKeys={new Set([role])}
                           onAction={(key) => setRole(String(key) as InviteRole)}
@@ -424,12 +420,9 @@ function TeamPage() {
                         </Dropdown.Menu>
                       </Dropdown.Popover>
                     </Dropdown>
-                    <Description>
-                      {t("Owner access is reserved for the workspace owner.")}
-                    </Description>
                   </div>
                 </Modal.Body>
-                <Modal.Footer>
+                <Modal.Footer className="gap-2 pt-3">
                   <Button slot="close" type="button" variant="secondary">
                     {t("Cancel")}
                   </Button>
