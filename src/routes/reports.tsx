@@ -32,7 +32,6 @@ import {
 } from "@gravity-ui/icons";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
-  Area,
   Bar,
   BarChart,
   CartesianGrid,
@@ -43,7 +42,6 @@ import {
   Line,
   Pie,
   PieChart,
-  ReferenceDot,
   XAxis,
   YAxis,
 } from "recharts";
@@ -840,6 +838,8 @@ function ReportsPage() {
             [t("Metric")]: t("Average/day"),
             [t("Value")]: formatDuration(summary.averageSecondsPerActiveDay, locale),
           },
+          { [t("Metric")]: t("Projects"), [t("Value")]: summary.projectCount },
+          { [t("Metric")]: t("Tasks"), [t("Value")]: summary.taskCount },
           ...currencyOptions
             .filter((currency) => summary.billableValueByCurrency[currency] !== undefined)
             .map((currency) => ({
@@ -1284,6 +1284,7 @@ function comparisonVariation(
   locale: Locale,
   t: Translate,
   colorByDirection = false,
+  showZeroAsPercentage = false,
 ) {
   if (comparison.previous === 0) return null;
 
@@ -1291,16 +1292,17 @@ function comparisonVariation(
   const formatted = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
     Math.abs(change),
   );
+  const label = `${change > 0 ? "+" : change < 0 ? "−" : ""}${formatted}%`;
   if (change === 0) {
     return {
-      label: t("No change"),
+      label: showZeroAsPercentage ? label : t("No change"),
       accessibleLabel: t("No change from previous period"),
       direction: "neutral" as const,
       tone: "neutral" as const,
     };
   }
   return {
-    label: `${change > 0 ? "+" : "−"}${formatted}%`,
+    label,
     accessibleLabel: `${formatted}% ${t(
       change > 0 ? "more than previous period" : "less than previous period",
     )}`,
@@ -1443,17 +1445,20 @@ function OverviewDashboard({
     locale,
     t,
     true,
+    true,
   );
   const billableVariation = comparisonVariation(
     analytics.comparison.metrics.billableSeconds,
     locale,
     t,
     true,
+    true,
   );
   const dailyAverageVariation = comparisonVariation(
     analytics.comparison.metrics.averageSecondsPerActiveDay,
     locale,
     t,
+    true,
     true,
   );
   const monetaryTotals = currencyOptions.filter(
@@ -1533,6 +1538,8 @@ function OverviewDashboard({
   const weekdayData = overviewWeekdayRows(analytics, locale);
   const evolutionSummary = [
     `${t("Current period")}: ${formatDuration(summary.totalSeconds, locale)}`,
+    `${t("Projects")}: ${summary.projectCount}`,
+    `${t("Tasks")}: ${summary.taskCount}`,
     ...(hasPreviousActivity
       ? [
           `${t("Previous period")}: ${formatDuration(
@@ -1577,6 +1584,7 @@ function OverviewDashboard({
           variation={trackedVariation}
           neutralComparisonLabel={t("No comparison")}
           showNeutralComparison={false}
+          comparisonContext={trackedVariation ? t("vs. previous period") : undefined}
           contentDescription={`${t("Tracked")}: ${formatDuration(
             summary.totalSeconds,
             locale,
@@ -1598,6 +1606,7 @@ function OverviewDashboard({
           variation={billableVariation}
           neutralComparisonLabel={t("No comparison")}
           showNeutralComparison={false}
+          comparisonContext={billableVariation ? t("vs. previous period") : undefined}
           contentDescription={`${t("Billable")}: ${formatDuration(
             summary.billableSeconds,
             locale,
@@ -1632,10 +1641,7 @@ function OverviewDashboard({
               const DirectionIcon =
                 item.direction === "up" ? ArrowUp : item.direction === "down" ? ArrowDown : Minus;
               return (
-                <div
-                  key={item.currency}
-                  className="flex min-w-0 flex-wrap items-center justify-between gap-2"
-                >
+                <div key={item.currency} className="min-w-0 space-y-3">
                   <div className="flex min-w-0 items-baseline gap-2">
                     <Typography type={periodValueData.length > 1 ? "h3" : "h2"} weight="semibold">
                       {item.value}
@@ -1645,7 +1651,7 @@ function OverviewDashboard({
                     </Typography>
                   </div>
                   {item.comparison ? (
-                    <div className="shrink-0">
+                    <div className="flex items-center gap-2">
                       <OverviewAccessibleTooltip
                         label={`${t("Change")}: ${item.comparison}. ${t("Previous")}: ${item.previous}`}
                         content={`${t("Previous")}: ${item.previous} · ${t("Change")}: ${item.delta}`}
@@ -1665,6 +1671,9 @@ function OverviewDashboard({
                           <Chip.Label>{item.comparison}</Chip.Label>
                         </Chip>
                       </OverviewAccessibleTooltip>
+                      <Typography type="body-xs" color="muted">
+                        {t("vs. previous period")}
+                      </Typography>
                     </div>
                   ) : null}
                 </div>
@@ -1685,6 +1694,7 @@ function OverviewDashboard({
           variation={dailyAverageVariation}
           neutralComparisonLabel={t("No comparison")}
           showNeutralComparison={false}
+          comparisonContext={dailyAverageVariation ? t("vs. previous period") : undefined}
           contentDescription={`${t("Average/day")}: ${formatDuration(
             summary.averageSecondsPerActiveDay,
             locale,
@@ -1710,43 +1720,70 @@ function OverviewDashboard({
           summary={evolutionSummary}
           width="compact"
           height="tall"
+          legendPlacement="before-chart"
           legend={
-            <ReportChartLegend
-              accessibleLabel={t("Chart legend")}
-              items={[
-                { key: "current", label: t("Tracked"), tone: "accent" },
-                ...(hasTrend
-                  ? [{ key: "trend", label: t("Trend"), tone: "success" as const }]
-                  : []),
-                ...(hasPreviousActivity
-                  ? [
-                      {
-                        key: "previous",
-                        label: t("Previous period"),
-                        tone: "default" as const,
-                      },
-                    ]
-                  : []),
-              ]}
-            />
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-6">
+                <div className="flex items-baseline gap-2">
+                  <Typography type="h3" weight="semibold">
+                    {summary.projectCount}
+                  </Typography>
+                  <Typography type="body-xs" color="muted">
+                    {t("Projects")}
+                  </Typography>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <Typography type="h3" weight="semibold">
+                    {summary.taskCount}
+                  </Typography>
+                  <Typography type="body-xs" color="muted">
+                    {t("Tasks")}
+                  </Typography>
+                </div>
+              </div>
+              <ReportChartLegend
+                accessibleLabel={t("Chart legend")}
+                items={[
+                  { key: "current", label: t("Tracked"), tone: "accent" },
+                  ...(hasTrend
+                    ? [{ key: "trend", label: t("Trend"), tone: "success" as const }]
+                    : []),
+                  ...(hasPreviousActivity
+                    ? [
+                        {
+                          key: "previous",
+                          label: t("Previous period"),
+                          tone: "default" as const,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            </div>
           }
           isEmpty={summary.totalSeconds === 0}
           emptyState={{ title: t("No chart data") }}
         >
-          <ComposedChart accessibilityLayer data={evolutionData} margin={{ left: 0, right: 8 }}>
-            <CartesianGrid {...reportChartGridProps} />
+          <ComposedChart
+            accessibilityLayer
+            data={evolutionData}
+            margin={{ top: 8, right: 8, bottom: 16, left: 0 }}
+          >
+            <CartesianGrid vertical={false} strokeOpacity={0.35} />
             <XAxis
               {...reportChartAxisProps}
               dataKey="label"
               ticks={evolutionTicks}
               interval="preserveStartEnd"
               minTickGap={24}
+              tickMargin={10}
               tickFormatter={(value) => shortenReportChartLabel(value, 12)}
             />
             <YAxis
               {...reportChartAxisProps}
               width={44}
-              tickCount={4}
+              tickCount={3}
+              tickMargin={8}
               tickFormatter={(value) => formatDurationAxis(Number(value), locale)}
             />
             <ChartTooltip
@@ -1769,13 +1806,13 @@ function OverviewDashboard({
                 />
               }
             />
-            <Area
-              type="linear"
+            <Line
+              type="monotone"
               dataKey="currentTotal"
               stroke={reportChartColors.accent}
-              strokeWidth={2}
-              fill={reportChartColors.accent}
-              fillOpacity={0.16}
+              strokeWidth={2.25}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               dot={false}
               activeDot={false}
               isAnimationActive={false}
@@ -1783,9 +1820,11 @@ function OverviewDashboard({
             {hasTrend ? (
               <Line
                 dataKey="trend"
-                type="linear"
+                type="monotone"
                 stroke={reportChartColors.success}
                 strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 dot={false}
                 activeDot={false}
                 isAnimationActive={false}
@@ -1794,22 +1833,14 @@ function OverviewDashboard({
             {hasPreviousActivity ? (
               <Line
                 dataKey="previous"
-                type="linear"
+                type="monotone"
                 stroke={reportChartColors.muted}
-                strokeWidth={2}
-                strokeDasharray="4 4"
+                strokeWidth={1.75}
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 dot={false}
                 activeDot={false}
                 isAnimationActive={false}
-              />
-            ) : null}
-            {highestActivityPeriod && highestActivityPeriod.currentTotal > 0 ? (
-              <ReferenceDot
-                x={highestActivityPeriod.label}
-                y={highestActivityPeriod.currentTotal}
-                r={4}
-                fill={reportChartColors.accent}
-                stroke={reportChartColors.foreground}
               />
             ) : null}
           </ComposedChart>

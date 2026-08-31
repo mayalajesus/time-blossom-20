@@ -147,6 +147,7 @@ export type ReportKpiProps = Omit<ReportWidgetProps, "children"> & {
   variation?: ReportKpiVariation | null;
   neutralComparisonLabel?: string;
   showNeutralComparison?: boolean;
+  comparisonContext?: ReactNode;
 };
 
 function KpiVariation({
@@ -188,6 +189,7 @@ export function ReportKpi({
   variation,
   neutralComparisonLabel = "No comparison",
   showNeutralComparison = true,
+  comparisonContext,
   width = "compact",
   ...widgetProps
 }: ReportKpiProps) {
@@ -204,8 +206,13 @@ export function ReportKpi({
             </Typography>
           ) : null}
           {variation || showNeutralComparison ? (
-            <div className="ml-auto">
+            <div className={comparisonContext ? "flex items-center gap-2" : "ml-auto"}>
               <KpiVariation variation={variation} neutralLabel={neutralComparisonLabel} />
+              {comparisonContext ? (
+                <Typography type="body-xs" color="muted">
+                  {comparisonContext}
+                </Typography>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -299,6 +306,7 @@ export type ReportChartProps = {
   summary: string;
   height?: ReportChartHeight;
   legend?: ReactNode;
+  legendPlacement?: "before-chart" | "after-chart";
   isEmpty?: boolean;
   emptyState?: ReactNode;
 };
@@ -309,6 +317,7 @@ export function ReportChart({
   summary,
   height = "standard",
   legend,
+  legendPlacement = "after-chart",
   isEmpty = false,
   emptyState,
 }: ReportChartProps) {
@@ -333,7 +342,8 @@ export function ReportChart({
   }
 
   return (
-    <div className="space-y-3" role="img" aria-describedby={summaryId}>
+    <div className="space-y-4" role="img" aria-describedby={summaryId}>
+      {legendPlacement === "before-chart" ? legend : null}
       <ChartContainer
         config={config}
         className={cn("w-full aspect-auto", chartHeightClassNames[height])}
@@ -341,7 +351,7 @@ export function ReportChart({
       >
         {children}
       </ChartContainer>
-      {legend}
+      {legendPlacement === "after-chart" ? legend : null}
       <Typography id={summaryId} type="body-sm" className="sr-only">
         {summary}
       </Typography>
@@ -358,6 +368,7 @@ export function ReportChartWidget({
   summary,
   height,
   legend,
+  legendPlacement,
   width = "medium",
   ...widgetProps
 }: ReportChartWidgetProps) {
@@ -368,6 +379,7 @@ export function ReportChartWidget({
         summary={summary}
         {...(height ? { height } : {})}
         {...(legend ? { legend } : {})}
+        {...(legendPlacement ? { legendPlacement } : {})}
       >
         {children}
       </ReportChart>

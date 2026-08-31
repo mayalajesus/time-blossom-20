@@ -924,6 +924,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [timerHydrated, setTimerHydrated] = useState(false);
   const skipAccountSyncRef = useRef(false);
+  const accountRefreshInFlightRef = useRef(false);
   const activeData =
     account.workspaces.find((data) => data.workspace.id === activeWorkspaceId) ??
     account.workspaces[0];
@@ -963,6 +964,60 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return rememberRecentTimerTask(recent, timer);
   }, [activeMemberId, activeWorkspaceId, entries, timer]);
   const retryAccountLoad = useCallback(() => setAccountReloadKey((value) => value + 1), []);
+
+  const refreshAccount = useCallback(async () => {
+    if (authLoading || !session || !hydrated || accountRefreshInFlightRef.current) return;
+    accountRefreshInFlightRef.current = true;
+    try {
+      const result = await dataSource.loadAccount(session.user.id);
+      if (!result.success) return;
+
+      const loadedAccount = result.data;
+      const currentWorkspace = loadedAccount.workspaces.find(
+        (data) =>
+          data.workspace.id === activeWorkspaceId &&
+          data.workspace.status === "active" &&
+          data.memberships.some(
+            (membership) => membership.userId === session.user.id && membership.status === "active",
+          ),
+      );
+      const nextWorkspace =
+        currentWorkspace ??
+        loadedAccount.workspaces.find(
+          (data) =>
+            data.workspace.status === "active" &&
+            data.memberships.some(
+              (membership) =>
+                membership.userId === session.user.id && membership.status === "active",
+            ),
+        );
+      if (!nextWorkspace) {
+        setAccountError("Your account must have an active workspace.");
+        return;
+      }
+
+      const nextMembers = nextWorkspace.memberships
+        .map((membership) => membershipToMember(membership, loadedAccount.identities))
+        .filter((member): member is Member => member !== null);
+      const workspaceChanged = nextWorkspace.workspace.id !== activeWorkspaceId;
+      skipAccountSyncRef.current = true;
+      setAccount(loadedAccount);
+      setActiveWorkspaceId(nextWorkspace.workspace.id);
+      setEntries(nextWorkspace.entries);
+      setProjects(nextWorkspace.projects);
+      setClients(nextWorkspace.clients);
+      setMembers(nextMembers);
+      setSettingsState(nextWorkspace.settings);
+      setTrelloState(nextWorkspace.trello);
+      if (workspaceChanged) {
+        setTimer(initialTimer);
+        setTimerHydrated(false);
+      }
+      setAccountError(null);
+    } finally {
+      accountRefreshInFlightRef.current = false;
+    }
+  }, [activeWorkspaceId, authLoading, dataSource, hydrated, session]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1032,6 +1087,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [accountReloadKey, authLoading, dataSource, session]);
+
+  useEffect(() => {
+    if (!hydrated || !session) return;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void refreshAccount();
+    };
+    const id = window.setInterval(refreshWhenVisible, 30_000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [hydrated, refreshAccount, session]);
 
   useEffect(() => {
     if (!hydrated || !session || !activeWorkspaceId) return;

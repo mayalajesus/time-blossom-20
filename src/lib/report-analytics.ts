@@ -49,6 +49,8 @@ export type ReportMetrics = {
   averageSecondsPerActiveDay: number;
   averageEntryDurationSeconds: number;
   longestEntryDurationSeconds: number;
+  projectCount: number;
+  taskCount: number;
   topProject: AnalyticsDimension | null;
   topClient: AnalyticsDimension | null;
   topTask: AnalyticsDimension | null;
@@ -531,6 +533,8 @@ export function calculateReportMetrics(input: ReportAnalyticsInput): ReportMetri
       (longest, slice) => Math.max(longest, slice.seconds),
       0,
     ),
+    projectCount: projectTotals.size,
+    taskCount: taskTotals.size,
     topProject: topDimension(projectTotals, totalSeconds),
     topClient: topDimension(clientTotals, totalSeconds),
     topTask: topDimension(taskTotals, totalSeconds),

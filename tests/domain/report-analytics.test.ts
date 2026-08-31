@@ -279,6 +279,8 @@ describe("report analytics metrics", () => {
       averageSecondsPerActiveDay: 5_400,
       averageEntryDurationSeconds: 5_400,
       longestEntryDurationSeconds: 7_200,
+      projectCount: 1,
+      taskCount: 2,
       noProjectSeconds: 3_600,
     });
     expect(metrics.billablePercentage).toBeCloseTo(66.6667, 3);
@@ -404,6 +406,8 @@ describe("report analytics metrics", () => {
       averageSecondsPerActiveDay: 0,
       averageEntryDurationSeconds: 0,
       longestEntryDurationSeconds: 0,
+      projectCount: 0,
+      taskCount: 0,
       topProject: null,
       topClient: null,
       topTask: null,
