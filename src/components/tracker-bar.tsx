@@ -75,7 +75,6 @@ export function TrackerBar() {
           >
             <Label className="sr-only">{t("What are you working on?")}</Label>
             <Input
-              className="rounded-s-3xl"
               placeholder={t("What are you working on?")}
               variant="secondary"
               onBlur={() => {
