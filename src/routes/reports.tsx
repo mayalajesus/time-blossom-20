@@ -1317,8 +1317,44 @@ function overviewEvolutionRows(analytics: ReportAnalytics, locale: Locale) {
       previous,
       difference,
       percentageChange: previous > 0 ? (difference / previous) * 100 : null,
+      isWeekday: bucket.granularity === "day" && isWeekdayDate(bucket.startDate),
     };
   });
+}
+
+function isWeekdayDate(date: string): boolean {
+  const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+  return weekday >= 1 && weekday <= 5;
+}
+
+type ActivityBarBackgroundProps = {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  payload?: { isWeekday?: boolean };
+};
+
+function ActivityBarBackground({
+  x = 0,
+  y = 0,
+  width = 0,
+  height = 0,
+  payload,
+}: ActivityBarBackgroundProps) {
+  const isWeekday = payload?.isWeekday === true;
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      rx={8}
+      ry={8}
+      fill={isWeekday ? reportChartColors.accent : reportChartColors.muted}
+      fillOpacity={isWeekday ? 0.16 : 0.2}
+    />
+  );
 }
 
 function overviewActivityTime(analytics: ReportAnalytics) {
@@ -1981,11 +2017,7 @@ function OverviewDashboard({
                 />
                 <Bar
                   {...reportVerticalBarProps}
-                  background={{
-                    fill: reportChartColors.muted,
-                    fillOpacity: 0.2,
-                    radius: [8, 8, 8, 8],
-                  }}
+                  background={ActivityBarBackground}
                   barSize={evolutionData.length > 24 ? 12 : evolutionData.length > 12 ? 14 : 16}
                   dataKey="currentTotal"
                   fill={reportChartColors.accent}
@@ -2198,10 +2230,6 @@ function OverviewDashboard({
                 item.seconds,
                 locale,
               ).split(" ");
-              const textColor =
-                item.id === "morning" || item.id === "afternoon"
-                  ? "var(--accent-foreground)"
-                  : "var(--danger-foreground)";
 
               return (
                 <OverviewAccessibleTooltip
@@ -2210,38 +2238,30 @@ function OverviewDashboard({
                   content={`${item.shift}: ${item.display}`}
                   className="block h-full min-w-0"
                 >
-                  <Card variant="secondary" className="relative min-h-44 overflow-hidden p-0">
-                    <img
-                      src={shiftArtwork[item.id]}
-                      alt=""
-                      aria-hidden="true"
-                      className="absolute inset-0 size-full object-cover object-right"
-                    />
-                    <Card.Content className="relative flex h-full min-w-0 flex-col justify-between p-4">
-                      <div className="flex min-w-0 items-center justify-between gap-2">
-                        <Typography
-                          type="body-xs"
-                          weight="semibold"
-                          truncate
-                          style={{ color: textColor }}
-                        >
+                  <Card variant="secondary" className="min-h-44 overflow-hidden p-0">
+                    <Card.Content className="flex h-full min-w-0 flex-col items-center justify-between p-4">
+                      <div className="flex w-full min-w-0 items-center justify-between gap-2">
+                        <Typography type="body-xs" weight="semibold" truncate>
                           {item.shift}
                         </Typography>
-                        <Typography type="body-xs" weight="medium" style={{ color: textColor }}>
+                        <Typography type="body-xs" color="muted" weight="medium">
                           {percentageFormatter.format(item.percentage)}%
                         </Typography>
                       </div>
-                      <div className="min-w-0 space-y-0.5">
-                        <Typography type="h3" weight="semibold" style={{ color: textColor }}>
+                      <Typography type="h1" align="center" aria-hidden="true">
+                        {shiftEmoji[item.id]}
+                      </Typography>
+                      <div className="min-w-0 space-y-0.5 text-center">
+                        <Typography type="h3" weight="semibold" align="center">
                           {primaryDuration}
                         </Typography>
                         {secondaryDuration ? (
-                          <Typography type="body-sm" weight="semibold" style={{ color: textColor }}>
+                          <Typography type="body-sm" weight="semibold" align="center">
                             {secondaryDuration}
                           </Typography>
                         ) : null}
                         {isPredominant ? (
-                          <Typography type="body-xs" weight="medium" style={{ color: textColor }}>
+                          <Typography type="body-xs" color="muted" weight="medium" align="center">
                             {t("Predominant")}
                           </Typography>
                         ) : null}
