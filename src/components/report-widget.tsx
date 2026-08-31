@@ -25,6 +25,7 @@ export type ReportWidgetProps = {
   emptyState?: ReportWidgetMessage;
   error?: ReportWidgetMessage | null;
   width?: ReportWidgetWidth;
+  className?: string;
   contentDescription: string;
 };
 
@@ -64,6 +65,7 @@ export function ReportWidget({
   emptyState = { title: "No data available" },
   error = null,
   width = "compact",
+  className,
   contentDescription,
 }: ReportWidgetProps) {
   const titleId = useId();
@@ -75,7 +77,7 @@ export function ReportWidget({
 
   return (
     <Card
-      className={cn("min-w-0 gap-4 p-4", widgetWidthClassNames[width])}
+      className={cn("min-w-0 gap-4 p-4", widgetWidthClassNames[width], className)}
       role="region"
       aria-labelledby={titleId}
       aria-describedby={accessibleDescriptions}

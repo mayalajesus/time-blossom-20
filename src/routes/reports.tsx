@@ -1,6 +1,7 @@
 import {
   Button,
   ButtonGroup,
+  Badge,
   Card,
   Chip,
   Checkbox,
@@ -2327,7 +2328,7 @@ function OverviewDashboard({
                 {t("Project / client")}
               </Table.Column>
               <Table.Column className="w-36 whitespace-nowrap">{t("Tracked")}</Table.Column>
-              <Table.Column className="w-px whitespace-nowrap text-right">
+              <Table.Column className="w-px whitespace-nowrap text-center">
                 {t("Billing")}
               </Table.Column>
             </Table.Header>
@@ -2369,7 +2370,7 @@ function OverviewDashboard({
                       </ProgressBar>
                     </div>
                   </Table.Cell>
-                  <Table.Cell className="whitespace-nowrap text-right">
+                  <Table.Cell className="whitespace-nowrap text-center">
                     {formatMoneyTotals(project.valueByCurrency, locale) || "—"}
                   </Table.Cell>
                 </Table.Row>
@@ -2383,10 +2384,11 @@ function OverviewDashboard({
           title={t("Hours by shift")}
           contentDescription={shiftSummary || t("No activity")}
           width="compact"
+          className="h-full"
           isEmpty={summary.totalSeconds === 0}
           emptyState={{ title: t("No chart data") }}
         >
-          <div className="grid h-full grid-cols-2 auto-rows-fr gap-3">
+          <div className="grid h-full grid-rows-[repeat(4,minmax(0,1fr))] gap-2">
             {shiftData.map((item) => {
               const isPredominant = hasPredominantShift && predominantShift?.shift === item.id;
               const [primaryDuration, secondaryDuration] = formatDuration(
@@ -2399,42 +2401,55 @@ function OverviewDashboard({
                   key={item.id}
                   label={`${item.shift}: ${item.display}`}
                   content={`${item.shift}: ${item.display}`}
-                  className="block h-full min-w-0"
+                  className="block min-w-0"
                 >
-                  <Card variant="secondary" className="min-h-44 overflow-hidden p-0">
-                    <Card.Content className="flex h-full min-w-0 flex-col items-center justify-between p-4">
-                      <div className="flex w-full min-w-0 items-center justify-between gap-2">
-                        <Typography type="body-xs" weight="semibold" truncate>
+                  <Card
+                    variant="secondary"
+                    className="relative h-full min-h-0 min-w-0 overflow-visible p-0"
+                  >
+                    <Card.Content className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-3 py-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Typography
+                          type="h1"
+                          aria-hidden="true"
+                          className={item.id === "overnight" ? "scale-110" : undefined}
+                        >
+                          {shiftEmoji[item.id]}
+                        </Typography>
+                        <Typography type="body-sm" weight="medium" truncate>
                           {item.shift}
                         </Typography>
-                        <Typography type="body-xs" color="muted" weight="medium">
-                          {percentageFormatter.format(item.percentage)}%
-                        </Typography>
                       </div>
-                      <Typography
-                        type="h1"
-                        align="center"
-                        aria-hidden="true"
-                        className={item.id === "overnight" ? "scale-125" : undefined}
-                      >
-                        {shiftEmoji[item.id]}
-                      </Typography>
-                      <div className="min-w-0 space-y-0.5 text-center">
-                        <Typography type="h3" weight="semibold" align="center">
+                      <div className="flex items-baseline gap-1 whitespace-nowrap">
+                        <Typography type="body-sm" weight="semibold">
                           {primaryDuration}
                         </Typography>
                         {secondaryDuration ? (
-                          <Typography type="body-sm" weight="semibold" align="center">
+                          <Typography type="body-xs" color="muted" weight="medium">
                             {secondaryDuration}
                           </Typography>
                         ) : null}
-                        {isPredominant ? (
-                          <Chip size="sm" variant="soft" color="accent">
-                            <Chip.Label>{t("Predominant")}</Chip.Label>
-                          </Chip>
-                        ) : null}
                       </div>
+                      <Typography
+                        type="body-xs"
+                        color="muted"
+                        weight="medium"
+                        className="whitespace-nowrap"
+                      >
+                        {percentageFormatter.format(item.percentage)}%
+                      </Typography>
                     </Card.Content>
+                    {isPredominant ? (
+                      <Badge
+                        size="sm"
+                        variant="soft"
+                        color="accent"
+                        placement="top-right"
+                        style={{ transform: "translate(0, 0)" }}
+                      >
+                        <Badge.Label className="truncate">{t("Predominant")}</Badge.Label>
+                      </Badge>
+                    ) : null}
                   </Card>
                 </OverviewAccessibleTooltip>
               );
