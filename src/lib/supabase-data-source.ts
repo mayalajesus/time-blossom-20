@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Client, Member, Project, TimeEntry } from "./mock-data";
-import type { AppDataSource, DataSourceResult, ReportQuery } from "./data-source";
+import type {
+  AppDataSource,
+  DataSourceResult,
+  ReportEntriesQuery,
+  ReportQuery,
+} from "./data-source";
 import type { TimerState, UserPreferences, Workspace, WorkspaceSettings } from "./store";
 import { supabase } from "./supabase";
 import { defaultCurrencyForLocale, isCurrencyCode } from "./billing";
@@ -455,6 +460,22 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
         if (query.description) request = request.ilike("description", `%${query.description}%`);
         if (query.billable !== undefined) request = request.eq("billable", query.billable);
         const response = await request;
+        return { data: response.data as EntryRow[] | null, error: response.error };
+      }).then((response) =>
+        response.success ? ok(response.data.map((entry) => mapEntry(entry))) : response,
+      ),
+
+    loadReportEntries: (query: ReportEntriesQuery) =>
+      call(async () => {
+        const response = await client!
+          .from("time_entries")
+          .select("*")
+          .eq("workspace_id", query.workspaceId)
+          .or(
+            `and(date.gte.${query.startDate},date.lte.${query.endDate}),and(date.lt.${query.startDate},end_date.gte.${query.startDate})`,
+          )
+          .order("date", { ascending: true })
+          .order("start_time", { ascending: true });
         return { data: response.data as EntryRow[] | null, error: response.error };
       }).then((response) =>
         response.success ? ok(response.data.map((entry) => mapEntry(entry))) : response,

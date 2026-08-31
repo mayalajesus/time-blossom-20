@@ -18,12 +18,11 @@ import { ProjectSelect } from "@/components/project-select";
 import { TimerActionButton } from "@/components/timer-action-button";
 import { TimerDurationEditor } from "@/components/timer-duration-editor";
 import { useI18n } from "@/lib/i18n";
-import { useStore } from "@/lib/store";
+import { useStore, useTimerTicker } from "@/lib/store";
 
 export function TrackerBar() {
   const {
     timer,
-    elapsed,
     projects,
     settings,
     startTimer,
@@ -33,6 +32,7 @@ export function TrackerBar() {
     resumeTimer,
     stopTimer,
   } = useStore();
+  const { elapsed } = useTimerTicker();
   const { locale, t, error } = useI18n();
   const [task, setTask] = useState("");
   const [activeTask, setActiveTask] = useState(timer.task);

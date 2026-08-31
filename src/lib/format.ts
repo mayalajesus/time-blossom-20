@@ -274,18 +274,25 @@ type ZonedDateTimeParts = {
   second: number;
 };
 
+const zonedDateTimeFormatters = new Map<string, Intl.DateTimeFormat>();
+
 function zonedDateTimeParts(reference: Date, timeZone: string): ZonedDateTimeParts | null {
   try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(reference);
+    let formatter = zonedDateTimeFormatters.get(timeZone);
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      });
+      zonedDateTimeFormatters.set(timeZone, formatter);
+    }
+    const parts = formatter.formatToParts(reference);
     const value = (type: Intl.DateTimeFormatPartTypes) =>
       Number(parts.find((part) => part.type === type)?.value ?? Number.NaN);
     const result = {

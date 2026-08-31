@@ -64,6 +64,12 @@ describe("portable database schema", () => {
     expect(common).toContain("time_entries_user_date_idx");
     expect(common).toContain("time_entries_workspace_project_date_idx");
     expect(common).toContain("projects_workspace_idx");
+    expect(
+      readFileSync(
+        new URL("../../db/migrations/20260831110000_report_query_indexes.sql", import.meta.url),
+        "utf8",
+      ),
+    ).toContain("time_entries_workspace_end_date_idx");
   });
 
   it("maps Supabase users from the verified token subject only in its adapter", () => {

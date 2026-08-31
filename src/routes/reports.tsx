@@ -14,6 +14,7 @@ import {
   Tooltip,
   Typography,
 } from "@heroui/react";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ArrowDown,
@@ -36,10 +37,10 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
   Label as ChartLabel,
   LabelList,
   Line,
+  LineChart,
   Pie,
   PieChart,
   XAxis,
@@ -55,7 +56,7 @@ import {
   type ReportFilterValues,
 } from "@/components/report-filters";
 import { PageHeader } from "@/components/page-header";
-import { EmptyBlock, CardsSkeleton } from "@/components/states";
+import { EmptyBlock, ErrorBlock, CardsSkeleton } from "@/components/states";
 import { ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import {
   ReportChart,
@@ -74,6 +75,7 @@ import {
   shortenReportChartLabel,
 } from "@/components/report-widget";
 import type { Client, Member, Project, TimeEntry } from "@/lib/mock-data";
+import { createApiDataSource } from "@/lib/api-data-source";
 import {
   formatDate,
   formatDateRange,
@@ -90,7 +92,7 @@ import {
   type DateRange,
   type ReportPeriodPreset,
 } from "@/lib/format";
-import { useSimulatedLoad, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 import type { ReportExportPayload } from "@/lib/report-export";
 import { useI18n } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
@@ -109,10 +111,16 @@ import {
   calculateReportAnalytics,
   calculateReportMetrics,
   getReportBillableCurrencies,
+  getPreviousEquivalentPeriod,
   type ReportAnalytics,
   type ShiftId,
   type TemporalBucket,
 } from "@/lib/report-analytics";
+import {
+  reportEntryOverlaps,
+  entriesForReportWindow,
+  reportEntriesQueryKey,
+} from "@/lib/report-query";
 import {
   isLegacyTeamReportView,
   normalizeReportView,
@@ -462,12 +470,24 @@ function ReportsPage() {
     billingPreferencesByUserId,
     today,
   } = useStore();
-  const { locale, t } = useI18n();
-  const loading = useSimulatedLoad(600);
+  const { locale, t, error } = useI18n();
+  const reportDataSource = useMemo(() => createApiDataSource(), []);
   const [exportOpen, setExportOpen] = useState(false);
 
   const weekStartsOn = settings.weekStart === "sunday" ? 0 : 1;
-  const range = makeRange(search.preset, search.start, search.end, today, weekStartsOn);
+  const range = useMemo(
+    () => makeRange(search.preset, search.start, search.end, today, weekStartsOn),
+    [search.end, search.preset, search.start, today, weekStartsOn],
+  );
+  const previousRange = useMemo(() => getPreviousEquivalentPeriod(range), [range]);
+  const reportWindow = useMemo(
+    () => ({
+      startDate:
+        previousRange.startDate < range.startDate ? previousRange.startDate : range.startDate,
+      endDate: previousRange.endDate > range.endDate ? previousRange.endDate : range.endDate,
+    }),
+    [previousRange.endDate, previousRange.startDate, range.endDate, range.startDate],
+  );
   const showTeam = can("view-all-reports");
   const effectiveGroup: GroupDimension =
     !showTeam && search.group === "member" ? "project" : search.group;
@@ -498,6 +518,8 @@ function ReportsPage() {
   const updateSearch = (patch: Partial<ReportSearch>) => {
     navigate({
       search: { ...search, ...patch, page: patch.page ?? 1 },
+      replace: true,
+      resetScroll: false,
     });
   };
 
@@ -546,6 +568,37 @@ function ReportsPage() {
     () => (showTeam ? entries : entries.filter((entry) => entry.userId === currentUserId)),
     [currentUserId, entries, showTeam],
   );
+  const localReportEntries = useMemo(
+    () => entriesForReportWindow(scopedEntries, reportWindow.startDate, reportWindow.endDate),
+    [reportWindow.endDate, reportWindow.startDate, scopedEntries],
+  );
+  const workspaceId = currentWorkspace?.id ?? "";
+  const reportQuery = useQuery({
+    queryKey: reportEntriesQueryKey(
+      workspaceId,
+      currentUserId,
+      reportWindow.startDate,
+      reportWindow.endDate,
+    ),
+    enabled: Boolean(workspaceId && currentUserId),
+    queryFn: async () => {
+      const result = await reportDataSource.loadReportEntries(currentUserId, {
+        workspaceId,
+        startDate: reportWindow.startDate,
+        endDate: reportWindow.endDate,
+      });
+      if (!result.success) throw new Error(result.error);
+      return result.data;
+    },
+    placeholderData: localReportEntries,
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
+  const reportEntries = reportQuery.data ?? localReportEntries;
   const memberMap = useMemo(() => new Map(members.map((member) => [member.id, member])), [members]);
   const projectMap = useMemo(
     () => new Map(projects.map((project) => [project.id, project])),
@@ -566,7 +619,7 @@ function ReportsPage() {
     const selectedMemberIds = new Set(filterValues.memberIds);
     const selectedClientIds = new Set(filterValues.clientIds);
     const selectedProjectIds = new Set(filterValues.projectIds);
-    return scopedEntries
+    return reportEntries
       .filter((entry) => selectedMemberIds.size === 0 || selectedMemberIds.has(entry.userId))
       .filter((entry) => {
         if (selectedClientIds.size === 0) return true;
@@ -587,7 +640,7 @@ function ReportsPage() {
           filterValues.billability === "all" ||
           (filterValues.billability === "billable" ? entry.billable : !entry.billable),
       );
-  }, [filterValues, normalizedDescription, projectMap, scopedEntries]);
+  }, [filterValues, normalizedDescription, projectMap, reportEntries]);
   const availableCurrencies = useMemo(
     () =>
       getReportBillableCurrencies(reportEntriesBeforeCurrency, {
@@ -597,7 +650,7 @@ function ReportsPage() {
       }),
     [fallbackForEntry, preferences.timezone, range, reportEntriesBeforeCurrency],
   );
-  const reportEntries = useMemo(
+  const currencyFilteredEntries = useMemo(
     () =>
       filterValues.currency === "all"
         ? reportEntriesBeforeCurrency
@@ -610,21 +663,23 @@ function ReportsPage() {
   );
   const filteredEntries = useMemo(
     () =>
-      reportEntries
+      currencyFilteredEntries
         .filter((entry) => entry.date >= range.startDate && entry.date <= range.endDate)
         .sort(compareEntries),
-    [range.endDate, range.startDate, reportEntries],
+    [currencyFilteredEntries, range.endDate, range.startDate],
   );
 
-  const total = filteredEntries.reduce((sum, entry) => sum + entry.seconds, 0);
-  const billable = filteredEntries
-    .filter((entry) => entry.billable)
-    .reduce((sum, entry) => sum + entry.seconds, 0);
-  const internal = total - billable;
+  const { total, billable, internal } = useMemo(() => {
+    const total = filteredEntries.reduce((sum, entry) => sum + entry.seconds, 0);
+    const billable = filteredEntries
+      .filter((entry) => entry.billable)
+      .reduce((sum, entry) => sum + entry.seconds, 0);
+    return { total, billable, internal: total - billable };
+  }, [filteredEntries]);
   const reportAnalytics = useMemo(
     () =>
       calculateReportAnalytics({
-        entries: reportEntries,
+        entries: currencyFilteredEntries,
         range,
         projects,
         clients,
@@ -642,7 +697,7 @@ function ReportsPage() {
       preferences.timezone,
       projects,
       range,
-      reportEntries,
+      currencyFilteredEntries,
       weekStartsOn,
     ],
   );
@@ -687,11 +742,10 @@ function ReportsPage() {
     ],
   );
   const previousFilteredEntries = useMemo(() => {
-    const previousRange = reportAnalytics.comparison.previousPeriod;
-    return reportEntries.filter(
-      (entry) => entry.date >= previousRange.startDate && entry.date <= previousRange.endDate,
+    return currencyFilteredEntries.filter((entry) =>
+      reportEntryOverlaps(entry, previousRange.startDate, previousRange.endDate),
     );
-  }, [reportAnalytics.comparison.previousPeriod, reportEntries]);
+  }, [currencyFilteredEntries, previousRange.endDate, previousRange.startDate]);
   const previousGroups = useMemo(
     () =>
       buildGroups(
@@ -814,6 +868,10 @@ function ReportsPage() {
       const exportedProjects = overviewProjectRows(reportAnalytics, projects, clients);
       const evolution = overviewEvolutionRows(reportAnalytics, locale);
       const hasPreviousActivity = reportAnalytics.comparison.previous.totalSeconds > 0;
+      const activityTime = overviewActivityTime(reportAnalytics);
+      const exportPercentageFormatter = new Intl.NumberFormat(locale, {
+        maximumFractionDigits: 0,
+      });
       const consistencyPercentage = overviewConsistencyPercentage(reportAnalytics);
       const weekdayRows = overviewWeekdayRows(reportAnalytics, locale);
       return {
@@ -821,6 +879,15 @@ function ReportsPage() {
         title: `time-blossom-${search.view}`,
         columns: [t("Metric"), t("Value")],
         rows: [
+          {
+            [t("Metric")]: t("Activity time"),
+            [t("Value")]: `${exportPercentageFormatter.format(
+              activityTime.percentage,
+            )}% (${formatDuration(summary.totalSeconds, locale)} / ${formatDuration(
+              activityTime.periodSeconds,
+              locale,
+            )})`,
+          },
           {
             [t("Metric")]: t("Tracked"),
             [t("Value")]: formatDuration(summary.totalSeconds, locale),
@@ -857,7 +924,6 @@ function ReportsPage() {
             columns: [
               t("Period"),
               t("Tracked"),
-              t("Trend"),
               ...(hasPreviousActivity ? [t("Previous period"), t("Difference")] : []),
             ],
             rows: evolution.map((bucket) => {
@@ -866,7 +932,6 @@ function ReportsPage() {
               return {
                 [t("Period")]: bucket.label,
                 [t("Tracked")]: formatDuration(bucket.currentTotal, locale),
-                [t("Trend")]: formatDuration(bucket.trend, locale),
                 ...(hasPreviousActivity
                   ? {
                       [t("Previous period")]: formatDuration(bucket.previous, locale),
@@ -1091,6 +1156,13 @@ function ReportsPage() {
       billability: "all",
       currency: "all",
     });
+  const reportInitialLoading =
+    reportQuery.isPending && !reportQuery.data && !localReportEntries.length;
+  const reportError = reportQuery.error
+    ? error(
+        reportQuery.error instanceof Error ? reportQuery.error.message : "The data request failed.",
+      )
+    : null;
 
   return (
     <div className={search.view === "overview" ? "space-y-5" : "space-y-6"}>
@@ -1142,7 +1214,17 @@ function ReportsPage() {
         }
       />
 
-      {loading ? (
+      {reportError ? (
+        <ErrorBlock
+          title={t("We couldn't refresh this report")}
+          description={reportError}
+          onRetry={() => void reportQuery.refetch()}
+        />
+      ) : null}
+      {reportQuery.isFetching && !reportInitialLoading ? (
+        <ProgressBar aria-label={t("Refreshing report")} isIndeterminate size="sm" />
+      ) : null}
+      {reportInitialLoading ? (
         <CardsSkeleton count={3} />
       ) : (
         <>
@@ -1223,28 +1305,26 @@ function formatOverviewBucket(
 }
 
 function overviewEvolutionRows(analytics: ReportAnalytics, locale: Locale) {
-  const trendWindow = analytics.granularity === "day" ? 3 : 2;
-  const points = analytics.temporal.map((bucket, index) => {
+  return analytics.temporal.map((bucket, index) => {
     const previous = analytics.previousTemporal[index]?.totalSeconds ?? 0;
+    const difference = bucket.totalSeconds - previous;
     return {
       label: formatOverviewBucket(bucket, locale),
       currentTotal: bucket.totalSeconds,
       previous,
-      difference: bucket.totalSeconds - previous,
+      difference,
+      percentageChange: previous > 0 ? (difference / previous) * 100 : null,
     };
   });
+}
 
-  return points.map((point, index) => {
-    const firstIndex = Math.max(0, index - trendWindow + 1);
-    const trendPoints = points.slice(firstIndex, index + 1);
-    const trend =
-      trendPoints.reduce((sum, current) => sum + current.currentTotal, 0) / trendPoints.length;
-    return {
-      ...point,
-      trend,
-      percentageChange: point.previous > 0 ? (point.difference / point.previous) * 100 : null,
-    };
-  });
+function overviewActivityTime(analytics: ReportAnalytics) {
+  const periodSeconds =
+    (getDayOffset(analytics.period.startDate, analytics.period.endDate) + 1) * 24 * 60 * 60;
+  return {
+    periodSeconds,
+    percentage: periodSeconds > 0 ? (analytics.summary.totalSeconds / periodSeconds) * 100 : 0,
+  };
 }
 
 function formatDurationAxis(seconds: number, locale: Locale): string {
@@ -1475,7 +1555,8 @@ function OverviewDashboard({
     };
     const deltaPrefix = comparison.delta > 0 ? "+" : comparison.delta < 0 ? "−" : "";
     const percentageChange = comparison.previous > 0 ? (comparison.percentageChange ?? 0) : null;
-    const percentagePrefix = percentageChange > 0 ? "+" : percentageChange < 0 ? "−" : "";
+    const percentagePrefix =
+      percentageChange === null ? "" : percentageChange > 0 ? "+" : percentageChange < 0 ? "−" : "";
     return {
       currency,
       value: formatMoney(comparison.current, currency, locale),
@@ -1494,7 +1575,8 @@ function OverviewDashboard({
   const hasPredominantShift = Boolean(predominantShift && predominantShift.seconds > 0);
   const evolutionData = overviewEvolutionRows(analytics, locale);
   const hasPreviousActivity = analytics.comparison.previous.totalSeconds > 0;
-  const hasTrend = evolutionData.filter((item) => item.currentTotal > 0).length > 1;
+  const activityTime = overviewActivityTime(analytics);
+  const formattedActivityTimePercentage = percentageFormatter.format(activityTime.percentage);
   const evolutionTicks =
     evolutionData.length <= 8
       ? evolutionData.map((item) => item.label)
@@ -1537,7 +1619,9 @@ function OverviewDashboard({
   const consistencyPercentage = overviewConsistencyPercentage(analytics);
   const weekdayData = overviewWeekdayRows(analytics, locale);
   const evolutionSummary = [
-    `${t("Current period")}: ${formatDuration(summary.totalSeconds, locale)}`,
+    `${t("Activity time")}: ${formattedActivityTimePercentage}%`,
+    `${t("Tracked")}: ${formatDuration(summary.totalSeconds, locale)}`,
+    `${t("Period")}: ${formatDuration(activityTime.periodSeconds, locale)}`,
     `${t("Projects")}: ${summary.projectCount}`,
     `${t("Tasks")}: ${summary.taskCount}`,
     ...(hasPreviousActivity
@@ -1701,152 +1785,239 @@ function OverviewDashboard({
           )}. ${t("Active days")}: ${summary.activeDays}.`}
         />
       </div>
-      <div className="grid min-w-0 md:col-span-2 xl:col-span-12">
-        <ReportChartWidget
+      <div className="grid min-w-0 md:col-span-2 xl:col-span-8">
+        <ReportWidget
           title={
             <OverviewTooltipTitle
               label={t("Activity evolution")}
-              help={t(
-                "Area shows tracked time, the solid line shows its trend and the dashed line shows the previous equivalent period.",
-              )}
+              help={t("Lines show tracked time and the previous equivalent period.")}
             />
           }
           contentDescription={evolutionSummary}
+          isEmpty={summary.totalSeconds === 0}
+          emptyState={{ title: t("No chart data") }}
+        >
+          <div className="grid min-w-0 gap-6 xl:grid-cols-12">
+            <div className="grid min-w-0 grid-cols-3 gap-4 xl:col-span-3 xl:grid-cols-1">
+              <div className="space-y-2">
+                <Typography type="body-xs" color="muted" weight="semibold">
+                  <OverviewTooltipTitle
+                    label={t("Activity time")}
+                    help={`${formatDuration(summary.totalSeconds, locale)} / ${formatDuration(
+                      activityTime.periodSeconds,
+                      locale,
+                    )}`}
+                  />
+                </Typography>
+                <Typography type="h2" weight="semibold">
+                  {formattedActivityTimePercentage}%
+                </Typography>
+              </div>
+              <div className="space-y-2">
+                <Typography type="h3" weight="semibold">
+                  {summary.projectCount}
+                </Typography>
+                <Typography type="body-xs" color="muted">
+                  {t("Projects")}
+                </Typography>
+              </div>
+              <div className="space-y-2">
+                <Typography type="h3" weight="semibold">
+                  {summary.taskCount}
+                </Typography>
+                <Typography type="body-xs" color="muted">
+                  {t("Tasks")}
+                </Typography>
+              </div>
+            </div>
+            <div className="min-w-0 xl:col-span-9">
+              <ReportChart
+                config={{
+                  currentTotal: { label: t("Tracked"), color: reportChartColors.accent },
+                  previous: { label: t("Previous period"), color: reportChartColors.muted },
+                }}
+                summary={evolutionSummary}
+                height="tall"
+                legendPlacement="before-chart"
+                legend={
+                  <div className="flex justify-end">
+                    <ReportChartLegend
+                      accessibleLabel={t("Chart legend")}
+                      items={[
+                        { key: "current", label: t("Tracked"), tone: "accent" },
+                        ...(hasPreviousActivity
+                          ? [
+                              {
+                                key: "previous",
+                                label: t("Previous period"),
+                                tone: "default" as const,
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </div>
+                }
+              >
+                <LineChart
+                  accessibilityLayer
+                  data={evolutionData}
+                  margin={{ top: 8, right: 8, bottom: 8, left: 0 }}
+                >
+                  <CartesianGrid vertical={false} strokeOpacity={0.25} />
+                  <XAxis
+                    {...reportChartAxisProps}
+                    dataKey="label"
+                    ticks={evolutionTicks}
+                    interval="preserveStartEnd"
+                    minTickGap={24}
+                    tickMargin={10}
+                    tickFormatter={(value) => shortenReportChartLabel(value, 12)}
+                  />
+                  <YAxis
+                    {...reportChartAxisProps}
+                    width={44}
+                    tickCount={3}
+                    tickMargin={8}
+                    tickFormatter={(value) => formatDurationAxis(Number(value), locale)}
+                  />
+                  <ChartTooltip
+                    {...reportChartTooltipProps}
+                    content={
+                      <ChartTooltipContent
+                        valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
+                        footerFormatter={(payload) => {
+                          const datum = payload[0]?.payload as
+                            { difference?: number; percentageChange?: number | null } | undefined;
+                          const difference = datum?.difference ?? 0;
+                          const prefix = difference > 0 ? "+" : difference < 0 ? "−" : "";
+                          const percentageChange = datum?.percentageChange;
+                          if (typeof percentageChange !== "number") return null;
+                          return `${t("Difference")}: ${prefix}${formatDuration(
+                            Math.abs(difference),
+                            locale,
+                          )} (${prefix}${percentageFormatter.format(Math.abs(percentageChange))}%)`;
+                        }}
+                      />
+                    }
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="currentTotal"
+                    stroke={reportChartColors.accent}
+                    strokeWidth={2.25}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    dot={false}
+                    activeDot={false}
+                    isAnimationActive={false}
+                  />
+                  {hasPreviousActivity ? (
+                    <Line
+                      dataKey="previous"
+                      type="monotone"
+                      stroke={reportChartColors.muted}
+                      strokeWidth={1.75}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      dot={false}
+                      activeDot={false}
+                      isAnimationActive={false}
+                    />
+                  ) : null}
+                </LineChart>
+              </ReportChart>
+            </div>
+          </div>
+        </ReportWidget>
+      </div>
+      <div className="grid min-w-0 md:col-span-2 xl:col-span-4">
+        <ReportChartWidget
+          title={
+            <OverviewTooltipTitle
+              label={t("Time composition")}
+              help={t("Shows how tracked time is split between billable and internal entries.")}
+            />
+          }
+          contentDescription={`${t("Billable")}: ${formatDuration(
+            summary.billableSeconds,
+            locale,
+          )}, ${billablePercentage}%. ${t("Internal")}: ${formatDuration(
+            summary.internalSeconds,
+            locale,
+          )}, ${internalPercentage}%.`}
           config={{
-            currentTotal: { label: t("Tracked"), color: reportChartColors.accent },
-            trend: { label: t("Trend"), color: reportChartColors.success },
-            previous: { label: t("Previous period"), color: reportChartColors.muted },
+            billable: { label: t("Billable"), color: reportChartColors.success },
+            internal: { label: t("Internal"), color: reportChartColors.muted },
           }}
-          summary={evolutionSummary}
+          summary={`${t("Billable")}: ${billablePercentage}%. ${t(
+            "Internal",
+          )}: ${internalPercentage}%. ${billablePercentage}% ${t("of tracked time is billable")}.`}
           width="compact"
           height="tall"
-          legendPlacement="before-chart"
           legend={
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-6">
-                <div className="flex items-baseline gap-2">
-                  <Typography type="h3" weight="semibold">
-                    {summary.projectCount}
-                  </Typography>
-                  <Typography type="body-xs" color="muted">
-                    {t("Projects")}
-                  </Typography>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <Typography type="h3" weight="semibold">
-                    {summary.taskCount}
-                  </Typography>
-                  <Typography type="body-xs" color="muted">
-                    {t("Tasks")}
-                  </Typography>
-                </div>
+            <div className="grid grid-cols-2 gap-3" aria-label={t("Chart legend")}>
+              <div className="min-w-0 space-y-1">
+                <BillableIndicator billable />
+                <Typography type="body-sm" weight="semibold">
+                  {formatDuration(summary.billableSeconds, locale)} · {billablePercentage}%
+                </Typography>
               </div>
-              <ReportChartLegend
-                accessibleLabel={t("Chart legend")}
-                items={[
-                  { key: "current", label: t("Tracked"), tone: "accent" },
-                  ...(hasTrend
-                    ? [{ key: "trend", label: t("Trend"), tone: "success" as const }]
-                    : []),
-                  ...(hasPreviousActivity
-                    ? [
-                        {
-                          key: "previous",
-                          label: t("Previous period"),
-                          tone: "default" as const,
-                        },
-                      ]
-                    : []),
-                ]}
-              />
+              <div className="min-w-0 space-y-1">
+                <BillableIndicator billable={false} />
+                <Typography type="body-sm" weight="semibold">
+                  {formatDuration(summary.internalSeconds, locale)} · {internalPercentage}%
+                </Typography>
+              </div>
             </div>
           }
           isEmpty={summary.totalSeconds === 0}
           emptyState={{ title: t("No chart data") }}
         >
-          <ComposedChart
-            accessibilityLayer
-            data={evolutionData}
-            margin={{ top: 8, right: 8, bottom: 16, left: 0 }}
-          >
-            <CartesianGrid vertical={false} strokeOpacity={0.35} />
-            <XAxis
-              {...reportChartAxisProps}
-              dataKey="label"
-              ticks={evolutionTicks}
-              interval="preserveStartEnd"
-              minTickGap={24}
-              tickMargin={10}
-              tickFormatter={(value) => shortenReportChartLabel(value, 12)}
-            />
-            <YAxis
-              {...reportChartAxisProps}
-              width={44}
-              tickCount={3}
-              tickMargin={8}
-              tickFormatter={(value) => formatDurationAxis(Number(value), locale)}
-            />
+          <PieChart accessibilityLayer>
             <ChartTooltip
               {...reportChartTooltipProps}
               content={
                 <ChartTooltipContent
-                  valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
-                  footerFormatter={(payload) => {
-                    const datum = payload[0]?.payload as
-                      { difference?: number; percentageChange?: number | null } | undefined;
-                    const difference = datum?.difference ?? 0;
-                    const prefix = difference > 0 ? "+" : difference < 0 ? "−" : "";
-                    const percentageChange = datum?.percentageChange;
-                    if (typeof percentageChange !== "number") return null;
-                    return `${t("Difference")}: ${prefix}${formatDuration(
-                      Math.abs(difference),
-                      locale,
-                    )} (${prefix}${percentageFormatter.format(Math.abs(percentageChange))}%)`;
+                  hideLabel
+                  valueFormatter={(value) => {
+                    const seconds = Number(value ?? 0);
+                    const percentage =
+                      summary.totalSeconds > 0 ? (seconds / summary.totalSeconds) * 100 : 0;
+                    return `${formatDuration(seconds, locale)} · ${percentageFormatter.format(
+                      percentage,
+                    )}%`;
                   }}
                 />
               }
             />
-            <Line
-              type="monotone"
-              dataKey="currentTotal"
-              stroke={reportChartColors.accent}
-              strokeWidth={2.25}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              dot={false}
-              activeDot={false}
+            <Pie
+              data={billingData}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              startAngle={90}
+              endAngle={-270}
+              innerRadius="58%"
+              outerRadius="82%"
+              cornerRadius={4}
+              paddingAngle={billingData.length > 1 ? 2 : 0}
               isAnimationActive={false}
-            />
-            {hasTrend ? (
-              <Line
-                dataKey="trend"
-                type="monotone"
-                stroke={reportChartColors.success}
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
+            >
+              <ChartLabel
+                value={`${billablePercentage}%`}
+                position="center"
+                fill={reportChartColors.foreground}
               />
-            ) : null}
-            {hasPreviousActivity ? (
-              <Line
-                dataKey="previous"
-                type="monotone"
-                stroke={reportChartColors.muted}
-                strokeWidth={1.75}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                dot={false}
-                activeDot={false}
-                isAnimationActive={false}
-              />
-            ) : null}
-          </ComposedChart>
+              {billingData.map((item) => (
+                <Cell key={item.name} fill={item.color} />
+              ))}
+            </Pie>
+          </PieChart>
         </ReportChartWidget>
       </div>
-      <div className="grid min-w-0 md:col-span-2 xl:col-span-6">
+      <div className="grid min-w-0 md:col-span-2 xl:col-span-8">
         <ReportWidget
           title={t("Top projects")}
           contentDescription={projectSummary || t("No activity")}
@@ -1912,93 +2083,7 @@ function OverviewDashboard({
           </DataTable>
         </ReportWidget>
       </div>
-      <div className="grid min-w-0 xl:col-span-3">
-        <ReportChartWidget
-          title={
-            <OverviewTooltipTitle
-              label={t("Time composition")}
-              help={t("Shows how tracked time is split between billable and internal entries.")}
-            />
-          }
-          contentDescription={`${t("Billable")}: ${formatDuration(
-            summary.billableSeconds,
-            locale,
-          )}, ${billablePercentage}%. ${t("Internal")}: ${formatDuration(
-            summary.internalSeconds,
-            locale,
-          )}, ${internalPercentage}%.`}
-          config={{
-            billable: { label: t("Billable"), color: reportChartColors.success },
-            internal: { label: t("Internal"), color: reportChartColors.muted },
-          }}
-          summary={`${t("Billable")}: ${billablePercentage}%. ${t(
-            "Internal",
-          )}: ${internalPercentage}%. ${billablePercentage}% ${t("of tracked time is billable")}.`}
-          width="compact"
-          height="compact"
-          legend={
-            <div className="grid grid-cols-2 gap-3" aria-label={t("Chart legend")}>
-              <div className="min-w-0 space-y-1">
-                <BillableIndicator billable />
-                <Typography type="body-sm" weight="semibold">
-                  {formatDuration(summary.billableSeconds, locale)} · {billablePercentage}%
-                </Typography>
-              </div>
-              <div className="min-w-0 space-y-1">
-                <BillableIndicator billable={false} />
-                <Typography type="body-sm" weight="semibold">
-                  {formatDuration(summary.internalSeconds, locale)} · {internalPercentage}%
-                </Typography>
-              </div>
-            </div>
-          }
-          isEmpty={summary.totalSeconds === 0}
-          emptyState={{ title: t("No chart data") }}
-        >
-          <PieChart accessibilityLayer>
-            <ChartTooltip
-              {...reportChartTooltipProps}
-              content={
-                <ChartTooltipContent
-                  hideLabel
-                  valueFormatter={(value) => {
-                    const seconds = Number(value ?? 0);
-                    const percentage =
-                      summary.totalSeconds > 0 ? (seconds / summary.totalSeconds) * 100 : 0;
-                    return `${formatDuration(seconds, locale)} · ${percentageFormatter.format(
-                      percentage,
-                    )}%`;
-                  }}
-                />
-              }
-            />
-            <Pie
-              data={billingData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              startAngle={90}
-              endAngle={-270}
-              innerRadius="58%"
-              outerRadius="82%"
-              cornerRadius={4}
-              paddingAngle={billingData.length > 1 ? 2 : 0}
-              isAnimationActive={false}
-            >
-              <ChartLabel
-                value={`${billablePercentage}%`}
-                position="center"
-                fill={reportChartColors.foreground}
-              />
-              {billingData.map((item) => (
-                <Cell key={item.name} fill={item.color} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ReportChartWidget>
-      </div>
-      <div className="grid min-w-0 xl:col-span-3">
+      <div className="grid min-w-0 md:col-span-2 xl:col-span-4">
         <ReportWidget
           title={t("Hours by shift")}
           contentDescription={shiftSummary || t("No activity")}

@@ -253,10 +253,13 @@ const ptBR: Record<string, string> = {
     "Somente lançamentos marcados como faturáveis entram neste total.",
   "Average tracked time on days with activity.":
     "Média do tempo registrado nos dias com atividade.",
+  "Activity time": "Tempo de atividade",
+  "Lines show tracked time and the previous equivalent period.":
+    "As linhas mostram o tempo registrado e o período anterior equivalente.",
   "Bars show tracked time; the line shows the previous equivalent period.":
     "As barras mostram o tempo registrado; a linha mostra o período anterior equivalente.",
-  "Area shows tracked time, the solid line shows its trend and the dashed line shows the previous equivalent period.":
-    "A área mostra o tempo registrado, a linha contínua mostra a tendência e a linha tracejada mostra o período anterior equivalente.",
+  "Lines show tracked time, its trend and the previous equivalent period.":
+    "As linhas mostram o tempo registrado, sua tendência e o período anterior equivalente.",
   "Current period": "Período atual",
   "Previous period": "Período anterior",
   Trend: "Tendência",

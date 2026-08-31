@@ -259,6 +259,26 @@ function emptyTrello() {
   };
 }
 
+function timeEntryFromRow(row) {
+  return {
+    id: row.id,
+    date: row.date,
+    start: row.start_time.slice(0, 5),
+    end: row.end_time.slice(0, 5),
+    ...(row.end_date !== row.date ? { endDate: row.end_date } : {}),
+    ...(row.start_at ? { startTimestamp: new Date(row.start_at).getTime() } : {}),
+    ...(row.end_at ? { endTimestamp: new Date(row.end_at).getTime() } : {}),
+    seconds: row.duration_seconds,
+    userId: row.user_id,
+    projectId: row.project_id,
+    task: row.task,
+    ...(row.description ? { description: row.description } : {}),
+    billable: row.billable,
+    ...(row.hourly_rate !== null ? { hourlyRate: numberValue(row.hourly_rate) } : {}),
+    ...(row.currency ? { currency: row.currency } : {}),
+  };
+}
+
 async function loadAccount(client, user, config) {
   await ensureProfile(client, user, config);
   const workspaces = await client.query(
@@ -387,23 +407,7 @@ async function loadAccount(client, user, config) {
   const entriesByWorkspace = new Map();
   for (const row of entries.rows) {
     const list = entriesByWorkspace.get(row.workspace_id) ?? [];
-    list.push({
-      id: row.id,
-      date: row.date,
-      start: row.start_time.slice(0, 5),
-      end: row.end_time.slice(0, 5),
-      ...(row.end_date !== row.date ? { endDate: row.end_date } : {}),
-      ...(row.start_at ? { startTimestamp: new Date(row.start_at).getTime() } : {}),
-      ...(row.end_at ? { endTimestamp: new Date(row.end_at).getTime() } : {}),
-      seconds: row.duration_seconds,
-      userId: row.user_id,
-      projectId: row.project_id,
-      task: row.task,
-      ...(row.description ? { description: row.description } : {}),
-      billable: row.billable,
-      ...(row.hourly_rate !== null ? { hourlyRate: numberValue(row.hourly_rate) } : {}),
-      ...(row.currency ? { currency: row.currency } : {}),
-    });
+    list.push(timeEntryFromRow(row));
     entriesByWorkspace.set(row.workspace_id, list);
   }
   const preferencesByUserId = Object.fromEntries(
@@ -450,6 +454,33 @@ async function loadAccount(client, user, config) {
     })),
     preferencesByUserId,
   };
+}
+
+async function loadReportEntries(client, user, body) {
+  const workspaceId = uuid(body.workspaceId);
+  const startDate = dateValue(body.startDate);
+  const endDate = dateValue(body.endDate);
+  if (endDate < startDate) {
+    throw new DataApiError(400, "The report period is invalid.");
+  }
+
+  const access = await requireWorkspaceAccess(client, user.id, workspaceId);
+  const result = await client.query(
+    `select id::text, date::text, start_time::text, end_time::text, end_date::text,
+            start_at, end_at, duration_seconds, user_id, project_id::text, task,
+            description, billable, hourly_rate, currency
+       from public.time_entries e
+      where e.workspace_id = $1
+        and (
+          (e.date >= $2::date and e.date <= $3::date)
+          or (e.date < $2::date and e.end_date >= $2::date)
+        )
+        and ($4::boolean or e.user_id = $5)
+      order by e.date asc, e.start_time asc, e.id asc`,
+    [workspaceId, startDate, endDate, access.role !== "Member", user.id],
+  );
+
+  return result.rows.map(timeEntryFromRow);
 }
 
 async function syncEntries(client, userId, workspaceId, entries, ownOnly) {
@@ -833,6 +864,7 @@ async function operation(request, user, config, body) {
   try {
     requirePayloadUser(user, body ?? {});
     if (body.operation === "loadAccount") return await loadAccount(client, user, config);
+    if (body.operation === "loadReportEntries") return await loadReportEntries(client, user, body);
     if (body.operation === "syncAccount") {
       await client.query("begin");
       try {

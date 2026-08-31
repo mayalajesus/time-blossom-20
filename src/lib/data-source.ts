@@ -16,6 +16,8 @@ export type ReportQuery = {
   billable?: boolean;
 };
 
+export type ReportEntriesQuery = Pick<ReportQuery, "workspaceId" | "startDate" | "endDate">;
+
 export interface AppDataSource {
   getSession(): Promise<DataSourceResult<Session | null>>;
   getPreferences(userId: string): Promise<DataSourceResult<UserPreferences>>;
@@ -41,6 +43,7 @@ export interface AppDataSource {
   listClients(workspaceId: string): Promise<DataSourceResult<Client[]>>;
   listProjects(workspaceId: string): Promise<DataSourceResult<Project[]>>;
   listEntries(query: ReportQuery): Promise<DataSourceResult<TimeEntry[]>>;
+  loadReportEntries(query: ReportEntriesQuery): Promise<DataSourceResult<TimeEntry[]>>;
   getActiveTimer(userId: string, workspaceId: string): Promise<DataSourceResult<TimerState | null>>;
   saveActiveTimer(userId: string, timer: TimerState): Promise<DataSourceResult<TimerState>>;
   clearActiveTimer(userId: string, workspaceId: string): Promise<DataSourceResult<null>>;

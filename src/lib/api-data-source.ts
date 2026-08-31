@@ -1,7 +1,8 @@
 import type { Session } from "@supabase/supabase-js";
 import { authClient } from "./auth-client";
 import type { AccountDataSource } from "./account-data-source";
-import type { DataSourceResult } from "./data-source";
+import type { DataSourceResult, ReportEntriesQuery } from "./data-source";
+import type { TimeEntry } from "./mock-data";
 import type { PersistedAccount, TimerState } from "./store";
 
 const apiBaseUrl = (import.meta.env["VITE_API_BASE_URL"] ?? "").replace(/\/$/, "");
@@ -74,6 +75,8 @@ async function request<T>(
 export function createApiDataSource(): AccountDataSource {
   return {
     loadAccount: () => request<PersistedAccount>("loadAccount"),
+    loadReportEntries: (userId: string, query: ReportEntriesQuery) =>
+      request<TimeEntry[]>("loadReportEntries", { userId, ...query }),
     syncAccount: (_userId, account) => request<null>("syncAccount", { account }),
     getActiveTimer: (_userId, workspaceId) =>
       request<TimerState | null>("getActiveTimer", { workspaceId }),

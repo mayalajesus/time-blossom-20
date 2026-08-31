@@ -252,9 +252,12 @@ export function getAnalyticsEntryInterval(
   if (start === null) return null;
 
   const timestampEnd = finiteTimestamp(entry.endTimestamp);
-  const clockEnd = dateTimeToTimestamp(getEndDateForEntry(entry), entry.end, 0, timeZone);
   const duration = normalizedDuration(entry.seconds);
   const durationEnd = duration === null ? null : start + duration * 1_000;
+  const clockEnd =
+    timestampEnd === null && (timestampStart === null || durationEnd === null)
+      ? dateTimeToTimestamp(getEndDateForEntry(entry), entry.end, 0, timeZone)
+      : null;
   const end =
     timestampEnd ??
     (timestampStart === null ? (clockEnd ?? durationEnd) : (durationEnd ?? clockEnd));
@@ -288,47 +291,51 @@ function clippedEntrySlices(
   return slices;
 }
 
+const reportDateTimeFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function reportDateTimeParts(timestamp: number, timeZone: string): Map<string, string> {
+  let formatter = reportDateTimeFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+    reportDateTimeFormatters.set(timeZone, formatter);
+  }
+  return new Map(
+    formatter
+      .formatToParts(new Date(timestamp))
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+}
+
 function dateAtTimestamp(timestamp: number, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(timestamp));
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value;
-  const year = value("year");
-  const month = value("month");
-  const day = value("day");
+  const parts = reportDateTimeParts(timestamp, timeZone);
+  const year = parts.get("year");
+  const month = parts.get("month");
+  const day = parts.get("day");
   if (!year || !month || !day) throw new RangeError(`Unable to resolve timestamp ${timestamp}.`);
   return `${year}-${month}-${day}`;
 }
 
 function hourAtTimestamp(timestamp: number, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(timestamp));
-  const hour = Number(parts.find((part) => part.type === "hour")?.value);
+  const hour = Number(reportDateTimeParts(timestamp, timeZone).get("hour"));
   if (!Number.isFinite(hour)) throw new RangeError(`Unable to resolve timestamp ${timestamp}.`);
   return hour;
 }
 
 function clockSecondsAtTimestamp(timestamp: number, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(timestamp));
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(parts.find((part) => part.type === type)?.value);
-  const hour = value("hour");
-  const minute = value("minute");
-  const second = value("second");
+  const parts = reportDateTimeParts(timestamp, timeZone);
+  const hour = Number(parts.get("hour"));
+  const minute = Number(parts.get("minute"));
+  const second = Number(parts.get("second"));
   if (![hour, minute, second].every(Number.isFinite)) {
     throw new RangeError(`Unable to resolve timestamp ${timestamp}.`);
   }

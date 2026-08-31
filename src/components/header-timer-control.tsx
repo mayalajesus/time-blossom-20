@@ -1,11 +1,12 @@
 import { toast } from "@heroui/react";
 import { useI18n } from "@/lib/i18n";
-import { useStore } from "@/lib/store";
+import { useStore, useTimerTicker } from "@/lib/store";
 import { TimerActionButton } from "@/components/timer-action-button";
 import { TimerDurationEditor } from "@/components/timer-duration-editor";
 
 export function HeaderTimerControl() {
-  const { timer, elapsed, startTimer, pauseTimer, resumeTimer, setTimerElapsed } = useStore();
+  const { timer, startTimer, pauseTimer, resumeTimer, setTimerElapsed } = useStore();
+  const { elapsed } = useTimerTicker();
   const { t, error } = useI18n();
 
   const handleAction = () => {

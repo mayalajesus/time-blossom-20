@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useAuth } from "./auth-context";
 import { createApiDataSource } from "./api-data-source";
@@ -45,6 +46,7 @@ import {
   timeEntriesOverlap,
   type ScopedTimeIntervalEntry,
 } from "./time-entry-overlap";
+import { entriesForReportWindow, reportEntriesQueryName } from "./report-query";
 import {
   createRunningTimer,
   recentTimerTasksFromEntries,
@@ -835,7 +837,6 @@ interface StoreValue {
   members: Member[];
   timer: TimerState;
   recentTasks: TimerTaskPreset[];
-  elapsed: number;
   trello: TrelloState;
   settings: WorkspaceSettings;
   preferences: UserPreferences;
@@ -905,9 +906,61 @@ interface StoreValue {
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
+const TimerTickerContext = createContext<{ elapsed: number } | null>(null);
+
+function reuseIfEqual<T>(previous: T, next: T): T {
+  return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
+}
+
+function shareAccountReferences(
+  previous: PersistedAccount,
+  next: PersistedAccount,
+): PersistedAccount {
+  const identities = reuseIfEqual(previous.identities, next.identities);
+  const preferencesByUserId = reuseIfEqual(previous.preferencesByUserId, next.preferencesByUserId);
+  const previousWorkspaces = new Map(
+    previous.workspaces.map((workspace) => [workspace.workspace.id, workspace]),
+  );
+  const workspaces = next.workspaces.map((workspace) => {
+    const previousWorkspace = previousWorkspaces.get(workspace.workspace.id);
+    if (!previousWorkspace) return workspace;
+    const shared = {
+      ...workspace,
+      workspace: reuseIfEqual(previousWorkspace.workspace, workspace.workspace),
+      memberships: reuseIfEqual(previousWorkspace.memberships, workspace.memberships),
+      entries: reuseIfEqual(previousWorkspace.entries, workspace.entries),
+      projects: reuseIfEqual(previousWorkspace.projects, workspace.projects),
+      clients: reuseIfEqual(previousWorkspace.clients, workspace.clients),
+      settings: reuseIfEqual(previousWorkspace.settings, workspace.settings),
+      trello: reuseIfEqual(previousWorkspace.trello, workspace.trello),
+    };
+    const unchanged =
+      shared.workspace === previousWorkspace.workspace &&
+      shared.memberships === previousWorkspace.memberships &&
+      shared.entries === previousWorkspace.entries &&
+      shared.projects === previousWorkspace.projects &&
+      shared.clients === previousWorkspace.clients &&
+      shared.settings === previousWorkspace.settings &&
+      shared.trello === previousWorkspace.trello;
+    return unchanged ? previousWorkspace : shared;
+  });
+  const sharedWorkspaces =
+    workspaces.length === previous.workspaces.length &&
+    workspaces.every((workspace, index) => workspace === previous.workspaces[index])
+      ? previous.workspaces
+      : workspaces;
+  if (
+    identities === previous.identities &&
+    preferencesByUserId === previous.preferencesByUserId &&
+    sharedWorkspaces === previous.workspaces
+  )
+    return previous;
+  return { ...next, identities, preferencesByUserId, workspaces: sharedWorkspaces };
+}
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { loading: authLoading, session } = useAuth();
+  const queryClient = useQueryClient();
   const dataSource = useMemo(() => createApiDataSource(), []);
   const [account, setAccount] = useState<PersistedAccount>({
     version: 11,
@@ -923,6 +976,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [accountReloadKey, setAccountReloadKey] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [timerHydrated, setTimerHydrated] = useState(false);
+  const accountRef = useRef(account);
+  accountRef.current = account;
   const skipAccountSyncRef = useRef(false);
   const accountRefreshInFlightRef = useRef(false);
   const activeData =
@@ -932,6 +987,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const membersRef = useRef(members);
+  membersRef.current = members;
   const [settings, setSettingsState] = useState<WorkspaceSettings>(initialSettings);
   const [trello, setTrelloState] = useState<TrelloState>(initialTrello);
   const [timer, setTimer] = useState<TimerState>(initialTimer);
@@ -972,7 +1029,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const result = await dataSource.loadAccount(session.user.id);
       if (!result.success) return;
 
-      const loadedAccount = result.data;
+      const loadedAccount = shareAccountReferences(accountRef.current, result.data);
       const currentWorkspace = loadedAccount.workspaces.find(
         (data) =>
           data.workspace.id === activeWorkspaceId &&
@@ -996,9 +1053,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const nextMembers = nextWorkspace.memberships
+      const mappedMembers = nextWorkspace.memberships
         .map((membership) => membershipToMember(membership, loadedAccount.identities))
         .filter((member): member is Member => member !== null);
+      const nextMembers = reuseIfEqual(membersRef.current, mappedMembers);
       const workspaceChanged = nextWorkspace.workspace.id !== activeWorkspaceId;
       skipAccountSyncRef.current = true;
       setAccount(loadedAccount);
@@ -1102,6 +1160,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("visibilitychange", refreshWhenVisible);
     };
   }, [hydrated, refreshAccount, session]);
+
+  useEffect(() => {
+    if (!hydrated || !activeWorkspaceId) return;
+    const reportQueries = queryClient.getQueryCache().findAll({
+      predicate: (query) => {
+        const [name, parameters] = query.queryKey as [
+          unknown,
+          { workspaceId?: string; startDate?: string; endDate?: string } | undefined,
+        ];
+        return (
+          name === reportEntriesQueryName &&
+          parameters?.workspaceId === activeWorkspaceId &&
+          typeof parameters.startDate === "string" &&
+          typeof parameters.endDate === "string"
+        );
+      },
+    });
+    for (const query of reportQueries) {
+      const parameters = query.queryKey[1] as {
+        startDate: string;
+        endDate: string;
+      };
+      queryClient.setQueryData(
+        query.queryKey,
+        entriesForReportWindow(entries, parameters.startDate, parameters.endDate),
+      );
+    }
+  }, [activeWorkspaceId, entries, hydrated, queryClient]);
 
   useEffect(() => {
     if (!hydrated || !session || !activeWorkspaceId) return;
@@ -2322,7 +2408,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       members,
       timer,
       recentTasks,
-      elapsed,
       trello,
       settings,
       preferences,
@@ -2390,7 +2475,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     currentMember,
     currentWorkspaceMembership,
     currentWorkspace,
-    elapsed,
     entries,
     members,
     preferences,
@@ -2405,12 +2489,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     trello,
   ]);
 
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+  const tickerValue = useMemo(() => ({ elapsed }), [elapsed]);
+
+  return (
+    <StoreContext.Provider value={value}>
+      <TimerTickerContext.Provider value={tickerValue}>{children}</TimerTickerContext.Provider>
+    </StoreContext.Provider>
+  );
 }
 
 export function useStore(): StoreValue {
   const context = useContext(StoreContext);
   if (!context) throw new Error("useStore must be used inside StoreProvider");
+  return context;
+}
+
+export function useTimerTicker(): { elapsed: number } {
+  const context = useContext(TimerTickerContext);
+  if (!context) throw new Error("useTimerTicker must be used inside StoreProvider");
   return context;
 }
 
