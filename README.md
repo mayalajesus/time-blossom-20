@@ -33,15 +33,15 @@ only.
 Install dependencies and start the development server:
 
 ```bash
-bun install
-bun run dev
+npm install
+npm run dev
 ```
 
 The production checks are:
 
 ```bash
-bun run lint
-bun run build
+npm run lint
+npm run build
 ```
 
 ## Visual system
@@ -71,7 +71,6 @@ chart helper backed by Recharts, used for reports.
 - `src/lib/permissions.ts` contains pure permission rules used by the store and
   domain tests.
 - `design.md` documents the visual and interaction direction.
-- `AGENTS.md` documents contribution conventions.
 
 ## Permission model
 

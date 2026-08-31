@@ -35,5 +35,11 @@ dist-ssr
 *.sln
 *.sw?
 
-# Codex local audit artifacts
+# Local AI and QA artifacts
 .codex/
+.lovable/
+/audit-calendar/
+/tmp-report-preview/
+/design-qa.md
+/design-qa-assets/
+/design-qa-*.png
