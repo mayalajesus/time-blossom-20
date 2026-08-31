@@ -37,7 +37,7 @@ function getReportView(search: unknown) {
   if (search && typeof search === "object" && "view" in search) {
     return normalizeReportView((search as { view?: unknown }).view);
   }
-  return "overview";
+  return "detailed";
 }
 
 function isNavigationItemActive(pathname: string, item: NavigationItem) {

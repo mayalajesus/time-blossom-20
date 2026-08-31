@@ -1,22 +1,18 @@
 import { Dropdown, Label, Separator, Tabs, toast, Typography } from "@heroui/react";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowRightFromSquare, Display, Gear, Moon, Sun } from "@gravity-ui/icons";
-import { useMemo } from "react";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { useI18n } from "@/lib/i18n";
 import { useStore, type ThemeMode } from "@/lib/store";
 import { signOut as signOutRemote } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { resetSessionDefaultAvatar } from "@/lib/default-avatar";
-import { createSupabaseDataSource } from "@/lib/supabase-data-source";
-import { isSupabaseConfigured } from "@/lib/supabase";
 
 export function ProfileMenu({ showName = false }: { showName?: boolean }) {
   const { currentMember, preferences, setUserPreferences, signOut } = useStore();
-  const { configured, session } = useAuth();
+  const { configured } = useAuth();
   const { t, error } = useI18n();
   const navigate = useNavigate();
-  const dataSource = useMemo(() => createSupabaseDataSource(), []);
 
   if (!currentMember) return null;
 
@@ -26,23 +22,18 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
     { id: "dark" as const, label: "Dark", Icon: Moon },
   ];
 
-  const handleThemeChange = async (theme: ThemeMode) => {
-    if (isSupabaseConfigured && session) {
-      const remote = await dataSource.updatePreferences(session.user.id, { theme });
-      if (!remote.success) {
-        toast.danger(t("We couldn't save your preferences"), {
-          description: error(remote.error),
-        });
-        return;
-      }
-    }
+  const handleThemeChange = (theme: ThemeMode) => {
+    if (theme === preferences.theme) return;
 
     const result = setUserPreferences({ theme });
     if (!result.success) {
       toast.danger(t("We couldn't save your preferences"), {
         description: error(result.error),
       });
+      return;
     }
+
+    toast.success(t("Your preferences are up to date"));
   };
 
   const handleAction = async (key: string) => {
@@ -99,7 +90,7 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
           <Tabs
             className="w-full"
             selectedKey={preferences.theme}
-            onSelectionChange={(key) => void handleThemeChange(String(key) as ThemeMode)}
+            onSelectionChange={(key) => handleThemeChange(String(key) as ThemeMode)}
           >
             <Tabs.ListContainer>
               <Tabs.List aria-label={t("Theme")} className="w-full">

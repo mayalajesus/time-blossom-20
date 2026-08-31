@@ -588,7 +588,7 @@ function ReportPeriodPicker({
                 aria-label={t("Choose report date range")}
                 firstDayOfWeek={weekStartsOn === 0 ? "sun" : "mon"}
                 visibleDuration={{ months: 1 }}
-                className="w-full max-w-full"
+                className="!w-full !max-w-full pe-2"
               >
                 <RangeCalendar.Header>
                   <RangeCalendar.NavButton slot="previous" aria-label={t("Previous month")}>

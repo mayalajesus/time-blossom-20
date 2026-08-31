@@ -6,7 +6,6 @@ import {
   Modal,
   Radio,
   RadioGroup,
-  Typography,
   toast,
 } from "@heroui/react";
 import { ArrowDownToLine } from "@gravity-ui/icons";
@@ -83,19 +82,9 @@ export function ExportModal({
               }}
             >
               <Modal.Body className="flex flex-col gap-5">
-                <div className="space-y-1">
-                  <Typography type="body-sm" weight="semibold">
-                    {t("Included data")}
-                  </Typography>
-                  <Description>
-                    {t(
-                      "This export uses the current period, filters, permission scope, report view and grouping ({count} rows).",
-                      {
-                        count: payload.rows.length,
-                      },
-                    )}
-                  </Description>
-                </div>
+                <Description className="text-foreground">
+                  {t("Ready to export: {count} records.", { count: payload.rows.length })}
+                </Description>
                 <RadioGroup
                   value={format}
                   onChange={(next: string) => {
@@ -103,12 +92,14 @@ export function ExportModal({
                     setExportError("");
                   }}
                   orientation="horizontal"
+                  variant="secondary"
+                  className="grid grid-cols-3 gap-2"
                 >
-                  <Label>{t("Format")}</Label>
+                  <Label className="col-span-full">{t("Format")}</Label>
                   {(["csv", "xlsx", "pdf"] as const).map((item) => (
-                    <Radio key={item} value={item}>
-                      <Radio.Content>
-                        <Radio.Control>
+                    <Radio key={item} value={item} className="min-w-0">
+                      <Radio.Content className="w-full justify-center rounded-lg border border-default bg-surface-secondary px-3 py-2 text-foreground">
+                        <Radio.Control className="border-muted">
                           <Radio.Indicator />
                         </Radio.Control>
                         {item.toUpperCase()}
