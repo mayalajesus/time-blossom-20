@@ -565,9 +565,42 @@ function ReportsPage() {
   const [hydratedFilterStorageKey, setHydratedFilterStorageKey] = useState<string | null>(null);
   const skipNextFilterPersistence = useRef(false);
 
+  const constrainFiltersToCurrentScope = useCallback(
+    (filters: StoredReportFilters) =>
+      constrainReportFiltersToScope(filters, {
+        currentUserId,
+        canViewTeam: showTeam,
+        memberIds: members
+          .filter((member) => member.status === "active")
+          .map((member) => member.id),
+        clientIds: clients.map((client) => client.id),
+        projectIds: projects.map((project) => project.id),
+        visibleFilters: ["member", "client", "project", "description", "billability"],
+      }),
+    [clients, currentUserId, members, projects, showTeam],
+  );
+
   const updateSearch = (patch: Partial<ReportSearch>) => {
+    const nextSearch: Required<ReportSearch> = {
+      ...search,
+      ...patch,
+      page: patch.page ?? 1,
+    };
+
+    if (
+      filterStorageKey &&
+      hydratedFilterStorageKey === filterStorageKey &&
+      typeof window !== "undefined"
+    ) {
+      writeStoredReportFilters(
+        window.localStorage,
+        filterStorageKey,
+        constrainFiltersToCurrentScope(storedFiltersFromSearch(nextSearch)),
+      );
+    }
+
     navigate({
-      search: { ...search, ...patch, page: patch.page ?? 1 },
+      search: nextSearch,
       replace: true,
       resetScroll: false,
     });
@@ -592,14 +625,7 @@ function ReportsPage() {
       currentUserId,
       hasExplicitFilters: explicitFilters,
     });
-    const normalizedFilters = constrainReportFiltersToScope(selectedFilters, {
-      currentUserId,
-      canViewTeam: showTeam,
-      memberIds: members.filter((member) => member.status === "active").map((member) => member.id),
-      clientIds: clients.map((client) => client.id),
-      projectIds: projects.map((project) => project.id),
-      visibleFilters: ["member", "client", "project", "description", "billability"],
-    });
+    const normalizedFilters = constrainFiltersToCurrentScope(selectedFilters);
     const patch = searchPatchFromStoredFilters(normalizedFilters);
     const shouldNavigate =
       search.preset !== normalizedFilters.preset ||
@@ -626,15 +652,12 @@ function ReportsPage() {
     }
   }, [
     accountLoading,
-    clients,
+    constrainFiltersToCurrentScope,
     currentUserId,
     filterStorageKey,
     hydratedFilterStorageKey,
-    members,
     navigate,
-    projects,
     search,
-    showTeam,
     storedFilters,
   ]);
 
