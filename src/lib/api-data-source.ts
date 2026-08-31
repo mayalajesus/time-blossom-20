@@ -2,7 +2,7 @@ import type { Session } from "@supabase/supabase-js";
 import { authClient } from "./auth-client";
 import type { AccountDataSource } from "./account-data-source";
 import type { DataSourceResult, ReportEntriesQuery } from "./data-source";
-import type { TimeEntry } from "./mock-data";
+import type { Member, TimeEntry } from "./mock-data";
 import type { PersistedAccount, TimerState } from "./store";
 
 const apiBaseUrl = (import.meta.env["VITE_API_BASE_URL"] ?? "").replace(/\/$/, "");
@@ -78,9 +78,16 @@ export function createApiDataSource(): AccountDataSource {
     loadReportEntries: (userId: string, query: ReportEntriesQuery) =>
       request<TimeEntry[]>("loadReportEntries", { userId, ...query }),
     syncAccount: (_userId, account) => request<null>("syncAccount", { account }),
+    updatePreferences: (userId, patch) => request<null>("updatePreferences", { userId, patch }),
     getActiveTimer: (_userId, workspaceId) =>
       request<TimerState | null>("getActiveTimer", { workspaceId }),
     saveActiveTimer: (_userId, timer) => request<TimerState>("saveActiveTimer", { timer }),
     clearActiveTimer: (_userId, workspaceId) => request<null>("clearActiveTimer", { workspaceId }),
+    inviteMember: (workspaceId, email, role) =>
+      request<Member>("inviteMember", { workspaceId, email, role }),
+    resendInvitation: (workspaceId, invitationId) =>
+      request<Member>("resendInvitation", { workspaceId, invitationId }),
+    cancelInvitation: (workspaceId, invitationId) =>
+      request<null>("cancelInvitation", { workspaceId, invitationId }),
   };
 }

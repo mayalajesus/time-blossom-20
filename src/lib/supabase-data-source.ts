@@ -20,6 +20,8 @@ type PreferenceRow = {
   idle_detection: boolean;
   hourly_rate?: number;
   currency?: string;
+  active_workspace_id?: string | null;
+  report_filters?: UserPreferences["reportFilters"] | null;
   profiles?: { avatar_path?: string | null } | null;
 };
 type WorkspaceRow = {
@@ -113,6 +115,8 @@ async function mapPreferences(
     avatarUrl,
     hourlyRate: typeof row.hourly_rate === "number" && row.hourly_rate >= 0 ? row.hourly_rate : 0,
     currency: isCurrencyCode(row.currency) ? row.currency : defaultCurrencyForLocale(row.language),
+    activeWorkspaceId: row.active_workspace_id ?? null,
+    reportFilters: row.report_filters ?? {},
   };
 }
 
@@ -260,7 +264,15 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
 
     updatePreferences: (userId, patch) =>
       call(async () => {
-        const { avatarUrl: _avatarUrl, weeklyDigest, idleDetection, hourlyRate, ...rest } = patch;
+        const {
+          avatarUrl: _avatarUrl,
+          weeklyDigest,
+          idleDetection,
+          hourlyRate,
+          activeWorkspaceId,
+          reportFilters,
+          ...rest
+        } = patch;
         const response = await client!
           .from("user_preferences")
           .upsert({
@@ -269,6 +281,8 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
             ...(weeklyDigest === undefined ? {} : { weekly_digest: weeklyDigest }),
             ...(idleDetection === undefined ? {} : { idle_detection: idleDetection }),
             ...(hourlyRate === undefined ? {} : { hourly_rate: hourlyRate }),
+            ...(activeWorkspaceId === undefined ? {} : { active_workspace_id: activeWorkspaceId }),
+            ...(reportFilters === undefined ? {} : { report_filters: reportFilters }),
           })
           .select("*, profiles(avatar_path)")
           .single();
@@ -299,9 +313,16 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
 
     uploadAvatar: (userId, image) =>
       call(async () => {
-        const path = `${userId}/avatar-${Date.now()}.webp`;
+        const current = await client!
+          .from("profiles")
+          .select("avatar_path")
+          .eq("id", userId)
+          .single();
+        if (current.error) return { data: null, error: current.error };
+        const previousPath = (current.data as { avatar_path?: string | null }).avatar_path;
+        const path = `${userId}/avatar-${Date.now()}.jpg`;
         const upload = await client!.storage.from("avatars").upload(path, image, {
-          contentType: "image/webp",
+          contentType: image.type || "image/jpeg",
           upsert: false,
         });
         if (upload.error) return { data: null, error: upload.error };
@@ -309,7 +330,14 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
           .from("profiles")
           .update({ avatar_path: path, updated_at: new Date().toISOString() })
           .eq("id", userId);
-        if (updated.error) return { data: null, error: updated.error };
+        if (updated.error) {
+          await client!.storage.from("avatars").remove([path]);
+          return { data: null, error: updated.error };
+        }
+        if (previousPath && previousPath !== path) {
+          const removed = await client!.storage.from("avatars").remove([previousPath]);
+          if (removed.error) return { data: null, error: removed.error };
+        }
         const signed = await client!.storage.from("avatars").createSignedUrl(path, 3_600);
         return { data: signed.data?.signedUrl ?? "", error: signed.error };
       }),

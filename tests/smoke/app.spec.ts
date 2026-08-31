@@ -44,7 +44,11 @@ test("settings preserves language and theme controls", async ({ page }) => {
   await expect(page.getByRole("tab", { name: /Dark|Escuro/ })).toBeVisible();
   await page.getByRole("tab", { name: /Dark|Escuro/ }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/dark/);
   await page.getByRole("tab", { name: /Light|Claro/ }).click();
+  await expect(page.locator("html")).toHaveClass(/light/);
+  await page.reload();
   await expect(page.locator("html")).toHaveClass(/light/);
 });
 

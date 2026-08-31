@@ -11,14 +11,14 @@ type BootCopy = {
 
 const bootCopy: Record<BootLocale, BootCopy> = {
   "en-US": {
-    loading: "Loading Time Blossom…",
-    errorTitle: "We couldn't open Time Blossom",
+    loading: "Loading Watchtag…",
+    errorTitle: "We couldn't open Watchtag",
     errorDescription: "Try reloading the page. If the problem continues, check your connection.",
     retry: "Reload page",
   },
   "pt-BR": {
-    loading: "Carregando o Time Blossom…",
-    errorTitle: "Não conseguimos abrir o Time Blossom",
+    loading: "Carregando o Watchtag…",
+    errorTitle: "Não conseguimos abrir o Watchtag",
     errorDescription: "Tente recarregar a página. Se o problema continuar, confira sua conexão.",
     retry: "Recarregar página",
   },
@@ -66,7 +66,7 @@ function showBootError(rootElement: HTMLElement, copy: BootCopy) {
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-  throw new Error("Time Blossom could not find the application root.");
+  throw new Error("Watchtag could not find the application root.");
 }
 
 const configuredAppUrl = import.meta.env["VITE_APP_URL"];

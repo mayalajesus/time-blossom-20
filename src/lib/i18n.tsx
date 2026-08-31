@@ -525,10 +525,10 @@ const ptBR: Record<string, string> = {
   "Page not found": "Página não encontrada",
   "The page you're looking for doesn't exist or has been moved.":
     "A página que você procura não existe ou foi movida.",
-  "Loading Time Blossom…": "Carregando o Time Blossom…",
+  "Loading Watchtag…": "Carregando o Watchtag…",
   "Loading data": "Carregando dados",
   "Preparing your workspace…": "Preparando seu workspace…",
-  "Time Blossom could not load: {error}": "Não conseguimos carregar o Time Blossom: {error}",
+  "Watchtag could not load: {error}": "Não conseguimos carregar o Watchtag: {error}",
   "Only Admins and the Owner can change workspace settings.":
     "Somente Administradores e o Proprietário podem alterar as configurações do workspace.",
   "Choose a valid default billability setting.":
@@ -659,8 +659,8 @@ const ptBR: Record<string, string> = {
   "Follow your device theme.": "Seguir o tema do seu dispositivo.",
   "Always use the light theme.": "Usar sempre o tema claro.",
   "Always use the dark theme.": "Usar sempre o tema escuro.",
-  "Choose how Time Blossom should look for your account.":
-    "Escolha a aparência do Time Blossom para sua conta.",
+  "Choose how Watchtag should look for your account.":
+    "Escolha a aparência do Watchtag para sua conta.",
   "Open account menu for {name}": "Abrir o menu da conta de {name}",
   "Change profile photo": "Alterar foto de perfil",
   "Remove profile photo": "Remover foto de perfil",
@@ -872,23 +872,23 @@ const ptBR: Record<string, string> = {
     "Não conseguimos preparar a exportação CSV. Tente novamente.",
   "The Excel export could not be prepared.":
     "Não conseguimos preparar a exportação Excel. Tente novamente.",
-  "Time Blossom · filtered report": "Time Blossom · relatório filtrado",
+  "Watchtag · filtered report": "Watchtag · relatório filtrado",
   Generated: "Gerado em",
-  "Time Blossom · report export": "Time Blossom · exportação do relatório",
+  "Watchtag · report export": "Watchtag · exportação do relatório",
   "No records match the selected report.": "Nenhum registro corresponde ao relatório selecionado.",
   "The PDF print preview could not be prepared.":
     "Não conseguimos preparar a visualização de impressão do PDF. Tente novamente.",
   "The PDF print preview could not be opened.":
     "Não conseguimos abrir a visualização de impressão do PDF. Tente novamente.",
   "Export {scope}": "Exportar {scope}",
-  "Project details — Time Blossom": "Detalhes do projeto — Time Blossom",
+  "Project details — Watchtag": "Detalhes do projeto — Watchtag",
   "Could not create client": "Não conseguimos adicionar este cliente",
   "Choose valid personal preferences.": "Escolha preferências pessoais válidas.",
-  "Time Blossom — Simple time tracking": "Time Blossom — Rastreador de tempo simples",
-  "Time Blossom — Time tracking for small teams":
-    "Time Blossom — Rastreador de tempo para pequenas equipes",
-  "Time Blossom is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.":
-    "Time Blossom é um rastreador de tempo simples para freelancers e pequenas equipes: cronômetro, registros, relatórios e faturamento de clientes.",
+  "Watchtag — Simple time tracking": "Watchtag — Rastreador de tempo simples",
+  "Watchtag — Time tracking for small teams":
+    "Watchtag — Rastreador de tempo para pequenas equipes",
+  "Watchtag is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.":
+    "Watchtag é um rastreador de tempo simples para freelancers e pequenas equipes: cronômetro, registros, relatórios e faturamento de clientes.",
   "Track hours, manage projects and bill clients with a calm, focused workspace.":
     "Acompanhe horas, gerencie projetos e fature clientes em um workspace calmo e focado.",
   "Start the live timer, log time and manage your entries in one focused workspace.":
@@ -910,12 +910,12 @@ const ptBR: Record<string, string> = {
   "Detailed, summary, weekly and team time reports.":
     "Relatórios detalhados, resumidos, semanais e da equipe.",
   "Filter and understand tracked time.": "Filtre e entenda as horas registradas.",
-  "Connect Time Blossom to Trello and sync cards into tracked tasks.":
-    "Conecte o Time Blossom ao Trello e sincronize cartões como tarefas registradas.",
+  "Connect Watchtag to Trello and sync cards into tracked tasks.":
+    "Conecte o Watchtag ao Trello e sincronize cartões como tarefas registradas.",
   "Trello sync for your time tracking.": "Sincronização do Trello para seu rastreador de tempo.",
   "Workspace settings and personal preferences.":
     "Configurações do workspace e preferências pessoais.",
-  "Configure your Time Blossom workspace.": "Configure seu workspace do Time Blossom.",
+  "Configure your Watchtag workspace.": "Configure seu workspace do Watchtag.",
   "Search projects, clients, teammates and time entries.":
     "Busque projetos, clientes, colegas e registros de horas.",
   "Find anything in your workspace.": "Encontre qualquer coisa no seu workspace.",
@@ -987,7 +987,7 @@ const ptBR: Record<string, string> = {
   "Main navigation": "Navegação principal",
   "Open navigation": "Abrir navegação",
   "Close navigation": "Fechar navegação",
-  "Time Blossom": "Time Blossom",
+  Watchtag: "Watchtag",
   "Actions for {name}": "Ações de {name}",
   "Unknown member": "Membro desconhecido",
   "Unknown project": "Projeto desconhecido",
@@ -1178,7 +1178,7 @@ const enUS: Record<string, string> = {
   "This page didn't load": "We couldn't load this page",
   "Something went wrong on our end. You can try refreshing or head back home.":
     "We couldn't load this page. Try again or go back to the home page.",
-  "Time Blossom could not load: {error}": "We couldn't load Time Blossom: {error}",
+  "Watchtag could not load: {error}": "We couldn't load Watchtag: {error}",
   "Your account cannot track time.": "This account can't track time yet.",
   "Your account cannot update the active timer.": "This account can't update the active timer.",
   "There is no active timer to update.": "There's no active timer to update yet.",

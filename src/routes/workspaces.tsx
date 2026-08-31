@@ -43,9 +43,9 @@ import { useStore, type WorkspaceSummary } from "@/lib/store";
 export const Route = createFileRoute("/workspaces")({
   head: () => ({
     meta: [
-      { title: "Workspaces — Time Blossom" },
-      { name: "description", content: "Create and manage your Time Blossom workspaces." },
-      { property: "og:title", content: "Workspaces — Time Blossom" },
+      { title: "Workspaces — Watchtag" },
+      { name: "description", content: "Create and manage your Watchtag workspaces." },
+      { property: "og:title", content: "Workspaces — Watchtag" },
       {
         property: "og:description",
         content: "Switch between focused workspaces and shared teams.",

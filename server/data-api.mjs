@@ -1,9 +1,11 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createClient } from "@supabase/supabase-js";
 import pg from "pg";
 
 const { Pool } = pg;
 const pools = new Map();
 const jwks = new Map();
+const supabaseAdmins = new Map();
 const defaultAvatarUrls = [
   "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg",
   "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg",
@@ -25,13 +27,45 @@ function envValue(env, key) {
 }
 
 function providerEnv(env) {
+  const databaseProvider = envValue(env, "DATABASE_PROVIDER");
+  const vercelUrl = envValue(env, "VERCEL_URL");
   return {
-    databaseProvider: envValue(env, "DATABASE_PROVIDER"),
-    databaseUrl: envValue(env, "DATABASE_URL"),
+    databaseProvider,
+    databaseUrl:
+      envValue(env, "DATABASE_URL") ||
+      (databaseProvider === "supabase" ? envValue(env, "SUPABASE_DATABASE_URL") : ""),
+    appUrl:
+      envValue(env, "APP_URL") ||
+      envValue(env, "VITE_APP_URL") ||
+      (vercelUrl ? `https://${vercelUrl}` : ""),
     neonAuthUrl: envValue(env, "VITE_NEON_AUTH_URL").replace(/\/$/, ""),
-    supabaseUrl: envValue(env, "VITE_SUPABASE_URL").replace(/\/$/, ""),
-    supabasePublishableKey: envValue(env, "VITE_SUPABASE_PUBLISHABLE_KEY"),
+    supabaseUrl: (envValue(env, "SUPABASE_URL") || envValue(env, "VITE_SUPABASE_URL")).replace(
+      /\/$/,
+      "",
+    ),
+    supabasePublishableKey:
+      envValue(env, "SUPABASE_ANON_KEY") || envValue(env, "VITE_SUPABASE_PUBLISHABLE_KEY"),
+    supabaseServiceRoleKey: envValue(env, "SUPABASE_SERVICE_ROLE_KEY"),
   };
+}
+
+function getSupabaseAdmin(config) {
+  if (
+    config.databaseProvider !== "supabase" ||
+    !config.supabaseUrl ||
+    !config.supabaseServiceRoleKey
+  ) {
+    throw new DataApiError(500, "Supabase server credentials are not configured.");
+  }
+  const cacheKey = `${config.supabaseUrl}:${config.supabaseServiceRoleKey.slice(-8)}`;
+  let admin = supabaseAdmins.get(cacheKey);
+  if (!admin) {
+    admin = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    supabaseAdmins.set(cacheKey, admin);
+  }
+  return admin;
 }
 
 function getPool(config) {
@@ -41,7 +75,7 @@ function getPool(config) {
     pool = new Pool({
       connectionString: config.databaseUrl,
       max: 5,
-      application_name: "time-blossom-api",
+      application_name: "watchtag-api",
     });
     pools.set(config.databaseUrl, pool);
   }
@@ -116,6 +150,54 @@ function defaultAvatarForUser(userId) {
   let hash = 0;
   for (const character of userId) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
   return defaultAvatarUrls[hash % defaultAvatarUrls.length];
+}
+
+function invitationMember(row) {
+  const name = String(row.email ?? "")
+    .split("@")[0]
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+  return {
+    id: row.id,
+    name: name || "Invited user",
+    email: row.email,
+    initials,
+    role: row.role,
+    status: "invited",
+    invitedAt: iso(row.invited_at),
+  };
+}
+
+async function signedStorageUrl(config, bucket, path) {
+  if (!path || config.databaseProvider !== "supabase") return null;
+  const { data, error } = await getSupabaseAdmin(config)
+    .storage.from(bucket)
+    .createSignedUrl(path, 60 * 60 * 24);
+  if (error) throw new DataApiError(500, `Could not load ${bucket} media.`);
+  return data.signedUrl;
+}
+
+function parseImageDataUrl(value) {
+  if (typeof value !== "string") return null;
+  const match = value.match(/^data:(image\/(?:png|jpeg|webp));base64,([a-zA-Z0-9+/=\r\n]+)$/);
+  if (!match) return null;
+  const bytes = Buffer.from(match[2], "base64");
+  if (bytes.byteLength > 1_048_576) {
+    throw new DataApiError(400, "The image must be smaller than 1 MB.");
+  }
+  return { bytes, contentType: match[1] };
+}
+
+function reportFiltersValue(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value;
 }
 
 async function hasColumn(client, tableName, columnName) {
@@ -304,8 +386,12 @@ function timeEntryFromRow(row) {
 
 async function loadAccount(client, user, config) {
   await ensureProfile(client, user, config);
+  const hasLogoPath = await hasColumn(client, "workspaces", "logo_path");
+  const hasActiveWorkspace = await hasColumn(client, "user_preferences", "active_workspace_id");
+  const hasReportFilters = await hasColumn(client, "user_preferences", "report_filters");
   const workspaces = await client.query(
-    `select w.id::text, w.name, w.owner_id, w.status, w.created_at, w.archived_at
+    `select w.id::text, w.name, w.owner_id, w.status, w.created_at, w.archived_at,
+            ${hasLogoPath ? "w.logo_path" : "null::text as logo_path"}
        from public.workspaces w
        join public.workspace_members access on access.workspace_id = w.id
       where access.user_id = $1 and access.status = 'active'
@@ -314,20 +400,41 @@ async function loadAccount(client, user, config) {
   );
   const workspaceIds = workspaces.rows.map((row) => row.id);
   const identityRows = await client.query(
-    `select distinct p.id, p.name, p.email, p.initials
+    `select distinct p.id, p.name, p.email, p.initials, p.avatar_path
        from public.profiles p
        join public.workspace_members wm on wm.user_id = p.id
       where wm.workspace_id = any($1::uuid[]) or p.id = $2`,
     [workspaceIds, user.id],
   );
+  const invitations = await client.query(
+    `select id::text, workspace_id::text, email, role, invited_at, expires_at
+       from public.workspace_invitations
+      where workspace_id = any($1::uuid[])
+        and status = 'pending'
+        and expires_at > now()
+        and exists (
+          select 1
+            from public.workspace_members actor
+           where actor.workspace_id = workspace_invitations.workspace_id
+             and actor.user_id = $2
+             and actor.status = 'active'
+             and actor.role in ('Owner', 'Admin')
+        )
+      order by invited_at desc`,
+    [workspaceIds, user.id],
+  );
   const identityById = new Map(identityRows.rows.map((row) => [row.id, row]));
+  for (const row of invitations.rows) {
+    const pending = invitationMember(row);
+    identityById.set(pending.id, pending);
+  }
   const identities = [...identityById.values()].map((row) => ({
     id: row.id,
     name: row.name,
     email: row.email,
     initials: row.initials,
   }));
-  const ids = identities.map((identity) => identity.id);
+  const profileIds = identityRows.rows.map((identity) => identity.id);
   const memberships = await client.query(
     `select workspace_id::text, user_id, role, status, invited_at, joined_at
      from public.workspace_members where workspace_id = any($1::uuid[])`,
@@ -369,7 +476,7 @@ async function loadAccount(client, user, config) {
   );
   const hasAvatarData = await hasColumn(client, "user_preferences", "avatar_data_url");
   if (hasAvatarData) {
-    for (const id of ids) {
+    for (const id of profileIds) {
       await client.query(
         `insert into public.user_preferences (user_id, avatar_data_url)
          values ($1, $2)
@@ -383,8 +490,10 @@ async function loadAccount(client, user, config) {
   const preferences = await client.query(
     `select user_id, language, theme, timezone, reminders, weekly_digest, idle_detection, hourly_rate, currency, ${
       hasAvatarData ? "avatar_data_url" : "null::text as avatar_data_url"
-    } from public.user_preferences where user_id = any($1::text[])`,
-    [ids],
+    }, ${hasActiveWorkspace ? "active_workspace_id::text" : "null::text as active_workspace_id"},
+       ${hasReportFilters ? "report_filters" : "'{}'::jsonb as report_filters"}
+       from public.user_preferences where user_id = any($1::text[])`,
+    [profileIds],
   );
   const settingsByWorkspace = new Map(settings.rows.map((row) => [row.workspace_id, row]));
   const membershipsByWorkspace = new Map();
@@ -397,6 +506,17 @@ async function loadAccount(client, user, config) {
       status: row.status,
       ...(row.invited_at ? { invitedAt: iso(row.invited_at) } : {}),
       ...(row.joined_at ? { joinedAt: iso(row.joined_at) } : {}),
+    });
+    membershipsByWorkspace.set(row.workspace_id, list);
+  }
+  for (const row of invitations.rows) {
+    const list = membershipsByWorkspace.get(row.workspace_id) ?? [];
+    list.push({
+      workspaceId: row.workspace_id,
+      userId: row.id,
+      role: row.role,
+      status: "invited",
+      invitedAt: iso(row.invited_at),
     });
     membershipsByWorkspace.set(row.workspace_id, list);
   }
@@ -433,21 +553,45 @@ async function loadAccount(client, user, config) {
     list.push(timeEntryFromRow(row));
     entriesByWorkspace.set(row.workspace_id, list);
   }
+  const avatarUrlsById = new Map();
+  for (const row of identityRows.rows) {
+    if (row.avatar_path) {
+      avatarUrlsById.set(row.id, await signedStorageUrl(config, "avatars", row.avatar_path));
+    }
+  }
+  const logoUrlsByWorkspaceId = new Map();
+  for (const row of workspaces.rows) {
+    if (row.logo_path) {
+      logoUrlsByWorkspaceId.set(
+        row.id,
+        await signedStorageUrl(config, "workspace-logos", row.logo_path),
+      );
+    }
+  }
   const preferencesByUserId = Object.fromEntries(
-    ids.map((id) => {
+    profileIds.map((id) => {
       const row = preferences.rows.find((candidate) => candidate.user_id === id);
+      const isOwnPreferences = id === user.id;
       return [
         id,
         {
-          reminders: row?.reminders ?? true,
-          weeklyDigest: row?.weekly_digest ?? false,
-          idleDetection: row?.idle_detection ?? true,
-          language: row?.language === "pt-BR" ? "pt-BR" : "en-US",
-          theme: row?.theme === "light" || row?.theme === "dark" ? row.theme : "system",
-          avatarUrl: avatarDataValue(row?.avatar_data_url),
-          timezone: row?.timezone ?? "UTC",
+          reminders: isOwnPreferences ? (row?.reminders ?? true) : true,
+          weeklyDigest: isOwnPreferences ? (row?.weekly_digest ?? false) : false,
+          idleDetection: isOwnPreferences ? (row?.idle_detection ?? true) : true,
+          language: isOwnPreferences && row?.language === "pt-BR" ? "pt-BR" : "en-US",
+          theme:
+            isOwnPreferences && (row?.theme === "light" || row?.theme === "dark")
+              ? row.theme
+              : "system",
+          avatarUrl:
+            avatarUrlsById.get(id) ??
+            avatarDataValue(row?.avatar_data_url) ??
+            defaultAvatarForUser(id),
+          timezone: isOwnPreferences ? (row?.timezone ?? "UTC") : "UTC",
           hourlyRate: numberValue(row?.hourly_rate),
           currency: ["BRL", "USD", "EUR", "GBP"].includes(row?.currency) ? row.currency : "USD",
+          activeWorkspaceId: isOwnPreferences ? (row?.active_workspace_id ?? null) : null,
+          reportFilters: isOwnPreferences ? reportFiltersValue(row?.report_filters) : {},
         },
       ];
     }),
@@ -460,7 +604,7 @@ async function loadAccount(client, user, config) {
         id: row.id,
         name: row.name,
         ownerId: row.owner_id,
-        logoDataUrl: null,
+        logoDataUrl: logoUrlsByWorkspaceId.get(row.id) ?? null,
         status: row.status,
         createdAt: iso(row.created_at),
         ...(row.archived_at ? { archivedAt: iso(row.archived_at) } : {}),
@@ -575,6 +719,9 @@ async function syncAccount(client, user, config, account) {
   if (!account || !Array.isArray(account.identities) || !Array.isArray(account.workspaces))
     throw new DataApiError(400, "Invalid account payload.");
   await ensureProfile(client, user, config);
+  const hasLogoPath = await hasColumn(client, "workspaces", "logo_path");
+  const hasActiveWorkspace = await hasColumn(client, "user_preferences", "active_workspace_id");
+  const hasReportFilters = await hasColumn(client, "user_preferences", "report_filters");
   const identities = new Map(
     account.identities
       .filter((item) => item && typeof item.id === "string")
@@ -616,19 +763,24 @@ async function syncAccount(client, user, config, account) {
       numberValue(ownPreferences.hourlyRate),
       ownPreferences.currency,
     ];
+    await client.query(
+      `insert into public.user_preferences (user_id, language, theme, timezone, reminders, weekly_digest, idle_detection, hourly_rate, currency)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       on conflict (user_id) do update set language = excluded.language, theme = excluded.theme, timezone = excluded.timezone, reminders = excluded.reminders, weekly_digest = excluded.weekly_digest, idle_detection = excluded.idle_detection, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now()`,
+      preferenceValues,
+    );
+    if (hasReportFilters) {
+      await client.query(
+        `update public.user_preferences set report_filters = $2::jsonb, updated_at = now() where user_id = $1`,
+        [user.id, JSON.stringify(reportFiltersValue(ownPreferences.reportFilters))],
+      );
+    }
     if (await hasColumn(client, "user_preferences", "avatar_data_url")) {
       await client.query(
-        `insert into public.user_preferences (user_id, language, theme, timezone, reminders, weekly_digest, idle_detection, hourly_rate, currency, avatar_data_url)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         on conflict (user_id) do update set language = excluded.language, theme = excluded.theme, timezone = excluded.timezone, reminders = excluded.reminders, weekly_digest = excluded.weekly_digest, idle_detection = excluded.idle_detection, hourly_rate = excluded.hourly_rate, currency = excluded.currency, avatar_data_url = excluded.avatar_data_url, updated_at = now()`,
-        [...preferenceValues, avatarDataValue(ownPreferences.avatarUrl)],
-      );
-    } else {
-      await client.query(
-        `insert into public.user_preferences (user_id, language, theme, timezone, reminders, weekly_digest, idle_detection, hourly_rate, currency)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-         on conflict (user_id) do update set language = excluded.language, theme = excluded.theme, timezone = excluded.timezone, reminders = excluded.reminders, weekly_digest = excluded.weekly_digest, idle_detection = excluded.idle_detection, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now()`,
-        preferenceValues,
+        `update public.user_preferences
+            set avatar_data_url = coalesce($2, avatar_data_url), updated_at = now()
+          where user_id = $1`,
+        [user.id, avatarDataValue(ownPreferences.avatarUrl)],
       );
     }
   }
@@ -636,7 +788,9 @@ async function syncAccount(client, user, config, account) {
     const workspaceId = uuid(data.workspace.id);
     const ownerId = String(data.workspace.ownerId);
     const existingWorkspace = await client.query(
-      `select owner_id, name, status from public.workspaces where id = $1`,
+      `select owner_id, name, status, ${
+        hasLogoPath ? "logo_path" : "null::text as logo_path"
+      } from public.workspaces where id = $1`,
       [workspaceId],
     );
     let access = existingWorkspace.rows[0]
@@ -662,20 +816,47 @@ async function syncAccount(client, user, config, account) {
     if (existingWorkspace.rows[0] && access.status === "archived" && access.role !== "Owner") {
       continue;
     }
+    let logoPath = existingWorkspace.rows[0]?.logo_path ?? null;
+    if (hasLogoPath && access.role === "Owner" && config.databaseProvider === "supabase") {
+      const image = parseImageDataUrl(data.workspace.logoDataUrl);
+      if (image) {
+        logoPath = `${workspaceId}/logo`;
+        const { error } = await getSupabaseAdmin(config)
+          .storage.from("workspace-logos")
+          .upload(logoPath, image.bytes, { contentType: image.contentType, upsert: true });
+        if (error) throw new DataApiError(500, "Could not save the workspace logo.");
+      } else if (data.workspace.logoDataUrl === null && logoPath) {
+        const { error } = await getSupabaseAdmin(config)
+          .storage.from("workspace-logos")
+          .remove([logoPath]);
+        if (error) throw new DataApiError(500, "Could not remove the workspace logo.");
+        logoPath = null;
+      }
+    }
     if (access.role !== "Member") {
-      await client.query(
-        `insert into public.workspaces (id, name, owner_id, status, created_at, archived_at)
-         values ($1, $2, $3, $4, $5, $6)
-         on conflict (id) do update set name = excluded.name, owner_id = excluded.owner_id, status = excluded.status, archived_at = excluded.archived_at`,
-        [
-          workspaceId,
-          String(data.workspace.name).trim(),
-          ownerId,
-          data.workspace.status,
-          data.workspace.createdAt,
-          data.workspace.archivedAt ?? null,
-        ],
-      );
+      const workspaceValues = [
+        workspaceId,
+        String(data.workspace.name).trim(),
+        ownerId,
+        data.workspace.status,
+        data.workspace.createdAt,
+        data.workspace.archivedAt ?? null,
+      ];
+      if (hasLogoPath) {
+        await client.query(
+          `insert into public.workspaces (id, name, owner_id, status, created_at, archived_at, logo_path)
+           values ($1, $2, $3, $4, $5, $6, $7)
+           on conflict (id) do update set name = excluded.name, owner_id = excluded.owner_id, status = excluded.status, archived_at = excluded.archived_at, logo_path = excluded.logo_path`,
+          [...workspaceValues, logoPath],
+        );
+      } else {
+        await client.query(
+          `insert into public.workspaces (id, name, owner_id, status, created_at, archived_at)
+           values ($1, $2, $3, $4, $5, $6)
+           on conflict (id) do update set name = excluded.name, owner_id = excluded.owner_id, status = excluded.status, archived_at = excluded.archived_at`,
+          workspaceValues,
+        );
+      }
       await client.query(
         `insert into public.workspace_settings (workspace_id, default_billable, week_start)
          values ($1, $2, $3)
@@ -687,7 +868,9 @@ async function syncAccount(client, user, config, account) {
         ],
       );
     }
-    const memberships = Array.isArray(data.memberships) ? data.memberships : [];
+    const memberships = Array.isArray(data.memberships)
+      ? data.memberships.filter((membership) => membership?.status !== "invited")
+      : [];
     if (access.role === "Member") {
       await syncEntries(client, user.id, workspaceId, data.entries ?? [], true);
       continue;
@@ -809,7 +992,9 @@ async function syncAccount(client, user, config, account) {
     }
     for (const project of data.projects ?? []) {
       const projectId = uuid(project.id);
-      const projectName = String(project.name ?? "").trim().replace(/\s+/g, " ");
+      const projectName = String(project.name ?? "")
+        .trim()
+        .replace(/\s+/g, " ");
       if (!projectName) throw new DataApiError(400, "A project name is required.");
       const clientId = uuid(project.clientId);
       await ensureProjectNameAvailable(client, workspaceId, clientId, projectName, projectId);
@@ -867,6 +1052,27 @@ async function syncAccount(client, user, config, account) {
       );
     }
   }
+  if (ownPreferences && hasActiveWorkspace) {
+    const requestedWorkspaceId = ownPreferences.activeWorkspaceId
+      ? uuid(ownPreferences.activeWorkspaceId)
+      : null;
+    const preferred = requestedWorkspaceId
+      ? await client.query(
+          `select 1
+             from public.workspace_members wm
+             join public.workspaces w on w.id = wm.workspace_id
+            where wm.workspace_id = $1 and wm.user_id = $2
+              and wm.status = 'active' and w.status = 'active'`,
+          [requestedWorkspaceId, user.id],
+        )
+      : { rowCount: 0 };
+    await client.query(
+      `update public.user_preferences
+          set active_workspace_id = $2, updated_at = now()
+        where user_id = $1`,
+      [user.id, preferred.rowCount ? requestedWorkspaceId : null],
+    );
+  }
 }
 
 function timerFromRow(row) {
@@ -885,6 +1091,271 @@ function timerFromRow(row) {
   };
 }
 
+async function requireInvitationManager(client, userId, workspaceId, targetRole) {
+  const access = await requireWorkspaceAccess(client, userId, workspaceId);
+  if (access.role !== "Owner" && access.role !== "Admin") {
+    throw new DataApiError(403, "You do not have permission to manage invitations.");
+  }
+  if (targetRole === "Admin" && access.role !== "Owner") {
+    throw new DataApiError(403, "Only the Owner can manage Admin invitations.");
+  }
+  return access;
+}
+
+function invitationRedirect(config, invitationId) {
+  if (!config.appUrl) throw new DataApiError(500, "APP_URL is required to send invitations.");
+  let redirect;
+  try {
+    redirect = new URL("/invite/accept", config.appUrl);
+  } catch {
+    throw new DataApiError(500, "APP_URL is invalid.");
+  }
+  redirect.searchParams.set("invitation", invitationId);
+  return redirect.toString();
+}
+
+async function sendInvitation(config, invitation) {
+  const admin = getSupabaseAdmin(config);
+  const options = {
+    redirectTo: invitationRedirect(config, invitation.id),
+    data: { invitation_id: invitation.id },
+  };
+  const { error } = await admin.auth.admin.inviteUserByEmail(invitation.email, options);
+  if (!error) return;
+  const existingUser =
+    error.code === "email_exists" ||
+    /already (?:been )?registered|already exists/i.test(error.message);
+  if (!existingUser) throw new DataApiError(400, error.message);
+  const { error: magicLinkError } = await admin.auth.signInWithOtp({
+    email: invitation.email,
+    options: {
+      emailRedirectTo: options.redirectTo,
+      data: options.data,
+      shouldCreateUser: false,
+    },
+  });
+  if (magicLinkError) throw new DataApiError(400, magicLinkError.message);
+}
+
+async function inviteMember(client, user, config, body) {
+  if (config.databaseProvider !== "supabase") {
+    throw new DataApiError(400, "Invitations require the Supabase production provider.");
+  }
+  await ensureProfile(client, user, config);
+  const workspaceId = uuid(body.workspaceId);
+  const email = String(body.email ?? "")
+    .trim()
+    .toLowerCase();
+  const role = body.role === "Admin" ? "Admin" : body.role === "Member" ? "Member" : null;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !role) {
+    throw new DataApiError(400, "Enter a valid invitation email and role.");
+  }
+  await requireInvitationManager(client, user.id, workspaceId, role);
+  const existing = await client.query(
+    `select 1
+       from public.workspace_members wm
+       join public.profiles p on p.id = wm.user_id
+      where wm.workspace_id = $1 and lower(p.email) = $2
+      limit 1`,
+    [workspaceId, email],
+  );
+  if (existing.rowCount) {
+    throw new DataApiError(409, "This email is already part of the team.");
+  }
+  await client.query(
+    `update public.workspace_invitations
+        set status = 'expired'
+      where workspace_id = $1 and lower(email) = $2
+        and status = 'pending' and expires_at <= now()`,
+    [workspaceId, email],
+  );
+  const capacity = await client.query(
+    `select
+       (select count(*) from public.workspace_members where workspace_id = $1 and status <> 'removed')
+       +
+       (select count(*) from public.workspace_invitations where workspace_id = $1 and status = 'pending' and expires_at > now())
+       as total`,
+    [workspaceId],
+  );
+  if (numberValue(capacity.rows[0]?.total) >= 50) {
+    throw new DataApiError(
+      409,
+      "This workspace has reached its limit of 50 members and invitations.",
+    );
+  }
+  let inserted;
+  try {
+    inserted = await client.query(
+      `insert into public.workspace_invitations (workspace_id, email, role, invited_by)
+       values ($1, $2, $3, $4)
+       returning id::text, workspace_id::text, email, role, invited_at, expires_at`,
+      [workspaceId, email, role, user.id],
+    );
+  } catch (error) {
+    if (error?.code === "23505") {
+      throw new DataApiError(409, "This email already has a pending invitation.");
+    }
+    throw error;
+  }
+  const invitation = inserted.rows[0];
+  try {
+    await sendInvitation(config, invitation);
+  } catch (error) {
+    await client.query(
+      `update public.workspace_invitations set status = 'cancelled' where id = $1`,
+      [invitation.id],
+    );
+    throw error;
+  }
+  return invitationMember(invitation);
+}
+
+async function resendInvitation(client, user, config, body) {
+  const workspaceId = uuid(body.workspaceId);
+  const invitationId = uuid(body.invitationId);
+  const result = await client.query(
+    `select id::text, workspace_id::text, email, role, invited_at, expires_at
+       from public.workspace_invitations
+      where id = $1 and workspace_id = $2 and status = 'pending' and expires_at > now()`,
+    [invitationId, workspaceId],
+  );
+  const invitation = result.rows[0];
+  if (!invitation) throw new DataApiError(404, "This invitation is no longer pending.");
+  await requireInvitationManager(client, user.id, workspaceId, invitation.role);
+  await sendInvitation(config, invitation);
+  const updated = await client.query(
+    `update public.workspace_invitations
+        set invited_at = now(), expires_at = now() + interval '7 days'
+      where id = $1
+      returning id::text, workspace_id::text, email, role, invited_at, expires_at`,
+    [invitationId],
+  );
+  return invitationMember(updated.rows[0]);
+}
+
+async function cancelInvitation(client, user, body) {
+  const workspaceId = uuid(body.workspaceId);
+  const invitationId = uuid(body.invitationId);
+  const result = await client.query(
+    `select id::text, role
+       from public.workspace_invitations
+      where id = $1 and workspace_id = $2 and status = 'pending'`,
+    [invitationId, workspaceId],
+  );
+  const invitation = result.rows[0];
+  if (!invitation) throw new DataApiError(404, "This invitation is no longer pending.");
+  await requireInvitationManager(client, user.id, workspaceId, invitation.role);
+  await client.query(`update public.workspace_invitations set status = 'cancelled' where id = $1`, [
+    invitationId,
+  ]);
+  return null;
+}
+
+async function updatePreferences(client, user, config, body) {
+  const patch = body.patch;
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+    throw new DataApiError(400, "Invalid preferences payload.");
+  }
+  const allowedKeys = new Set([
+    "reminders",
+    "weeklyDigest",
+    "idleDetection",
+    "language",
+    "theme",
+    "avatarUrl",
+    "timezone",
+    "hourlyRate",
+    "currency",
+    "activeWorkspaceId",
+    "reportFilters",
+  ]);
+  if (Object.keys(patch).some((key) => !allowedKeys.has(key))) {
+    throw new DataApiError(400, "Invalid preferences payload.");
+  }
+  await ensureProfile(client, user, config);
+  const updates = [];
+  const values = [user.id];
+  const addValue = (column, value, cast = "") => {
+    values.push(value);
+    updates.push(`${column} = $${values.length}${cast}`);
+  };
+  if (patch.reminders !== undefined) {
+    if (typeof patch.reminders !== "boolean")
+      throw new DataApiError(400, "Choose a valid reminders preference.");
+    addValue("reminders", patch.reminders);
+  }
+  if (patch.weeklyDigest !== undefined) {
+    if (typeof patch.weeklyDigest !== "boolean")
+      throw new DataApiError(400, "Choose a valid weekly digest preference.");
+    addValue("weekly_digest", patch.weeklyDigest);
+  }
+  if (patch.idleDetection !== undefined) {
+    if (typeof patch.idleDetection !== "boolean")
+      throw new DataApiError(400, "Choose a valid idle detection preference.");
+    addValue("idle_detection", patch.idleDetection);
+  }
+  if (patch.language !== undefined) {
+    if (patch.language !== "en-US" && patch.language !== "pt-BR")
+      throw new DataApiError(400, "Choose a valid language.");
+    addValue("language", patch.language);
+  }
+  if (patch.theme !== undefined) {
+    if (!["system", "light", "dark"].includes(patch.theme))
+      throw new DataApiError(400, "Choose a valid theme.");
+    addValue("theme", patch.theme);
+  }
+  if (patch.timezone !== undefined) {
+    if (typeof patch.timezone !== "string" || !patch.timezone.trim())
+      throw new DataApiError(400, "Choose a valid timezone.");
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: patch.timezone }).format();
+    } catch {
+      throw new DataApiError(400, "Choose a valid timezone.");
+    }
+    addValue("timezone", patch.timezone);
+  }
+  if (patch.hourlyRate !== undefined) {
+    const hourlyRate = Number(patch.hourlyRate);
+    if (!Number.isFinite(hourlyRate) || hourlyRate < 0)
+      throw new DataApiError(400, "Choose a valid hourly rate.");
+    addValue("hourly_rate", hourlyRate);
+  }
+  if (patch.currency !== undefined) {
+    if (!["BRL", "USD", "EUR", "GBP"].includes(patch.currency))
+      throw new DataApiError(400, "Choose a valid currency.");
+    addValue("currency", patch.currency);
+  }
+  if (
+    patch.reportFilters !== undefined &&
+    (await hasColumn(client, "user_preferences", "report_filters"))
+  ) {
+    if (
+      !patch.reportFilters ||
+      typeof patch.reportFilters !== "object" ||
+      Array.isArray(patch.reportFilters)
+    ) {
+      throw new DataApiError(400, "Choose valid report filters.");
+    }
+    addValue("report_filters", JSON.stringify(patch.reportFilters), "::jsonb");
+  }
+  if (
+    patch.activeWorkspaceId !== undefined &&
+    (await hasColumn(client, "user_preferences", "active_workspace_id"))
+  ) {
+    const workspaceId = patch.activeWorkspaceId === null ? null : uuid(patch.activeWorkspaceId);
+    if (workspaceId) await requireWorkspaceAccess(client, user.id, workspaceId);
+    addValue("active_workspace_id", workspaceId, "::uuid");
+  }
+  if (updates.length === 0) return null;
+  await client.query(
+    `update public.user_preferences
+        set ${updates.join(", ")}, updated_at = now()
+      where user_id = $1`,
+    values,
+  );
+  return null;
+}
+
 async function operation(request, user, config, body) {
   const pool = getPool(config);
   const client = await pool.connect();
@@ -892,6 +1363,12 @@ async function operation(request, user, config, body) {
     requirePayloadUser(user, body ?? {});
     if (body.operation === "loadAccount") return await loadAccount(client, user, config);
     if (body.operation === "loadReportEntries") return await loadReportEntries(client, user, body);
+    if (body.operation === "updatePreferences")
+      return await updatePreferences(client, user, config, body);
+    if (body.operation === "inviteMember") return await inviteMember(client, user, config, body);
+    if (body.operation === "resendInvitation")
+      return await resendInvitation(client, user, config, body);
+    if (body.operation === "cancelInvitation") return await cancelInvitation(client, user, body);
     if (body.operation === "syncAccount") {
       await client.query("begin");
       try {
@@ -1022,13 +1499,12 @@ export async function handleDataRequest(request, response, env = {}) {
   } catch (error) {
     const isProjectNameConflict =
       error?.code === "23505" && error?.constraint === "projects_workspace_client_name_idx";
-    const message =
-      isProjectNameConflict
-        ? "A project with this name already exists for this client."
-        : error instanceof Error && error.message.trim()
-          ? error.message
-          : "The data request failed.";
-    console.error("[time-blossom data api]", {
+    const message = isProjectNameConflict
+      ? "A project with this name already exists for this client."
+      : error instanceof Error && error.message.trim()
+        ? error.message
+        : "The data request failed.";
+    console.error("[watchtag data api]", {
       name: error instanceof Error ? error.name : typeof error,
       message,
       code: error?.code,

@@ -76,13 +76,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Time Blossom — Simple time tracking" },
+      { title: "Watchtag — Simple time tracking" },
       {
         name: "description",
         content: "Start a timer, organize your work and understand where your hours go.",
       },
-      { name: "author", content: "Time Blossom" },
-      { property: "og:title", content: "Time Blossom — Simple time tracking" },
+      { name: "author", content: "Watchtag" },
+      { property: "og:title", content: "Watchtag — Simple time tracking" },
       {
         property: "og:description",
         content: "A calm, focused workspace for tracking time across projects and clients.",
@@ -136,62 +136,62 @@ function RootOutlet() {
     const metadata: Record<string, { title: string; description: string; ogDescription: string }> =
       {
         "/": {
-          title: t("Time Blossom — Time tracking for small teams"),
+          title: t("Watchtag — Time tracking for small teams"),
           description: t(
-            "Time Blossom is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.",
+            "Watchtag is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.",
           ),
           ogDescription: t(
             "Track hours, manage projects and bill clients with a calm, focused workspace.",
           ),
         },
         "/tracker": {
-          title: `${t("Tracker")} — Time Blossom`,
+          title: `${t("Tracker")} — Watchtag`,
           description: t(
             "Start the live timer, log time and manage your entries in one focused workspace.",
           ),
           ogDescription: t("Live timer and daily time entries in one focused view."),
         },
         "/today": {
-          title: `${t("Tracker")} — Time Blossom`,
+          title: `${t("Tracker")} — Watchtag`,
           description: t(
             "Start the live timer, log time and manage your entries in one focused workspace.",
           ),
           ogDescription: t("Live timer and daily time entries in one focused view."),
         },
         "/projects": {
-          title: `${t("Projects")} — Time Blossom`,
+          title: `${t("Projects")} — Watchtag`,
           description: t(
             "Track hours per project, monitor status and open detailed project breakdowns.",
           ),
           ogDescription: t("All client and internal projects with tracked time at a glance."),
         },
         "/clients": {
-          title: `${t("Clients")} — Time Blossom`,
+          title: `${t("Clients")} — Watchtag`,
           description: t("Manage clients, contacts and the projects connected to each client."),
           ogDescription: t("Client list with contacts and tracked time."),
         },
         "/team": {
-          title: `${t("Team")} — Time Blossom`,
+          title: `${t("Team")} — Watchtag`,
           description: t("Invite teammates, manage roles and track team hours."),
           ogDescription: t("Invite teammates and see tracked hours by member."),
         },
         "/reports": {
-          title: `${t("Reports")} — Time Blossom`,
+          title: `${t("Reports")} — Watchtag`,
           description: t("Detailed, summary, weekly and team time reports."),
           ogDescription: t("Filter and understand tracked time."),
         },
         "/integrations": {
-          title: `${t("Integrations")} — Time Blossom`,
-          description: t("Connect Time Blossom to Trello and sync cards into tracked tasks."),
+          title: `${t("Integrations")} — Watchtag`,
+          description: t("Connect Watchtag to Trello and sync cards into tracked tasks."),
           ogDescription: t("Trello sync for your time tracking."),
         },
         "/settings": {
-          title: `${t("Settings")} — Time Blossom`,
+          title: `${t("Settings")} — Watchtag`,
           description: t("Workspace settings and personal preferences."),
-          ogDescription: t("Configure your Time Blossom workspace."),
+          ogDescription: t("Configure your Watchtag workspace."),
         },
         "/search": {
-          title: `${t("Search")} — Time Blossom`,
+          title: `${t("Search")} — Watchtag`,
           description: t("Search projects, clients, teammates and time entries."),
           ogDescription: t("Find anything in your workspace."),
         },

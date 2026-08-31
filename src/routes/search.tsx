@@ -14,9 +14,9 @@ export const Route = createFileRoute("/search")({
   }),
   head: () => ({
     meta: [
-      { title: "Search — Time Blossom" },
+      { title: "Search — Watchtag" },
       { name: "description", content: "Search projects, clients, teammates and time entries." },
-      { property: "og:title", content: "Search — Time Blossom" },
+      { property: "og:title", content: "Search — Watchtag" },
       { property: "og:description", content: "Find anything in your workspace." },
     ],
   }),

@@ -73,7 +73,7 @@ begin
         updated_at = now();
 
   insert into public.workspaces (id, name, owner_id, status)
-  values (v_workspace_id, 'QA Time Blossom', owner_id, 'active')
+  values (v_workspace_id, 'QA Watchtag', owner_id, 'active')
   on conflict (id) do update
     set name = excluded.name,
         owner_id = excluded.owner_id,

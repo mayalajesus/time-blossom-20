@@ -6,13 +6,13 @@ export const Route = createFileRoute("/")({
   },
   head: () => ({
     meta: [
-      { title: "Time Blossom — Time tracking for small teams" },
+      { title: "Watchtag — Time tracking for small teams" },
       {
         name: "description",
         content:
-          "Time Blossom is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.",
+          "Watchtag is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.",
       },
-      { property: "og:title", content: "Time Blossom — Time tracking for small teams" },
+      { property: "og:title", content: "Watchtag — Time tracking for small teams" },
       {
         property: "og:description",
         content: "Track hours, manage projects and bill clients with a calm, focused workspace.",

@@ -45,7 +45,7 @@ test("persists report filters across report views, reloads and route navigation"
   await signInAs(page, "owner");
   await page.evaluate(() => {
     for (const key of Object.keys(window.localStorage)) {
-      if (key.startsWith("time-blossom:report-filters:")) window.localStorage.removeItem(key);
+      if (key.startsWith("watchtag:report-filters:")) window.localStorage.removeItem(key);
     }
   });
 

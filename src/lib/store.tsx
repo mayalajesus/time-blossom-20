@@ -47,6 +47,7 @@ import {
   type ScopedTimeIntervalEntry,
 } from "./time-entry-overlap";
 import { entriesForReportWindow, reportEntriesQueryName } from "./report-query";
+import { parseStoredReportFiltersValue, type StoredReportFilters } from "./report-filter-storage";
 import {
   createRunningTimer,
   recentTimerTasksFromEntries,
@@ -126,6 +127,8 @@ export interface UserPreferences {
   timezone: string;
   hourlyRate: number;
   currency: CurrencyCode;
+  activeWorkspaceId: string | null;
+  reportFilters: Record<string, StoredReportFilters>;
 }
 
 export type { Permission } from "./permissions";
@@ -183,6 +186,8 @@ const initialPreferences: UserPreferences = {
   timezone: getInitialTimeZone(),
   hourlyRate: 0,
   currency: defaultCurrencyForLocale(defaultLocale),
+  activeWorkspaceId: null,
+  reportFilters: {},
 };
 
 const initialTrello: TrelloState = {
@@ -245,8 +250,9 @@ function isValidLogoUrl(value: unknown): value is string | null {
   return (
     value === null ||
     (typeof value === "string" &&
-      /^data:image\/(?:png|jpeg|webp);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
-      value.length <= 900_000)
+      ((/^data:image\/(?:png|jpeg|webp);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
+        value.length <= 900_000) ||
+        /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/sign\/workspace-logos\//.test(value)))
   );
 }
 
@@ -263,7 +269,12 @@ function isValidPreferences(value: unknown): value is UserPreferences {
     isValidTimeZone(prefs.timezone) &&
     isFiniteNumber(prefs.hourlyRate) &&
     prefs.hourlyRate >= 0 &&
-    isCurrencyCode(prefs.currency)
+    isCurrencyCode(prefs.currency) &&
+    (prefs.activeWorkspaceId === null || typeof prefs.activeWorkspaceId === "string") &&
+    isRecord(prefs.reportFilters) &&
+    Object.values(prefs.reportFilters).every(
+      (filters) => parseStoredReportFiltersValue(filters) !== null,
+    )
   );
 }
 
@@ -464,6 +475,8 @@ function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
             currency: isCurrencyCode(legacy.currency)
               ? legacy.currency
               : defaultCurrencyForLocale(legacy.language),
+            activeWorkspaceId: null,
+            reportFilters: {},
           }
         : { ...initialPreferences };
   }
@@ -542,6 +555,8 @@ export function migrateAccountSnapshot(value: unknown): PersistedAccount | null 
       currency: isCurrencyCode(preferences.currency)
         ? preferences.currency
         : defaultCurrencyForLocale(preferences.language),
+      activeWorkspaceId: null,
+      reportFilters: {},
     };
   }
 
@@ -885,15 +900,16 @@ interface StoreValue {
   addClient: (client: Omit<Client, "id">) => StoreResult;
   updateClient: (id: string, patch: Partial<Client>) => StoreResult;
   deleteClient: (id: string) => StoreResult;
-  inviteMember: (email: string, role: Exclude<Role, "Owner">) => StoreResult;
-  resendInvite: (memberId: string) => StoreResult;
-  cancelInvite: (memberId: string) => StoreResult;
+  inviteMember: (email: string, role: Exclude<Role, "Owner">) => Promise<StoreResult>;
+  resendInvite: (memberId: string) => Promise<StoreResult>;
+  cancelInvite: (memberId: string) => Promise<StoreResult>;
   removeMember: (memberId: string) => StoreResult;
   restoreMember: (memberId: string) => StoreResult;
   updateMemberRole: (memberId: string, role: Exclude<Role, "Owner">) => StoreResult;
   setTrello: (patch: Partial<TrelloState>) => StoreResult;
   setWorkspaceSettings: (patch: Partial<WorkspaceSettings>) => StoreResult;
   setUserPreferences: (patch: Partial<UserPreferences>) => StoreResult;
+  saveUserPreferences: (patch: Partial<UserPreferences>) => Promise<StoreResult>;
   updateCurrentMemberName: (name: string) => StoreResult;
   updateCurrentMemberEmail: (email: string) => StoreResult;
   switchWorkspace: (workspaceId: string) => StoreResult;
@@ -1065,6 +1081,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!result.success) return;
 
       const loadedAccount = shareAccountReferences(accountRef.current, result.data);
+      const preferredWorkspaceId =
+        loadedAccount.preferencesByUserId[session.user.id]?.activeWorkspaceId;
       const currentWorkspace = loadedAccount.workspaces.find(
         (data) =>
           data.workspace.id === activeWorkspaceId &&
@@ -1075,6 +1093,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
       const nextWorkspace =
         currentWorkspace ??
+        loadedAccount.workspaces.find(
+          (data) =>
+            data.workspace.id === preferredWorkspaceId &&
+            data.workspace.status === "active" &&
+            data.memberships.some(
+              (membership) =>
+                membership.userId === session.user.id && membership.status === "active",
+            ),
+        ) ??
         loadedAccount.workspaces.find(
           (data) =>
             data.workspace.status === "active" &&
@@ -1146,13 +1173,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       }
       const loadedAccount = result.data;
-      const nextWorkspace = loadedAccount.workspaces.find(
-        (data) =>
-          data.workspace.status === "active" &&
-          data.memberships.some(
-            (membership) => membership.userId === session.user.id && membership.status === "active",
-          ),
-      );
+      const preferredWorkspaceId =
+        loadedAccount.preferencesByUserId[session.user.id]?.activeWorkspaceId;
+      const canUseWorkspace = (data: WorkspaceData) =>
+        data.workspace.status === "active" &&
+        data.memberships.some(
+          (membership) => membership.userId === session.user.id && membership.status === "active",
+        );
+      const nextWorkspace =
+        loadedAccount.workspaces.find(
+          (data) => data.workspace.id === preferredWorkspaceId && canUseWorkspace(data),
+        ) ?? loadedAccount.workspaces.find(canUseWorkspace);
       if (!nextWorkspace) {
         setAccountLoading(false);
         setAccountError("Your account must have an active workspace.");
@@ -1295,9 +1326,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const nextSync = previousSync
         .catch(() => undefined)
         .then(() => dataSource.syncAccount(session.user.id, accountForSyncRef.current))
-        .then(() => undefined);
-      let trackedSync: Promise<void>;
-      trackedSync = nextSync.finally(() => {
+        .then((result) => {
+          if (!result.success) {
+            setAccountError(result.error);
+            return;
+          }
+          setAccountError(null);
+        });
+      const trackedSync: Promise<void> = nextSync.finally(() => {
         if (accountSyncPromiseRef.current === trackedSync) accountSyncPromiseRef.current = null;
       });
       accountSyncPromiseRef.current = trackedSync;
@@ -1843,7 +1879,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { success: true };
     };
 
-    const inviteMember = (email: string, role: Exclude<Role, "Owner">): StoreResult => {
+    const inviteMember = async (
+      email: string,
+      role: Exclude<Role, "Owner">,
+    ): Promise<StoreResult> => {
       if (!can("manage-members"))
         return { success: false, error: "Only Admins and the Owner can invite members." };
       const normalizedEmail = email.trim().toLowerCase();
@@ -1863,38 +1902,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           success: false,
           error: "This email is already part of the team or has a pending invitation.",
         };
-      const existingIdentity = account.identities.find(
-        (identity) => identity.email.toLowerCase() === normalizedEmail,
-      );
-      const identity = existingIdentity ?? {
-        id: nextId(
-          "u",
-          account.identities.map((current) => current.id),
-        ),
-        name: displayNameFromInviteEmail(normalizedEmail),
-        email: normalizedEmail,
-        initials: initialsFromName(displayNameFromInviteEmail(normalizedEmail)),
-      };
-      const invitation: Member = {
-        ...identity,
-        role,
-        status: existingIdentity ? "active" : "invited",
-        ...(existingIdentity ? {} : { invitedAt: new Date().toISOString() }),
-      };
+      const response = await dataSource.inviteMember(activeWorkspaceId, normalizedEmail, role);
+      if (!response.success) return response;
+      const invitation = response.data;
       setMembers((list) => [invitation, ...list]);
-      if (!existingIdentity)
-        setAccount((current) => ({
-          ...current,
-          identities: [...current.identities, identity],
-          preferencesByUserId: {
-            ...current.preferencesByUserId,
-            [identity.id]: { ...initialPreferences },
-          },
-        }));
-      return { success: true };
+      setAccount((current) => ({
+        ...current,
+        identities: current.identities.some((identity) => identity.id === invitation.id)
+          ? current.identities
+          : [...current.identities, createIdentity(invitation)],
+      }));
+      return { success: true, id: invitation.id };
     };
 
-    const resendInvite = (memberId: string): StoreResult => {
+    const resendInvite = async (memberId: string): Promise<StoreResult> => {
       if (!can("manage-members"))
         return { success: false, error: "Only Admins and the Owner can manage invitations." };
       const member = members.find((candidate) => candidate.id === memberId);
@@ -1902,17 +1923,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Only pending invitations can be resent." };
       if (member.role === "Admin" && !can("manage-admins"))
         return { success: false, error: "Only the Owner can manage Admin invitations." };
+      const response = await dataSource.resendInvitation(activeWorkspaceId, memberId);
+      if (!response.success) return response;
       setMembers((list) =>
-        list.map((candidate) =>
-          candidate.id === memberId
-            ? { ...candidate, invitedAt: new Date().toISOString() }
-            : candidate,
-        ),
+        list.map((candidate) => (candidate.id === memberId ? response.data : candidate)),
       );
       return { success: true };
     };
 
-    const cancelInvite = (memberId: string): StoreResult => {
+    const cancelInvite = async (memberId: string): Promise<StoreResult> => {
       if (!can("manage-members"))
         return { success: false, error: "Only Admins and the Owner can manage invitations." };
       const member = members.find((candidate) => candidate.id === memberId);
@@ -1920,7 +1939,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Only pending invitations can be canceled." };
       if (member.role === "Admin" && !can("manage-admins"))
         return { success: false, error: "Only the Owner can manage Admin invitations." };
+      const response = await dataSource.cancelInvitation(activeWorkspaceId, memberId);
+      if (!response.success) return response;
       setMembers((list) => list.filter((candidate) => candidate.id !== memberId));
+      setAccount((current) => ({
+        ...current,
+        identities: current.identities.filter((identity) => identity.id !== memberId),
+      }));
       return { success: true };
     };
 
@@ -2026,19 +2051,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active")
         return { success: false, error: "Choose an active account." };
       const next = { ...preferences, ...patch };
-      if (
-        typeof next.reminders !== "boolean" ||
-        typeof next.weeklyDigest !== "boolean" ||
-        typeof next.idleDetection !== "boolean" ||
-        !isLocale(next.language) ||
-        !isThemeMode(next.theme) ||
-        !isValidAvatarUrl(next.avatarUrl) ||
-        !isValidTimeZone(next.timezone) ||
-        !isFiniteNumber(next.hourlyRate) ||
-        next.hourlyRate < 0 ||
-        !isCurrencyCode(next.currency)
-      )
+      if (!isValidPreferences(next))
         return { success: false, error: "Choose valid personal preferences." };
+      setAccount((current) => ({
+        ...current,
+        preferencesByUserId: { ...current.preferencesByUserId, [activeMemberId]: next },
+      }));
+      return { success: true };
+    };
+
+    const saveUserPreferences = async (patch: Partial<UserPreferences>): Promise<StoreResult> => {
+      if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active")
+        return { success: false, error: "Choose an active account." };
+      const next = { ...preferences, ...patch };
+      if (!isValidPreferences(next))
+        return { success: false, error: "Choose valid personal preferences." };
+      const remote = await dataSource.updatePreferences(activeMemberId, patch);
+      if (!remote.success) return remote;
       setAccount((current) => ({
         ...current,
         preferencesByUserId: { ...current.preferencesByUserId, [activeMemberId]: next },
@@ -2131,6 +2160,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }));
       }
       setActiveWorkspaceId(workspaceId);
+      setAccount((currentAccount) => ({
+        ...currentAccount,
+        preferencesByUserId: {
+          ...currentAccount.preferencesByUserId,
+          [activeMemberId]: {
+            ...(currentAccount.preferencesByUserId[activeMemberId] ?? initialPreferences),
+            activeWorkspaceId: workspaceId,
+          },
+        },
+      }));
       setEntries(target.entries);
       setProjects(target.projects);
       setClients(target.clients);
@@ -2217,6 +2256,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ],
       }));
       setActiveWorkspaceId(id);
+      setAccount((currentAccount) => ({
+        ...currentAccount,
+        preferencesByUserId: {
+          ...currentAccount.preferencesByUserId,
+          [activeMemberId]: {
+            ...(currentAccount.preferencesByUserId[activeMemberId] ?? initialPreferences),
+            activeWorkspaceId: id,
+          },
+        },
+      }));
       setEntries([]);
       setProjects([]);
       setClients([]);
@@ -2320,6 +2369,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       if (nextWorkspace) {
         setActiveWorkspaceId(nextWorkspace.workspace.id);
+        setAccount((currentAccount) => ({
+          ...currentAccount,
+          preferencesByUserId: {
+            ...currentAccount.preferencesByUserId,
+            [activeMemberId]: {
+              ...(currentAccount.preferencesByUserId[activeMemberId] ?? initialPreferences),
+              activeWorkspaceId: nextWorkspace.workspace.id,
+            },
+          },
+        }));
         setEntries(nextWorkspace.entries);
         setProjects(nextWorkspace.projects);
         setClients(nextWorkspace.clients);
@@ -2405,6 +2464,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ),
       }));
       setActiveWorkspaceId(nextWorkspace.workspace.id);
+      setAccount((currentAccount) => ({
+        ...currentAccount,
+        preferencesByUserId: {
+          ...currentAccount.preferencesByUserId,
+          [activeMemberId]: {
+            ...(currentAccount.preferencesByUserId[activeMemberId] ?? initialPreferences),
+            activeWorkspaceId: nextWorkspace.workspace.id,
+          },
+        },
+      }));
       setEntries(nextWorkspace.entries);
       setProjects(nextWorkspace.projects);
       setClients(nextWorkspace.clients);
@@ -2532,6 +2601,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTrello,
       setWorkspaceSettings,
       setUserPreferences,
+      saveUserPreferences,
       updateCurrentMemberName,
       updateCurrentMemberEmail,
       switchWorkspace,
@@ -2553,6 +2623,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     currentMember,
     currentWorkspaceMembership,
     currentWorkspace,
+    dataSource,
     entries,
     members,
     preferences,
@@ -2587,7 +2658,6 @@ export function useTimerTicker(): { elapsed: number } {
   if (!context) throw new Error("useTimerTicker must be used inside StoreProvider");
   return context;
 }
-
 
 export function useProjectName(): (id: string | null) => string {
   const { projects } = useStore();

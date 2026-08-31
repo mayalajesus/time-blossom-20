@@ -1,6 +1,6 @@
 {
-  "name": "Time Blossom",
-  "short_name": "Time Blossom",
+  "name": "Watchtag",
+  "short_name": "Watchtag",
   "description": "A focused workspace for tracking time.",
   "start_url": "/tracker",
   "display": "standalone",

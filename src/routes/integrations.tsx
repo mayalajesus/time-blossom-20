@@ -11,12 +11,12 @@ import { useStore } from "@/lib/store";
 export const Route = createFileRoute("/integrations")({
   head: () => ({
     meta: [
-      { title: "Integrations — Time Blossom" },
+      { title: "Integrations — Watchtag" },
       {
         name: "description",
-        content: "Connect Time Blossom to Trello and sync cards into tracked tasks.",
+        content: "Connect Watchtag to Trello and sync cards into tracked tasks.",
       },
-      { property: "og:title", content: "Integrations — Time Blossom" },
+      { property: "og:title", content: "Integrations — Watchtag" },
       { property: "og:description", content: "Trello sync for your time tracking." },
     ],
   }),

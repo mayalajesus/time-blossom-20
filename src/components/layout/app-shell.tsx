@@ -268,7 +268,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
                   <div className="sr-only">
                     <Drawer.Heading>{t("Navigation")}</Drawer.Heading>
                     <Typography type="body-xs" color="muted" className="mt-0.5">
-                      {t("Time Blossom")}
+                      {t("Watchtag")}
                     </Typography>
                   </div>
                   <Drawer.CloseTrigger aria-label={t("Close navigation")} />

@@ -28,12 +28,12 @@ import { useStore } from "@/lib/store";
 export const Route = createFileRoute("/clients")({
   head: () => ({
     meta: [
-      { title: "Clients — Time Blossom" },
+      { title: "Clients — Watchtag" },
       {
         name: "description",
         content: "Manage clients, contacts and the projects connected to each client.",
       },
-      { property: "og:title", content: "Clients — Time Blossom" },
+      { property: "og:title", content: "Clients — Watchtag" },
       { property: "og:description", content: "Client list with contacts and tracked time." },
     ],
   }),

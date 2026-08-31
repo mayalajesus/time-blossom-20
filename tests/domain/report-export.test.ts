@@ -8,12 +8,12 @@ import {
 
 function payload(entries: NonNullable<ReportExportPayload["pdf"]>["entries"]): ReportExportPayload {
   return {
-    title: "time-blossom-detailed",
+    title: "watchtag-detailed",
     displayTitle: "Detailed report",
     columns: ["Project", "Client", "Task", "User"],
     rows: [],
     locale: "en-US",
-    branding: { workspaceName: "QA Time Blossom", logoDataUrl: null },
+    branding: { workspaceName: "QA Watchtag", logoDataUrl: null },
     pdf: {
       kind: "detailed",
       startDate: "2026-07-01",

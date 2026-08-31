@@ -37,10 +37,10 @@ import {
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — Time Blossom" },
+      { title: "Settings — Watchtag" },
       { name: "description", content: "Account and personal preferences." },
-      { property: "og:title", content: "Settings — Time Blossom" },
-      { property: "og:description", content: "Configure your Time Blossom workspace." },
+      { property: "og:title", content: "Settings — Watchtag" },
+      { property: "og:description", content: "Configure your Watchtag workspace." },
     ],
   }),
   component: SettingsPage,
@@ -59,6 +59,7 @@ function SettingsPage() {
     preferences,
     currentMember,
     setUserPreferences,
+    saveUserPreferences,
     updateCurrentMemberName,
     updateCurrentMemberEmail,
   } = useStore();
@@ -126,14 +127,7 @@ function SettingsPage() {
   ];
 
   const savePreference = async (patch: Partial<typeof preferences>) => {
-    if (isSupabaseConfigured && session) {
-      const remote = await dataSource.updatePreferences(session.user.id, patch);
-      if (!remote.success) {
-        setPreferenceError(remote.error);
-        return;
-      }
-    }
-    const result = setUserPreferences(patch);
+    const result = await saveUserPreferences(patch);
     if (!result.success) {
       setPreferenceError(result.error);
       return;

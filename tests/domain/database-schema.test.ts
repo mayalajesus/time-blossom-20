@@ -19,6 +19,14 @@ const supabase = readFileSync(
   new URL("../../db/providers/supabase/20260828181000_supabase.sql", import.meta.url),
   "utf8",
 );
+const productionPersistence = readFileSync(
+  new URL("../../db/migrations/20260831130000_production_persistence.sql", import.meta.url),
+  "utf8",
+);
+const productionStorage = readFileSync(
+  new URL("../../db/providers/supabase/20260831131000_production_storage.sql", import.meta.url),
+  "utf8",
+);
 const qaSeed = readFileSync(new URL("../../db/seeds/qa/001_demo.sql", import.meta.url), "utf8");
 
 describe("portable database schema", () => {
@@ -81,6 +89,16 @@ describe("portable database schema", () => {
     expect(qaSeed).toContain("app.environment");
     expect(qaSeed).toContain("example.test");
     expect(qaSeed).not.toMatch(/@(?:gmail|outlook|hotmail)\./i);
+  });
+
+  it("persists production preferences and protects private workspace media", () => {
+    expect(productionPersistence).toContain("active_workspace_id uuid");
+    expect(productionPersistence).toContain("report_filters jsonb");
+    expect(productionPersistence).toContain("logo_path text");
+    expect(productionStorage).toContain("'workspace-logos'");
+    expect(productionStorage).toContain("public.is_workspace_member");
+    expect(productionStorage).toContain("public.is_workspace_owner");
+    expect(productionStorage).toMatch(/avatar_select[\s\S]*workspace_members viewer/i);
   });
 
   it("guarantees one personal workspace for profiles without workspace access", () => {

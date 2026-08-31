@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
       tanstackRouter({ target: "react" }),
       react(),
       {
-        name: "time-blossom-data-api",
+        name: "watchtag-data-api",
         configureServer(server) {
           server.middlewares.use("/api/data", createDataMiddleware(env));
         },

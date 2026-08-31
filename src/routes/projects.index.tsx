@@ -52,22 +52,18 @@ import { formatDate, formatDuration } from "@/lib/format";
 import { getSessionDefaultAvatarUrl } from "@/lib/default-avatar";
 import { useI18n } from "@/lib/i18n";
 import type { Project } from "@/lib/mock-data";
-import {
-  defaultProjectColor,
-  projectColorOptions,
-  projectColorValue,
-} from "@/lib/project-colors";
+import { defaultProjectColor, projectColorOptions, projectColorValue } from "@/lib/project-colors";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/projects/")({
   head: () => ({
     meta: [
-      { title: "Projects — Time Blossom" },
+      { title: "Projects — Watchtag" },
       {
         name: "description",
         content: "Track hours per project, monitor status and open detailed project breakdowns.",
       },
-      { property: "og:title", content: "Projects — Time Blossom" },
+      { property: "og:title", content: "Projects — Watchtag" },
       {
         property: "og:description",
         content: "All client and internal projects with tracked time at a glance.",
@@ -306,9 +302,7 @@ function ProjectsPage() {
       <Label>{t("Selected members")}</Label>
       <TagGroup.List
         items={assignedMembers}
-        renderEmptyState={() => (
-          <EmptyState className="p-1">{t("No members selected")}</EmptyState>
-        )}
+        renderEmptyState={() => <EmptyState className="p-1">{t("No members selected")}</EmptyState>}
       >
         {(member) => (
           <Tag key={member.id} id={member.id} textValue={member.name}>
@@ -316,8 +310,7 @@ function ProjectsPage() {
               <Avatar.Image
                 alt={member.name}
                 src={
-                  preferencesByUserId[member.id]?.avatarUrl ??
-                  getSessionDefaultAvatarUrl(member.id)
+                  preferencesByUserId[member.id]?.avatarUrl ?? getSessionDefaultAvatarUrl(member.id)
                 }
               />
               <Avatar.Fallback>{member.initials}</Avatar.Fallback>

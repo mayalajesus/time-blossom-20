@@ -1,6 +1,7 @@
 import { Dropdown, Label, Separator, Tabs, toast, Typography } from "@heroui/react";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowRightFromSquare, Display, Gear, Moon, Sun } from "@gravity-ui/icons";
+import { useState } from "react";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { useI18n } from "@/lib/i18n";
 import { useStore, type ThemeMode } from "@/lib/store";
@@ -9,10 +10,11 @@ import { useAuth } from "@/lib/auth-context";
 import { resetSessionDefaultAvatar } from "@/lib/default-avatar";
 
 export function ProfileMenu({ showName = false }: { showName?: boolean }) {
-  const { currentMember, preferences, setUserPreferences, signOut } = useStore();
+  const { currentMember, preferences, saveUserPreferences, signOut } = useStore();
   const { configured } = useAuth();
   const { t, error } = useI18n();
   const navigate = useNavigate();
+  const [themeSaving, setThemeSaving] = useState(false);
 
   if (!currentMember) return null;
 
@@ -22,10 +24,12 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
     { id: "dark" as const, label: "Dark", Icon: Moon },
   ];
 
-  const handleThemeChange = (theme: ThemeMode) => {
-    if (theme === preferences.theme) return;
+  const handleThemeChange = async (theme: ThemeMode) => {
+    if (themeSaving || theme === preferences.theme) return;
 
-    const result = setUserPreferences({ theme });
+    setThemeSaving(true);
+    const result = await saveUserPreferences({ theme });
+    setThemeSaving(false);
     if (!result.success) {
       toast.danger(t("We couldn't save your preferences"), {
         description: error(result.error),
@@ -90,7 +94,7 @@ export function ProfileMenu({ showName = false }: { showName?: boolean }) {
           <Tabs
             className="w-full"
             selectedKey={preferences.theme}
-            onSelectionChange={(key) => handleThemeChange(String(key) as ThemeMode)}
+            onSelectionChange={(key) => void handleThemeChange(String(key) as ThemeMode)}
           >
             <Tabs.ListContainer>
               <Tabs.List aria-label={t("Theme")} className="w-full">

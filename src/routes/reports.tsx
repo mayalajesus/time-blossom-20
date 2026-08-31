@@ -124,9 +124,9 @@ import {
   createReportFilterStorageKey,
   createStoredReportFilters,
   hasExplicitReportFilterParams,
+  parseStoredReportFiltersValue,
   readStoredReportFilters,
   resolveInitialReportFilters,
-  writeStoredReportFilters,
   type StoredReportFilters,
 } from "@/lib/report-filter-storage";
 type GroupDimension = "project" | "client" | "member" | "task" | "date";
@@ -468,12 +468,12 @@ export const Route = createFileRoute("/reports")({
   }),
   head: () => ({
     meta: [
-      { title: "Reports — Time Blossom" },
+      { title: "Reports — Watchtag" },
       {
         name: "description",
         content: "Overview and detailed time reports.",
       },
-      { property: "og:title", content: "Reports — Time Blossom" },
+      { property: "og:title", content: "Reports — Watchtag" },
       { property: "og:description", content: "Filter and understand tracked time." },
     ],
   }),
@@ -514,6 +514,7 @@ function ReportsPage() {
     can,
     settings,
     preferences,
+    setUserPreferences,
     billingPreferencesByUserId,
     today,
   } = useStore();
@@ -597,16 +598,13 @@ function ReportsPage() {
       page: patch.page ?? 1,
     };
 
-    if (
-      filterStorageKey &&
-      hydratedFilterStorageKey === filterStorageKey &&
-      typeof window !== "undefined"
-    ) {
-      writeStoredReportFilters(
-        window.localStorage,
-        filterStorageKey,
-        constrainFiltersToCurrentScope(storedFiltersFromSearch(nextSearch)),
-      );
+    if (workspaceId && hydratedFilterStorageKey === filterStorageKey) {
+      const nextFilters = constrainFiltersToCurrentScope(storedFiltersFromSearch(nextSearch));
+      if (JSON.stringify(preferences.reportFilters[workspaceId]) !== JSON.stringify(nextFilters)) {
+        setUserPreferences({
+          reportFilters: { ...preferences.reportFilters, [workspaceId]: nextFilters },
+        });
+      }
     }
 
     navigate({
@@ -627,7 +625,9 @@ function ReportsPage() {
       return;
     }
 
-    const savedFilters = readStoredReportFilters(window.localStorage, filterStorageKey);
+    const savedFilters =
+      parseStoredReportFiltersValue(preferences.reportFilters[workspaceId]) ??
+      readStoredReportFilters(window.localStorage, filterStorageKey);
     const explicitFilters = hasExplicitReportFilterParams(window.location.search);
     const selectedFilters = resolveInitialReportFilters({
       currentFilters: storedFilters,
@@ -651,7 +651,9 @@ function ReportsPage() {
       search.columns !== encodeIds(normalizedFilters.detailedColumns);
 
     if (shouldNavigate) {
-      writeStoredReportFilters(window.localStorage, filterStorageKey, normalizedFilters);
+      setUserPreferences({
+        reportFilters: { ...preferences.reportFilters, [workspaceId]: normalizedFilters },
+      });
       void navigate({
         search: { ...search, ...patch, page: 1 },
         replace: true,
@@ -660,7 +662,13 @@ function ReportsPage() {
       return;
     }
 
-    writeStoredReportFilters(window.localStorage, filterStorageKey, normalizedFilters);
+    if (
+      JSON.stringify(preferences.reportFilters[workspaceId]) !== JSON.stringify(normalizedFilters)
+    ) {
+      setUserPreferences({
+        reportFilters: { ...preferences.reportFilters, [workspaceId]: normalizedFilters },
+      });
+    }
     setHydratedFilterStorageKey(filterStorageKey);
   }, [
     accountLoading,
@@ -669,25 +677,36 @@ function ReportsPage() {
     filterStorageKey,
     hydratedFilterStorageKey,
     navigate,
+    preferences.reportFilters,
     search,
+    setUserPreferences,
     storedFilters,
+    workspaceId,
   ]);
 
   useEffect(() => {
-    if (
-      !filterStorageKey ||
-      hydratedFilterStorageKey !== filterStorageKey ||
-      typeof window === "undefined"
-    ) {
+    if (!filterStorageKey || hydratedFilterStorageKey !== filterStorageKey) {
       return;
     }
 
-    writeStoredReportFilters(
-      window.localStorage,
-      filterStorageKey,
-      constrainFiltersToCurrentScope(storedFilters),
-    );
-  }, [constrainFiltersToCurrentScope, filterStorageKey, hydratedFilterStorageKey, storedFilters]);
+    const normalizedFilters = constrainFiltersToCurrentScope(storedFilters);
+    if (
+      JSON.stringify(preferences.reportFilters[workspaceId]) === JSON.stringify(normalizedFilters)
+    ) {
+      return;
+    }
+    setUserPreferences({
+      reportFilters: { ...preferences.reportFilters, [workspaceId]: normalizedFilters },
+    });
+  }, [
+    constrainFiltersToCurrentScope,
+    filterStorageKey,
+    hydratedFilterStorageKey,
+    preferences.reportFilters,
+    setUserPreferences,
+    storedFilters,
+    workspaceId,
+  ]);
 
   const updatePeriod = (preset: ReportPeriodPreset, nextRange: DateRange) => {
     updateSearch({
@@ -949,7 +968,7 @@ function ReportsPage() {
           }
         : {}),
       displayTitle: t("Detailed report"),
-      subtitle: `Time Blossom · ${formatDateRange(range.startDate, range.endDate, locale)}`,
+      subtitle: `Watchtag · ${formatDateRange(range.startDate, range.endDate, locale)}`,
       meta: [
         { label: t("Period"), value: formatDateRange(range.startDate, range.endDate, locale) },
         { label: t("Scope"), value: reportScope },
@@ -1024,7 +1043,7 @@ function ReportsPage() {
       const weekdayRows = overviewWeekdayRows(reportAnalytics, locale);
       return {
         ...exportContext,
-        title: `time-blossom-${exportView}`,
+        title: `watchtag-${exportView}`,
         columns: [t("Metric"), t("Value")],
         rows: [
           {
@@ -1239,7 +1258,7 @@ function ReportsPage() {
       ];
       return {
         ...exportContext,
-        title: `time-blossom-${exportView}`,
+        title: `watchtag-${exportView}`,
         pdf: {
           kind: "detailed",
           startDate: range.startDate,
@@ -1336,7 +1355,7 @@ function ReportsPage() {
         : groups.map((group) => ({ primaryLabel: group.label, secondaryLabel: "", group }));
       return {
         ...exportContext,
-        title: `time-blossom-${exportView}`,
+        title: `watchtag-${exportView}`,
         columns: [
           t("Group"),
           ...(hasSubgroup ? [t("Subgroup")] : []),

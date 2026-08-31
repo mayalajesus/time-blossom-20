@@ -1,4 +1,4 @@
-project_id = "time-blossom"
+project_id = "watchtag"
 
 [auth]
 enable_signup = true

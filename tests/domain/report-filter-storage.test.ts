@@ -21,7 +21,7 @@ function memoryStorage() {
 describe("report filter storage", () => {
   it("scopes saved filters by workspace and user", () => {
     expect(createReportFilterStorageKey("workspace:one", "user/one")).toBe(
-      "time-blossom:report-filters:v1:workspace%3Aone:user%2Fone",
+      "watchtag:report-filters:v1:workspace%3Aone:user%2Fone",
     );
   });
 

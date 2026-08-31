@@ -39,9 +39,9 @@ type InviteRole = Exclude<Role, "Owner">;
 export const Route = createFileRoute("/team")({
   head: () => ({
     meta: [
-      { title: "Team — Time Blossom" },
+      { title: "Team — Watchtag" },
       { name: "description", content: "Invite teammates, manage roles and track team hours." },
-      { property: "og:title", content: "Team — Time Blossom" },
+      { property: "og:title", content: "Team — Watchtag" },
       { property: "og:description", content: "Invite teammates and see tracked hours by member." },
     ],
   }),
@@ -67,6 +67,8 @@ function TeamPage() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InviteRole>("Member");
   const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [invitationActionId, setInvitationActionId] = useState<string | null>(null);
   const [pendingCancel, setPendingCancel] = useState<Member | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<Member | null>(null);
@@ -93,22 +95,26 @@ function TeamPage() {
     setInviteOpen(true);
   };
 
-  const submitInvite = () => {
-    const result = inviteMember(email, role);
+  const submitInvite = async () => {
+    setInviteBusy(true);
+    const result = await inviteMember(email, role);
+    setInviteBusy(false);
     if (!result.success) {
       setInviteError(error(result.error));
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
-    toast.info(t("Your invitation is ready"), {
+    toast.success(t("Invitation sent"), {
       description: `${normalizedEmail} · ${role}`,
     });
     resetInviteForm();
     setInviteOpen(false);
   };
 
-  const handleResend = (member: Member) => {
-    const result = resendInvite(member.id);
+  const handleResend = async (member: Member) => {
+    setInvitationActionId(member.id);
+    const result = await resendInvite(member.id);
+    setInvitationActionId(null);
     if (!result.success) {
       toast.danger(t("We couldn't refresh this invitation"), { description: error(result.error) });
       return;
@@ -116,9 +122,11 @@ function TeamPage() {
     toast.success(t("Invitation refreshed"), { description: member.email });
   };
 
-  const confirmCancel = () => {
+  const confirmCancel = async () => {
     if (!pendingCancel) return;
-    const result = cancelInvite(pendingCancel.id);
+    setInvitationActionId(pendingCancel.id);
+    const result = await cancelInvite(pendingCancel.id);
+    setInvitationActionId(null);
     if (!result.success) {
       setCancelError(error(result.error));
       return;
@@ -187,146 +195,148 @@ function TeamPage() {
           <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
         </Table.Header>
         <Table.Body>
-            {orderedMembers.map((member) => {
-              const invited = member.status === "invited";
-              const removed = member.status === "removed";
-              const isCurrentMember = member.id === currentMember?.id;
-              const canManageTarget =
-                !isCurrentMember &&
-                can("manage-members") &&
-                (currentMember?.role === "Owner" || member.role === "Member");
-              const canChangeRole =
-                canManageTarget &&
-                (currentMember?.role === "Owner" ||
-                  (currentMember?.role === "Admin" && member.status === "active"));
-              return (
-                <Table.Row key={member.id}>
-                  <Table.Cell>
-                    <div className="flex min-w-0 items-center gap-3">
-                      <ProfileAvatar
-                        member={member}
-                        avatarUrl={preferencesByUserId[member.id]?.avatarUrl ?? null}
-                        size="sm"
-                      />
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate">{invited ? member.email : member.name}</span>
-                        <span className="truncate">
-                          {invited
-                            ? t("Invitation pending")
-                            : removed
-                              ? t("Access removed")
-                              : member.email}
-                        </span>
-                      </div>
-                    </div>
-                  </Table.Cell>
-                  <Table.Cell>{t(member.role)}</Table.Cell>
-                  <Table.Cell>
-                    <Chip
-                      color={invited ? "warning" : removed ? "default" : "success"}
+          {orderedMembers.map((member) => {
+            const invited = member.status === "invited";
+            const removed = member.status === "removed";
+            const isCurrentMember = member.id === currentMember?.id;
+            const canManageTarget =
+              !isCurrentMember &&
+              can("manage-members") &&
+              (currentMember?.role === "Owner" || member.role === "Member");
+            const canChangeRole =
+              canManageTarget &&
+              (currentMember?.role === "Owner" ||
+                (currentMember?.role === "Admin" && member.status === "active"));
+            return (
+              <Table.Row key={member.id}>
+                <Table.Cell>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ProfileAvatar
+                      member={member}
+                      avatarUrl={preferencesByUserId[member.id]?.avatarUrl ?? null}
                       size="sm"
-                      variant="soft"
-                    >
-                      {invited ? t("Invited") : removed ? t("Removed") : t("Active")}
-                    </Chip>
-                  </Table.Cell>
-                  <Table.Cell>
-                    {invited ? "—" : formatDuration(secondsFor(member.id), locale)}
-                  </Table.Cell>
-                  <Table.Cell>
-                    {invited && canManageTarget ? (
-                      <div className="flex justify-end">
-                        <ActionDropdown
-                          ariaLabel={t("Actions for invitation to {email}", {
-                            email: member.email,
-                          })}
-                          items={[
-                            ...(canChangeRole
-                              ? [
-                                  {
-                                    id: "role",
-                                    label:
-                                      member.role === "Admin" ? t("Make member") : t("Make admin"),
-                                    icon: <PersonPencil className="size-4" />,
-                                  },
-                                ]
-                              : []),
-                            {
-                              id: "resend",
-                              label: t("Resend invite"),
-                              icon: <Envelope className="size-4" />,
-                            },
-                            {
-                              id: "cancel",
-                              label: t("Cancel invite"),
-                              icon: <TrashBin className="size-4" />,
-                              tone: "danger",
-                            },
-                          ]}
-                          onAction={(key) => {
-                            if (key === "role") manageRole(member);
-                            if (key === "resend") handleResend(member);
-                            if (key === "cancel") {
-                              setCancelError(null);
-                              setPendingCancel(member);
-                            }
-                          }}
-                        />
-                      </div>
-                    ) : removed && canManageTarget ? (
-                      <div className="flex justify-end">
-                        <ActionDropdown
-                          ariaLabel={t("Actions for {name}", { name: member.name })}
-                          items={[
-                            {
-                              id: "restore",
-                              label: t("Restore access"),
-                              icon: <PersonPlus className="size-4" />,
-                            },
-                          ]}
-                          onAction={(key) => {
-                            if (key === "restore") handleRestore(member);
-                          }}
-                        />
-                      </div>
-                    ) : member.status === "active" && canManageTarget ? (
-                      <div className="flex justify-end">
-                        <ActionDropdown
-                          ariaLabel={t("Actions for {name}", { name: member.name })}
-                          items={[
-                            ...(canChangeRole
-                              ? [
-                                  {
-                                    id: "role",
-                                    label:
-                                      member.role === "Admin" ? t("Make member") : t("Make admin"),
-                                    icon: <PersonPencil className="size-4" />,
-                                  },
-                                ]
-                              : []),
-                            {
-                              id: "remove",
-                              label: t("Remove from team"),
-                              icon: <TrashBin className="size-4" />,
-                              tone: "danger",
-                            },
-                          ]}
-                          onAction={(key) => {
-                            if (key === "role") manageRole(member);
-                            if (key === "remove") {
-                              setRemoveError(null);
-                              setPendingRemove(member);
-                            }
-                          }}
-                        />
-                      </div>
-                    ) : isCurrentMember ? (
-                      <span className="sr-only">{t("No actions available for your account")}</span>
-                    ) : null}
-                  </Table.Cell>
-                </Table.Row>
-              );
-            })}
+                    />
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate">{invited ? member.email : member.name}</span>
+                      <span className="truncate">
+                        {invited
+                          ? t("Invitation pending")
+                          : removed
+                            ? t("Access removed")
+                            : member.email}
+                      </span>
+                    </div>
+                  </div>
+                </Table.Cell>
+                <Table.Cell>{t(member.role)}</Table.Cell>
+                <Table.Cell>
+                  <Chip
+                    color={invited ? "warning" : removed ? "default" : "success"}
+                    size="sm"
+                    variant="soft"
+                  >
+                    {invited ? t("Invited") : removed ? t("Removed") : t("Active")}
+                  </Chip>
+                </Table.Cell>
+                <Table.Cell>
+                  {invited ? "—" : formatDuration(secondsFor(member.id), locale)}
+                </Table.Cell>
+                <Table.Cell>
+                  {invited && canManageTarget ? (
+                    <div className="flex justify-end">
+                      <ActionDropdown
+                        ariaLabel={t("Actions for invitation to {email}", {
+                          email: member.email,
+                        })}
+                        items={[
+                          ...(canChangeRole
+                            ? [
+                                {
+                                  id: "role",
+                                  label:
+                                    member.role === "Admin" ? t("Make member") : t("Make admin"),
+                                  icon: <PersonPencil className="size-4" />,
+                                },
+                              ]
+                            : []),
+                          {
+                            id: "resend",
+                            label: t("Resend invite"),
+                            icon: <Envelope className="size-4" />,
+                          },
+                          {
+                            id: "cancel",
+                            label: t("Cancel invite"),
+                            icon: <TrashBin className="size-4" />,
+                            tone: "danger",
+                          },
+                        ]}
+                        onAction={(key) => {
+                          if (key === "role") manageRole(member);
+                          if (key === "resend" && invitationActionId !== member.id) {
+                            void handleResend(member);
+                          }
+                          if (key === "cancel") {
+                            setCancelError(null);
+                            setPendingCancel(member);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : removed && canManageTarget ? (
+                    <div className="flex justify-end">
+                      <ActionDropdown
+                        ariaLabel={t("Actions for {name}", { name: member.name })}
+                        items={[
+                          {
+                            id: "restore",
+                            label: t("Restore access"),
+                            icon: <PersonPlus className="size-4" />,
+                          },
+                        ]}
+                        onAction={(key) => {
+                          if (key === "restore") handleRestore(member);
+                        }}
+                      />
+                    </div>
+                  ) : member.status === "active" && canManageTarget ? (
+                    <div className="flex justify-end">
+                      <ActionDropdown
+                        ariaLabel={t("Actions for {name}", { name: member.name })}
+                        items={[
+                          ...(canChangeRole
+                            ? [
+                                {
+                                  id: "role",
+                                  label:
+                                    member.role === "Admin" ? t("Make member") : t("Make admin"),
+                                  icon: <PersonPencil className="size-4" />,
+                                },
+                              ]
+                            : []),
+                          {
+                            id: "remove",
+                            label: t("Remove from team"),
+                            icon: <TrashBin className="size-4" />,
+                            tone: "danger",
+                          },
+                        ]}
+                        onAction={(key) => {
+                          if (key === "role") manageRole(member);
+                          if (key === "remove") {
+                            setRemoveError(null);
+                            setPendingRemove(member);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : isCurrentMember ? (
+                    <span className="sr-only">{t("No actions available for your account")}</span>
+                  ) : null}
+                </Table.Cell>
+              </Table.Row>
+            );
+          })}
         </Table.Body>
       </DataTable>
 
@@ -386,7 +396,7 @@ function TeamPage() {
                     <Label>{t("Email")}</Label>
                     <Input variant="secondary" placeholder={t("name@company.com")} />
                     <Description className="text-xs">
-                      {t("The invitation will be prepared for future delivery.")}
+                      {t("An invitation email will be sent immediately.")}
                     </Description>
                     <FieldError />
                   </TextField>
@@ -426,8 +436,8 @@ function TeamPage() {
                   <Button slot="close" type="button" variant="secondary">
                     {t("Cancel")}
                   </Button>
-                  <Button type="submit" isDisabled={!email.trim()}>
-                    {t("Prepare invite")}
+                  <Button type="submit" isDisabled={!email.trim()} isPending={inviteBusy}>
+                    {t("Send invite")}
                   </Button>
                 </Modal.Footer>
               </Form>
@@ -470,7 +480,11 @@ function TeamPage() {
                 <Button slot="close" variant="secondary">
                   {t("Keep invitation")}
                 </Button>
-                <Button variant="danger" onPress={confirmCancel}>
+                <Button
+                  variant="danger"
+                  isPending={invitationActionId === pendingCancel?.id}
+                  onPress={() => void confirmCancel()}
+                >
                   {t("Cancel invitation")}
                 </Button>
               </Modal.Footer>

@@ -2,7 +2,7 @@ import { isCurrencyCode, type CurrencyCode } from "./billing";
 import { isValidDateOnly, type ReportPeriodPreset } from "./format";
 
 const reportFilterStorageVersion = 1;
-const reportFilterStoragePrefix = "time-blossom:report-filters";
+const reportFilterStoragePrefix = "watchtag:report-filters";
 
 const reportPeriodPresets: ReportPeriodPreset[] = [
   "today",
@@ -84,11 +84,8 @@ export function hasExplicitReportFilterParams(searchString: string): boolean {
   );
 }
 
-export function parseStoredReportFilters(value: string | null): StoredReportFilters | null {
-  if (!value) return null;
-
+export function parseStoredReportFiltersValue(parsed: unknown): StoredReportFilters | null {
   try {
-    const parsed: unknown = JSON.parse(value);
     if (!isRecord(parsed) || parsed["version"] !== reportFilterStorageVersion) return null;
 
     const rawPreset = parsed["preset"];
@@ -119,6 +116,15 @@ export function parseStoredReportFilters(value: string | null): StoredReportFilt
       visibleFilters: uniqueStrings(parsed["visibleFilters"]),
       detailedColumns: uniqueStrings(parsed["detailedColumns"]),
     };
+  } catch {
+    return null;
+  }
+}
+
+export function parseStoredReportFilters(value: string | null): StoredReportFilters | null {
+  if (!value) return null;
+  try {
+    return parseStoredReportFiltersValue(JSON.parse(value));
   } catch {
     return null;
   }

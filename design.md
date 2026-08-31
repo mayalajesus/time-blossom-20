@@ -1,8 +1,8 @@
-# Time Blossom design direction
+# Watchtag design direction
 
 ## Product character
 
-Time Blossom should feel quiet, clear and slightly premium. The interface
+Watchtag should feel quiet, clear and slightly premium. The interface
 supports a quick return to work rather than asking users to configure a large
 system before they can track time.
 
@@ -360,7 +360,7 @@ project` remains a first-class report category. Hidden filters keep their
 - CSV, XLSX and downloadable PDF exports receive the already filtered dataset
   and active view, preventing screen/export divergence. Export columns use the
   existing model only and retain overnight end-date indicators such as `+1`.
-  PDF output is a clean, light, print-oriented document with Time Blossom
+  PDF output is a clean, light, print-oriented document with Watchtag
   branding, report context, active-filter metadata, totals and a paginated
   table whose header repeats across printed pages. PDF generation is loaded
   only when requested and downloads directly, without opening a print dialog.
