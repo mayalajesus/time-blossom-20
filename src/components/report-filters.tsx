@@ -325,6 +325,7 @@ function ReportFilterDropdown({
           ) : (
             <Dropdown.Menu
               aria-label={t("{label} options", { label })}
+              className="max-h-64 overflow-y-auto"
               selectionMode={selectionMode}
               selectedKeys={new Set(values)}
               onSelectionChange={(keys) => {
