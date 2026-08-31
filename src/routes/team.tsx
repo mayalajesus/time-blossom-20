@@ -30,11 +30,10 @@ import { FormAlert } from "@/components/form-feedback";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { PageHeader } from "@/components/page-header";
 import { ProfileAvatar } from "@/components/profile-avatar";
-import { TableSkeleton } from "@/components/states";
 import { formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import type { Member, Role } from "@/lib/mock-data";
-import { useSimulatedLoad, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 
 type InviteRole = Exclude<Role, "Owner">;
 
@@ -65,7 +64,6 @@ function TeamPage() {
     updateMemberRole,
   } = useStore();
   const { locale, t, error } = useI18n();
-  const loading = useSimulatedLoad(400);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<InviteRole>("Member");
@@ -181,18 +179,15 @@ function TeamPage() {
         }
       />
 
-      {loading ? (
-        <TableSkeleton rows={4} />
-      ) : (
-        <DataTable label={t("Team members")} minWidth="min-w-[680px]">
-          <Table.Header>
-            <Table.Column isRowHeader>{t("Member")}</Table.Column>
-            <Table.Column>{t("Role")}</Table.Column>
-            <Table.Column>{t("Status")}</Table.Column>
-            <Table.Column>{t("Tracked")}</Table.Column>
-            <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
-          </Table.Header>
-          <Table.Body>
+      <DataTable label={t("Team members")} minWidth="min-w-[680px]">
+        <Table.Header>
+          <Table.Column isRowHeader>{t("Member")}</Table.Column>
+          <Table.Column>{t("Role")}</Table.Column>
+          <Table.Column>{t("Status")}</Table.Column>
+          <Table.Column>{t("Tracked")}</Table.Column>
+          <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
+        </Table.Header>
+        <Table.Body>
             {orderedMembers.map((member) => {
               const invited = member.status === "invited";
               const removed = member.status === "removed";
@@ -333,9 +328,8 @@ function TeamPage() {
                 </Table.Row>
               );
             })}
-          </Table.Body>
-        </DataTable>
-      )}
+        </Table.Body>
+      </DataTable>
 
       <Modal
         isOpen={inviteOpen}

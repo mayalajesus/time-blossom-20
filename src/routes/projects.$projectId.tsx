@@ -5,11 +5,11 @@ import { BillableIndicator } from "@/components/billable-indicator";
 import { EntriesTable } from "@/components/entries-table";
 import { RouterLink } from "@/components/router-link";
 import { PageHeader, StatCard } from "@/components/page-header";
-import { EmptyBlock, TableSkeleton } from "@/components/states";
+import { EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import { projectColorValue } from "@/lib/project-colors";
-import { useSimulatedLoad, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/projects/$projectId")({
   head: () => ({
@@ -27,7 +27,6 @@ function ProjectDetail() {
   const { projectId } = Route.useParams();
   const { projects, clients, entries, members, settings } = useStore();
   const { locale, t } = useI18n();
-  const loading = useSimulatedLoad(400);
 
   const project = projects.find((p) => p.id === projectId);
   const projectEntries = entries.filter((e) => e.projectId === projectId);
@@ -97,9 +96,7 @@ function ProjectDetail() {
         />
       </div>
 
-      {loading ? (
-        <TableSkeleton rows={4} />
-      ) : projectEntries.length === 0 ? (
+      {projectEntries.length === 0 ? (
         <EmptyBlock
           icon={<Clock className="size-5" />}
           title={t("No time tracked")}

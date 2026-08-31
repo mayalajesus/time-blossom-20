@@ -4,7 +4,7 @@ import { Calendar, ChevronLeft, ChevronRight, Clock } from "@gravity-ui/icons";
 import { useMemo, useState } from "react";
 import { LogTimeModal } from "@/components/log-time-modal";
 import { PageHeader } from "@/components/page-header";
-import { EmptyBlock, TableSkeleton } from "@/components/states";
+import { EmptyBlock } from "@/components/states";
 import { TrackerBar } from "@/components/tracker-bar";
 import { TrackerEntries } from "@/components/tracker-entries";
 import { TrackerPeriodFilter } from "@/components/tracker-period-filter";
@@ -17,7 +17,7 @@ import {
   type TrackerPeriod,
 } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
-import { useSimulatedLoad, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/tracker")({
   head: () => ({
@@ -40,7 +40,6 @@ export const Route = createFileRoute("/tracker")({
 function TrackerPage() {
   const { entries, today, currentUserId, settings, timer } = useStore();
   const { locale, t } = useI18n();
-  const loading = useSimulatedLoad();
   const [logOpen, setLogOpen] = useState(false);
   const weekStartsOn = settings.weekStart === "sunday" ? 0 : 1;
   const currentWeek = getWeekBounds(today, weekStartsOn);
@@ -149,9 +148,7 @@ function TrackerPage() {
           </div>
         </div>
 
-        {loading ? (
-          <TableSkeleton />
-        ) : days.length === 0 ? (
+        {days.length === 0 ? (
           <EmptyBlock
             icon={<Clock className="size-5" />}
             title={t("No time tracked in this period")}

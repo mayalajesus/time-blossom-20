@@ -2556,14 +2556,6 @@ export function useTimerTicker(): { elapsed: number } {
   return context;
 }
 
-export function useSimulatedLoad(delay = 450): boolean {
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    const id = window.setTimeout(() => setLoading(false), delay);
-    return () => window.clearTimeout(id);
-  }, [delay]);
-  return loading;
-}
 
 export function useProjectName(): (id: string | null) => string {
   const { projects } = useStore();

@@ -19,11 +19,11 @@ import { DataTable } from "@/components/data-table";
 import { FormAlert } from "@/components/form-feedback";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { PageHeader } from "@/components/page-header";
-import { EmptyBlock, TableSkeleton } from "@/components/states";
+import { EmptyBlock } from "@/components/states";
 import { formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import type { Client } from "@/lib/mock-data";
-import { useSimulatedLoad, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/clients")({
   head: () => ({
@@ -43,7 +43,6 @@ export const Route = createFileRoute("/clients")({
 function ClientsPage() {
   const { clients, projects, entries, can, addClient, deleteClient } = useStore();
   const { locale, t, error } = useI18n();
-  const loading = useSimulatedLoad(400);
   const [newOpen, setNewOpen] = useState(false);
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
@@ -115,9 +114,7 @@ function ClientsPage() {
         }
       />
 
-      {loading ? (
-        <TableSkeleton rows={4} />
-      ) : clients.length === 0 ? (
+      {clients.length === 0 ? (
         <EmptyBlock
           icon={<Person className="size-5" />}
           title={t("No clients yet")}

@@ -44,12 +44,12 @@ import { PageHeader } from "@/components/page-header";
 import { RouterLink } from "@/components/router-link";
 import { FormAlert } from "@/components/form-feedback";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
-import { CardsSkeleton, EmptyBlock } from "@/components/states";
+import { EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import type { Project } from "@/lib/mock-data";
 import { defaultProjectColor, projectColorOptions, projectColorValue } from "@/lib/project-colors";
-import { useSimulatedLoad, useStore } from "@/lib/store";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/projects/")({
   head: () => ({
@@ -84,7 +84,6 @@ function ProjectsPage() {
     deleteProject,
   } = useStore();
   const { locale, t, error } = useI18n();
-  const loading = useSimulatedLoad(500);
   const [filter, setFilter] = useState<string>("active");
   const [newOpen, setNewOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -348,9 +347,7 @@ function ProjectsPage() {
         <FormAlert title={t("We couldn't update this project")} description={statusError} />
       ) : null}
 
-      {loading ? (
-        <CardsSkeleton count={6} />
-      ) : visible.length === 0 ? (
+      {visible.length === 0 ? (
         <EmptyBlock
           icon={<Folder className="size-5" />}
           title={t("No projects here")}
