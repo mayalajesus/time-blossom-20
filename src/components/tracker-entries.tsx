@@ -22,7 +22,7 @@ import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { OverlapConfirmation } from "@/components/overlap-confirmation";
 import { ProjectSelect } from "@/components/project-select";
-import { projectColorValue } from "@/lib/project-colors";
+import { projectColorTextValue } from "@/lib/project-colors";
 import { useStore } from "@/lib/store";
 import {
   addSecondsToDateTime,
@@ -597,7 +597,7 @@ function TrackerGroupSummaryRow({
             <span className={`${summaryTextClass} flex items-center gap-2 font-medium`}>
               <span
                 className="min-w-0 truncate"
-                style={project ? { color: projectColorValue(project.color) } : undefined}
+                style={project ? { color: projectColorTextValue(project.color) } : undefined}
               >
                 {projectName}
               </span>
@@ -1363,7 +1363,7 @@ function TrackerEntryRow({
               <span className="flex w-full min-w-0 items-center gap-2 truncate font-medium">
                 <span
                   className="min-w-0 truncate"
-                  style={project ? { color: projectColorValue(project.color) } : undefined}
+                style={project ? { color: projectColorTextValue(project.color) } : undefined}
                 >
                   {projectName}
                 </span>

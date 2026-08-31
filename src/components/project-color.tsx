@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Project } from "@/lib/mock-data";
-import { projectColorValue } from "@/lib/project-colors";
+import { projectColorTextValue } from "@/lib/project-colors";
 
 export function ProjectLabel({
   project,
@@ -15,7 +15,7 @@ export function ProjectLabel({
     <span className={`inline-flex min-w-0 items-center ${className}`}>
       <span
         className="min-w-0 truncate"
-        style={project ? { color: projectColorValue(project.color) } : undefined}
+        style={project ? { color: projectColorTextValue(project.color) } : undefined}
       >
         {label}
       </span>

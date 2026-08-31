@@ -48,7 +48,12 @@ import { EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import type { Project } from "@/lib/mock-data";
-import { defaultProjectColor, projectColorOptions, projectColorValue } from "@/lib/project-colors";
+import {
+  defaultProjectColor,
+  projectColorOptions,
+  projectColorTextValue,
+  projectColorValue,
+} from "@/lib/project-colors";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/projects/")({
@@ -383,7 +388,7 @@ function ProjectsPage() {
                     to="/projects/$projectId"
                     params={{ projectId: project.id }}
                     className="block max-w-64 truncate font-semibold"
-                    style={{ color: projectColorValue(project.color) }}
+                    style={{ color: projectColorTextValue(project.color) }}
                   >
                     {project.name}
                   </RouterLink>

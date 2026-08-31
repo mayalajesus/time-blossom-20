@@ -8,7 +8,7 @@ import { PageHeader, StatCard } from "@/components/page-header";
 import { EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
-import { projectColorValue } from "@/lib/project-colors";
+import { projectColorTextValue } from "@/lib/project-colors";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/projects/$projectId")({
@@ -62,7 +62,7 @@ function ProjectDetail() {
 
       <PageHeader
         title={
-          <span className="truncate" style={{ color: projectColorValue(project.color) }}>
+          <span className="truncate" style={{ color: projectColorTextValue(project.color) }}>
             {project.name}
           </span>
         }
