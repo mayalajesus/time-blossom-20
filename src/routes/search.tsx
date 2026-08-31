@@ -2,6 +2,7 @@ import { Card, Input, Label, TextField, Typography } from "@heroui/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Magnifier } from "@gravity-ui/icons";
 import { PageHeader } from "@/components/page-header";
+import { ProjectLabel } from "@/components/project-color";
 import { RouterLink } from "@/components/router-link";
 import { EmptyBlock } from "@/components/states";
 import { useStore } from "@/lib/store";
@@ -80,7 +81,7 @@ function SearchPage() {
                   params={{ projectId: item.id }}
                   className="block px-4 py-3"
                 >
-                  {item.name}
+                  <ProjectLabel project={item} label={item.name} />
                 </RouterLink>
               ))}
             </Section>

@@ -41,6 +41,7 @@ import { ActionDropdown } from "@/components/action-dropdown";
 import { BillableIndicator } from "@/components/billable-indicator";
 import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
+import { ProjectLabel } from "@/components/project-color";
 import { RouterLink } from "@/components/router-link";
 import { FormAlert } from "@/components/form-feedback";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
@@ -51,7 +52,6 @@ import type { Project } from "@/lib/mock-data";
 import {
   defaultProjectColor,
   projectColorOptions,
-  projectColorTextValue,
   projectColorValue,
 } from "@/lib/project-colors";
 import { useStore } from "@/lib/store";
@@ -387,10 +387,9 @@ function ProjectsPage() {
                   <RouterLink
                     to="/projects/$projectId"
                     params={{ projectId: project.id }}
-                    className="block max-w-64 truncate font-semibold"
-                    style={{ color: projectColorTextValue(project.color) }}
+                    className="block max-w-64"
                   >
-                    {project.name}
+                    <ProjectLabel project={project} label={project.name} />
                   </RouterLink>
                 </Table.Cell>
                 <Table.Cell className="max-w-52 truncate">

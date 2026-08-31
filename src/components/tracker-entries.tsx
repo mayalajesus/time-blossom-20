@@ -21,8 +21,8 @@ import { DataTable } from "@/components/data-table";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { OverlapConfirmation } from "@/components/overlap-confirmation";
+import { ProjectLabel } from "@/components/project-color";
 import { ProjectSelect } from "@/components/project-select";
-import { projectColorTextValue } from "@/lib/project-colors";
 import { useStore } from "@/lib/store";
 import {
   addSecondsToDateTime,
@@ -595,12 +595,7 @@ function TrackerGroupSummaryRow({
         <Surface variant={summarySurfaceVariant} className="flex min-h-20 items-center px-4 py-3">
           <span className="flex min-w-0 flex-col">
             <span className={`${summaryTextClass} flex items-center gap-2 font-medium`}>
-              <span
-                className="min-w-0 truncate"
-                style={project ? { color: projectColorTextValue(project.color) } : undefined}
-              >
-                {projectName}
-              </span>
+              <ProjectLabel project={project} label={projectName} />
             </span>
             <span className={`${summaryTextClass} text-xs font-light`}>{clientName}</span>
           </span>
@@ -1361,12 +1356,7 @@ function TrackerEntryRow({
           >
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="flex w-full min-w-0 items-center gap-2 truncate font-medium">
-                <span
-                  className="min-w-0 truncate"
-                style={project ? { color: projectColorTextValue(project.color) } : undefined}
-                >
-                  {projectName}
-                </span>
+                <ProjectLabel project={project} label={projectName} />
               </span>
               <span className="block w-full min-w-0 truncate text-xs font-light">{clientName}</span>
             </span>

@@ -3,12 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, Clock } from "@gravity-ui/icons";
 import { BillableIndicator } from "@/components/billable-indicator";
 import { EntriesTable } from "@/components/entries-table";
+import { ProjectLabel } from "@/components/project-color";
 import { RouterLink } from "@/components/router-link";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
-import { projectColorTextValue } from "@/lib/project-colors";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/projects/$projectId")({
@@ -62,9 +62,7 @@ function ProjectDetail() {
 
       <PageHeader
         title={
-          <span className="truncate" style={{ color: projectColorTextValue(project.color) }}>
-            {project.name}
-          </span>
+          <ProjectLabel project={project} label={project.name} size="lg" weight="semibold" />
         }
         description={t("{client} · updated {date}", {
           client: client?.name ?? t("No client"),

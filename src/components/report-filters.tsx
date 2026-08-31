@@ -42,6 +42,7 @@ import {
 import { CalendarDate } from "@internationalized/date";
 import type { RangeValue } from "@react-types/shared";
 import { BillableIndicator } from "@/components/billable-indicator";
+import { ProjectLabel } from "@/components/project-color";
 import { useI18n } from "@/lib/i18n";
 import {
   formatReportPeriod,
@@ -69,6 +70,7 @@ export type ReportFilterOption = {
   label: string;
   description?: string;
   billable?: boolean | null;
+  project?: Pick<Project, "color"> | null;
 };
 
 const reportFilterIconClassName = "size-4 shrink-0";
@@ -338,8 +340,11 @@ function ReportFilterDropdown({
                 <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
                   {option.billable !== undefined ? (
                     <BillableIndicator billable={option.billable} mode="icon" />
-                  ) : null}
-                  <Label>{option.label}</Label>
+                  ) : option.project ? (
+                    <ProjectLabel project={option.project} label={option.label} />
+                  ) : (
+                    <Label>{option.label}</Label>
+                  )}
                   <Dropdown.ItemIndicator />
                 </Dropdown.Item>
               ))}
@@ -672,6 +677,7 @@ export function ReportFiltersBar({
         id: project.id,
         label: project.name,
         description: clientNameById.get(project.clientId) ?? t("Unknown client"),
+        project,
       })),
     ],
     [clientNameById, projects, t],
