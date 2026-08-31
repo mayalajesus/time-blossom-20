@@ -39,8 +39,6 @@ import {
   Cell,
   Label as ChartLabel,
   LabelList,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   XAxis,
@@ -1296,12 +1294,36 @@ function formatOverviewBucket(
 ): string {
   const start = new Date(`${bucket.startDate}T12:00:00`);
   const end = new Date(`${bucket.endDate}T12:00:00`);
-  const dayFormatter = new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short" });
+  const dayMonthFormatter = new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+  });
+  if (bucket.granularity === "day") return dayMonthFormatter.format(start);
+  if (bucket.granularity === "week") {
+    if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
+      const dayFormatter = new Intl.DateTimeFormat(locale, { day: "2-digit" });
+      const monthFormatter = new Intl.DateTimeFormat(locale, { month: "2-digit" });
+      return `${dayFormatter.format(start)}–${dayFormatter.format(end)}/${monthFormatter.format(
+        end,
+      )}`;
+    }
+    return `${dayMonthFormatter.format(start)}–${dayMonthFormatter.format(end)}`;
+  }
+  return new Intl.DateTimeFormat(locale, { month: "2-digit", year: "2-digit" }).format(start);
+}
+
+function formatOverviewAxisBucket(
+  bucket: Pick<TemporalBucket, "startDate" | "endDate" | "granularity">,
+  locale: Locale,
+): string {
+  const start = new Date(`${bucket.startDate}T12:00:00`);
+  const end = new Date(`${bucket.endDate}T12:00:00`);
+  const dayFormatter = new Intl.DateTimeFormat(locale, { day: "2-digit" });
   if (bucket.granularity === "day") return dayFormatter.format(start);
   if (bucket.granularity === "week") {
     return `${dayFormatter.format(start)}–${dayFormatter.format(end)}`;
   }
-  return new Intl.DateTimeFormat(locale, { month: "short", year: "2-digit" }).format(start);
+  return new Intl.DateTimeFormat(locale, { month: "short" }).format(start);
 }
 
 function overviewEvolutionRows(analytics: ReportAnalytics, locale: Locale) {
@@ -1310,6 +1332,7 @@ function overviewEvolutionRows(analytics: ReportAnalytics, locale: Locale) {
     const difference = bucket.totalSeconds - previous;
     return {
       label: formatOverviewBucket(bucket, locale),
+      axisLabel: formatOverviewAxisBucket(bucket, locale),
       currentTotal: bucket.totalSeconds,
       previous,
       difference,
@@ -1330,6 +1353,20 @@ function overviewActivityTime(analytics: ReportAnalytics) {
 function formatDurationAxis(seconds: number, locale: Locale): string {
   if (seconds < 3_600) return formatDuration(seconds, locale);
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(seconds / 3_600)}h`;
+}
+
+function overviewDurationAxis(maximumSeconds: number) {
+  const steps = [900, 1_800, 3_600, 7_200, 14_400, 21_600, 28_800, 43_200, 86_400];
+  const targetStep = maximumSeconds / 4;
+  const step =
+    steps.find((candidate) => candidate >= targetStep) ??
+    Math.max(86_400, Math.ceil(targetStep / 86_400) * 86_400);
+  const maximum = Math.max(step, Math.ceil(maximumSeconds / step) * step);
+  const tickCount = Math.round(maximum / step);
+  return {
+    maximum,
+    ticks: Array.from({ length: tickCount + 1 }, (_, index) => index * step),
+  };
 }
 
 function overviewWeekdayRows(analytics: ReportAnalytics, locale: Locale) {
@@ -1392,6 +1429,16 @@ function comparisonVariation(
         ? ("positive" as const)
         : ("negative" as const)
       : ("neutral" as const),
+  };
+}
+
+function comparisonFromValues(current: number, previous: number) {
+  const delta = current - previous;
+  return {
+    current,
+    previous,
+    delta,
+    percentageChange: previous > 0 ? (delta / previous) * 100 : null,
   };
 }
 
@@ -1541,6 +1588,20 @@ function OverviewDashboard({
     true,
     true,
   );
+  const projectCountVariation = comparisonVariation(
+    comparisonFromValues(summary.projectCount, analytics.comparison.previous.projectCount),
+    locale,
+    t,
+    false,
+    true,
+  );
+  const taskCountVariation = comparisonVariation(
+    comparisonFromValues(summary.taskCount, analytics.comparison.previous.taskCount),
+    locale,
+    t,
+    false,
+    true,
+  );
   const monetaryTotals = currencyOptions.filter(
     (currency) =>
       summary.billableValueByCurrency[currency] !== undefined ||
@@ -1574,16 +1635,41 @@ function OverviewDashboard({
   )[0];
   const hasPredominantShift = Boolean(predominantShift && predominantShift.seconds > 0);
   const evolutionData = overviewEvolutionRows(analytics, locale);
-  const hasPreviousActivity = analytics.comparison.previous.totalSeconds > 0;
   const activityTime = overviewActivityTime(analytics);
   const formattedActivityTimePercentage = percentageFormatter.format(activityTime.percentage);
+  const evolutionMetrics = [
+    {
+      key: "activity-time",
+      label: t("Activity time"),
+      value: `${formattedActivityTimePercentage}%`,
+      variation: trackedVariation,
+    },
+    {
+      key: "projects",
+      label: t("Projects"),
+      value: summary.projectCount,
+      variation: projectCountVariation,
+    },
+    {
+      key: "tasks",
+      label: t("Tasks"),
+      value: summary.taskCount,
+      variation: taskCountVariation,
+    },
+  ];
   const evolutionTicks =
-    evolutionData.length <= 8
+    analytics.granularity === "day" || evolutionData.length <= 6
       ? evolutionData.map((item) => item.label)
-      : Array.from({ length: 8 }, (_, index) => {
-          const dataIndex = Math.round((index * (evolutionData.length - 1)) / 7);
+      : Array.from({ length: 6 }, (_, index) => {
+          const dataIndex = Math.round((index * (evolutionData.length - 1)) / 5);
           return evolutionData[dataIndex]?.label;
         }).filter((label): label is string => Boolean(label));
+  const evolutionAxisLabels = new Map(
+    evolutionData.map((item) => [item.label, item.axisLabel] as const),
+  );
+  const evolutionAxis = overviewDurationAxis(
+    Math.max(0, ...evolutionData.map((item) => item.currentTotal)),
+  );
   const shiftData = analytics.shifts.map((shift) => {
     const percentage = summary.totalSeconds > 0 ? (shift.seconds / summary.totalSeconds) * 100 : 0;
     return {
@@ -1624,14 +1710,6 @@ function OverviewDashboard({
     `${t("Period")}: ${formatDuration(activityTime.periodSeconds, locale)}`,
     `${t("Projects")}: ${summary.projectCount}`,
     `${t("Tasks")}: ${summary.taskCount}`,
-    ...(hasPreviousActivity
-      ? [
-          `${t("Previous period")}: ${formatDuration(
-            analytics.comparison.previous.totalSeconds,
-            locale,
-          )}`,
-        ]
-      : []),
     ...(highestActivityPeriod && highestActivityPeriod.currentTotal > 0
       ? [
           `${t("Highest activity period")}: ${highestActivityPeriod.label}, ${formatDuration(
@@ -1730,7 +1808,7 @@ function OverviewDashboard({
                     <Typography type={periodValueData.length > 1 ? "h3" : "h2"} weight="semibold">
                       {item.value}
                     </Typography>
-                    <Typography type="body-xs" color="muted" weight="semibold">
+                    <Typography type="body-xs" color="muted">
                       {item.currency}
                     </Typography>
                   </div>
@@ -1790,144 +1868,108 @@ function OverviewDashboard({
           title={
             <OverviewTooltipTitle
               label={t("Activity evolution")}
-              help={t("Lines show tracked time and the previous equivalent period.")}
+              help={t("Bars show tracked time across the selected period.")}
             />
           }
           contentDescription={evolutionSummary}
           isEmpty={summary.totalSeconds === 0}
           emptyState={{ title: t("No chart data") }}
         >
-          <div className="grid min-w-0 gap-6 xl:grid-cols-12">
-            <div className="grid min-w-0 grid-cols-3 gap-4 xl:col-span-3 xl:grid-cols-1">
-              <div className="space-y-2">
-                <Typography type="body-xs" color="muted" weight="semibold">
-                  <OverviewTooltipTitle
-                    label={t("Activity time")}
-                    help={`${formatDuration(summary.totalSeconds, locale)} / ${formatDuration(
-                      activityTime.periodSeconds,
-                      locale,
-                    )}`}
-                  />
-                </Typography>
-                <Typography type="h2" weight="semibold">
-                  {formattedActivityTimePercentage}%
-                </Typography>
-              </div>
-              <div className="space-y-2">
-                <Typography type="h3" weight="semibold">
-                  {summary.projectCount}
-                </Typography>
-                <Typography type="body-xs" color="muted">
-                  {t("Projects")}
-                </Typography>
-              </div>
-              <div className="space-y-2">
-                <Typography type="h3" weight="semibold">
-                  {summary.taskCount}
-                </Typography>
-                <Typography type="body-xs" color="muted">
-                  {t("Tasks")}
-                </Typography>
-              </div>
-            </div>
-            <div className="min-w-0 xl:col-span-9">
-              <ReportChart
-                config={{
-                  currentTotal: { label: t("Tracked"), color: reportChartColors.accent },
-                  previous: { label: t("Previous period"), color: reportChartColors.muted },
-                }}
-                summary={evolutionSummary}
-                height="tall"
-                legendPlacement="before-chart"
-                legend={
-                  <div className="flex justify-end">
-                    <ReportChartLegend
-                      accessibleLabel={t("Chart legend")}
-                      items={[
-                        { key: "current", label: t("Tracked"), tone: "accent" },
-                        ...(hasPreviousActivity
-                          ? [
-                              {
-                                key: "previous",
-                                label: t("Previous period"),
-                                tone: "default" as const,
-                              },
-                            ]
-                          : []),
-                      ]}
-                    />
+          <div className="min-w-0 space-y-5">
+            <div className="grid min-w-0 grid-cols-3 gap-6">
+              {evolutionMetrics.map((metric) => {
+                const DirectionIcon =
+                  metric.variation?.direction === "up"
+                    ? ArrowUp
+                    : metric.variation?.direction === "down"
+                      ? ArrowDown
+                      : Minus;
+                const variationColor =
+                  metric.variation?.tone === "positive"
+                    ? "success"
+                    : metric.variation?.tone === "negative"
+                      ? "danger"
+                      : "default";
+                return (
+                  <div key={metric.key} className="min-w-0 space-y-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Typography type="h3" weight="semibold">
+                        {metric.value}
+                      </Typography>
+                      {metric.variation ? (
+                        <Chip
+                          aria-label={metric.variation.accessibleLabel}
+                          color={variationColor}
+                          size="sm"
+                          variant="tertiary"
+                          className="px-0 py-0"
+                        >
+                          <DirectionIcon aria-hidden="true" className="size-3" />
+                          <Chip.Label>{metric.variation.label}</Chip.Label>
+                        </Chip>
+                      ) : null}
+                    </div>
+                    <Typography type="body-xs" color="muted">
+                      {metric.label}
+                    </Typography>
                   </div>
-                }
-              >
-                <LineChart
-                  accessibilityLayer
-                  data={evolutionData}
-                  margin={{ top: 8, right: 8, bottom: 8, left: 0 }}
-                >
-                  <CartesianGrid vertical={false} strokeOpacity={0.25} />
-                  <XAxis
-                    {...reportChartAxisProps}
-                    dataKey="label"
-                    ticks={evolutionTicks}
-                    interval="preserveStartEnd"
-                    minTickGap={24}
-                    tickMargin={10}
-                    tickFormatter={(value) => shortenReportChartLabel(value, 12)}
-                  />
-                  <YAxis
-                    {...reportChartAxisProps}
-                    width={44}
-                    tickCount={3}
-                    tickMargin={8}
-                    tickFormatter={(value) => formatDurationAxis(Number(value), locale)}
-                  />
-                  <ChartTooltip
-                    {...reportChartTooltipProps}
-                    content={
-                      <ChartTooltipContent
-                        valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
-                        footerFormatter={(payload) => {
-                          const datum = payload[0]?.payload as
-                            { difference?: number; percentageChange?: number | null } | undefined;
-                          const difference = datum?.difference ?? 0;
-                          const prefix = difference > 0 ? "+" : difference < 0 ? "−" : "";
-                          const percentageChange = datum?.percentageChange;
-                          if (typeof percentageChange !== "number") return null;
-                          return `${t("Difference")}: ${prefix}${formatDuration(
-                            Math.abs(difference),
-                            locale,
-                          )} (${prefix}${percentageFormatter.format(Math.abs(percentageChange))}%)`;
-                        }}
-                      />
-                    }
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="currentTotal"
-                    stroke={reportChartColors.accent}
-                    strokeWidth={2.25}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    dot={false}
-                    activeDot={false}
-                    isAnimationActive={false}
-                  />
-                  {hasPreviousActivity ? (
-                    <Line
-                      dataKey="previous"
-                      type="monotone"
-                      stroke={reportChartColors.muted}
-                      strokeWidth={1.75}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      dot={false}
-                      activeDot={false}
-                      isAnimationActive={false}
-                    />
-                  ) : null}
-                </LineChart>
-              </ReportChart>
+                );
+              })}
             </div>
+            <ReportChart
+              config={{
+                currentTotal: { label: t("Tracked"), color: reportChartColors.accent },
+              }}
+              summary={evolutionSummary}
+              height="tall"
+            >
+              <BarChart
+                accessibilityLayer
+                barCategoryGap="45%"
+                data={evolutionData}
+                margin={{ top: 8, right: 12, bottom: 0, left: 4 }}
+              >
+                <XAxis
+                  {...reportChartAxisProps}
+                  dataKey="label"
+                  ticks={evolutionTicks}
+                  interval={0}
+                  padding={{ left: 8, right: 8 }}
+                  tickMargin={8}
+                  tickFormatter={(value) =>
+                    shortenReportChartLabel(evolutionAxisLabels.get(String(value)) ?? value, 7)
+                  }
+                />
+                <YAxis
+                  {...reportChartAxisProps}
+                  domain={[0, evolutionAxis.maximum]}
+                  ticks={evolutionAxis.ticks}
+                  width={40}
+                  tickMargin={6}
+                  tickFormatter={(value) => formatDurationAxis(Number(value), locale)}
+                />
+                <ChartTooltip
+                  {...reportChartTooltipProps}
+                  content={
+                    <ChartTooltipContent
+                      valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
+                    />
+                  }
+                />
+                <Bar
+                  {...reportVerticalBarProps}
+                  background={{
+                    fill: reportChartColors.muted,
+                    fillOpacity: 0.2,
+                    radius: [8, 8, 8, 8],
+                  }}
+                  barSize={evolutionData.length > 24 ? 10 : evolutionData.length > 12 ? 12 : 14}
+                  dataKey="currentTotal"
+                  fill={reportChartColors.accent}
+                  radius={[8, 8, 8, 8]}
+                />
+              </BarChart>
+            </ReportChart>
           </div>
         </ReportWidget>
       </div>
@@ -1959,13 +2001,13 @@ function OverviewDashboard({
             <div className="grid grid-cols-2 gap-3" aria-label={t("Chart legend")}>
               <div className="min-w-0 space-y-1">
                 <BillableIndicator billable />
-                <Typography type="body-sm" weight="semibold">
+                <Typography type="body-sm" weight="medium">
                   {formatDuration(summary.billableSeconds, locale)} · {billablePercentage}%
                 </Typography>
               </div>
               <div className="min-w-0 space-y-1">
                 <BillableIndicator billable={false} />
-                <Typography type="body-sm" weight="semibold">
+                <Typography type="body-sm" weight="medium">
                   {formatDuration(summary.internalSeconds, locale)} · {internalPercentage}%
                 </Typography>
               </div>
@@ -2053,7 +2095,7 @@ function OverviewDashboard({
                   <Table.Cell>
                     <div className="w-40 max-w-full space-y-2">
                       <div className="flex items-center justify-between gap-3 whitespace-nowrap">
-                        <Typography type="body-sm" weight="semibold">
+                        <Typography type="body-sm" weight="medium">
                           {formatDuration(project.seconds, locale)}
                         </Typography>
                         <Typography type="body-xs" color="muted">
@@ -2126,7 +2168,7 @@ function OverviewDashboard({
                     <ShiftIcon aria-hidden="true" className="pointer-events-none absolute size-5" />
                   </OverviewAccessibleTooltip>
                   <div className="min-w-0 space-y-1">
-                    <Typography type="body-sm" weight="semibold">
+                    <Typography type="body-sm" weight="medium">
                       {item.shift}
                     </Typography>
                     <Typography type="body-xs" color="muted">
@@ -2165,7 +2207,7 @@ function OverviewDashboard({
         >
           <div className="grid min-w-0 gap-6 xl:grid-cols-12">
             <div className="min-w-0 space-y-3 xl:col-span-8">
-              <Typography type="body-xs" color="muted" weight="semibold">
+              <Typography type="body-xs" color="muted" weight="medium">
                 {t("Activity by weekday")}
               </Typography>
               <ReportChart

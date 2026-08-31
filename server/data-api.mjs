@@ -613,7 +613,7 @@ async function syncAccount(client, user, config, account) {
     const workspaceId = uuid(data.workspace.id);
     const ownerId = String(data.workspace.ownerId);
     const existingWorkspace = await client.query(
-      `select owner_id from public.workspaces where id = $1`,
+      `select owner_id, name, status from public.workspaces where id = $1`,
       [workspaceId],
     );
     let access = existingWorkspace.rows[0]

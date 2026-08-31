@@ -980,6 +980,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   accountRef.current = account;
   const skipAccountSyncRef = useRef(false);
   const accountRefreshInFlightRef = useRef(false);
+  const accountSyncPromiseRef = useRef<Promise<void> | null>(null);
   const activeData =
     account.workspaces.find((data) => data.workspace.id === activeWorkspaceId) ??
     account.workspaces[0];
@@ -992,6 +993,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [settings, setSettingsState] = useState<WorkspaceSettings>(initialSettings);
   const [trello, setTrelloState] = useState<TrelloState>(initialTrello);
   const [timer, setTimer] = useState<TimerState>(initialTimer);
+  const accountForSync = useMemo(() => {
+    const current = account.workspaces.find((data) => data.workspace.id === activeWorkspaceId);
+    if (!current) return account;
+    const next: WorkspaceData = {
+      ...current,
+      entries,
+      projects,
+      clients,
+      memberships: membersToMemberships(activeWorkspaceId, members),
+      settings,
+      trello,
+    };
+    if (
+      current.entries === entries &&
+      current.projects === projects &&
+      current.clients === clients &&
+      current.settings === settings &&
+      current.trello === trello &&
+      JSON.stringify(current.memberships) === JSON.stringify(next.memberships)
+    )
+      return account;
+    return {
+      ...account,
+      workspaces: account.workspaces.map((data) =>
+        data.workspace.id === activeWorkspaceId ? next : data,
+      ),
+    };
+  }, [account, activeWorkspaceId, clients, entries, members, projects, settings, trello]);
+  const accountForSyncRef = useRef(accountForSync);
+  accountForSyncRef.current = accountForSync;
   const [elapsed, setElapsed] = useState(() => elapsedForTimer(timer));
   const preferences = account.preferencesByUserId[activeMemberId] ?? initialPreferences;
   const billingPreferencesByUserId = useMemo(
@@ -1256,10 +1287,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     const id = window.setTimeout(() => {
-      void dataSource.syncAccount(session.user.id, account);
+      const previousSync = accountSyncPromiseRef.current ?? Promise.resolve();
+      const nextSync = previousSync
+        .catch(() => undefined)
+        .then(() => dataSource.syncAccount(session.user.id, accountForSyncRef.current))
+        .then(() => undefined);
+      let trackedSync: Promise<void>;
+      trackedSync = nextSync.finally(() => {
+        if (accountSyncPromiseRef.current === trackedSync) accountSyncPromiseRef.current = null;
+      });
+      accountSyncPromiseRef.current = trackedSync;
     }, 200);
     return () => window.clearTimeout(id);
-  }, [account, dataSource, hydrated, session]);
+  }, [accountForSync, dataSource, hydrated, session]);
 
   useEffect(() => {
     const refreshToday = () => setToday(getLocalToday(new Date(), preferences.timezone));
@@ -1659,18 +1699,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         )
       )
         return { success: false, error: "Only active members can be assigned to a project." };
-      setProjects((list) => [
-        {
-          ...project,
-          name: project.name.trim(),
-          memberIds: [...new Set([...project.memberIds, activeMemberId])],
-          id: nextId(
-            "p",
-            list.map((current) => current.id),
-          ),
-        },
-        ...list,
-      ]);
+      const createdProject: Project = {
+        ...project,
+        name: project.name.trim(),
+        memberIds: [...new Set([...project.memberIds, activeMemberId])],
+        id: nextId(
+          "p",
+          projects.map((current) => current.id),
+        ),
+      };
+      setProjects((list) => [createdProject, ...list]);
+      setAccount((current) => ({
+        ...current,
+        workspaces: current.workspaces.map((data) =>
+          data.workspace.id === activeWorkspaceId
+            ? { ...data, projects: [createdProject, ...data.projects] }
+            : data,
+        ),
+      }));
       return { success: true };
     };
 

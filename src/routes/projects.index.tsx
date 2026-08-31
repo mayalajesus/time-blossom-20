@@ -2,7 +2,6 @@ import {
   AlertDialog,
   Avatar,
   Button,
-  Card,
   Chip,
   ColorSwatchPicker,
   Description,
@@ -15,8 +14,8 @@ import {
   SearchField,
   ButtonGroup,
   Dropdown,
-  Separator,
   Switch,
+  Table,
   TextField,
   Typography,
   useFilter,
@@ -40,7 +39,7 @@ import {
 import { useMemo, useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { BillableIndicator } from "@/components/billable-indicator";
-import { ProjectColorDot } from "@/components/project-color";
+import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { RouterLink } from "@/components/router-link";
 import { FormAlert } from "@/components/form-feedback";
@@ -365,182 +364,171 @@ function ProjectsPage() {
           }
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((project) => (
-            <Card key={project.id} className="flex min-h-[176px] min-w-0 flex-col gap-5">
-              <Card.Header className="flex-row items-start justify-between gap-3 p-0">
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <ProjectColorDot color={project.color} className="mt-2 size-3" />
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <Card.Title className="min-w-0 truncate">
-                      <RouterLink
-                        to="/projects/$projectId"
-                        params={{ projectId: project.id }}
-                        className="block w-full truncate"
-                      >
-                        {project.name}
-                      </RouterLink>
-                    </Card.Title>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Chip
-                        size="sm"
-                        variant="soft"
-                        color={
-                          project.status === "active"
-                            ? "success"
-                            : project.status === "on-hold"
-                              ? "warning"
-                              : "default"
-                        }
-                      >
-                        {t(
-                          project.status === "on-hold"
-                            ? "Inactive"
-                            : project.status === "archived"
-                              ? "Archived"
-                              : "Active",
-                        )}
-                      </Chip>
-                      <BillableIndicator billable={project.billable} />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {can("manage-projects") ? (
-                    <ActionDropdown
-                      ariaLabel={t("{kind} actions for {name}", {
-                        kind: project.status === "archived" ? t("Archived") : t("Project"),
-                        name: project.name,
-                      })}
-                      items={[
-                        {
-                          id: "members",
-                          label: t("Manage members"),
-                          icon: <Persons className="size-4" />,
-                        },
-                        {
-                          id: "edit",
-                          label: t("Edit project"),
-                          icon: <Pencil className="size-4" />,
-                        },
-                        {
-                          id: "duplicate",
-                          label: t("Duplicate project"),
-                          icon: <Copy className="size-4" />,
-                        },
-                        ...(project.status === "archived"
-                          ? []
-                          : [
-                              {
-                                id: "status",
-                                label: project.status === "active" ? t("Active") : t("Inactive"),
-                                icon: <Power className="size-4" />,
-                                trailing: (
-                                  <Switch
-                                    aria-hidden="true"
-                                    className="pointer-events-none"
-                                    isReadOnly
-                                    isSelected={project.status === "active"}
-                                  >
-                                    <Switch.Control>
-                                      <Switch.Thumb />
-                                    </Switch.Control>
-                                  </Switch>
-                                ),
-                              },
-                            ]),
-                        {
-                          id: "billable",
-                          label: project.billable ? t("Make internal") : t("Make billable"),
-                          icon: (
-                            <BillableIndicator billable={!project.billable} mode="icon" size="md" />
-                          ),
-                        },
-                        ...(project.status === "archived"
-                          ? [
-                              {
-                                id: "restore",
-                                label: t("Restore project"),
-                                icon: <ArrowRotateLeft className="size-4" />,
-                              },
-                              {
-                                id: "delete",
-                                label: t("Delete project"),
-                                icon: <TrashBin className="size-4" />,
-                                tone: "danger" as const,
-                              },
-                            ]
-                          : [
-                              {
-                                id: "archive",
-                                label: t("Archive project"),
-                                icon: (
-                                  <Chip
-                                    color="warning"
-                                    size="sm"
-                                    variant="tertiary"
-                                    className="px-0 py-0"
-                                  >
-                                    <Archive className="size-4" />
-                                  </Chip>
-                                ),
-                                tone: "warning" as const,
-                              },
-                            ]),
-                      ]}
-                      onAction={(key) => {
-                        if (key === "members") openMemberManager(project);
-                        if (key === "edit") openProjectForm(project);
-                        if (key === "duplicate") duplicateProject(project);
-                        if (key === "status") {
-                          toggleProjectStatus(
-                            project.id,
-                            project.status !== "active",
-                            project.name,
-                          );
-                        }
-                        if (key === "billable") toggleProjectBillable(project);
-                        if (key === "archive") setPendingArchive(project);
-                        if (key === "restore") restoreProject(project);
-                        if (key === "delete") {
-                          setDeleteError(null);
-                          setPendingDelete(project);
-                        }
-                      }}
-                    />
-                  ) : null}
-                </div>
-              </Card.Header>
-
-              <Card.Content className="min-w-0 p-0">
-                <Card.Description className="truncate">
+        <DataTable
+          label={t("Projects")}
+          minWidth="min-w-[820px]"
+          scrollHint={t("Scroll horizontally to see all columns")}
+        >
+          <Table.Header>
+            <Table.Column isRowHeader>{t("Project")}</Table.Column>
+            <Table.Column>{t("Client")}</Table.Column>
+            <Table.Column>{t("Status")}</Table.Column>
+            <Table.Column>{t("Billing")}</Table.Column>
+            <Table.Column>{t("Tracked")}</Table.Column>
+            <Table.Column>{t("Last activity")}</Table.Column>
+            <Table.Column aria-label={t("Actions")}>{""}</Table.Column>
+          </Table.Header>
+          <Table.Body>
+            {visible.map((project) => (
+              <Table.Row key={project.id}>
+                <Table.Cell>
+                  <RouterLink
+                    to="/projects/$projectId"
+                    params={{ projectId: project.id }}
+                    className="block max-w-64 truncate font-semibold"
+                    style={{ color: projectColorValue(project.color) }}
+                  >
+                    {project.name}
+                  </RouterLink>
+                </Table.Cell>
+                <Table.Cell className="max-w-52 truncate">
                   {clientName(project.clientId)}
-                </Card.Description>
-              </Card.Content>
-
-              <Separator />
-
-              <Card.Footer className="mt-auto justify-between gap-4 p-0">
-                <div className="min-w-0">
-                  <Typography type="body-xs" color="muted" weight="semibold">
-                    {t("Tracked")}
-                  </Typography>
-                  <Typography type="body-sm" weight="semibold" truncate>
-                    {formatDuration(projectSeconds(project.id), locale)}
-                  </Typography>
-                </div>
-                <div className="min-w-0 text-right">
-                  <Typography type="body-xs" color="muted" weight="semibold">
-                    {t("Last activity")}
-                  </Typography>
-                  <Typography type="body-sm" weight="semibold" truncate>
-                    {formatDate(project.lastActivity, locale)}
-                  </Typography>
-                </div>
-              </Card.Footer>
-            </Card>
-          ))}
-        </div>
+                </Table.Cell>
+                <Table.Cell>
+                  <Chip size="sm" variant="secondary" color="default">
+                    {t(
+                      project.status === "on-hold"
+                        ? "Inactive"
+                        : project.status === "archived"
+                          ? "Archived"
+                          : "Active",
+                    )}
+                  </Chip>
+                </Table.Cell>
+                <Table.Cell>
+                  <BillableIndicator billable={project.billable} />
+                </Table.Cell>
+                <Table.Cell className="whitespace-nowrap">
+                  {formatDuration(projectSeconds(project.id), locale)}
+                </Table.Cell>
+                <Table.Cell className="whitespace-nowrap">
+                  {formatDate(project.lastActivity, locale)}
+                </Table.Cell>
+                <Table.Cell>
+                  {can("manage-projects") ? (
+                    <div className="flex justify-end">
+                      <ActionDropdown
+                        ariaLabel={t("{kind} actions for {name}", {
+                          kind: project.status === "archived" ? t("Archived") : t("Project"),
+                          name: project.name,
+                        })}
+                        items={[
+                          {
+                            id: "members",
+                            label: t("Manage members"),
+                            icon: <Persons className="size-4" />,
+                          },
+                          {
+                            id: "edit",
+                            label: t("Edit project"),
+                            icon: <Pencil className="size-4" />,
+                          },
+                          {
+                            id: "duplicate",
+                            label: t("Duplicate project"),
+                            icon: <Copy className="size-4" />,
+                          },
+                          ...(project.status === "archived"
+                            ? []
+                            : [
+                                {
+                                  id: "status",
+                                  label: project.status === "active" ? t("Active") : t("Inactive"),
+                                  icon: <Power className="size-4" />,
+                                  trailing: (
+                                    <Switch
+                                      aria-hidden="true"
+                                      className="pointer-events-none"
+                                      isReadOnly
+                                      isSelected={project.status === "active"}
+                                    >
+                                      <Switch.Control>
+                                        <Switch.Thumb />
+                                      </Switch.Control>
+                                    </Switch>
+                                  ),
+                                },
+                              ]),
+                          {
+                            id: "billable",
+                            label: project.billable ? t("Make internal") : t("Make billable"),
+                            icon: (
+                              <BillableIndicator
+                                billable={!project.billable}
+                                mode="icon"
+                                size="md"
+                              />
+                            ),
+                          },
+                          ...(project.status === "archived"
+                            ? [
+                                {
+                                  id: "restore",
+                                  label: t("Restore project"),
+                                  icon: <ArrowRotateLeft className="size-4" />,
+                                },
+                                {
+                                  id: "delete",
+                                  label: t("Delete project"),
+                                  icon: <TrashBin className="size-4" />,
+                                  tone: "danger" as const,
+                                },
+                              ]
+                            : [
+                                {
+                                  id: "archive",
+                                  label: t("Archive project"),
+                                  icon: (
+                                    <Chip
+                                      color="warning"
+                                      size="sm"
+                                      variant="tertiary"
+                                      className="px-0 py-0"
+                                    >
+                                      <Archive className="size-4" />
+                                    </Chip>
+                                  ),
+                                  tone: "warning" as const,
+                                },
+                              ]),
+                        ]}
+                        onAction={(key) => {
+                          if (key === "members") openMemberManager(project);
+                          if (key === "edit") openProjectForm(project);
+                          if (key === "duplicate") duplicateProject(project);
+                          if (key === "status") {
+                            toggleProjectStatus(
+                              project.id,
+                              project.status !== "active",
+                              project.name,
+                            );
+                          }
+                          if (key === "billable") toggleProjectBillable(project);
+                          if (key === "archive") setPendingArchive(project);
+                          if (key === "restore") restoreProject(project);
+                          if (key === "delete") {
+                            setDeleteError(null);
+                            setPendingDelete(project);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : null}
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </DataTable>
       )}
 
       <Modal

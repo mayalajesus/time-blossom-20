@@ -256,6 +256,8 @@ const ptBR: Record<string, string> = {
   "Activity time": "Tempo de atividade",
   "Lines show tracked time and the previous equivalent period.":
     "As linhas mostram o tempo registrado e o período anterior equivalente.",
+  "Bars show tracked time across the selected period.":
+    "As barras mostram o tempo registrado ao longo do período selecionado.",
   "Bars show tracked time; the line shows the previous equivalent period.":
     "As barras mostram o tempo registrado; a linha mostra o período anterior equivalente.",
   "Lines show tracked time, its trend and the previous equivalent period.":

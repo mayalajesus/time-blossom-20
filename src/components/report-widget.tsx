@@ -281,15 +281,17 @@ export type ReportChartLegendItem = {
 export function ReportChartLegend({
   items,
   accessibleLabel = "Chart legend",
+  variant = "soft",
 }: {
   items: readonly ReportChartLegendItem[];
   accessibleLabel?: string;
+  variant?: ComponentProps<typeof Chip>["variant"];
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label={accessibleLabel}>
       {items.slice(0, reportChartCategoryLimits.default).map((item) =>
         item.billable === undefined ? (
-          <Chip key={item.key} size="sm" variant="soft" color={item.tone ?? "default"}>
+          <Chip key={item.key} size="sm" variant={variant} color={item.tone ?? "default"}>
             <Chip.Label>{item.label}</Chip.Label>
           </Chip>
         ) : (

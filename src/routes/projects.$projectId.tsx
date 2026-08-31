@@ -2,13 +2,13 @@ import { Button, Chip } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, Clock } from "@gravity-ui/icons";
 import { BillableIndicator } from "@/components/billable-indicator";
-import { ProjectColorDot } from "@/components/project-color";
 import { EntriesTable } from "@/components/entries-table";
 import { RouterLink } from "@/components/router-link";
 import { PageHeader, StatCard } from "@/components/page-header";
 import { EmptyBlock, TableSkeleton } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
+import { projectColorValue } from "@/lib/project-colors";
 import { useSimulatedLoad, useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/projects/$projectId")({
@@ -63,9 +63,8 @@ function ProjectDetail() {
 
       <PageHeader
         title={
-          <span className="inline-flex min-w-0 items-center gap-3">
-            <ProjectColorDot color={project.color} className="size-3" />
-            <span className="truncate">{project.name}</span>
+          <span className="truncate" style={{ color: projectColorValue(project.color) }}>
+            {project.name}
           </span>
         }
         description={t("{client} · updated {date}", {
@@ -74,7 +73,7 @@ function ProjectDetail() {
         })}
         actions={
           <div className="flex items-center gap-2">
-            <Chip size="sm" variant="soft">
+            <Chip size="sm" variant="secondary" color="default">
               {t(
                 project.status === "on-hold"
                   ? "Inactive"
