@@ -605,55 +605,52 @@ function ProjectsPage() {
                     }}
                   >
                     <Label>{t("Name")}</Label>
-                    <Input placeholder={t("e.g. Brand refresh")} />
+                    <Input variant="secondary" placeholder={t("e.g. Brand refresh")} />
                     <FieldError />
                   </TextField>
 
                   <div className="flex flex-col gap-2">
                     <Label>{t("Client")}</Label>
-                    <ButtonGroup variant="secondary" size="sm" className="w-full">
+                    <Dropdown>
                       <Button
                         type="button"
+                        variant="secondary"
                         aria-label={t("Client")}
-                        className="h-9 min-w-0 flex-1 justify-start"
+                        className="h-9 w-full justify-between gap-2 px-3"
                       >
-                        {clients.find((client) => client.id === clientId)?.name ??
-                          t("Select a client")}
+                        <span className="truncate">
+                          {clients.find((client) => client.id === clientId)?.name ??
+                            t("Select a client")}
+                        </span>
+                        <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
                       </Button>
-                      <Dropdown>
-                        <Button
-                          isIconOnly
-                          aria-label={t("Choose client")}
-                          className="h-9 w-9 min-w-9 shrink-0 px-0"
+                      <Dropdown.Popover
+                        className="max-w-[calc(100vw-2rem)] min-w-0"
+                        style={{ width: "var(--trigger-width)", maxWidth: "calc(100vw - 2rem)" }}
+                      >
+                        <Dropdown.Menu
+                          aria-label={t("Client")}
+                          selectionMode="single"
+                          selectedKeys={new Set([clientId || "none"])}
+                          onAction={(key) => {
+                            const value = String(key);
+                            setClientId(value === "none" ? "" : value);
+                            setCreateError(null);
+                          }}
                         >
-                          <ButtonGroup.Separator />
-                          <ChevronDown aria-hidden="true" className="size-4" />
-                        </Button>
-                        <Dropdown.Popover>
-                          <Dropdown.Menu
-                            aria-label={t("Client")}
-                            selectionMode="single"
-                            selectedKeys={new Set([clientId || "none"])}
-                            onAction={(key) => {
-                              const value = String(key);
-                              setClientId(value === "none" ? "" : value);
-                              setCreateError(null);
-                            }}
-                          >
-                            <Dropdown.Item id="none" textValue={t("Select a client")} isDisabled>
-                              <Label>{t("Select a client")}</Label>
+                          <Dropdown.Item id="none" textValue={t("Select a client")} isDisabled>
+                            <Label>{t("Select a client")}</Label>
+                            <Dropdown.ItemIndicator />
+                          </Dropdown.Item>
+                          {clients.map((c) => (
+                            <Dropdown.Item key={c.id} id={c.id} textValue={c.name}>
+                              <Label>{c.name}</Label>
                               <Dropdown.ItemIndicator />
                             </Dropdown.Item>
-                            {clients.map((c) => (
-                              <Dropdown.Item key={c.id} id={c.id} textValue={c.name}>
-                                <Label>{c.name}</Label>
-                                <Dropdown.ItemIndicator />
-                              </Dropdown.Item>
-                            ))}
-                          </Dropdown.Menu>
-                        </Dropdown.Popover>
-                      </Dropdown>
-                    </ButtonGroup>
+                          ))}
+                        </Dropdown.Menu>
+                      </Dropdown.Popover>
+                    </Dropdown>
                     <Description>{t("Every project is connected to one client.")}</Description>
                   </div>
 
@@ -673,32 +670,101 @@ function ProjectsPage() {
                   <div className="space-y-3">
                     <div>
                       <Label>{t("Project members")}</Label>
-                      <Description>
-                        {t("Only assigned members can track time on this project.")}
-                      </Description>
                     </div>
-                    {activeMembers.map((member) => (
-                      <Switch
-                        key={member.id}
-                        aria-label={t("Assign {name}", { name: member.name })}
-                        isSelected={assignedMemberIds.includes(member.id)}
-                        onChange={(selected) =>
-                          setAssignedMemberIds((current) =>
-                            selected
-                              ? [...new Set([...current, member.id])]
-                              : current.filter((id) => id !== member.id),
-                          )
-                        }
+                    <Dropdown>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        aria-label={t("Add project members")}
+                        className="h-9 w-full justify-between gap-2 px-3"
                       >
-                        <Switch.Control>
-                          <Switch.Thumb />
-                        </Switch.Control>
-                        <Switch.Content>
-                          <Label>{member.name}</Label>
-                          <Description>{t(member.role)}</Description>
-                        </Switch.Content>
-                      </Switch>
-                    ))}
+                        <span className="truncate text-sm">{t("Add members")}</span>
+                        <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
+                      </Button>
+                      <Dropdown.Popover
+                        className="max-w-[calc(100vw-2rem)] min-w-0"
+                        style={{ width: "var(--trigger-width)", maxWidth: "calc(100vw - 2rem)" }}
+                        onOpenChange={(open) => {
+                          if (!open) setMemberQuery("");
+                        }}
+                      >
+                        <div className="flex flex-col gap-2 p-2">
+                          <SearchField
+                            autoFocus
+                            aria-label={t("Search members")}
+                            name="new-project-member-search"
+                            value={memberQuery}
+                            onChange={setMemberQuery}
+                            variant="secondary"
+                          >
+                            <SearchField.Group>
+                              <SearchField.SearchIcon />
+                              <SearchField.Input placeholder={`${t("Search members")}...`} />
+                              <SearchField.ClearButton />
+                            </SearchField.Group>
+                          </SearchField>
+                          {memberSearchResults.length === 0 ? (
+                            <EmptyState>{t("No matching active members")}</EmptyState>
+                          ) : (
+                            <Dropdown.Menu
+                              aria-label={t("Active members")}
+                              selectionMode="single"
+                              onAction={(key) => addMember(String(key))}
+                              className="max-h-60 overflow-y-auto"
+                            >
+                              {memberSearchResults.map((member) => (
+                                <Dropdown.Item
+                                  key={member.id}
+                                  id={member.id}
+                                  textValue={`${member.name} ${member.email}`}
+                                >
+                                  <Avatar size="sm" className="shrink-0">
+                                    <Avatar.Fallback>{member.initials}</Avatar.Fallback>
+                                  </Avatar>
+                                  <div className="min-w-0">
+                                    <Typography type="body-sm" truncate>
+                                      {member.name}
+                                    </Typography>
+                                  </div>
+                                </Dropdown.Item>
+                              ))}
+                            </Dropdown.Menu>
+                          )}
+                        </div>
+                      </Dropdown.Popover>
+                    </Dropdown>
+                    <div className="space-y-2">
+                      <Label>{t("Selected members")}</Label>
+                      {assignedMembers.length === 0 ? (
+                        <Typography type="body-sm" color="muted">
+                          {t("No members selected")}
+                        </Typography>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {assignedMembers.map((member) => (
+                            <Chip key={member.id} size="sm" variant="soft">
+                              <Chip.Label>{member.name}</Chip.Label>
+                              {member.id === currentUserId ? null : (
+                                <Button
+                                  isIconOnly
+                                  size="sm"
+                                  variant="tertiary"
+                                  aria-label={t("Remove {name}", { name: member.name })}
+                                  className="-mr-1 size-5 min-w-5 p-0"
+                                  onPress={() =>
+                                    setAssignedMemberIds((current) =>
+                                      current.filter((id) => id !== member.id),
+                                    )
+                                  }
+                                >
+                                  <Xmark aria-hidden="true" className="size-3" />
+                                </Button>
+                              )}
+                            </Chip>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </Modal.Body>
                 <Modal.Footer>
@@ -740,11 +806,6 @@ function ProjectsPage() {
                     description={memberError}
                   />
                 ) : null}
-                <Typography type="body-sm" color="muted">
-                  {t("Select the active members who can track time on {name}.", {
-                    name: pendingMembers?.name ?? t("this project"),
-                  })}
-                </Typography>
                 <Dropdown>
                   <Button
                     type="button"
