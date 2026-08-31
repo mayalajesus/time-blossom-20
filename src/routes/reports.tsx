@@ -1,6 +1,7 @@
 import {
   Button,
   ButtonGroup,
+  Card,
   Chip,
   Checkbox,
   Dropdown,
@@ -8,8 +9,8 @@ import {
   Label,
   Popover,
   ProgressBar,
-  ProgressCircle,
   Table,
+  Tabs,
   TextField,
   Tooltip,
   Typography,
@@ -25,11 +26,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleInfo,
-  Cloud,
   Minus,
-  Moon,
-  Sparkles,
-  Sun,
 } from "@gravity-ui/icons";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
@@ -426,7 +423,7 @@ export const Route = createFileRoute("/reports")({
       { title: "Reports — Time Blossom" },
       {
         name: "description",
-        content: "Overview, analysis and detailed time reports.",
+        content: "Overview and detailed time reports.",
       },
       { property: "og:title", content: "Reports — Time Blossom" },
       { property: "og:description", content: "Filter and understand tracked time." },
@@ -772,19 +769,7 @@ function ReportsPage() {
     const temporalGrouping = t(
       { day: "Day", week: "Week", month: "Month" }[reportAnalytics.granularity],
     );
-    const grouping =
-      search.view === "summary"
-        ? [
-            t(groupOptions.find((option) => option.id === effectiveGroup)?.label ?? "Group"),
-            effectiveSubgroup === "none"
-              ? ""
-              : t(groupOptions.find((option) => option.id === effectiveSubgroup)?.label ?? "Group"),
-          ]
-            .filter(Boolean)
-            .join(" → ")
-        : search.view === "overview"
-          ? temporalGrouping
-          : t("None");
+    const grouping = search.view === "overview" ? temporalGrouping : t("None");
     return {
       locale,
       ...(currentWorkspace
@@ -1142,7 +1127,6 @@ function ReportsPage() {
   const description = {
     overview: t("See tracked time, billability, estimated value and activity distribution."),
     detailed: t("Inspect every entry with its project, client, person and billability."),
-    summary: t("See where tracked time and estimated billable value are concentrated."),
   }[search.view];
 
   const clearFilters = () =>
@@ -1168,9 +1152,10 @@ function ReportsPage() {
         title={t("Reports")}
         description={description}
         actions={
-          search.view === "overview" ? (
+          <div className="flex items-center gap-2">
+            <ReportViewSwitcher value={search.view} onChange={(view) => updateSearch({ view })} />
             <ReportExportButton onPress={() => setExportOpen(true)} />
-          ) : undefined
+          </div>
         }
       />
 
@@ -1228,7 +1213,7 @@ function ReportsPage() {
         <>
           {search.view === "overview" ? (
             <OverviewDashboard analytics={reportAnalytics} projects={projects} clients={clients} />
-          ) : search.view === "detailed" ? (
+          ) : (
             <DetailedReport
               entries={filteredEntries}
               page={search.page}
@@ -1240,30 +1225,6 @@ function ReportsPage() {
               columns={parseDetailedColumns(search.columns)}
               onChangeColumns={(columns) => updateSearch({ columns: encodeIds(columns) })}
               fallbackForEntry={fallbackForEntry}
-              onExport={() => setExportOpen(true)}
-            />
-          ) : (
-            <SummaryReport
-              groups={groups}
-              previousGroups={previousGroups}
-              projects={projects}
-              total={total}
-              primary={effectiveGroup}
-              secondary={effectiveSubgroup}
-              canGroupByMember={showTeam}
-              expanded={summaryExpanded}
-              onToggle={(key) =>
-                setSummaryExpanded((current) => ({ ...current, [key]: !current[key] }))
-              }
-              onChangeGroup={(group) =>
-                updateSearch({
-                  group,
-                  subgroup: group === search.subgroup ? "none" : search.subgroup,
-                })
-              }
-              onChangeSubgroup={(subgroup) => updateSearch({ subgroup })}
-              onClear={clearFilters}
-              onExport={() => setExportOpen(true)}
             />
           )}
         </>
@@ -1286,6 +1247,13 @@ const shiftLabels: Record<ShiftId, string> = {
   morning: "Morning",
   afternoon: "Afternoon",
   night: "Night",
+};
+
+const shiftEmoji: Record<ShiftId, string> = {
+  overnight: "✨",
+  morning: "☀️",
+  afternoon: "🌤️",
+  night: "🌙",
 };
 
 function formatOverviewBucket(
@@ -1503,10 +1471,50 @@ function ActivitySummaryItem({ label, value }: { label: string; value: ReactNode
 function ReportExportButton({ onPress }: { onPress: () => void }) {
   const { t } = useI18n();
   return (
-    <Button variant="secondary" onPress={onPress}>
+    <Button variant="primary" onPress={onPress}>
       <ArrowDownToLine className="size-4" />
       {t("Export")}
     </Button>
+  );
+}
+
+function ReportViewSwitcher({
+  value,
+  onChange,
+}: {
+  value: ReportView;
+  onChange: (value: ReportView) => void;
+}) {
+  const { t } = useI18n();
+  const options: Array<{ value: ReportView; label: string }> = [
+    { value: "overview", label: "Overview" },
+    { value: "detailed", label: "Detailed" },
+  ];
+
+  return (
+    <Tabs
+      className="max-w-full shrink-0"
+      selectedKey={value}
+      onSelectionChange={(key) => {
+        const nextValue = String(key);
+        if (nextValue === "overview" || nextValue === "detailed") onChange(nextValue);
+      }}
+    >
+      <Tabs.ListContainer className="max-w-full">
+        <Tabs.List aria-label={t("Report views")}>
+          {options.map((option) => (
+            <Tabs.Tab
+              key={option.value}
+              id={option.value}
+              className="min-w-max whitespace-nowrap px-3 sm:px-4 md:h-7"
+            >
+              {t(option.label)}
+              <Tabs.Indicator />
+            </Tabs.Tab>
+          ))}
+        </Tabs.List>
+      </Tabs.ListContainer>
+    </Tabs>
   );
 }
 
@@ -2183,55 +2191,64 @@ function OverviewDashboard({
           isEmpty={summary.totalSeconds === 0}
           emptyState={{ title: t("No chart data") }}
         >
-          <div className="grid grid-cols-2 gap-4 py-1">
+          <div className="grid h-full grid-cols-2 auto-rows-fr gap-3">
             {shiftData.map((item) => {
-              const ShiftIcon =
-                item.id === "overnight"
-                  ? Sparkles
-                  : item.id === "morning"
-                    ? Sun
-                    : item.id === "afternoon"
-                      ? Cloud
-                      : Moon;
-              const progressColor =
-                item.id === "morning" ? "warning" : item.id === "afternoon" ? "accent" : "default";
               const isPredominant = hasPredominantShift && predominantShift?.shift === item.id;
+              const [primaryDuration, secondaryDuration] = formatDuration(
+                item.seconds,
+                locale,
+              ).split(" ");
+              const textColor =
+                item.id === "morning" || item.id === "afternoon"
+                  ? "var(--accent-foreground)"
+                  : "var(--danger-foreground)";
 
               return (
-                <div key={item.id} className="flex min-w-0 flex-col items-center gap-2">
-                  <OverviewAccessibleTooltip
-                    label={`${item.shift}: ${item.display}`}
-                    content={`${item.shift}: ${item.display}`}
-                    className="relative items-center justify-center"
-                  >
-                    <ProgressCircle
+                <OverviewAccessibleTooltip
+                  key={item.id}
+                  label={`${item.shift}: ${item.display}`}
+                  content={`${item.shift}: ${item.display}`}
+                  className="block h-full min-w-0"
+                >
+                  <Card variant="secondary" className="relative min-h-44 overflow-hidden p-0">
+                    <img
+                      src={shiftArtwork[item.id]}
+                      alt=""
                       aria-hidden="true"
-                      color={progressColor}
-                      size="lg"
-                      value={item.percentage}
-                    >
-                      <ProgressCircle.Track>
-                        <ProgressCircle.TrackCircle />
-                        <ProgressCircle.FillCircle />
-                      </ProgressCircle.Track>
-                    </ProgressCircle>
-                    <ShiftIcon aria-hidden="true" className="pointer-events-none absolute size-5" />
-                  </OverviewAccessibleTooltip>
-                  <div className="min-w-0 space-y-1">
-                    <Typography type="body-sm" weight="medium">
-                      {item.shift}
-                    </Typography>
-                    <Typography type="body-xs" color="muted">
-                      {formatDuration(item.seconds, locale)} ·{" "}
-                      {percentageFormatter.format(item.percentage)}%
-                    </Typography>
-                    {isPredominant ? (
-                      <Chip size="sm" variant="soft" color="default">
-                        <Chip.Label>{t("Predominant")}</Chip.Label>
-                      </Chip>
-                    ) : null}
-                  </div>
-                </div>
+                      className="absolute inset-0 size-full object-cover object-right"
+                    />
+                    <Card.Content className="relative flex h-full min-w-0 flex-col justify-between p-4">
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <Typography
+                          type="body-xs"
+                          weight="semibold"
+                          truncate
+                          style={{ color: textColor }}
+                        >
+                          {item.shift}
+                        </Typography>
+                        <Typography type="body-xs" weight="medium" style={{ color: textColor }}>
+                          {percentageFormatter.format(item.percentage)}%
+                        </Typography>
+                      </div>
+                      <div className="min-w-0 space-y-0.5">
+                        <Typography type="h3" weight="semibold" style={{ color: textColor }}>
+                          {primaryDuration}
+                        </Typography>
+                        {secondaryDuration ? (
+                          <Typography type="body-sm" weight="semibold" style={{ color: textColor }}>
+                            {secondaryDuration}
+                          </Typography>
+                        ) : null}
+                        {isPredominant ? (
+                          <Typography type="body-xs" weight="medium" style={{ color: textColor }}>
+                            {t("Predominant")}
+                          </Typography>
+                        ) : null}
+                      </div>
+                    </Card.Content>
+                  </Card>
+                </OverviewAccessibleTooltip>
               );
             })}
           </div>
@@ -2269,7 +2286,6 @@ function DetailedReport({
   columns,
   onChangeColumns,
   fallbackForEntry,
-  onExport,
 }: {
   entries: TimeEntry[];
   page: number;
@@ -2281,7 +2297,6 @@ function DetailedReport({
   columns: DetailedColumn[];
   onChangeColumns: (columns: DetailedColumn[]) => void;
   fallbackForEntry: (entry: TimeEntry) => BillingPreference;
-  onExport: () => void;
 }) {
   const { locale, t } = useI18n();
   const pageSize = 50;
@@ -2301,12 +2316,7 @@ function DetailedReport({
     <ReportTableWidget
       title={t("Detailed entries")}
       description={t("Choose the columns you need for this view.")}
-      action={
-        <div className="flex items-center gap-2">
-          <ReportColumnPicker columns={columns} onChange={onChangeColumns} />
-          <ReportExportButton onPress={onExport} />
-        </div>
-      }
+      action={<ReportColumnPicker columns={columns} onChange={onChangeColumns} />}
       contentDescription={t("Detailed report table")}
       isEmpty={entries.length === 0}
       emptyState={{
