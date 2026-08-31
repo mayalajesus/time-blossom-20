@@ -1,8 +1,15 @@
 import { Button, Form, Link } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { AuthError, AuthField, AuthFooter, AuthPage } from "@/components/auth-page";
-import { signInWithPassword } from "@/lib/auth";
+import {
+  AuthDivider,
+  AuthError,
+  AuthField,
+  AuthFooter,
+  AuthPage,
+  GoogleAuthButton,
+} from "@/components/auth-page";
+import { signInWithGoogle, signInWithPassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
 import { getAuthReturnPath } from "@/lib/auth-redirect";
@@ -34,9 +41,21 @@ function LoginPage() {
     window.location.replace(getAuthReturnPath());
   };
 
+  const continueWithGoogle = async () => {
+    setError(null);
+    setBusy(true);
+    const result = await signInWithGoogle();
+    if (!result.success) {
+      setBusy(false);
+      setError(result.error);
+    }
+  };
+
   return (
     <AuthPage title={t("Sign in")} description={t("Access your time tracking workspace.")}>
       <AuthError message={error} />
+      <GoogleAuthButton onPress={continueWithGoogle} isDisabled={busy} />
+      <AuthDivider />
       <Form className="space-y-4" onSubmit={submit}>
         <AuthField
           id="login-email"

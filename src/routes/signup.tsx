@@ -1,8 +1,15 @@
 import { Button, Form, Typography } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { AuthError, AuthField, AuthFooter, AuthPage } from "@/components/auth-page";
-import { signUpWithPassword } from "@/lib/auth";
+import {
+  AuthDivider,
+  AuthError,
+  AuthField,
+  AuthFooter,
+  AuthPage,
+  GoogleAuthButton,
+} from "@/components/auth-page";
+import { signInWithGoogle, signUpWithPassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
 import { getAuthReturnPath } from "@/lib/auth-redirect";
@@ -78,6 +85,16 @@ function SignupPage() {
     setCreated(true);
   };
 
+  const continueWithGoogle = async () => {
+    setError(null);
+    setBusy(true);
+    const result = await signInWithGoogle();
+    if (!result.success) {
+      setBusy(false);
+      setError(result.error);
+    }
+  };
+
   return (
     <AuthPage
       title={t("Create your account")}
@@ -100,6 +117,8 @@ function SignupPage() {
         </div>
       ) : (
         <>
+          <GoogleAuthButton onPress={continueWithGoogle} isDisabled={busy} />
+          <AuthDivider />
           <Form className="space-y-4" onSubmit={submit}>
             <div className="flex flex-col gap-4 sm:flex-row">
               <AuthField

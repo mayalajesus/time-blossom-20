@@ -242,6 +242,7 @@ function isValidAvatarUrl(value: unknown): value is string | null {
       ((/^data:image\/(?:png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
         value.length <= 1_500_000) ||
         /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/sign\/avatars\//.test(value) ||
+        /^https:\/\/(?:[^/.]+\.)*googleusercontent\.com\//.test(value) ||
         isDefaultAvatarUrl(value)))
   );
 }

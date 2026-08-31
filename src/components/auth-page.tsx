@@ -4,6 +4,7 @@ import {
   FieldError,
   Input,
   Label,
+  Separator,
   TextField,
   Typography,
 } from "@heroui/react";
@@ -139,6 +140,19 @@ export function GoogleAuthButton({
       <GoogleMark />
       {t("Continue with Google")}
     </Button>
+  );
+}
+
+export function AuthDivider() {
+  const { t } = useI18n();
+  return (
+    <div className="flex items-center gap-3" aria-hidden="true">
+      <Separator className="flex-1" />
+      <Typography type="body-xs" color="muted">
+        {t("or")}
+      </Typography>
+      <Separator className="flex-1" />
+    </div>
   );
 }
 

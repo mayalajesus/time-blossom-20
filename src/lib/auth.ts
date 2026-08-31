@@ -1,6 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { authClient } from "./auth-client";
 import { getAuthRedirect } from "./supabase";
+import { getAuthReturnPath } from "./auth-redirect";
 
 export type AuthResult<T = undefined> =
   { success: true; data?: T } | { success: false; error: string };
@@ -59,9 +60,11 @@ export async function signUpWithPassword(
 export async function signInWithGoogle(): Promise<AuthResult> {
   const unavailable = requireClient();
   if (unavailable) return unavailable;
+  const redirect = new URL(getAuthRedirect());
+  redirect.searchParams.set("redirect", getAuthReturnPath());
   const { error } = await authClient!.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: getAuthRedirect() },
+    options: { redirectTo: redirect.toString() },
   });
   return getError(error) ?? { success: true };
 }

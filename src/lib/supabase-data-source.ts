@@ -22,6 +22,7 @@ type PreferenceRow = {
   currency?: string;
   active_workspace_id?: string | null;
   report_filters?: UserPreferences["reportFilters"] | null;
+  avatar_data_url?: string | null;
   profiles?: { avatar_path?: string | null } | null;
 };
 type WorkspaceRow = {
@@ -105,6 +106,7 @@ async function mapPreferences(
     const signed = await client.storage.from("avatars").createSignedUrl(avatarPath, 3_600);
     avatarUrl = signed.data?.signedUrl ?? null;
   }
+  avatarUrl ??= row.avatar_data_url ?? null;
   return {
     language: row.language,
     theme: row.theme,

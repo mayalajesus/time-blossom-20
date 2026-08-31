@@ -27,6 +27,10 @@ const productionStorage = readFileSync(
   new URL("../../db/providers/supabase/20260831131000_production_storage.sql", import.meta.url),
   "utf8",
 );
+const googleOauthProfile = readFileSync(
+  new URL("../../db/providers/supabase/20260831140000_google_oauth_profile.sql", import.meta.url),
+  "utf8",
+);
 const qaSeed = readFileSync(new URL("../../db/seeds/qa/001_demo.sql", import.meta.url), "utf8");
 
 describe("portable database schema", () => {
@@ -99,6 +103,13 @@ describe("portable database schema", () => {
     expect(productionStorage).toContain("public.is_workspace_member");
     expect(productionStorage).toContain("public.is_workspace_owner");
     expect(productionStorage).toMatch(/avatar_select[\s\S]*workspace_members viewer/i);
+  });
+
+  it("creates Google accounts with provider profile data without replacing custom photos", () => {
+    expect(googleOauthProfile).toContain("given_name");
+    expect(googleOauthProfile).toContain("family_name");
+    expect(googleOauthProfile).toContain("googleusercontent");
+    expect(googleOauthProfile).toMatch(/avatar_data_url[\s\S]*heroui-assets/i);
   });
 
   it("guarantees one personal workspace for profiles without workspace access", () => {

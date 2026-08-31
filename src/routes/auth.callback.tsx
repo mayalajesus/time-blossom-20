@@ -1,8 +1,9 @@
-import { Spinner, Typography } from "@heroui/react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Button, Spinner, Typography } from "@heroui/react";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { AuthPage } from "@/components/auth-page";
+import { AuthError, AuthPage } from "@/components/auth-page";
 import { useAuth } from "@/lib/auth-context";
+import { getAuthReturnPath } from "@/lib/auth-redirect";
 import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/auth/callback")({ component: AuthCallbackPage });
@@ -10,11 +11,27 @@ export const Route = createFileRoute("/auth/callback")({ component: AuthCallback
 function AuthCallbackPage() {
   const { session, loading } = useAuth();
   const { t } = useI18n();
-  const navigate = useNavigate();
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const callbackError = search.get("error_description") ?? hash.get("error_description");
 
   useEffect(() => {
-    if (!loading && session) void navigate({ to: "/tracker", replace: true });
-  }, [loading, navigate, session]);
+    if (!loading && session) window.location.replace(getAuthReturnPath());
+  }, [loading, session]);
+
+  if (!loading && !session) {
+    return (
+      <AuthPage
+        title={t("Authentication failed")}
+        description={t("Preparing your workspace securely.")}
+      >
+        <AuthError message={callbackError ?? "Authentication failed"} />
+        <Button className="w-full" onPress={() => window.location.replace("/login")}>
+          {t("Back to sign in")}
+        </Button>
+      </AuthPage>
+    );
+  }
 
   return (
     <AuthPage title={t("Finishing sign in")} description={t("Preparing your workspace securely.")}>

@@ -1,6 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import pg from "pg";
+import { extractAuthIdentity, trustedGoogleAvatarUrl } from "./auth-profile.mjs";
 
 const { Pool } = pg;
 const pools = new Map();
@@ -143,7 +144,7 @@ function avatarDataValue(value) {
     value.length <= 1_500_000
   )
     return value;
-  return defaultAvatarUrls.includes(value) ? value : null;
+  return defaultAvatarUrls.includes(value) ? value : trustedGoogleAvatarUrl(value);
 }
 
 function defaultAvatarForUser(userId) {
@@ -227,11 +228,12 @@ async function authenticate(request, config) {
     if (!response.ok)
       throw new DataApiError(401, "The authentication token is invalid or expired.");
     const user = await response.json();
-    return {
+    return extractAuthIdentity({
       id: user.id,
-      email: user.email ?? "",
-      name: user.user_metadata?.displayName ?? user.user_metadata?.name ?? "",
-    };
+      email: user.email,
+      name: user.user_metadata?.displayName ?? user.user_metadata?.name,
+      metadata: user.user_metadata,
+    });
   }
 
   if (config.databaseProvider !== "neon" || !config.neonAuthUrl) {
@@ -246,11 +248,11 @@ async function authenticate(request, config) {
     [token],
   );
   if (sessionResult.rows[0]) {
-    return {
+    return extractAuthIdentity({
       id: sessionResult.rows[0].id,
-      email: sessionResult.rows[0].email ?? "",
-      name: sessionResult.rows[0].name ?? "",
-    };
+      email: sessionResult.rows[0].email,
+      name: sessionResult.rows[0].name,
+    });
   }
   let keySet = jwks.get(config.neonAuthUrl);
   if (!keySet) {
@@ -265,11 +267,12 @@ async function authenticate(request, config) {
   }
   if (!verified.payload.sub)
     throw new DataApiError(401, "The authentication token has no user subject.");
-  return {
+  return extractAuthIdentity({
     id: verified.payload.sub,
-    email: typeof verified.payload.email === "string" ? verified.payload.email : "",
-    name: typeof verified.payload.name === "string" ? verified.payload.name : "",
-  };
+    email: verified.payload.email,
+    name: verified.payload.name,
+    metadata: verified.payload,
+  });
 }
 
 async function workspaceAccess(client, userId, workspaceId) {
@@ -307,21 +310,24 @@ async function ensureProfile(client, user, config) {
     [user.id],
   );
   const storedProfile = existingProfile.rows[0];
-  const authenticatedName = user.name.trim().replace(/\s+/g, " ");
-  const authenticatedEmail = user.email.trim().toLowerCase();
+  const authenticatedName = String(user.name ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  const authenticatedEmail = String(user.email ?? "")
+    .trim()
+    .toLowerCase();
   const name =
-    authenticatedName && authenticatedName.split(" ").length >= 2
-      ? authenticatedName
-      : String(storedProfile?.name ?? "")
-          .trim()
-          .replace(/\s+/g, " ");
+    authenticatedName ||
+    String(storedProfile?.name ?? "")
+      .trim()
+      .replace(/\s+/g, " ");
   const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(authenticatedEmail)
     ? authenticatedEmail
     : String(storedProfile?.email ?? "")
         .trim()
         .toLowerCase();
-  if (!name || name.split(" ").length < 2) {
-    throw new DataApiError(400, "A first and last name are required.");
+  if (!name) {
+    throw new DataApiError(400, "A profile name is required.");
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new DataApiError(400, "A valid email is required.");
@@ -349,6 +355,19 @@ async function ensureProfile(client, user, config) {
     `insert into public.user_preferences (user_id) values ($1) on conflict (user_id) do nothing`,
     [user.id],
   );
+  if (user.avatarUrl && (await hasColumn(client, "user_preferences", "avatar_data_url"))) {
+    await client.query(
+      `update public.user_preferences
+          set avatar_data_url = $2, updated_at = now()
+        where user_id = $1
+          and (
+            avatar_data_url is null
+            or avatar_data_url = ''
+            or avatar_data_url = any($3::text[])
+          )`,
+      [user.id, user.avatarUrl, defaultAvatarUrls],
+    );
+  }
   await client.query(`select public.ensure_personal_workspace($1)`, [user.id]);
 }
 
