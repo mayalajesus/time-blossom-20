@@ -34,7 +34,7 @@ function WorkspaceItem({ workspace, active }: { workspace: WorkspaceSummary; act
           ) : null}
         </span>
         <Typography type="body-xs" color="muted" truncate>
-          {workspace.isOwned ? t("Owned by you") : workspace.ownerName} · {t(workspace.role)}
+          {workspace.isOwned ? t(workspace.role) : `${workspace.ownerName} · ${t(workspace.role)}`}
         </Typography>
       </span>
       {active ? <Check aria-hidden="true" className="size-4 shrink-0" /> : null}
@@ -99,12 +99,9 @@ export function WorkspaceSwitcher({
         <Layers className="size-4" />
       </span>
       {!collapsed ? (
-        <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+        <span className="flex min-w-0 flex-1 items-center">
           <Typography type="body-sm" weight="semibold" truncate className="min-w-0 flex-1">
             {currentSummary.name}
-          </Typography>
-          <Typography type="body-xs" color="muted" truncate className="min-w-0">
-            {t(currentSummary.role)}
           </Typography>
         </span>
       ) : null}
