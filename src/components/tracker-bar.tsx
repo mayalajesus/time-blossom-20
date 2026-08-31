@@ -119,10 +119,7 @@ export function TrackerBar() {
                   if (event.key === "Enter") event.currentTarget.blur();
                 }}
               />
-              <ComboBox.Trigger
-                aria-label={t("What are you working on?")}
-                className="hidden"
-              />
+              <ComboBox.Trigger aria-label={t("What are you working on?")} className="hidden" />
             </ComboBox.InputGroup>
             <ComboBox.Popover className="max-h-60">
               <ListBox

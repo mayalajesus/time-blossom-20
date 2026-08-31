@@ -2,16 +2,17 @@ import { describe, expect, it } from "vitest";
 import { normalizeReportView, reportViews } from "../../src/lib/report-views";
 
 describe("report views", () => {
-  it("exposes only the three consolidated report pages", () => {
-    expect(reportViews.map((view) => view.id)).toEqual(["overview", "summary", "detailed"]);
+  it("exposes only the two consolidated report pages", () => {
+    expect(reportViews.map((view) => view.id)).toEqual(["overview", "detailed"]);
   });
 
   it("keeps legacy report links compatible", () => {
     expect(normalizeReportView("weekly")).toBe("overview");
-    expect(normalizeReportView("team")).toBe("summary");
+    expect(normalizeReportView("team")).toBe("overview");
+    expect(normalizeReportView("summary")).toBe("overview");
   });
 
-  it("uses overview for unknown views", () => {
-    expect(normalizeReportView("unknown")).toBe("overview");
+  it("uses detailed for unknown views", () => {
+    expect(normalizeReportView("unknown")).toBe("detailed");
   });
 });
