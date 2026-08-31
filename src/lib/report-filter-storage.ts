@@ -29,6 +29,7 @@ export type StoredReportFilters = {
   billability: "all" | "billable" | "internal";
   currency: "all" | CurrencyCode;
   visibleFilters: string[];
+  detailedColumns: string[];
 };
 
 export type ReportFilterScope = {
@@ -38,6 +39,7 @@ export type ReportFilterScope = {
   clientIds: readonly string[];
   projectIds: readonly string[];
   visibleFilters: readonly string[];
+  detailedColumns: readonly string[];
 };
 
 type ReportFilterStorage = Pick<Storage, "getItem" | "setItem">;
@@ -115,6 +117,7 @@ export function parseStoredReportFilters(value: string | null): StoredReportFilt
       billability,
       currency,
       visibleFilters: uniqueStrings(parsed["visibleFilters"]),
+      detailedColumns: uniqueStrings(parsed["detailedColumns"]),
     };
   } catch {
     return null;
@@ -156,8 +159,8 @@ export function resolveInitialReportFilters({
   currentUserId: string;
   hasExplicitFilters: boolean;
 }): StoredReportFilters {
-  if (hasExplicitFilters) return currentFilters;
   if (savedFilters) return savedFilters;
+  if (hasExplicitFilters) return currentFilters;
   return { ...currentFilters, memberIds: [currentUserId] };
 }
 
@@ -169,6 +172,7 @@ export function constrainReportFiltersToScope(
   const validClientIds = new Set(scope.clientIds);
   const validProjectIds = new Set(["none", ...scope.projectIds]);
   const validVisibleFilters = new Set(scope.visibleFilters);
+  const validDetailedColumns = new Set(scope.detailedColumns);
 
   return createStoredReportFilters({
     preset: filters.preset,
@@ -183,11 +187,18 @@ export function constrainReportFiltersToScope(
     billability: filters.billability,
     currency: filters.currency,
     visibleFilters: filters.visibleFilters.filter((key) => validVisibleFilters.has(key)),
+    detailedColumns: filters.detailedColumns.filter((column) => validDetailedColumns.has(column)),
   });
 }
 
 export function createStoredReportFilters(
-  filters: Omit<StoredReportFilters, "version">,
+  filters: Omit<StoredReportFilters, "version" | "detailedColumns"> & {
+    detailedColumns?: string[];
+  },
 ): StoredReportFilters {
-  return { version: reportFilterStorageVersion, ...filters };
+  return {
+    version: reportFilterStorageVersion,
+    ...filters,
+    detailedColumns: filters.detailedColumns ?? [],
+  };
 }

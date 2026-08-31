@@ -127,7 +127,14 @@ function ReportsNavigation({
             variant={active ? "tertiary" : "ghost"}
             className="h-10 min-h-10 w-full justify-start px-3 py-0"
             onPress={() => {
-              void navigate({ to: "/reports", search: { view: view.id } });
+              const currentReportSearch =
+                reportsActive && location.search && typeof location.search === "object"
+                  ? location.search
+                  : {};
+              void navigate({
+                to: "/reports",
+                search: { ...currentReportSearch, view: view.id },
+              });
               onNavigate?.();
             }}
           >

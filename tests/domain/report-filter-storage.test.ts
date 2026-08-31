@@ -55,6 +55,27 @@ describe("report filter storage", () => {
     expect(readStoredReportFilters(storage, key)).toEqual(filters);
   });
 
+  it("round-trips every persisted filter and a custom period", () => {
+    const storage = memoryStorage();
+    const key = createReportFilterStorageKey("w1", "u1");
+    const filters = createStoredReportFilters({
+      preset: "custom",
+      start: "2026-08-01",
+      end: "2026-08-21",
+      memberIds: ["u1", "u2"],
+      clientIds: ["c1", "c2"],
+      projectIds: ["p1", "none"],
+      description: "design review",
+      billability: "internal",
+      currency: "BRL",
+      visibleFilters: ["member", "client", "project", "description", "billability"],
+      detailedColumns: ["date", "projectClient", "description", "duration"],
+    });
+
+    expect(writeStoredReportFilters(storage, key, filters)).toBe(true);
+    expect(readStoredReportFilters(storage, key)).toEqual(filters);
+  });
+
   it("opens on the current user when there are no saved or explicit filters", () => {
     const currentFilters = createStoredReportFilters({
       preset: "this-month",
@@ -79,6 +100,36 @@ describe("report filter storage", () => {
     ).toEqual(["u1"]);
   });
 
+  it("keeps saved preferences authoritative when the page reloads with route filters", () => {
+    const currentFilters = createStoredReportFilters({
+      preset: "this-month",
+      start: "",
+      end: "",
+      memberIds: ["u1"],
+      clientIds: [],
+      projectIds: [],
+      description: "",
+      billability: "all",
+      currency: "all",
+      visibleFilters: ["member", "client", "project", "billability"],
+    });
+    const savedFilters = createStoredReportFilters({
+      ...currentFilters,
+      clientIds: ["c1"],
+      projectIds: ["p1"],
+      billability: "billable",
+    });
+
+    expect(
+      resolveInitialReportFilters({
+        currentFilters,
+        savedFilters,
+        currentUserId: "u1",
+        hasExplicitFilters: true,
+      }),
+    ).toEqual(savedFilters);
+  });
+
   it("always constrains members to their own report data", () => {
     const filters = createStoredReportFilters({
       preset: "this-month",
@@ -91,6 +142,7 @@ describe("report filter storage", () => {
       billability: "all",
       currency: "all",
       visibleFilters: ["member", "project", "unknown"],
+      detailedColumns: ["date", "duration", "unknown"],
     });
 
     expect(
@@ -101,12 +153,14 @@ describe("report filter storage", () => {
         clientIds: ["c1"],
         projectIds: ["p1"],
         visibleFilters: ["member", "client", "project", "description", "billability"],
+        detailedColumns: ["date", "duration"],
       }),
     ).toMatchObject({
       memberIds: ["u1"],
       clientIds: ["c1"],
       projectIds: ["p1"],
       visibleFilters: ["member", "project"],
+      detailedColumns: ["date", "duration"],
     });
   });
 
@@ -132,6 +186,7 @@ describe("report filter storage", () => {
         clientIds: [],
         projectIds: [],
         visibleFilters: ["member"],
+        detailedColumns: ["date"],
       }).memberIds,
     ).toEqual([]);
   });
@@ -149,5 +204,32 @@ describe("report filter storage", () => {
         }),
       ),
     ).toMatchObject({ preset: "this-month", start: "", end: "", memberIds: ["u1"] });
+  });
+
+  it("keeps reports usable when browser storage is unavailable", () => {
+    const storage = {
+      getItem: () => {
+        throw new Error("storage unavailable");
+      },
+      setItem: () => {
+        throw new Error("storage unavailable");
+      },
+    };
+    const key = createReportFilterStorageKey("w1", "u1");
+    const filters = createStoredReportFilters({
+      preset: "this-month",
+      start: "",
+      end: "",
+      memberIds: ["u1"],
+      clientIds: [],
+      projectIds: [],
+      description: "",
+      billability: "all",
+      currency: "all",
+      visibleFilters: ["member"],
+    });
+
+    expect(readStoredReportFilters(storage, key)).toBeNull();
+    expect(writeStoredReportFilters(storage, key, filters)).toBe(false);
   });
 });
