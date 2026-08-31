@@ -1252,10 +1252,10 @@ const shiftLabels: Record<ShiftId, string> = {
 };
 
 const shiftEmoji: Record<ShiftId, string> = {
-  overnight: "✨",
+  overnight: "🦇",
   morning: "☀️",
   afternoon: "🌤️",
-  night: "🌙",
+  night: "🌑",
 };
 
 function formatOverviewBucket(
@@ -2250,7 +2250,12 @@ function OverviewDashboard({
                           {percentageFormatter.format(item.percentage)}%
                         </Typography>
                       </div>
-                      <Typography type="h1" align="center" aria-hidden="true">
+                      <Typography
+                        type="h1"
+                        align="center"
+                        aria-hidden="true"
+                        className={item.id === "overnight" ? "scale-125" : undefined}
+                      >
                         {shiftEmoji[item.id]}
                       </Typography>
                       <div className="min-w-0 space-y-0.5 text-center">
@@ -2263,9 +2268,9 @@ function OverviewDashboard({
                           </Typography>
                         ) : null}
                         {isPredominant ? (
-                          <Typography type="body-xs" color="muted" weight="medium" align="center">
-                            {t("Predominant")}
-                          </Typography>
+                          <Chip size="sm" variant="soft" color="accent">
+                            <Chip.Label>{t("Predominant")}</Chip.Label>
+                          </Chip>
                         ) : null}
                       </div>
                     </Card.Content>
