@@ -1205,7 +1205,9 @@ function ReportsPage() {
         />
       ) : null}
       {reportQuery.isFetching && !reportInitialLoading ? (
-        <ProgressBar aria-label={t("Refreshing report")} isIndeterminate size="sm" />
+        <div className="sr-only" role="status" aria-live="polite">
+          {t("Refreshing report")}
+        </div>
       ) : null}
       {reportInitialLoading ? (
         <CardsSkeleton count={3} />
