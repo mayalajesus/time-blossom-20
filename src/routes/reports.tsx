@@ -1326,6 +1326,17 @@ function formatOverviewAxisBucket(
   return new Intl.DateTimeFormat(locale, { month: "short" }).format(start);
 }
 
+function formatOverviewTooltipBucket(
+  bucket: Pick<TemporalBucket, "startDate" | "endDate" | "granularity">,
+  locale: Locale,
+): string {
+  const label = formatOverviewBucket(bucket, locale);
+  if (bucket.granularity !== "day") return label;
+  const date = new Date(`${bucket.startDate}T12:00:00`);
+  const weekday = new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date);
+  return `${label} · ${weekday}`;
+}
+
 function overviewEvolutionRows(analytics: ReportAnalytics, locale: Locale) {
   return analytics.temporal.map((bucket, index) => {
     const previous = analytics.previousTemporal[index]?.totalSeconds ?? 0;
@@ -1333,6 +1344,7 @@ function overviewEvolutionRows(analytics: ReportAnalytics, locale: Locale) {
     return {
       label: formatOverviewBucket(bucket, locale),
       axisLabel: formatOverviewAxisBucket(bucket, locale),
+      tooltipLabel: formatOverviewTooltipBucket(bucket, locale),
       currentTotal: bucket.totalSeconds,
       previous,
       difference,
@@ -1356,16 +1368,15 @@ function formatDurationAxis(seconds: number, locale: Locale): string {
 }
 
 function overviewDurationAxis(maximumSeconds: number) {
-  const steps = [900, 1_800, 3_600, 7_200, 14_400, 21_600, 28_800, 43_200, 86_400];
-  const targetStep = maximumSeconds / 4;
+  const steps = [900, 1_200, 1_800, 2_700, 3_600, 7_200, 14_400, 21_600, 28_800, 43_200, 86_400];
+  const targetStep = maximumSeconds / 3;
   const step =
     steps.find((candidate) => candidate >= targetStep) ??
     Math.max(86_400, Math.ceil(targetStep / 86_400) * 86_400);
-  const maximum = Math.max(step, Math.ceil(maximumSeconds / step) * step);
-  const tickCount = Math.round(maximum / step);
+  const maximum = step * 3;
   return {
     maximum,
-    ticks: Array.from({ length: tickCount + 1 }, (_, index) => index * step),
+    ticks: [0, step, step * 2, maximum],
   };
 }
 
@@ -1659,13 +1670,13 @@ function OverviewDashboard({
   ];
   const evolutionTicks =
     analytics.granularity === "day" || evolutionData.length <= 6
-      ? evolutionData.map((item) => item.label)
+      ? evolutionData.map((item) => item.tooltipLabel)
       : Array.from({ length: 6 }, (_, index) => {
           const dataIndex = Math.round((index * (evolutionData.length - 1)) / 5);
-          return evolutionData[dataIndex]?.label;
+          return evolutionData[dataIndex]?.tooltipLabel;
         }).filter((label): label is string => Boolean(label));
   const evolutionAxisLabels = new Map(
-    evolutionData.map((item) => [item.label, item.axisLabel] as const),
+    evolutionData.map((item) => [item.tooltipLabel, item.axisLabel] as const),
   );
   const evolutionAxis = overviewDurationAxis(
     Math.max(0, ...evolutionData.map((item) => item.currentTotal)),
@@ -1681,23 +1692,30 @@ function OverviewDashboard({
     };
   });
   const projectData = overviewProjectRows(analytics, projects, clients);
-  const billingData = [
-    {
-      name: t("Billable"),
-      value: summary.billableSeconds,
-      color: reportChartColors.success,
-    },
-    {
-      name: t("Internal"),
-      value: summary.internalSeconds,
-      color: reportChartColors.muted,
-    },
-  ].filter((item) => item.value > 0);
   const billablePercentage = percentageFormatter.format(summary.billablePercentage);
   const internalPercentage =
     summary.totalSeconds > 0
       ? percentageFormatter.format((summary.internalSeconds / summary.totalSeconds) * 100)
       : "0";
+  const billingSegments = [
+    {
+      key: "billable",
+      name: t("Billable"),
+      value: summary.billableSeconds,
+      color: reportChartColors.accent,
+      opacity: 1,
+      percentage: billablePercentage,
+    },
+    {
+      key: "internal",
+      name: t("Internal"),
+      value: summary.internalSeconds,
+      color: reportChartColors.accent,
+      opacity: 0.28,
+      percentage: internalPercentage,
+    },
+  ];
+  const billingData = billingSegments.filter((item) => item.value > 0);
   const highestActivityPeriod = evolutionData.reduce<(typeof evolutionData)[number] | null>(
     (highest, item) => (!highest || item.currentTotal > highest.currentTotal ? item : highest),
     null,
@@ -1925,13 +1943,14 @@ function OverviewDashboard({
             >
               <BarChart
                 accessibilityLayer
-                barCategoryGap="45%"
+                barCategoryGap="50%"
                 data={evolutionData}
                 margin={{ top: 8, right: 12, bottom: 0, left: 4 }}
               >
+                <CartesianGrid vertical={false} strokeOpacity={0.16} strokeWidth={1} />
                 <XAxis
                   {...reportChartAxisProps}
-                  dataKey="label"
+                  dataKey="tooltipLabel"
                   ticks={evolutionTicks}
                   interval={0}
                   padding={{ left: 8, right: 8 }}
@@ -1952,6 +1971,7 @@ function OverviewDashboard({
                   {...reportChartTooltipProps}
                   content={
                     <ChartTooltipContent
+                      hideSeriesLabel
                       valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
                     />
                   }
@@ -1963,7 +1983,7 @@ function OverviewDashboard({
                     fillOpacity: 0.2,
                     radius: [8, 8, 8, 8],
                   }}
-                  barSize={evolutionData.length > 24 ? 10 : evolutionData.length > 12 ? 12 : 14}
+                  barSize={evolutionData.length > 24 ? 12 : evolutionData.length > 12 ? 14 : 16}
                   dataKey="currentTotal"
                   fill={reportChartColors.accent}
                   radius={[8, 8, 8, 8]}
@@ -1989,8 +2009,8 @@ function OverviewDashboard({
             locale,
           )}, ${internalPercentage}%.`}
           config={{
-            billable: { label: t("Billable"), color: reportChartColors.success },
-            internal: { label: t("Internal"), color: reportChartColors.muted },
+            billable: { label: t("Billable"), color: reportChartColors.accent },
+            internal: { label: t("Internal"), color: reportChartColors.accent },
           }}
           summary={`${t("Billable")}: ${billablePercentage}%. ${t(
             "Internal",
@@ -1998,19 +2018,35 @@ function OverviewDashboard({
           width="compact"
           height="tall"
           legend={
-            <div className="grid grid-cols-2 gap-3" aria-label={t("Chart legend")}>
-              <div className="min-w-0 space-y-1">
-                <BillableIndicator billable />
-                <Typography type="body-sm" weight="medium">
-                  {formatDuration(summary.billableSeconds, locale)} · {billablePercentage}%
-                </Typography>
-              </div>
-              <div className="min-w-0 space-y-1">
-                <BillableIndicator billable={false} />
-                <Typography type="body-sm" weight="medium">
-                  {formatDuration(summary.internalSeconds, locale)} · {internalPercentage}%
-                </Typography>
-              </div>
+            <div className="divide-y divide-divider" aria-label={t("Chart legend")}>
+              {billingSegments.map((item) => (
+                <div
+                  key={item.key}
+                  className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 py-3 first:pt-0 last:pb-0"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="size-2.5 shrink-0 rounded-full bg-accent"
+                      style={{ opacity: item.opacity }}
+                      aria-hidden="true"
+                    />
+                    <Typography type="body-sm" color="muted" weight="medium">
+                      {item.name}
+                    </Typography>
+                  </div>
+                  <Typography type="body-sm" weight="semibold" className="tabular-nums">
+                    {formatDuration(item.value, locale)}
+                  </Typography>
+                  <Typography
+                    type="body-xs"
+                    color="muted"
+                    weight="medium"
+                    className="min-w-8 text-right tabular-nums"
+                  >
+                    {item.percentage}%
+                  </Typography>
+                </div>
+              ))}
             </div>
           }
           isEmpty={summary.totalSeconds === 0}
@@ -2048,12 +2084,29 @@ function OverviewDashboard({
               isAnimationActive={false}
             >
               <ChartLabel
-                value={`${billablePercentage}%`}
                 position="center"
-                fill={reportChartColors.foreground}
+                content={({ viewBox }) => {
+                  const center = viewBox as { cx?: number; cy?: number } | undefined;
+                  if (center?.cx === undefined || center.cy === undefined) return null;
+
+                  return (
+                    <text x={center.cx} y={center.cy} textAnchor="middle" dominantBaseline="middle">
+                      <tspan
+                        x={center.cx}
+                        dy="-0.25em"
+                        className="fill-foreground text-xl font-semibold"
+                      >
+                        {billablePercentage}%
+                      </tspan>
+                      <tspan x={center.cx} dy="1.65em" className="fill-muted text-xs font-medium">
+                        {t("Billable")}
+                      </tspan>
+                    </text>
+                  );
+                }}
               />
               {billingData.map((item) => (
-                <Cell key={item.name} fill={item.color} />
+                <Cell key={item.key} fill={item.color} fillOpacity={item.opacity} />
               ))}
             </Pie>
           </PieChart>
@@ -2068,15 +2121,17 @@ function OverviewDashboard({
         >
           <DataTable
             label={t("Top projects")}
-            minWidth="min-w-[560px]"
+            contentClassName="table-auto"
             scrollHint={t("Scroll horizontally to see all columns")}
           >
             <Table.Header>
-              {["Project / client", "Tracked", "Estimated billable value"].map((label, index) => (
-                <Table.Column key={label} isRowHeader={index === 0}>
-                  {t(label)}
-                </Table.Column>
-              ))}
+              <Table.Column isRowHeader className="w-full min-w-64">
+                {t("Project / client")}
+              </Table.Column>
+              <Table.Column className="w-36 whitespace-nowrap">{t("Tracked")}</Table.Column>
+              <Table.Column className="w-px whitespace-nowrap text-right">
+                {t("Billable value")}
+              </Table.Column>
             </Table.Header>
             <Table.Body>
               {projectData.map((project) => (
@@ -2093,7 +2148,7 @@ function OverviewDashboard({
                     </div>
                   </Table.Cell>
                   <Table.Cell>
-                    <div className="w-40 max-w-full space-y-2">
+                    <div className="w-36 max-w-full space-y-2">
                       <div className="flex items-center justify-between gap-3 whitespace-nowrap">
                         <Typography type="body-sm" weight="medium">
                           {formatDuration(project.seconds, locale)}
@@ -2116,7 +2171,7 @@ function OverviewDashboard({
                       </ProgressBar>
                     </div>
                   </Table.Cell>
-                  <Table.Cell className="whitespace-nowrap">
+                  <Table.Cell className="whitespace-nowrap text-right">
                     {formatMoneyTotals(project.valueByCurrency, locale) || "—"}
                   </Table.Cell>
                 </Table.Row>

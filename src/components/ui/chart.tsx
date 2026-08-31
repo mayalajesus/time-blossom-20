@@ -85,6 +85,7 @@ export function ChartTooltipContent({
   label,
   className,
   hideLabel = false,
+  hideSeriesLabel = false,
   indicator = "dot",
   valueFormatter,
   footerFormatter,
@@ -94,6 +95,7 @@ export function ChartTooltipContent({
   label?: React.ReactNode;
   className?: string;
   hideLabel?: boolean;
+  hideSeriesLabel?: boolean;
   indicator?: "line" | "dot" | "dashed";
   valueFormatter?: (value: ValueType | undefined, name: NameType | undefined) => React.ReactNode;
   footerFormatter?: (payload: Array<Payload<ValueType, NameType>>) => React.ReactNode;
@@ -116,16 +118,20 @@ export function ChartTooltipContent({
           const color = item.color || itemConfig?.color;
           return (
             <div key={key} className="flex w-full items-center gap-2">
-              <span
-                className={cn(
-                  "shrink-0",
-                  indicator === "line" && "h-2.5 w-1",
-                  indicator === "dot" && "size-2 rounded-full",
-                  indicator === "dashed" && "w-0 border border-dashed bg-transparent",
-                )}
-                style={{ backgroundColor: indicator === "dashed" ? "transparent" : color }}
-              />
-              <span className="min-w-0 flex-1 truncate">{itemConfig?.label || item.name}</span>
+              {!hideSeriesLabel ? (
+                <>
+                  <span
+                    className={cn(
+                      "shrink-0",
+                      indicator === "line" && "h-2.5 w-1",
+                      indicator === "dot" && "size-2 rounded-full",
+                      indicator === "dashed" && "w-0 border border-dashed bg-transparent",
+                    )}
+                    style={{ backgroundColor: indicator === "dashed" ? "transparent" : color }}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{itemConfig?.label || item.name}</span>
+                </>
+              ) : null}
               <span className="font-mono font-medium tabular-nums text-foreground">
                 {valueFormatter ? valueFormatter(item.value, item.name) : String(item.value ?? "")}
               </span>
