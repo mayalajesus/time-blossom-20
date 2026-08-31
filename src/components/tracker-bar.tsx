@@ -1,16 +1,18 @@
 import {
   Card,
+  ComboBox,
+  EmptyState,
   Input,
   Label,
+  ListBox,
   Separator,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Toolbar,
   toast,
 } from "@heroui/react";
 import { Square } from "@gravity-ui/icons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BillableIndicator } from "@/components/billable-indicator";
 import { FormAlert } from "@/components/form-feedback";
 import { formatOverlapConflict } from "@/components/overlap-confirmation";
@@ -23,6 +25,7 @@ import { useStore, useTimerTicker } from "@/lib/store";
 export function TrackerBar() {
   const {
     timer,
+    entries,
     projects,
     settings,
     startTimer,
@@ -40,6 +43,21 @@ export function TrackerBar() {
   const [billable, setBillable] = useState(settings.defaultBillable);
   const [timerError, setTimerError] = useState<string | null>(null);
   const active = timer.status !== "idle";
+  const taskSuggestions = useMemo(() => {
+    const uniqueTasks = new Map<string, string>();
+
+    entries.forEach((entry) => {
+      const entryTask = entry.task.trim();
+      if (!entryTask) return;
+
+      const normalizedTask = entryTask.toLocaleLowerCase(locale);
+      if (!uniqueTasks.has(normalizedTask)) uniqueTasks.set(normalizedTask, entryTask);
+    });
+
+    return Array.from(uniqueTasks.values()).sort((left, right) =>
+      left.localeCompare(right, locale, { sensitivity: "base" }),
+    );
+  }, [entries, locale]);
 
   useEffect(() => {
     setActiveTask(active ? timer.task : "");
@@ -48,6 +66,16 @@ export function TrackerBar() {
   const updateActiveTimer = (patch: Parameters<typeof updateTimer>[0]) => {
     const result = updateTimer(patch);
     setTimerError(result.success ? null : result.error);
+  };
+
+  const updateTaskValue = (value: string) => {
+    if (!active) {
+      setTask(value);
+      return;
+    }
+
+    setActiveTask(value);
+    if (value.trim()) updateActiveTimer({ task: value });
   };
 
   return (
@@ -59,39 +87,56 @@ export function TrackerBar() {
           orientation="horizontal"
           className="grid-flow-row w-full max-w-full gap-1 grid-cols-1 sm:grid-flow-col sm:grid-cols-[minmax(0,1fr)_auto_minmax(11rem,15rem)_auto_auto_auto]"
         >
-          <TextField
+          <ComboBox
+            allowsCustomValue
             className="min-w-0"
             fullWidth
+            inputValue={active ? activeTask : task}
+            menuTrigger="input"
             name="timer-task"
-            value={active ? activeTask : task}
-            onChange={(value) => {
-              if (!active) {
-                setTask(value);
-                return;
-              }
-              setActiveTask(value);
-              if (value.trim()) updateActiveTimer({ task: value });
+            variant="secondary"
+            onInputChange={updateTaskValue}
+            onSelectionChange={(key) => {
+              if (key !== null) updateTaskValue(String(key));
             }}
           >
             <Label className="sr-only">{t("What are you working on?")}</Label>
-            <Input
-              className="rounded-s-[calc(var(--radius)*3)]"
-              placeholder={t("What are you working on?")}
-              variant="secondary"
-              onBlur={() => {
-                if (!active) return;
-                if (activeTask.trim()) {
-                  updateActiveTimer({ task: activeTask });
-                } else {
-                  setActiveTask(timer.task);
-                  setTimerError(t("A task is required."));
-                }
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur();
-              }}
-            />
-          </TextField>
+            <ComboBox.InputGroup className="w-full">
+              <Input
+                className="rounded-s-[calc(var(--radius)*3)] !pe-3"
+                placeholder={t("What are you working on?")}
+                variant="secondary"
+                onBlur={() => {
+                  if (!active) return;
+                  if (activeTask.trim()) {
+                    updateActiveTimer({ task: activeTask });
+                  } else {
+                    setActiveTask(timer.task);
+                    setTimerError(t("A task is required."));
+                  }
+                }}
+                onKeyUp={(event) => {
+                  if (event.key === "Enter") event.currentTarget.blur();
+                }}
+              />
+              <ComboBox.Trigger
+                aria-label={t("What are you working on?")}
+                className="hidden"
+              />
+            </ComboBox.InputGroup>
+            <ComboBox.Popover className="max-h-60">
+              <ListBox
+                aria-label={t("Tasks")}
+                renderEmptyState={() => <EmptyState>{t("No tasks found")}</EmptyState>}
+              >
+                {taskSuggestions.map((suggestion) => (
+                  <ListBox.Item key={suggestion} id={suggestion} textValue={suggestion}>
+                    {suggestion}
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </ComboBox.Popover>
+          </ComboBox>
 
           <Separator orientation="vertical" className="hidden h-6 sm:block" />
 

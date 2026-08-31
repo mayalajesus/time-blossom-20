@@ -90,6 +90,7 @@ const ptBR: Record<string, string> = {
   "Edit time entry": "Editar registro de horas",
   Task: "Tarefa",
   Tasks: "Tarefas",
+  "No tasks found": "Nenhuma tarefa encontrada",
   Date: "Data",
   Project: "Projeto",
   "Client: {name}": "Cliente: {name}",
