@@ -683,7 +683,7 @@ export function ReportFiltersBar({
     [clientNameById, projects, t],
   );
   const activeFilterCount = [
-    values.memberIds.length > 0,
+    showTeam && values.memberIds.length > 0,
     values.clientIds.length > 0,
     values.projectIds.length > 0,
     values.description.trim().length > 0,

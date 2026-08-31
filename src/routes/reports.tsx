@@ -28,7 +28,7 @@ import {
   CircleInfo,
   Minus,
 } from "@gravity-ui/icons";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -122,6 +122,16 @@ import {
   reportViews,
   type ReportView,
 } from "@/lib/report-views";
+import {
+  constrainReportFiltersToScope,
+  createReportFilterStorageKey,
+  createStoredReportFilters,
+  hasExplicitReportFilterParams,
+  readStoredReportFilters,
+  resolveInitialReportFilters,
+  writeStoredReportFilters,
+  type StoredReportFilters,
+} from "@/lib/report-filter-storage";
 type GroupDimension = "project" | "client" | "member" | "task" | "date";
 type WeeklyDimension = "project" | "member";
 type DetailedColumn =
@@ -199,6 +209,36 @@ type ReportSearch = {
   columns?: string;
   page?: number;
 };
+
+function storedFiltersFromSearch(search: Required<ReportSearch>): StoredReportFilters {
+  return createStoredReportFilters({
+    preset: search.preset,
+    start: search.preset === "custom" ? search.start : "",
+    end: search.preset === "custom" ? search.end : "",
+    memberIds: parseIds(search.members),
+    clientIds: parseIds(search.clients),
+    projectIds: parseIds(search.projects),
+    description: search.description,
+    billability: search.billability,
+    currency: search.currency,
+    visibleFilters: parseIds(search.visible),
+  });
+}
+
+function searchPatchFromStoredFilters(filters: StoredReportFilters): Partial<ReportSearch> {
+  return {
+    preset: filters.preset,
+    start: filters.start,
+    end: filters.end,
+    members: encodeIds(filters.memberIds),
+    clients: encodeIds(filters.clientIds),
+    projects: encodeIds(filters.projectIds),
+    description: filters.description,
+    billability: filters.billability,
+    currency: filters.currency,
+    visible: encodeIds(filters.visibleFilters),
+  };
+}
 
 function isPeriodPreset(value: unknown): value is ReportPeriodPreset {
   return [
@@ -434,23 +474,26 @@ export const Route = createFileRoute("/reports")({
 
 function ReportsPage() {
   const rawSearch = Route.useSearch();
-  const search: Required<ReportSearch> = {
-    view: rawSearch.view ?? "overview",
-    preset: rawSearch.preset ?? "this-month",
-    start: rawSearch.start ?? "",
-    end: rawSearch.end ?? "",
-    members: rawSearch.members ?? "",
-    clients: rawSearch.clients ?? "",
-    projects: rawSearch.projects ?? "",
-    description: rawSearch.description ?? "",
-    billability: rawSearch.billability ?? "all",
-    currency: rawSearch.currency ?? "all",
-    visible: rawSearch.visible ?? defaultVisibleFilters.join(","),
-    group: rawSearch.group ?? "project",
-    subgroup: rawSearch.subgroup ?? "none",
-    columns: rawSearch.columns ?? defaultDetailedColumns.join(","),
-    page: rawSearch.page ?? 1,
-  };
+  const search = useMemo<Required<ReportSearch>>(
+    () => ({
+      view: rawSearch.view ?? "overview",
+      preset: rawSearch.preset ?? "this-month",
+      start: rawSearch.start ?? "",
+      end: rawSearch.end ?? "",
+      members: rawSearch.members ?? "",
+      clients: rawSearch.clients ?? "",
+      projects: rawSearch.projects ?? "",
+      description: rawSearch.description ?? "",
+      billability: rawSearch.billability ?? "all",
+      currency: rawSearch.currency ?? "all",
+      visible: rawSearch.visible ?? defaultVisibleFilters.join(","),
+      group: rawSearch.group ?? "project",
+      subgroup: rawSearch.subgroup ?? "none",
+      columns: rawSearch.columns ?? defaultDetailedColumns.join(","),
+      page: rawSearch.page ?? 1,
+    }),
+    [rawSearch],
+  );
   const navigate = Route.useNavigate();
   const {
     entries,
@@ -459,6 +502,7 @@ function ReportsPage() {
     members,
     currentUserId,
     currentWorkspace,
+    accountLoading,
     can,
     settings,
     preferences,
@@ -468,6 +512,7 @@ function ReportsPage() {
   const { locale, t, error } = useI18n();
   const reportDataSource = useMemo(() => createApiDataSource(), []);
   const [exportOpen, setExportOpen] = useState(false);
+  const workspaceId = currentWorkspace?.id ?? "";
 
   const weekStartsOn = settings.weekStart === "sunday" ? 0 : 1;
   const range = useMemo(
@@ -490,7 +535,7 @@ function ReportsPage() {
     !showTeam && search.subgroup === "member" ? "none" : search.subgroup;
   const filterValues = useMemo<ReportFilterValues>(
     () => ({
-      memberIds: parseIds(search.members),
+      memberIds: showTeam ? parseIds(search.members) : [currentUserId],
       clientIds: parseIds(search.clients),
       projectIds: parseIds(search.projects),
       description: search.description,
@@ -504,11 +549,21 @@ function ReportsPage() {
       search.description,
       search.members,
       search.projects,
+      currentUserId,
+      showTeam,
     ],
   );
   const visibleFilters = parseIds(search.visible).filter((key): key is ReportFilterKey =>
     ["member", "client", "project", "description", "billability"].includes(key),
   );
+  const storedFilters = useMemo(() => storedFiltersFromSearch(search), [search]);
+  const filterStorageKey = useMemo(
+    () =>
+      workspaceId && currentUserId ? createReportFilterStorageKey(workspaceId, currentUserId) : "",
+    [currentUserId, workspaceId],
+  );
+  const [hydratedFilterStorageKey, setHydratedFilterStorageKey] = useState<string | null>(null);
+  const skipNextFilterPersistence = useRef(false);
 
   const updateSearch = (patch: Partial<ReportSearch>) => {
     navigate({
@@ -517,6 +572,92 @@ function ReportsPage() {
       resetScroll: false,
     });
   };
+
+  useEffect(() => {
+    if (
+      accountLoading ||
+      !filterStorageKey ||
+      !currentUserId ||
+      hydratedFilterStorageKey === filterStorageKey ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    const savedFilters = readStoredReportFilters(window.localStorage, filterStorageKey);
+    const explicitFilters = hasExplicitReportFilterParams(window.location.search);
+    const selectedFilters = resolveInitialReportFilters({
+      currentFilters: storedFilters,
+      savedFilters,
+      currentUserId,
+      hasExplicitFilters: explicitFilters,
+    });
+    const normalizedFilters = constrainReportFiltersToScope(selectedFilters, {
+      currentUserId,
+      canViewTeam: showTeam,
+      memberIds: members.filter((member) => member.status === "active").map((member) => member.id),
+      clientIds: clients.map((client) => client.id),
+      projectIds: projects.map((project) => project.id),
+      visibleFilters: ["member", "client", "project", "description", "billability"],
+    });
+    const patch = searchPatchFromStoredFilters(normalizedFilters);
+    const shouldNavigate =
+      search.preset !== normalizedFilters.preset ||
+      search.start !== normalizedFilters.start ||
+      search.end !== normalizedFilters.end ||
+      search.members !== encodeIds(normalizedFilters.memberIds) ||
+      search.clients !== encodeIds(normalizedFilters.clientIds) ||
+      search.projects !== encodeIds(normalizedFilters.projectIds) ||
+      search.description !== normalizedFilters.description ||
+      search.billability !== normalizedFilters.billability ||
+      search.currency !== normalizedFilters.currency ||
+      search.visible !== encodeIds(normalizedFilters.visibleFilters);
+
+    writeStoredReportFilters(window.localStorage, filterStorageKey, normalizedFilters);
+    setHydratedFilterStorageKey(filterStorageKey);
+
+    if (shouldNavigate) {
+      skipNextFilterPersistence.current = true;
+      void navigate({
+        search: { ...search, ...patch, page: 1 },
+        replace: true,
+        resetScroll: false,
+      });
+    }
+  }, [
+    accountLoading,
+    clients,
+    currentUserId,
+    filterStorageKey,
+    hydratedFilterStorageKey,
+    members,
+    navigate,
+    projects,
+    search,
+    showTeam,
+    storedFilters,
+  ]);
+
+  useEffect(() => {
+    if (
+      !filterStorageKey ||
+      hydratedFilterStorageKey !== filterStorageKey ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    if (skipNextFilterPersistence.current) {
+      skipNextFilterPersistence.current = false;
+      return;
+    }
+
+    writeStoredReportFilters(
+      window.localStorage,
+      filterStorageKey,
+      showTeam ? storedFilters : { ...storedFilters, memberIds: [currentUserId] },
+    );
+  }, [currentUserId, filterStorageKey, hydratedFilterStorageKey, showTeam, storedFilters]);
 
   const updatePeriod = (preset: ReportPeriodPreset, nextRange: DateRange) => {
     updateSearch({
@@ -567,7 +708,6 @@ function ReportsPage() {
     () => entriesForReportWindow(scopedEntries, reportWindow.startDate, reportWindow.endDate),
     [reportWindow.endDate, reportWindow.startDate, scopedEntries],
   );
-  const workspaceId = currentWorkspace?.id ?? "";
   const reportQuery = useQuery({
     queryKey: reportEntriesQueryKey(
       workspaceId,
