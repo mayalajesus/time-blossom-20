@@ -651,6 +651,14 @@ const ptBR: Record<string, string> = {
   "Could not update members": "Não conseguimos atualizar os membros",
   "Select the active members who can track time on {name}.":
     "Selecione os membros ativos que podem registrar horas em {name}.",
+  "Add project members": "Adicionar membros ao projeto",
+  "Add members": "Adicionar membros",
+  "Search members": "Buscar membros",
+  "Active members": "Membros ativos",
+  "No matching active members": "Nenhum membro ativo encontrado",
+  "Selected members": "Membros selecionados",
+  "No members selected": "Nenhum membro selecionado",
+  "Remove {name}": "Remover {name}",
   "Save members": "Salvar membros",
   "{name} will leave Active and Inactive lists. Existing time entries will remain available in reports and history.":
     "{name} sairá das listas Ativo e Inativo. Os registros existentes continuarão disponíveis nos relatórios e no histórico.",

@@ -1,20 +1,24 @@
 import {
   AlertDialog,
+  Avatar,
   Button,
   Card,
   Chip,
   Description,
+  EmptyState,
   FieldError,
   Form,
   Input,
   Label,
   Modal,
+  SearchField,
   ButtonGroup,
   Dropdown,
   Separator,
   Switch,
   TextField,
   Typography,
+  useFilter,
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
@@ -28,8 +32,9 @@ import {
   Plus,
   Power,
   TrashBin,
+  Xmark,
 } from "@gravity-ui/icons";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { PageHeader } from "@/components/page-header";
 import { RouterLink } from "@/components/router-link";
@@ -88,6 +93,8 @@ function ProjectsPage() {
   const [assignedMemberIds, setAssignedMemberIds] = useState<string[]>([currentUserId]);
   const [pendingMembers, setPendingMembers] = useState<Project | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
+  const [memberQuery, setMemberQuery] = useState("");
+  const { contains } = useFilter({ sensitivity: "base" });
   const pendingDeleteHasEntries = pendingDelete
     ? entries.some((entry) => entry.projectId === pendingDelete.id)
     : false;
@@ -186,6 +193,7 @@ function ProjectsPage() {
   const openMemberManager = (project: Project) => {
     setMemberError(null);
     setAssignedMemberIds(project.memberIds);
+    setMemberQuery("");
     setPendingMembers(project);
   };
 
@@ -199,9 +207,36 @@ function ProjectsPage() {
     toast.success(t("Project access updated"), { description: pendingMembers.name });
     setPendingMembers(null);
     setMemberError(null);
+    setMemberQuery("");
   };
 
-  const activeMembers = members.filter((member) => member.status === "active");
+  const activeMembers = useMemo(
+    () => members.filter((member) => member.status === "active"),
+    [members],
+  );
+  const assignedMemberIdSet = useMemo(() => new Set(assignedMemberIds), [assignedMemberIds]);
+  const assignedMembers = useMemo(
+    () => activeMembers.filter((member) => assignedMemberIdSet.has(member.id)),
+    [activeMembers, assignedMemberIdSet],
+  );
+  const memberSearchResults = useMemo(() => {
+    const query = memberQuery.trim();
+
+    return activeMembers
+      .filter(
+        (member) =>
+          member.id !== currentUserId &&
+          !assignedMemberIdSet.has(member.id) &&
+          (query.length === 0 || contains(member.name, query) || contains(member.email, query)),
+      )
+      .slice(0, 50);
+  }, [activeMembers, assignedMemberIdSet, contains, currentUserId, memberQuery]);
+  const addMember = (memberId: string) => {
+    setAssignedMemberIds((current) =>
+      current.includes(memberId) ? current : [...current, memberId],
+    );
+    setMemberQuery("");
+  };
   const projectFilterOptions = [
     { id: "all", label: t("All") },
     { id: "active", label: t("Active") },
@@ -686,6 +721,7 @@ function ProjectsPage() {
           if (!open) {
             setPendingMembers(null);
             setMemberError(null);
+            setMemberQuery("");
           }
         }}
       >
@@ -709,28 +745,100 @@ function ProjectsPage() {
                     name: pendingMembers?.name ?? t("this project"),
                   })}
                 </Typography>
-                {activeMembers.map((member) => (
-                  <Switch
-                    key={member.id}
-                    aria-label={t("Assign {name}", { name: member.name })}
-                    isSelected={assignedMemberIds.includes(member.id)}
-                    onChange={(selected) =>
-                      setAssignedMemberIds((current) =>
-                        selected
-                          ? [...new Set([...current, member.id])]
-                          : current.filter((id) => id !== member.id),
-                      )
-                    }
+                <Dropdown>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    aria-label={t("Add project members")}
+                    className="h-9 w-full justify-between gap-2 px-3"
                   >
-                    <Switch.Control>
-                      <Switch.Thumb />
-                    </Switch.Control>
-                    <Switch.Content>
-                      <Label>{member.name}</Label>
-                      <Description>{t(member.role)}</Description>
-                    </Switch.Content>
-                  </Switch>
-                ))}
+                    <span className="truncate text-sm">{t("Add members")}</span>
+                    <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
+                  </Button>
+                  <Dropdown.Popover
+                    className="max-w-[calc(100vw-2rem)] min-w-0"
+                    style={{ width: "var(--trigger-width)", maxWidth: "calc(100vw - 2rem)" }}
+                    onOpenChange={(open) => {
+                      if (!open) setMemberQuery("");
+                    }}
+                  >
+                    <div className="flex flex-col gap-2 p-2">
+                      <SearchField
+                        autoFocus
+                        aria-label={t("Search members")}
+                        name="project-member-search"
+                        value={memberQuery}
+                        onChange={setMemberQuery}
+                        variant="secondary"
+                      >
+                        <SearchField.Group>
+                          <SearchField.SearchIcon />
+                          <SearchField.Input placeholder={`${t("Search members")}...`} />
+                          <SearchField.ClearButton />
+                        </SearchField.Group>
+                      </SearchField>
+                      {memberSearchResults.length === 0 ? (
+                        <EmptyState>{t("No matching active members")}</EmptyState>
+                      ) : (
+                        <Dropdown.Menu
+                          aria-label={t("Active members")}
+                          selectionMode="single"
+                          onAction={(key) => addMember(String(key))}
+                          className="max-h-60 overflow-y-auto"
+                        >
+                          {memberSearchResults.map((member) => (
+                            <Dropdown.Item
+                              key={member.id}
+                              id={member.id}
+                              textValue={`${member.name} ${member.email}`}
+                            >
+                              <Avatar size="sm" className="shrink-0">
+                                <Avatar.Fallback>{member.initials}</Avatar.Fallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <Typography type="body-sm" truncate>
+                                  {member.name}
+                                </Typography>
+                              </div>
+                            </Dropdown.Item>
+                          ))}
+                        </Dropdown.Menu>
+                      )}
+                    </div>
+                  </Dropdown.Popover>
+                </Dropdown>
+                <div className="space-y-2">
+                  <Label>{t("Selected members")}</Label>
+                  {assignedMembers.length === 0 ? (
+                    <Typography type="body-sm" color="muted">
+                      {t("No members selected")}
+                    </Typography>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {assignedMembers.map((member) => (
+                        <Chip key={member.id} size="sm" variant="soft">
+                          <Chip.Label>{member.name}</Chip.Label>
+                          {member.id === currentUserId ? null : (
+                            <Button
+                              isIconOnly
+                              size="sm"
+                              variant="tertiary"
+                              aria-label={t("Remove {name}", { name: member.name })}
+                              className="-mr-1 size-5 min-w-5 p-0"
+                              onPress={() =>
+                                setAssignedMemberIds((current) =>
+                                  current.filter((id) => id !== member.id),
+                                )
+                              }
+                            >
+                              <Xmark aria-hidden="true" className="size-3" />
+                            </Button>
+                          )}
+                        </Chip>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </Modal.Body>
               <Modal.Footer>
                 <Button slot="close" variant="secondary">
