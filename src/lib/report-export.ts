@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { defaultLocale, translate, type Locale } from "@/lib/i18n";
+import { defaultLocale, translate, type Locale } from "./i18n";
 
 export type ReportExportFormat = "csv" | "xlsx" | "pdf";
 
@@ -19,6 +19,30 @@ export type ReportExportSection = {
   rows: Array<Record<string, string | number>>;
 };
 
+export type ReportExportTable = {
+  columns: string[];
+  rows: Array<Array<string | number>>;
+};
+
+export type ReportPdfEntry = {
+  date: string;
+  task: string;
+  project: string;
+  client: string;
+  seconds: number;
+  start: string;
+  end: string;
+  user: string;
+};
+
+export type DetailedReportPdf = {
+  kind: "detailed";
+  startDate: string;
+  endDate: string;
+  totalSeconds: number;
+  entries: ReportPdfEntry[];
+};
+
 export type ReportExportPayload = {
   /** Stable filename stem. */
   title: string;
@@ -29,7 +53,9 @@ export type ReportExportPayload = {
   summary?: ReportExportSummaryItem[];
   columns: string[];
   rows: Array<Record<string, string | number>>;
+  detailedTable?: ReportExportTable;
   sections?: ReportExportSection[];
+  pdf?: DetailedReportPdf;
   locale?: Locale;
   branding?: {
     workspaceName: string;
@@ -58,6 +84,12 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 function exportCsv(payload: ReportExportPayload): ReportExportResult {
   try {
+    if (payload.detailedTable) {
+      const rows = [payload.detailedTable.columns, ...payload.detailedTable.rows];
+      const csv = `\uFEFF${rows.map((row) => row.map(escapeCsv).join(",")).join("\n")}`;
+      downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${payload.title}.csv`);
+      return { success: true };
+    }
     const rows: Array<Array<string | number>> = [];
     if (payload.displayTitle) rows.push([payload.displayTitle]);
     if (payload.subtitle) rows.push([payload.subtitle]);
@@ -85,6 +117,15 @@ function exportCsv(payload: ReportExportPayload): ReportExportResult {
 function exportXlsx(payload: ReportExportPayload): ReportExportResult {
   try {
     const workbook = XLSX.utils.book_new();
+    if (payload.detailedTable) {
+      const worksheet = XLSX.utils.aoa_to_sheet([
+        payload.detailedTable.columns,
+        ...payload.detailedTable.rows,
+      ]);
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+      XLSX.writeFile(workbook, `${payload.title}.xlsx`);
+      return { success: true };
+    }
     const contextRows: Array<Array<string | number>> = [];
     if (payload.displayTitle) contextRows.push([payload.displayTitle]);
     if (payload.subtitle) contextRows.push([payload.subtitle]);
@@ -159,8 +200,321 @@ function dataUrlBytes(dataUrl: string): { bytes: Uint8Array; mime: string } | nu
   }
 }
 
+export function formatPdfDuration(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  return `${hours}:${String(minutes).padStart(2, "0")}`;
+}
+
+function formatPdfDate(value: string, locale: Locale): string {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatPdfDateRange(startDate: string, endDate: string, locale: Locale): string {
+  return `${formatPdfDate(startDate, locale)} - ${formatPdfDate(endDate, locale)}`;
+}
+
+type PdfFont = {
+  widthOfTextAtSize: (text: string, size: number) => number;
+  heightAtSize: (size: number, options?: { descender?: boolean }) => number;
+};
+
+function wrapPdfText(value: string, font: PdfFont, size: number, maxWidth: number): string[] {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return ["—"];
+
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (line && font.widthOfTextAtSize(candidate, size) > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function fitPdfImage(
+  image: { width: number; height: number },
+  maxWidth: number,
+  maxHeight: number,
+): { width: number; height: number } {
+  const scale = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+  return { width: image.width * scale, height: image.height * scale };
+}
+
+async function embedWorkspaceLogo(
+  pdf: Awaited<ReturnType<typeof import("pdf-lib").PDFDocument.create>>,
+  logoDataUrl: string | null | undefined,
+) {
+  const logoData = logoDataUrl ? dataUrlBytes(logoDataUrl) : null;
+  if (!logoData) return null;
+  if (logoData.mime === "image/png") return pdf.embedPng(logoData.bytes);
+  if (logoData.mime === "image/jpeg" || logoData.mime === "image/jpg") {
+    return pdf.embedJpg(logoData.bytes);
+  }
+  if (logoData.mime !== "image/webp" || typeof createImageBitmap !== "function") return null;
+
+  const bitmap = await createImageBitmap(
+    new Blob([logoData.bytes.buffer as ArrayBuffer], { type: "image/webp" }),
+  );
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.drawImage(bitmap, 0, 0);
+    const converted = dataUrlBytes(canvas.toDataURL("image/png"));
+    return converted ? pdf.embedPng(converted.bytes) : null;
+  } finally {
+    bitmap.close();
+  }
+}
+
+export async function createDetailedReportPdf(payload: ReportExportPayload): Promise<Uint8Array> {
+  const detail = payload.pdf;
+  if (!detail || detail.kind !== "detailed") {
+    throw new Error("A detailed PDF payload is required.");
+  }
+
+  const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
+  const pdf = await PDFDocument.create();
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const pageSize: [number, number] = [595.28, 841.89];
+  const margin = 36;
+  const footerY = 22;
+  const ink = rgb(0.08, 0.08, 0.09);
+  const muted = rgb(0.38, 0.38, 0.4);
+  const border = rgb(0.76, 0.76, 0.77);
+  const locale = payload.locale ?? defaultLocale;
+  const workspaceName = payload.branding?.workspaceName?.trim() || "";
+  const logo = await embedWorkspaceLogo(pdf, payload.branding?.logoDataUrl);
+  const title = payload.displayTitle ?? translate("Detailed report", locale);
+  const pageWidth = pageSize[0];
+  const contentWidth = pageWidth - margin * 2;
+  const columnWidths = [67, 196, 131, contentWidth - 67 - 196 - 131];
+  const columnX = [
+    margin,
+    margin + columnWidths[0]!,
+    margin + columnWidths[0]! + columnWidths[1]!,
+    margin + columnWidths[0]! + columnWidths[1]! + columnWidths[2]!,
+  ];
+  const bodyFontSize = 7.5;
+  const secondaryFontSize = 7.3;
+  const lineHeight = 12;
+  const headerFontSize = 8;
+  const headerHeight = 24;
+  const minRowHeight = 42;
+
+  const drawLogo = (page: ReturnType<typeof pdf.addPage>) => {
+    if (!logo) return;
+    const size = fitPdfImage(logo, 56, 28);
+    page.drawImage(logo, {
+      x: pageWidth - margin - size.width,
+      y: pageSize[1] - margin - size.height,
+      width: size.width,
+      height: size.height,
+    });
+  };
+
+  const drawFooter = (page: ReturnType<typeof pdf.addPage>, pageNumber: number) => {
+    if (workspaceName) {
+      page.drawText(workspaceName, {
+        x: margin,
+        y: footerY,
+        size: 7.5,
+        font: regular,
+        color: muted,
+      });
+    }
+    page.drawText(String(pageNumber), {
+      x: pageWidth - margin - 6,
+      y: footerY,
+      size: 7.5,
+      font: regular,
+      color: muted,
+    });
+  };
+
+  const drawFirstPageHeader = (page: ReturnType<typeof pdf.addPage>) => {
+    const top = pageSize[1] - margin;
+    page.drawText(title, { x: margin, y: top - 13, size: 20, font: regular, color: ink });
+    page.drawText(formatPdfDateRange(detail.startDate, detail.endDate, locale), {
+      x: margin,
+      y: top - 47,
+      size: 10,
+      font: regular,
+      color: muted,
+    });
+    page.drawText("Total:", { x: margin, y: top - 72, size: 10, font: regular, color: muted });
+    page.drawText(formatPdfDuration(detail.totalSeconds), {
+      x: margin + 29,
+      y: top - 74,
+      size: 15,
+      font: regular,
+      color: ink,
+    });
+    drawLogo(page);
+  };
+
+  const drawTableHeader = (page: ReturnType<typeof pdf.addPage>, top: number) => {
+    const labels = [
+      translate("Date", locale),
+      translate("Description", locale),
+      translate("Duration", locale),
+      translate("User", locale),
+    ];
+    labels.forEach((label, index) => {
+      page.drawText(label, {
+        x: columnX[index]!,
+        y: top - 9,
+        size: headerFontSize,
+        font: regular,
+        color: muted,
+      });
+    });
+    page.drawLine({
+      start: { x: margin, y: top - headerHeight },
+      end: { x: pageWidth - margin, y: top - headerHeight },
+      thickness: 0.6,
+      color: border,
+    });
+    return top - headerHeight;
+  };
+
+  const drawEntry = (page: ReturnType<typeof pdf.addPage>, entry: ReportPdfEntry, top: number) => {
+    const descriptionLines = wrapPdfText(entry.task, regular, bodyFontSize, columnWidths[1]! - 8);
+    const projectClient = [entry.project, entry.client].filter(Boolean).join(" - ");
+    const projectLines = wrapPdfText(
+      projectClient,
+      regular,
+      secondaryFontSize,
+      columnWidths[1]! - 8,
+    );
+    const durationLines = [formatPdfDuration(entry.seconds), `${entry.start} - ${entry.end}`];
+    const rowLines = Math.max(
+      descriptionLines.length + Math.max(projectLines.length, 1),
+      durationLines.length,
+      2,
+    );
+    const rowHeight = Math.max(minRowHeight, rowLines * lineHeight + 12);
+    const primaryY = top - 16;
+
+    page.drawText(formatPdfDate(entry.date, locale), {
+      x: columnX[0]!,
+      y: primaryY,
+      size: bodyFontSize,
+      font: regular,
+      color: ink,
+    });
+    descriptionLines.forEach((line, index) => {
+      page.drawText(line, {
+        x: columnX[1]!,
+        y: primaryY - index * lineHeight,
+        size: bodyFontSize,
+        font: regular,
+        color: ink,
+      });
+    });
+    projectLines.forEach((line, index) => {
+      page.drawText(line, {
+        x: columnX[1]!,
+        y: primaryY - (descriptionLines.length + index) * lineHeight,
+        size: secondaryFontSize,
+        font: regular,
+        color: muted,
+      });
+    });
+    page.drawText(durationLines[0]!, {
+      x: columnX[2]!,
+      y: primaryY,
+      size: bodyFontSize,
+      font: regular,
+      color: ink,
+    });
+    page.drawText(durationLines[1]!, {
+      x: columnX[2]!,
+      y: primaryY - lineHeight,
+      size: secondaryFontSize,
+      font: regular,
+      color: muted,
+    });
+    page.drawText(entry.user || "—", {
+      x: columnX[3]!,
+      y: primaryY,
+      size: bodyFontSize,
+      font: regular,
+      color: ink,
+    });
+    page.drawLine({
+      start: { x: margin, y: top - rowHeight },
+      end: { x: pageWidth - margin, y: top - rowHeight },
+      thickness: 0.6,
+      color: border,
+    });
+    return rowHeight;
+  };
+
+  let page = pdf.addPage(pageSize);
+  let pageNumber = 1;
+  drawFirstPageHeader(page);
+  let currentY = drawTableHeader(page, pageSize[1] - 174);
+  for (const entry of detail.entries) {
+    const descriptionLineCount = wrapPdfText(
+      entry.task,
+      regular,
+      bodyFontSize,
+      columnWidths[1]! - 8,
+    ).length;
+    const projectLineCount = wrapPdfText(
+      [entry.project, entry.client].filter(Boolean).join(" - "),
+      regular,
+      secondaryFontSize,
+      columnWidths[1]! - 8,
+    ).length;
+    const rowHeight = Math.max(
+      minRowHeight,
+      Math.max(descriptionLineCount + 1, projectLineCount + descriptionLineCount, 2) * lineHeight +
+        12,
+    );
+    if (currentY - rowHeight < footerY + 16) {
+      drawFooter(page, pageNumber);
+      page = pdf.addPage(pageSize);
+      pageNumber += 1;
+      currentY = pageSize[1] - margin - 8;
+    }
+    currentY -= drawEntry(page, entry, currentY);
+  }
+  drawFooter(page, pageNumber);
+
+  pdf.setTitle(title);
+  pdf.setAuthor(workspaceName || "Time Blossom");
+  pdf.setSubject(translate("Detailed report", locale));
+  return Uint8Array.from(await pdf.save());
+}
+
 async function exportPdf(payload: ReportExportPayload): Promise<ReportExportResult> {
   try {
+    if (payload.pdf?.kind === "detailed") {
+      const bytes = await createDetailedReportPdf(payload);
+      downloadBlob(
+        new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }),
+        `${payload.title}.pdf`,
+      );
+      return { success: true };
+    }
     const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
     const pdf = await PDFDocument.create();
     const regular = await pdf.embedFont(StandardFonts.Helvetica);

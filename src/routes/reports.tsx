@@ -29,7 +29,7 @@ import {
   CircleInfo,
   Minus,
 } from "@gravity-ui/icons";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -75,6 +75,7 @@ import { createApiDataSource } from "@/lib/api-data-source";
 import {
   formatDate,
   formatDateRange,
+  formatClock,
   formatDuration,
   getDayOffset,
   getEndDateForEntry,
@@ -89,7 +90,7 @@ import {
   type ReportPeriodPreset,
 } from "@/lib/format";
 import { useStore } from "@/lib/store";
-import type { ReportExportPayload } from "@/lib/report-export";
+import type { ReportExportPayload, ReportPdfEntry } from "@/lib/report-export";
 import { useI18n } from "@/lib/i18n";
 import type { Locale } from "@/lib/i18n";
 import {
@@ -117,12 +118,7 @@ import {
   entriesForReportWindow,
   reportEntriesQueryKey,
 } from "@/lib/report-query";
-import {
-  isLegacyTeamReportView,
-  normalizeReportView,
-  reportViews,
-  type ReportView,
-} from "@/lib/report-views";
+import { isLegacyTeamReportView, normalizeReportView, type ReportView } from "@/lib/report-views";
 import {
   constrainReportFiltersToScope,
   createReportFilterStorageKey,
@@ -223,6 +219,7 @@ function storedFiltersFromSearch(search: Required<ReportSearch>): StoredReportFi
     billability: search.billability,
     currency: search.currency,
     visibleFilters: parseIds(search.visible),
+    detailedColumns: parseIds(search.columns),
   });
 }
 
@@ -238,6 +235,7 @@ function searchPatchFromStoredFilters(filters: StoredReportFilters): Partial<Rep
     billability: filters.billability,
     currency: filters.currency,
     visible: encodeIds(filters.visibleFilters),
+    columns: encodeIds(filters.detailedColumns),
   };
 }
 
@@ -323,6 +321,15 @@ function projectNameFor(projects: Project[], projectId: string | null): string {
 function endLabel(entry: TimeEntry): string {
   const offset = getEntryEndDayOffset(entry);
   return `${entry.end}${offset > 0 ? ` +${offset}` : ""}`;
+}
+
+function exportDate(iso: string): string {
+  const [year, month, day] = iso.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function exportTime(time: string): string {
+  return time.length === 5 ? `${time}:00` : time;
 }
 
 function compareEntries(a: TimeEntry, b: TimeEntry): number {
@@ -477,7 +484,7 @@ function ReportsPage() {
   const rawSearch = Route.useSearch();
   const search = useMemo<Required<ReportSearch>>(
     () => ({
-      view: rawSearch.view ?? "overview",
+      view: rawSearch.view ?? "detailed",
       preset: rawSearch.preset ?? "this-month",
       start: rawSearch.start ?? "",
       end: rawSearch.end ?? "",
@@ -564,7 +571,8 @@ function ReportsPage() {
     [currentUserId, workspaceId],
   );
   const [hydratedFilterStorageKey, setHydratedFilterStorageKey] = useState<string | null>(null);
-  const skipNextFilterPersistence = useRef(false);
+  const filterPreferencesReady =
+    Boolean(filterStorageKey) && hydratedFilterStorageKey === filterStorageKey;
 
   const constrainFiltersToCurrentScope = useCallback(
     (filters: StoredReportFilters) =>
@@ -577,6 +585,7 @@ function ReportsPage() {
         clientIds: clients.map((client) => client.id),
         projectIds: projects.map((project) => project.id),
         visibleFilters: ["member", "client", "project", "description", "billability"],
+        detailedColumns: detailedColumnOptions.map((column) => column.id),
       }),
     [clients, currentUserId, members, projects, showTeam],
   );
@@ -638,19 +647,21 @@ function ReportsPage() {
       search.description !== normalizedFilters.description ||
       search.billability !== normalizedFilters.billability ||
       search.currency !== normalizedFilters.currency ||
-      search.visible !== encodeIds(normalizedFilters.visibleFilters);
-
-    writeStoredReportFilters(window.localStorage, filterStorageKey, normalizedFilters);
-    setHydratedFilterStorageKey(filterStorageKey);
+      search.visible !== encodeIds(normalizedFilters.visibleFilters) ||
+      search.columns !== encodeIds(normalizedFilters.detailedColumns);
 
     if (shouldNavigate) {
-      skipNextFilterPersistence.current = true;
+      writeStoredReportFilters(window.localStorage, filterStorageKey, normalizedFilters);
       void navigate({
         search: { ...search, ...patch, page: 1 },
         replace: true,
         resetScroll: false,
       });
+      return;
     }
+
+    writeStoredReportFilters(window.localStorage, filterStorageKey, normalizedFilters);
+    setHydratedFilterStorageKey(filterStorageKey);
   }, [
     accountLoading,
     constrainFiltersToCurrentScope,
@@ -671,17 +682,12 @@ function ReportsPage() {
       return;
     }
 
-    if (skipNextFilterPersistence.current) {
-      skipNextFilterPersistence.current = false;
-      return;
-    }
-
     writeStoredReportFilters(
       window.localStorage,
       filterStorageKey,
-      showTeam ? storedFilters : { ...storedFilters, memberIds: [currentUserId] },
+      constrainFiltersToCurrentScope(storedFilters),
     );
-  }, [currentUserId, filterStorageKey, hydratedFilterStorageKey, showTeam, storedFilters]);
+  }, [constrainFiltersToCurrentScope, filterStorageKey, hydratedFilterStorageKey, storedFilters]);
 
   const updatePeriod = (preset: ReportPeriodPreset, nextRange: DateRange) => {
     updateSearch({
@@ -739,7 +745,7 @@ function ReportsPage() {
       reportWindow.startDate,
       reportWindow.endDate,
     ),
-    enabled: Boolean(workspaceId && currentUserId),
+    enabled: Boolean(workspaceId && currentUserId && filterPreferencesReady),
     queryFn: async () => {
       const result = await reportDataSource.loadReportEntries(currentUserId, {
         workspaceId,
@@ -865,7 +871,8 @@ function ReportsPage() {
     fallbackForEntry,
     filterValues.currency === "all" ? preferences.currency : filterValues.currency,
   );
-  const exportUsesAnalytics = search.view === "overview";
+  const exportView: ReportView = "detailed";
+  const exportUsesAnalytics = exportView === "overview";
   const exportTotal = exportUsesAnalytics ? reportAnalytics.summary.totalSeconds : total;
   const exportBillable = exportUsesAnalytics ? reportAnalytics.summary.billableSeconds : billable;
   const exportInternal = exportUsesAnalytics ? reportAnalytics.summary.internalSeconds : internal;
@@ -929,11 +936,8 @@ function ReportsPage() {
     ],
   );
   const exportContext = useMemo(() => {
-    const viewLabel = t(reportViews.find((report) => report.id === search.view)?.label ?? "Time");
-    const temporalGrouping = t(
-      { day: "Day", week: "Week", month: "Month" }[reportAnalytics.granularity],
-    );
-    const grouping = search.view === "overview" ? temporalGrouping : t("None");
+    const viewLabel = t(exportView === "detailed" ? "Detailed" : "Overview");
+    const grouping = exportView === "detailed" ? t("None") : t("Time");
     return {
       locale,
       ...(currentWorkspace
@@ -944,7 +948,7 @@ function ReportsPage() {
             },
           }
         : {}),
-      displayTitle: `${viewLabel} ${t("report")}`,
+      displayTitle: t("Detailed report"),
       subtitle: `Time Blossom · ${formatDateRange(range.startDate, range.endDate, locale)}`,
       meta: [
         { label: t("Period"), value: formatDateRange(range.startDate, range.endDate, locale) },
@@ -996,21 +1000,18 @@ function ReportsPage() {
     range.endDate,
     range.startDate,
     reportScope,
-    reportAnalytics.granularity,
-    effectiveGroup,
-    effectiveSubgroup,
+    exportView,
     search.billability,
     search.clients,
     search.currency,
     search.description,
     search.members,
     search.projects,
-    search.view,
     t,
   ]);
 
   const exportPayload = useMemo<ReportExportPayload>(() => {
-    if (search.view === "overview") {
+    if (exportView === "overview") {
       const summary = reportAnalytics.summary;
       const exportedProjects = overviewProjectRows(reportAnalytics, projects, clients);
       const evolution = overviewEvolutionRows(reportAnalytics, locale);
@@ -1023,7 +1024,7 @@ function ReportsPage() {
       const weekdayRows = overviewWeekdayRows(reportAnalytics, locale);
       return {
         ...exportContext,
-        title: `time-blossom-${search.view}`,
+        title: `time-blossom-${exportView}`,
         columns: [t("Metric"), t("Value")],
         rows: [
           {
@@ -1176,7 +1177,49 @@ function ReportsPage() {
         ],
       };
     }
-    if (search.view === "detailed") {
+    if (exportView === "detailed") {
+      const exportCurrency =
+        filterValues.currency === "all" ? preferences.currency : filterValues.currency;
+      const detailedTableColumns =
+        locale === "pt-BR"
+          ? [
+              "Projeto",
+              "Cliente",
+              "Descrição",
+              "Tarefa",
+              "Usuário",
+              "Grupo",
+              "E-mail",
+              "Etiqueta",
+              "Faturável",
+              "Data de início",
+              "Hora de início",
+              "Data final",
+              "Hora de término",
+              "Duração (h)",
+              "Duração (decimal)",
+              `Valor faturável (${exportCurrency})`,
+              `Valor Faturável (${exportCurrency})`,
+            ]
+          : [
+              "Project",
+              "Client",
+              "Description",
+              "Task",
+              "User",
+              "Group",
+              "Email",
+              "Tag",
+              "Billable",
+              "Start Date",
+              "Start Time",
+              "End Date",
+              "End Time",
+              "Duration (h)",
+              "Duration (decimal)",
+              `Billable Rate (${exportCurrency})`,
+              `Billable Amount (${exportCurrency})`,
+            ];
       const columns = [
         t("Project"),
         t("Client"),
@@ -1196,7 +1239,61 @@ function ReportsPage() {
       ];
       return {
         ...exportContext,
-        title: `time-blossom-${search.view}`,
+        title: `time-blossom-${exportView}`,
+        pdf: {
+          kind: "detailed",
+          startDate: range.startDate,
+          endDate: range.endDate,
+          totalSeconds: exportTotal,
+          entries: filteredEntries.map((entry): ReportPdfEntry => {
+            const member = memberMap.get(entry.userId);
+            return {
+              date: entry.date,
+              task: entry.task,
+              project: projectNameFor(projects, entry.projectId),
+              client: clientNameFor(clients, projects, entry.projectId),
+              seconds: entry.seconds,
+              start: entry.start,
+              end: endLabel(entry),
+              user: member?.name ?? t("Unknown member"),
+            };
+          }),
+        },
+        detailedTable: {
+          columns: detailedTableColumns,
+          rows: filteredEntries.map((entry) => {
+            const member = memberMap.get(entry.userId);
+            const project = entry.projectId ? projectNameFor(projects, entry.projectId) : "";
+            const client = entry.projectId ? clientNameFor(clients, projects, entry.projectId) : "";
+            const endDate = getEndDateForEntry(entry);
+            const billing = billingForEntry(entry, fallbackForEntry(entry));
+            return [
+              project,
+              client,
+              entry.description ?? "",
+              entry.task,
+              member?.name ?? t("Unknown member"),
+              "",
+              member?.email ?? "",
+              "",
+              entry.billable
+                ? locale === "pt-BR"
+                  ? "Sim"
+                  : "Yes"
+                : locale === "pt-BR"
+                  ? "Não"
+                  : "No",
+              exportDate(entry.date),
+              exportTime(entry.start),
+              exportDate(endDate),
+              exportTime(entry.end),
+              formatClock(Math.max(0, entry.seconds)),
+              (Math.max(0, entry.seconds) / 3600).toFixed(2),
+              billing.hourlyRate.toFixed(2),
+              billableValue(entry, billing).toFixed(2),
+            ];
+          }),
+        },
         columns,
         rows: filteredEntries.map((entry) => {
           const member = memberMap.get(entry.userId);
@@ -1239,7 +1336,7 @@ function ReportsPage() {
         : groups.map((group) => ({ primaryLabel: group.label, secondaryLabel: "", group }));
       return {
         ...exportContext,
-        title: `time-blossom-${search.view}`,
+        title: `time-blossom-${exportView}`,
         columns: [
           t("Group"),
           ...(hasSubgroup ? [t("Subgroup")] : []),
@@ -1275,14 +1372,19 @@ function ReportsPage() {
     clients,
     effectiveGroup,
     effectiveSubgroup,
+    exportTotal,
     filteredEntries,
+    filterValues.currency,
     groups,
     memberMap,
     projects,
+    preferences.currency,
     exportContext,
-    search.view,
+    exportView,
     locale,
     reportAnalytics,
+    range.endDate,
+    range.startDate,
     t,
     total,
     fallbackForEntry,
@@ -1303,12 +1405,16 @@ function ReportsPage() {
       currency: "all",
     });
   const reportInitialLoading =
-    reportQuery.isPending && !reportQuery.data && !localReportEntries.length;
-  const reportError = reportQuery.error
-    ? error(
-        reportQuery.error instanceof Error ? reportQuery.error.message : "The data request failed.",
-      )
-    : null;
+    !filterPreferencesReady ||
+    (reportQuery.isPending && !reportQuery.data && !localReportEntries.length);
+  const reportError =
+    filterPreferencesReady && reportQuery.error
+      ? error(
+          reportQuery.error instanceof Error
+            ? reportQuery.error.message
+            : "The data request failed.",
+        )
+      : null;
 
   return (
     <div className={search.view === "overview" ? "space-y-5" : "space-y-6"}>
@@ -1323,43 +1429,45 @@ function ReportsPage() {
         }
       />
 
-      <ReportFiltersBar
-        preset={search.preset}
-        range={range}
-        today={today}
-        weekStartsOn={weekStartsOn}
-        values={filterValues}
-        visibleFilters={visibleFilters}
-        members={members}
-        clients={clients}
-        projects={projects}
-        currencies={availableCurrencies}
-        showTeam={showTeam}
-        weeklyNavigation
-        onPeriodChange={updatePeriod}
-        onPeriodShift={shiftReportPeriod}
-        onChange={(patch) => {
-          const next = { ...filterValues, ...patch };
-          updateSearch({
-            members: encodeIds(next.memberIds),
-            clients: encodeIds(next.clientIds),
-            projects: encodeIds(next.projectIds),
-            description: next.description,
-            billability: next.billability,
-            currency: next.currency,
-          });
-        }}
-        onClear={() =>
-          updateSearch({
-            members: "",
-            clients: "",
-            projects: "",
-            description: "",
-            billability: "all",
-            currency: "all",
-          })
-        }
-      />
+      {filterPreferencesReady ? (
+        <ReportFiltersBar
+          preset={search.preset}
+          range={range}
+          today={today}
+          weekStartsOn={weekStartsOn}
+          values={filterValues}
+          visibleFilters={visibleFilters}
+          members={members}
+          clients={clients}
+          projects={projects}
+          currencies={availableCurrencies}
+          showTeam={showTeam}
+          weeklyNavigation
+          onPeriodChange={updatePeriod}
+          onPeriodShift={shiftReportPeriod}
+          onChange={(patch) => {
+            const next = { ...filterValues, ...patch };
+            updateSearch({
+              members: encodeIds(next.memberIds),
+              clients: encodeIds(next.clientIds),
+              projects: encodeIds(next.projectIds),
+              description: next.description,
+              billability: next.billability,
+              currency: next.currency,
+            });
+          }}
+          onClear={() =>
+            updateSearch({
+              members: "",
+              clients: "",
+              projects: "",
+              description: "",
+              billability: "all",
+              currency: "all",
+            })
+          }
+        />
+      ) : null}
 
       {reportError ? (
         <ErrorBlock
@@ -1368,7 +1476,7 @@ function ReportsPage() {
           onRetry={() => void reportQuery.refetch()}
         />
       ) : null}
-      {reportQuery.isFetching && !reportInitialLoading ? (
+      {filterPreferencesReady && reportQuery.isFetching && !reportInitialLoading ? (
         <div className="sr-only" role="status" aria-live="polite">
           {t("Refreshing report")}
         </div>
