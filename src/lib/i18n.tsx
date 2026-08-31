@@ -594,6 +594,8 @@ const ptBR: Record<string, string> = {
   "Only Admins and the Owner can manage projects.":
     "Somente Administradores e o Proprietário podem gerenciar projetos.",
   "A project name is required.": "O nome do projeto é obrigatório.",
+  "A project with this name already exists for this client.":
+    "Já existe um projeto com este nome para este cliente.",
   "Choose an existing client for this project.": "Escolha um cliente existente para este projeto.",
   "Choose whether this project is billable.": "Escolha se este projeto é faturável.",
   "You cannot assign members to projects.": "Você não pode atribuir membros a projetos.",

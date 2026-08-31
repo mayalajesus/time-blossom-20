@@ -74,6 +74,29 @@ function timeValue(value) {
   return value;
 }
 
+function normalizeProjectName(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+async function ensureProjectNameAvailable(client, workspaceId, clientId, name, projectId = null) {
+  const result = await client.query(
+    `select 1
+       from public.projects
+      where workspace_id = $1
+        and client_id = $2
+        and lower(regexp_replace(trim(name), '\\s+', ' ', 'g')) = $3
+        and ($4::uuid is null or id <> $4::uuid)
+      limit 1`,
+    [workspaceId, clientId, normalizeProjectName(name), projectId],
+  );
+  if (result.rows[0]) {
+    throw new DataApiError(409, "A project with this name already exists for this client.");
+  }
+}
+
 function numberValue(value, fallback = 0) {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
@@ -786,13 +809,17 @@ async function syncAccount(client, user, config, account) {
     }
     for (const project of data.projects ?? []) {
       const projectId = uuid(project.id);
+      const projectName = String(project.name ?? "").trim().replace(/\s+/g, " ");
+      if (!projectName) throw new DataApiError(400, "A project name is required.");
+      const clientId = uuid(project.clientId);
+      await ensureProjectNameAvailable(client, workspaceId, clientId, projectName, projectId);
       await client.query(
         `insert into public.projects (id, workspace_id, name, client_id, billable, status, color, last_activity) values ($1, $2, $3, $4, $5, $6, $7, $8) on conflict (id) do update set name = excluded.name, client_id = excluded.client_id, billable = excluded.billable, status = excluded.status, color = excluded.color, last_activity = excluded.last_activity`,
         [
           projectId,
           workspaceId,
-          String(project.name).trim(),
-          uuid(project.clientId),
+          projectName,
+          clientId,
           Boolean(project.billable),
           project.status,
           String(project.color),
@@ -993,16 +1020,26 @@ export async function handleDataRequest(request, response, env = {}) {
     const data = await operation(request, user, config, body);
     sendJson(response, 200, { data });
   } catch (error) {
+    const isProjectNameConflict =
+      error?.code === "23505" && error?.constraint === "projects_workspace_client_name_idx";
     const message =
-      error instanceof Error && error.message.trim() ? error.message : "The data request failed.";
+      isProjectNameConflict
+        ? "A project with this name already exists for this client."
+        : error instanceof Error && error.message.trim()
+          ? error.message
+          : "The data request failed.";
     console.error("[time-blossom data api]", {
       name: error instanceof Error ? error.name : typeof error,
       message,
       code: error?.code,
     });
-    sendJson(response, typeof error?.status === "number" ? error.status : 500, {
-      error: message,
-    });
+    sendJson(
+      response,
+      isProjectNameConflict ? 409 : typeof error?.status === "number" ? error.status : 500,
+      {
+        error: message,
+      },
+    );
   }
 }
 

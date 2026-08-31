@@ -322,6 +322,10 @@ function isValidProject(value: unknown, clients: Client[]): value is Project {
   );
 }
 
+function normalizedProjectName(name: string): string {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 function isValidEntry(value: unknown, projects: Project[]): value is TimeEntry {
   if (!value || typeof value !== "object") return false;
   const entry = value as Partial<TimeEntry>;
@@ -1685,9 +1689,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const addProject = (project: Omit<Project, "id">): StoreResult => {
       if (!can("manage-projects"))
         return { success: false, error: "Only Admins and the Owner can manage projects." };
-      if (!project.name.trim()) return { success: false, error: "A project name is required." };
+      const projectName = project.name.trim().replace(/\s+/g, " ");
+      if (!projectName) return { success: false, error: "A project name is required." };
       if (!clients.some((client) => client.id === project.clientId))
         return { success: false, error: "Choose an existing client for this project." };
+      if (
+        projects.some(
+          (current) =>
+            current.clientId === project.clientId &&
+            normalizedProjectName(current.name) === normalizedProjectName(projectName),
+        )
+      )
+        return {
+          success: false,
+          error: "A project with this name already exists for this client.",
+        };
       if (typeof project.billable !== "boolean")
         return { success: false, error: "Choose whether this project is billable." };
       if (!can("manage-project-members"))
@@ -1701,7 +1717,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Only active members can be assigned to a project." };
       const createdProject: Project = {
         ...project,
-        name: project.name.trim(),
+        name: projectName,
         memberIds: [...new Set([...project.memberIds, activeMemberId])],
         id: nextId(
           "p",
@@ -1725,10 +1741,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Only Admins and the Owner can manage projects." };
       const current = projects.find((project) => project.id === id);
       if (!current) return { success: false, error: "This project no longer exists." };
-      const next = { ...current, ...patch, name: (patch.name ?? current.name).trim() };
+      const next = {
+        ...current,
+        ...patch,
+        name: (patch.name ?? current.name).trim().replace(/\s+/g, " "),
+      };
       if (!next.name) return { success: false, error: "A project name is required." };
       if (!clients.some((client) => client.id === next.clientId))
         return { success: false, error: "A project must keep a valid client." };
+      if (
+        projects.some(
+          (candidate) =>
+            candidate.id !== id &&
+            candidate.clientId === next.clientId &&
+            normalizedProjectName(candidate.name) === normalizedProjectName(next.name),
+        )
+      )
+        return {
+          success: false,
+          error: "A project with this name already exists for this client.",
+        };
       if (typeof next.billable !== "boolean")
         return { success: false, error: "Choose whether this project is billable." };
       if ("memberIds" in patch && !can("manage-project-members"))
