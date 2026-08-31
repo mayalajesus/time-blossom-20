@@ -74,6 +74,7 @@ export function DataTable({
   children,
   minWidth = "min-w-full",
   contentClassName,
+  scrollContainerClassName,
   className,
   pagination,
   footer,
@@ -84,6 +85,7 @@ export function DataTable({
   children: ReactNode;
   minWidth?: string;
   contentClassName?: string;
+  scrollContainerClassName?: string;
   className?: string;
   pagination?: DataTablePagination;
   footer?: ReactNode;
@@ -131,7 +133,7 @@ export function DataTable({
       ) : null}
       <Table className={className ?? ""}>
         <Table.ScrollContainer
-          className="min-w-0 max-w-full"
+          className={`min-w-0 max-w-full ${scrollContainerClassName ?? ""}`.trim()}
           tabIndex={isScrollable ? 0 : undefined}
           aria-describedby={scrollHint ? descriptionId : undefined}
         >

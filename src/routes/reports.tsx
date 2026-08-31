@@ -164,25 +164,25 @@ const weeklyOptions: Array<{ id: WeeklyDimension; label: string }> = [
 const defaultVisibleFilters: ReportFilterKey[] = ["member", "client", "project", "billability"];
 
 const detailedColumnOptions: Array<{ id: DetailedColumn; label: string }> = [
-  { id: "date", label: "Date" },
   { id: "member", label: "Member" },
   { id: "projectClient", label: "Project / client" },
   { id: "task", label: "Task" },
   { id: "description", label: "Description" },
+  { id: "date", label: "Date" },
   { id: "start", label: "Start" },
   { id: "end", label: "End" },
   { id: "duration", label: "Duration" },
-  { id: "billability", label: "Billing" },
+  { id: "billability", label: "Billability" },
   { id: "hourlyRate", label: "Hourly rate" },
   { id: "currency", label: "Currency" },
-  { id: "value", label: "Estimated billable value" },
+  { id: "value", label: "Billing" },
 ];
 
 const defaultDetailedColumns: DetailedColumn[] = [
-  "date",
   "member",
   "projectClient",
   "task",
+  "date",
   "start",
   "end",
   "duration",
@@ -1358,8 +1358,6 @@ function ReportsPage() {
           ) : (
             <DetailedReport
               entries={filteredEntries}
-              page={search.page}
-              onPageChange={(page) => updateSearch({ page })}
               onClear={clearFilters}
               members={members}
               projects={projects}
@@ -2307,7 +2305,7 @@ function OverviewDashboard({
               </Table.Column>
               <Table.Column className="w-36 whitespace-nowrap">{t("Tracked")}</Table.Column>
               <Table.Column className="w-px whitespace-nowrap text-right">
-                {t("Billable value")}
+                {t("Billing")}
               </Table.Column>
             </Table.Header>
             <Table.Body>
@@ -2444,8 +2442,6 @@ function EmptyReport({ onClear }: { onClear: () => void }) {
 
 function DetailedReport({
   entries,
-  page,
-  onPageChange,
   onClear,
   members,
   projects,
@@ -2455,8 +2451,6 @@ function DetailedReport({
   fallbackForEntry,
 }: {
   entries: TimeEntry[];
-  page: number;
-  onPageChange: (page: number) => void;
   onClear: () => void;
   members: Member[];
   projects: Project[];
@@ -2466,23 +2460,10 @@ function DetailedReport({
   fallbackForEntry: (entry: TimeEntry) => BillingPreference;
 }) {
   const { locale, t } = useI18n();
-  const pageSize = 50;
-  const pageCount = Math.max(1, Math.ceil(entries.length / pageSize));
-  const currentPage = Math.min(page, pageCount);
-  const pageEntries = entries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const visibleColumns = detailedColumnOptions.filter((column) => columns.includes(column.id));
-  const totalSeconds = entries.reduce((sum, entry) => sum + entry.seconds, 0);
-  const billableSeconds = entries
-    .filter((entry) => entry.billable)
-    .reduce((sum, entry) => sum + entry.seconds, 0);
-  const billableTotals = sumBillableValues(entries, fallbackForEntry);
-  const billableCurrencies = currencyOptions.filter(
-    (currency) => billableTotals[currency] !== undefined,
-  );
   return (
     <ReportTableWidget
       title={t("Detailed entries")}
-      description={t("Choose the columns you need for this view.")}
       action={<ReportColumnPicker columns={columns} onChange={onChangeColumns} />}
       contentDescription={t("Detailed report table")}
       isEmpty={entries.length === 0}
@@ -2499,79 +2480,41 @@ function DetailedReport({
     >
       <DataTable
         label={t("Detailed report table")}
-        minWidth="min-w-[1280px]"
-        scrollHint={t("Scroll horizontally to see all columns")}
-        footer={
-          <div className="flex w-full flex-wrap items-center gap-4">
-            <span className="whitespace-nowrap">
-              {t("Entries")}: {entries.length}
-            </span>
-            <span className="whitespace-nowrap">
-              {t("Tracked")}: {formatDuration(totalSeconds, locale)}
-            </span>
-            <span className="whitespace-nowrap">
-              {t("Billable")}: {formatDuration(billableSeconds, locale)}
-            </span>
-            <span className="whitespace-nowrap">
-              {t("Internal")}: {formatDuration(totalSeconds - billableSeconds, locale)}
-            </span>
-            {billableCurrencies.map((currency) => (
-              <span key={currency} className="whitespace-nowrap">
-                {t("Estimated billable value")} ({currency}):{" "}
-                {formatMoney(billableTotals[currency] ?? 0, currency, locale)}
-              </span>
-            ))}
-            {billableCurrencies.length === 0 ? (
-              <span className="whitespace-nowrap">
-                {t("Estimated billable value")}: {t("No estimated billable value")}
-              </span>
-            ) : null}
-          </div>
-        }
-        pagination={{
-          page: currentPage,
-          totalPages: pageCount,
-          onPageChange,
-          summary: (
-            <span>
-              {t("{count} entries · page {page} of {pages}", {
-                count: entries.length,
-                page: currentPage,
-                pages: pageCount,
-              })}
-            </span>
-          ),
-          previousLabel: t("Previous"),
-          nextLabel: t("Next"),
-          ariaLabel: t("Report pages"),
-        }}
+        minWidth="min-w-full"
+        contentClassName="table-auto"
+        scrollContainerClassName="max-h-[60vh] overflow-y-auto md:max-h-[calc(100vh-22.5rem)]"
       >
-        <Table.Header>
+        <Table.Header className="sticky top-0 z-10">
           {visibleColumns.map((column, index) => (
-            <Table.Column key={column.id} isRowHeader={index === 0}>
-              {column.id === "billability" ? (
-                <span className="inline-flex items-center gap-2">
-                  <BillableIndicator billable={null} mode="icon" />
-                  <span>{t(column.label)}</span>
-                </span>
-              ) : (
-                t(column.label)
-              )}
+            <Table.Column
+              key={column.id}
+              isRowHeader={index === 0}
+              className={
+                column.id === "description"
+                  ? "max-w-[26rem]"
+                  : column.id === "task"
+                    ? "max-w-[22rem]"
+                    : undefined
+              }
+            >
+              {t(column.label)}
             </Table.Column>
           ))}
         </Table.Header>
         <Table.Body>
-          {pageEntries.map((entry) => (
+          {entries.map((entry) => (
             <Table.Row key={entry.id}>
               {visibleColumns.map((column) => (
                 <Table.Cell
                   key={column.id}
                   className={
-                    column.id === "task" ||
-                    column.id === "projectClient" ||
-                    column.id === "description"
-                      ? ""
-                      : "whitespace-nowrap"
+                    column.id === "task"
+                      ? "max-w-[22rem] whitespace-normal"
+                      : column.id === "description"
+                        ? "max-w-[26rem] whitespace-normal"
+                        : column.id === "projectClient"
+                          ? ""
+                          : "whitespace-nowrap"
                   }
                 >
                   {renderDetailedCell(
@@ -2617,9 +2560,19 @@ function renderDetailedCell(
       </div>
     );
   }
-  if (column === "task") return <div className="truncate">{entry.task}</div>;
+  if (column === "task") {
+    return (
+      <div className="max-w-[22rem] whitespace-normal break-words leading-relaxed">
+        {entry.task}
+      </div>
+    );
+  }
   if (column === "description") {
-    return <div className="truncate">{entry.description ?? "—"}</div>;
+    return (
+      <div className="max-w-[26rem] whitespace-normal break-words leading-relaxed">
+        {entry.description ?? "—"}
+      </div>
+    );
   }
   if (column === "start") return entry.start;
   if (column === "end") return endLabel(entry);
