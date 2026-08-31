@@ -1720,8 +1720,6 @@ function OverviewDashboard({
     (highest, item) => (!highest || item.currentTotal > highest.currentTotal ? item : highest),
     null,
   );
-  const consistencyPercentage = overviewConsistencyPercentage(analytics);
-  const weekdayData = overviewWeekdayRows(analytics, locale);
   const evolutionSummary = [
     `${t("Activity time")}: ${formattedActivityTimePercentage}%`,
     `${t("Tracked")}: ${formatDuration(summary.totalSeconds, locale)}`,
@@ -1745,9 +1743,6 @@ function OverviewDashboard({
           item.percentage,
         )}%.`,
     )
-    .join(". ");
-  const weekdaySummary = weekdayData
-    .map((item) => `${item.fullLabel}: ${formatDuration(item.seconds, locale)}`)
     .join(". ");
 
   return (
@@ -2239,105 +2234,6 @@ function OverviewDashboard({
                 </div>
               );
             })}
-          </div>
-        </ReportWidget>
-      </div>
-      <div className="grid min-w-0 md:col-span-2 xl:col-span-12">
-        <ReportWidget
-          title={
-            <OverviewTooltipTitle
-              label={t("Work rhythm")}
-              help={t("Consistency is the share of selected days with registered activity.")}
-            />
-          }
-          contentDescription={`${weekdaySummary}. ${t("Average session")}: ${formatDuration(
-            summary.averageEntryDurationSeconds,
-            locale,
-          )}. ${t("Longest session")}: ${formatDuration(
-            summary.longestEntryDurationSeconds,
-            locale,
-          )}. ${t("Consistency")}: ${percentageFormatter.format(consistencyPercentage)}%.`}
-          isEmpty={summary.totalSeconds === 0}
-          emptyState={{ title: t("No chart data") }}
-        >
-          <div className="grid min-w-0 gap-6 xl:grid-cols-12">
-            <div className="min-w-0 space-y-3 xl:col-span-8">
-              <Typography type="body-xs" color="muted" weight="medium">
-                {t("Activity by weekday")}
-              </Typography>
-              <ReportChart
-                config={{
-                  seconds: { label: t("Tracked"), color: reportChartColors.accent },
-                }}
-                summary={weekdaySummary}
-                height="compact"
-              >
-                <BarChart accessibilityLayer data={weekdayData} margin={{ left: 0, right: 8 }}>
-                  <CartesianGrid {...reportChartGridProps} />
-                  <XAxis
-                    {...reportChartAxisProps}
-                    dataKey="weekday"
-                    interval={0}
-                    tickFormatter={(value) => shortenReportChartLabel(value, 5)}
-                  />
-                  <YAxis {...reportChartAxisProps} hide />
-                  <ChartTooltip
-                    {...reportChartTooltipProps}
-                    content={
-                      <ChartTooltipContent
-                        valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
-                      />
-                    }
-                  />
-                  <Bar
-                    {...reportVerticalBarProps}
-                    dataKey="seconds"
-                    fill={reportChartColors.accent}
-                  />
-                </BarChart>
-              </ReportChart>
-            </div>
-            <div className="grid grid-cols-2 gap-5 xl:col-span-4">
-              <ActivitySummaryItem
-                label={t("Average session")}
-                value={formatDuration(summary.averageEntryDurationSeconds, locale)}
-              />
-              <ActivitySummaryItem
-                label={t("Longest session")}
-                value={formatDuration(summary.longestEntryDurationSeconds, locale)}
-              />
-              <div className="space-y-2">
-                <ActivitySummaryItem
-                  label={t("Consistency")}
-                  value={`${percentageFormatter.format(consistencyPercentage)}%`}
-                />
-                <ProgressBar
-                  aria-label={`${t("Consistency")}: ${percentageFormatter.format(
-                    consistencyPercentage,
-                  )}%`}
-                  color="accent"
-                  size="sm"
-                  value={consistencyPercentage}
-                >
-                  <ProgressBar.Track>
-                    <ProgressBar.Fill />
-                  </ProgressBar.Track>
-                </ProgressBar>
-              </div>
-              <ActivitySummaryItem
-                label={t("Peak day")}
-                value={
-                  summary.busiestDay ? (
-                    <span>
-                      {formatDuration(summary.busiestDay.seconds, locale)} ·{" "}
-                      {formatDate(summary.busiestDay.id, locale)}
-                    </span>
-                  ) : (
-                    "—"
-                  )
-                }
-              />
-            </div>
           </div>
         </ReportWidget>
       </div>
