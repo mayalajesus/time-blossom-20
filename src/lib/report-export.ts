@@ -13,6 +13,12 @@ export type ReportExportSummaryItem = {
   value: string;
 };
 
+export type ReportExportSection = {
+  title: string;
+  columns: string[];
+  rows: Array<Record<string, string | number>>;
+};
+
 export type ReportExportPayload = {
   /** Stable filename stem. */
   title: string;
@@ -23,6 +29,7 @@ export type ReportExportPayload = {
   summary?: ReportExportSummaryItem[];
   columns: string[];
   rows: Array<Record<string, string | number>>;
+  sections?: ReportExportSection[];
   locale?: Locale;
   branding?: {
     workspaceName: string;
@@ -51,10 +58,19 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 function exportCsv(payload: ReportExportPayload): ReportExportResult {
   try {
-    const rows = [
-      payload.columns,
-      ...payload.rows.map((row) => payload.columns.map((column) => row[column] ?? "")),
-    ];
+    const rows: Array<Array<string | number>> = [];
+    if (payload.displayTitle) rows.push([payload.displayTitle]);
+    if (payload.subtitle) rows.push([payload.subtitle]);
+    for (const item of payload.meta ?? []) rows.push([item.label, item.value]);
+    if ((payload.meta?.length ?? 0) > 0) rows.push([]);
+    for (const item of payload.summary ?? []) rows.push([item.label, item.value]);
+    if ((payload.summary?.length ?? 0) > 0) rows.push([]);
+    rows.push(payload.columns);
+    rows.push(...payload.rows.map((row) => payload.columns.map((column) => row[column] ?? "")));
+    for (const section of payload.sections ?? []) {
+      rows.push([], [section.title], section.columns);
+      rows.push(...section.rows.map((row) => section.columns.map((column) => row[column] ?? "")));
+    }
     const csv = `\uFEFF${rows.map((row) => row.map(escapeCsv).join(",")).join("\n")}`;
     downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${payload.title}.csv`);
     return { success: true };
@@ -68,9 +84,39 @@ function exportCsv(payload: ReportExportPayload): ReportExportResult {
 
 function exportXlsx(payload: ReportExportPayload): ReportExportResult {
   try {
-    const worksheet = XLSX.utils.json_to_sheet(payload.rows, { header: payload.columns });
     const workbook = XLSX.utils.book_new();
+    const contextRows: Array<Array<string | number>> = [];
+    if (payload.displayTitle) contextRows.push([payload.displayTitle]);
+    if (payload.subtitle) contextRows.push([payload.subtitle]);
+    for (const item of payload.meta ?? []) contextRows.push([item.label, item.value]);
+    if ((payload.meta?.length ?? 0) > 0) contextRows.push([]);
+    for (const item of payload.summary ?? []) contextRows.push([item.label, item.value]);
+    if (contextRows.length > 0) {
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(contextRows), "Summary");
+    }
+    const worksheet = XLSX.utils.json_to_sheet(payload.rows, { header: payload.columns });
     XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+    const usedNames = new Set(workbook.SheetNames);
+    for (const [index, section] of (payload.sections ?? []).entries()) {
+      const baseName =
+        section.title
+          .replace(/[\\/?*:[\]]/g, " ")
+          .trim()
+          .slice(0, 31) || `Section ${index + 1}`;
+      let sheetName = baseName;
+      let suffix = 2;
+      while (usedNames.has(sheetName)) {
+        const suffixText = ` ${suffix}`;
+        sheetName = `${baseName.slice(0, 31 - suffixText.length)}${suffixText}`;
+        suffix += 1;
+      }
+      usedNames.add(sheetName);
+      XLSX.utils.book_append_sheet(
+        workbook,
+        XLSX.utils.json_to_sheet(section.rows, { header: section.columns }),
+        sheetName,
+      );
+    }
     XLSX.writeFile(workbook, `${payload.title}.xlsx`);
     return { success: true };
   } catch {
@@ -342,6 +388,123 @@ async function exportPdf(payload: ReportExportPayload): Promise<ReportExportResu
       });
       currentY -= rowHeight;
       rowIndex += 1;
+    }
+    for (const section of payload.sections ?? []) {
+      const sectionColumns = section.columns.length ? section.columns : ["Details"];
+      const sectionRows = section.rows.length
+        ? section.rows
+        : [
+            {
+              [sectionColumns[0]!]: translate(
+                "No records match the selected report.",
+                payload.locale,
+              ),
+            },
+          ];
+      const sectionWeights = sectionColumns.map((column) => {
+        const sample = sectionRows
+          .slice(0, 20)
+          .reduce((size, row) => Math.max(size, String(row[column] ?? "").length), column.length);
+        return Math.min(2.4, Math.max(0.65, sample / 15));
+      });
+      const sectionWeightTotal = sectionWeights.reduce((sum, weight) => sum + weight, 0);
+      const sectionWidths = sectionWeights.map(
+        (weight) => (tableWidth * weight) / sectionWeightTotal,
+      );
+      const sectionFontSize =
+        sectionColumns.length > 9 ? 6.2 : sectionColumns.length > 7 ? 6.8 : 7.4;
+
+      if (currentY - headerHeight - rowHeight - 30 < 34) {
+        pageNumber += 1;
+        page = pdf.addPage(pageSize);
+        drawHeader(page, pageNumber);
+        currentY = pageSize[1] - margin - 104;
+      } else {
+        currentY -= 20;
+      }
+      page.drawText(section.title, {
+        x: margin,
+        y: currentY,
+        size: 11,
+        font: bold,
+        color: ink,
+      });
+      currentY -= 12;
+
+      const drawSectionHeader = () => {
+        let x = margin;
+        page.drawRectangle({
+          x: margin,
+          y: currentY - headerHeight,
+          width: tableWidth,
+          height: headerHeight,
+          color: rgb(0.91, 0.94, 0.97),
+          borderColor: border,
+          borderWidth: 0.7,
+        });
+        sectionColumns.forEach((column, index) => {
+          page.drawText(
+            truncatePdfText(column, bold, sectionFontSize, sectionWidths[index]! - 10),
+            {
+              x: x + 5,
+              y: currentY - 15,
+              size: sectionFontSize,
+              font: bold,
+              color: muted,
+            },
+          );
+          x += sectionWidths[index]!;
+        });
+        currentY -= headerHeight;
+      };
+
+      drawSectionHeader();
+      for (const [sectionRowIndex, sectionRow] of sectionRows.entries()) {
+        if (currentY - rowHeight < 34) {
+          pageNumber += 1;
+          page = pdf.addPage(pageSize);
+          drawHeader(page, pageNumber);
+          currentY = pageSize[1] - margin - 104;
+          drawSectionHeader();
+        }
+        let x = margin;
+        if (sectionRowIndex % 2 === 1) {
+          page.drawRectangle({
+            x: margin,
+            y: currentY - rowHeight,
+            width: tableWidth,
+            height: rowHeight,
+            color: rgb(0.985, 0.99, 0.995),
+          });
+        }
+        sectionColumns.forEach((column, index) => {
+          const value = sectionRow[column] ?? "—";
+          page.drawText(
+            truncatePdfText(value, regular, sectionFontSize, sectionWidths[index]! - 10),
+            {
+              x: x + 5,
+              y: currentY - 14,
+              size: sectionFontSize,
+              font: regular,
+              color: ink,
+            },
+          );
+          page.drawLine({
+            start: { x, y: currentY },
+            end: { x: x + sectionWidths[index]!, y: currentY },
+            thickness: 0.45,
+            color: border,
+          });
+          x += sectionWidths[index]!;
+        });
+        page.drawLine({
+          start: { x: margin, y: currentY - rowHeight },
+          end: { x: margin + tableWidth, y: currentY - rowHeight },
+          thickness: 0.45,
+          color: border,
+        });
+        currentY -= rowHeight;
+      }
     }
     page.drawText(
       `${workspaceName} · ${payload.rows.length} ${translate("records", payload.locale)}`,

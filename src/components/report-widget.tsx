@@ -1,6 +1,7 @@
 import { Alert, Card, Chip, Spinner, Typography } from "@heroui/react";
 import { ArrowDown, ArrowUp, Minus } from "@gravity-ui/icons";
 import { useId, type ComponentProps, type ReactNode } from "react";
+import { BillableIndicator } from "./billable-indicator";
 import type { ChartConfig } from "./ui/chart";
 import { ChartContainer } from "./ui/chart";
 import { cn } from "../lib/utils";
@@ -263,6 +264,7 @@ export type ReportChartLegendItem = {
   key: string;
   label: ReactNode;
   tone?: "accent" | "danger" | "default" | "success" | "warning";
+  billable?: boolean;
 };
 
 export function ReportChartLegend({
@@ -274,11 +276,15 @@ export function ReportChartLegend({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label={accessibleLabel}>
-      {items.slice(0, reportChartCategoryLimits.default).map((item) => (
-        <Chip key={item.key} size="sm" variant="soft" color={item.tone ?? "default"}>
-          <Chip.Label>{item.label}</Chip.Label>
-        </Chip>
-      ))}
+      {items.slice(0, reportChartCategoryLimits.default).map((item) =>
+        item.billable === undefined ? (
+          <Chip key={item.key} size="sm" variant="soft" color={item.tone ?? "default"}>
+            <Chip.Label>{item.label}</Chip.Label>
+          </Chip>
+        ) : (
+          <BillableIndicator key={item.key} billable={item.billable} />
+        ),
+      )}
     </div>
   );
 }

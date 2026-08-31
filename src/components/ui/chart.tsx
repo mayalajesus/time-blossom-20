@@ -87,6 +87,7 @@ export function ChartTooltipContent({
   hideLabel = false,
   indicator = "dot",
   valueFormatter,
+  footerFormatter,
 }: {
   active?: boolean;
   payload?: Array<Payload<ValueType, NameType>>;
@@ -95,6 +96,7 @@ export function ChartTooltipContent({
   hideLabel?: boolean;
   indicator?: "line" | "dot" | "dashed";
   valueFormatter?: (value: ValueType | undefined, name: NameType | undefined) => React.ReactNode;
+  footerFormatter?: (payload: Array<Payload<ValueType, NameType>>) => React.ReactNode;
 }) {
   const { config } = useChart();
   if (!active || !payload?.length) return null;
@@ -131,6 +133,7 @@ export function ChartTooltipContent({
           );
         })}
       </div>
+      {footerFormatter ? <div className="pt-1">{footerFormatter(payload)}</div> : null}
     </div>
   );
 }

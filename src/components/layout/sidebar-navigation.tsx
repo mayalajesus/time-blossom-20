@@ -13,6 +13,7 @@ import {
 } from "@gravity-ui/icons";
 import type { ComponentType, SVGProps } from "react";
 import { useI18n } from "@/lib/i18n";
+import { normalizeReportView, reportViews } from "@/lib/report-views";
 
 type NavigationItem = {
   to: string;
@@ -32,20 +33,9 @@ const managementNavigation: NavigationItem[] = [
   { to: "/workspaces", label: "Workspaces", icon: Layers },
 ];
 
-const reportViews = [
-  { id: "overview", label: "Overview" },
-  { id: "summary", label: "Analysis" },
-  { id: "detailed", label: "Detailed" },
-  { id: "weekly", label: "Activity" },
-  { id: "team", label: "Team" },
-] as const;
-
-type ReportView = (typeof reportViews)[number]["id"];
-
-function getReportView(search: unknown): ReportView {
+function getReportView(search: unknown) {
   if (search && typeof search === "object" && "view" in search) {
-    const value = (search as { view?: unknown }).view;
-    if (reportViews.some((report) => report.id === value)) return value as ReportView;
+    return normalizeReportView((search as { view?: unknown }).view);
   }
   return "overview";
 }

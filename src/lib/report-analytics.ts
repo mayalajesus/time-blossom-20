@@ -1,6 +1,7 @@
 import {
   billableValue,
   billingForEntry,
+  currencyOptions,
   type BillingPreference,
   type CurrencyCode,
   type MoneyTotals,
@@ -103,6 +104,27 @@ export type CharacteristicTimes = {
   latestEndSeconds: number;
 };
 
+export type FinancialDimension = {
+  id: string;
+  label: string;
+  billableSeconds: number;
+  valueByCurrency: MoneyTotals;
+};
+
+export type FinancialTemporalBucket = Pick<
+  TemporalBucket,
+  "key" | "granularity" | "startDate" | "endDate"
+> & {
+  valueByCurrency: MoneyTotals;
+};
+
+export type ReportFinancialAnalytics = {
+  currencies: CurrencyCode[];
+  projects: FinancialDimension[];
+  clients: FinancialDimension[];
+  temporal: FinancialTemporalBucket[];
+};
+
 export type ShiftSegment = {
   shift: ShiftId;
   date: string;
@@ -146,12 +168,14 @@ export type ReportAnalytics = {
   granularity: TemporalGranularity;
   summary: ReportMetrics;
   temporal: TemporalBucket[];
+  previousTemporal: TemporalBucket[];
   shifts: ShiftTotal[];
   shiftTemporal: ShiftTemporalBucket[];
   previousShifts: ShiftTotal[];
   weekdayActivity: WeekdayActivity[];
   workdayWeekend: WorkdayWeekendActivity;
   characteristicTimes: CharacteristicTimes | null;
+  financial: ReportFinancialAnalytics;
   comparison: ReportComparison;
 };
 
@@ -610,6 +634,136 @@ export function groupEntriesByTime(
   return buckets;
 }
 
+type FinancialDimensionAccumulator = {
+  id: string;
+  label: string;
+  billableSeconds: number;
+  valueByCurrency: MoneyTotals;
+};
+
+function addFinancialDimension(
+  totals: Map<string, FinancialDimensionAccumulator>,
+  id: string,
+  label: string,
+  seconds: number,
+  currency: CurrencyCode,
+  value: number,
+): void {
+  const current = totals.get(id) ?? {
+    id,
+    label,
+    billableSeconds: 0,
+    valueByCurrency: {},
+  };
+  current.billableSeconds += seconds;
+  current.valueByCurrency[currency] = (current.valueByCurrency[currency] ?? 0) + value;
+  totals.set(id, current);
+}
+
+function sortFinancialDimensions(
+  dimensions: Map<string, FinancialDimensionAccumulator>,
+  currencies: readonly CurrencyCode[],
+): FinancialDimension[] {
+  const currency = currencies.length === 1 ? currencies[0] : null;
+  return [...dimensions.values()].sort((first, second) => {
+    const firstValue = currency ? (first.valueByCurrency[currency] ?? 0) : first.billableSeconds;
+    const secondValue = currency ? (second.valueByCurrency[currency] ?? 0) : second.billableSeconds;
+    return (
+      secondValue - firstValue ||
+      first.label.localeCompare(second.label) ||
+      first.id.localeCompare(second.id)
+    );
+  });
+}
+
+export function getReportBillableCurrencies(
+  entries: readonly TimeEntry[],
+  options: {
+    range: DateRange;
+    fallbackForEntry: (entry: TimeEntry) => BillingPreference;
+    timeZone?: string;
+  },
+): CurrencyCode[] {
+  const timeZone = options.timeZone ?? DEFAULT_TIME_ZONE;
+  const currencies = new Set<CurrencyCode>();
+  for (const slice of clippedEntrySlices(entries, options.range, timeZone)) {
+    if (!slice.entry.billable) continue;
+    currencies.add(billingForEntry(slice.entry, options.fallbackForEntry(slice.entry)).currency);
+  }
+  return currencyOptions.filter((currency) => currencies.has(currency));
+}
+
+export function calculateReportFinancialAnalytics(
+  input: ReportAnalyticsInput,
+): ReportFinancialAnalytics {
+  const timeZone = input.timeZone ?? DEFAULT_TIME_ZONE;
+  const weekStartsOn = input.weekStartsOn ?? 1;
+  const granularity = getTemporalGranularity(input.range);
+  const projects = new Map((input.projects ?? []).map((project) => [project.id, project]));
+  const clients = new Map((input.clients ?? []).map((client) => [client.id, client]));
+  const projectTotals = new Map<string, FinancialDimensionAccumulator>();
+  const clientTotals = new Map<string, FinancialDimensionAccumulator>();
+  const temporal: FinancialTemporalBucket[] = createTemporalBuckets(
+    input.range,
+    granularity,
+    weekStartsOn,
+  ).map((bucket) => ({
+    key: bucket.key,
+    granularity: bucket.granularity,
+    startDate: bucket.startDate,
+    endDate: bucket.endDate,
+    valueByCurrency: {},
+  }));
+  const temporalByKey = new Map(temporal.map((bucket) => [bucket.key, bucket]));
+  const currencies = new Set<CurrencyCode>();
+
+  for (const slice of clippedEntrySlices(input.entries, input.range, timeZone)) {
+    if (!slice.entry.billable) continue;
+    const billing = billingForEntry(slice.entry, input.fallbackForEntry(slice.entry));
+    const value = billableValue({ ...slice.entry, seconds: slice.seconds }, billing);
+    currencies.add(billing.currency);
+
+    const project = slice.entry.projectId ? projects.get(slice.entry.projectId) : undefined;
+    const projectId = slice.entry.projectId ?? "none";
+    addFinancialDimension(
+      projectTotals,
+      projectId,
+      project?.name ?? (slice.entry.projectId ? "Unknown project" : "No project"),
+      slice.seconds,
+      billing.currency,
+      value,
+    );
+
+    const client = project ? clients.get(project.clientId) : undefined;
+    const clientId = project?.clientId ?? "none";
+    addFinancialDimension(
+      clientTotals,
+      clientId,
+      client?.name ?? (project ? "Unknown client" : "No client"),
+      slice.seconds,
+      billing.currency,
+      value,
+    );
+
+    for (const daySlice of splitSliceByDay(slice, timeZone)) {
+      const key = temporalKey(daySlice.date, granularity, weekStartsOn);
+      const bucket = temporalByKey.get(key);
+      if (!bucket) continue;
+      const dayValue = billableValue({ ...daySlice.entry, seconds: daySlice.seconds }, billing);
+      bucket.valueByCurrency[billing.currency] =
+        (bucket.valueByCurrency[billing.currency] ?? 0) + dayValue;
+    }
+  }
+
+  const sortedCurrencies = currencyOptions.filter((currency) => currencies.has(currency));
+  return {
+    currencies: sortedCurrencies,
+    projects: sortFinancialDimensions(projectTotals, sortedCurrencies),
+    clients: sortFinancialDimensions(clientTotals, sortedCurrencies),
+    temporal,
+  };
+}
+
 export function groupEntriesByShift(
   entries: readonly TimeEntry[],
   options: { range?: DateRange; timeZone?: string } = {},
@@ -866,18 +1020,25 @@ export function calculateReportAnalytics(input: ReportAnalyticsInput): ReportAna
     range: previousPeriod,
     ...(input.timeZone ? { timeZone: input.timeZone } : {}),
   };
+  const previousTemporalOptions = {
+    range: previousPeriod,
+    ...(input.timeZone ? { timeZone: input.timeZone } : {}),
+    ...(input.weekStartsOn !== undefined ? { weekStartsOn: input.weekStartsOn } : {}),
+  };
 
   return {
     period: input.range,
     granularity: getTemporalGranularity(input.range),
     summary: current,
     temporal: groupEntriesByTime(input.entries, temporalOptions),
+    previousTemporal: groupEntriesByTime(input.entries, previousTemporalOptions),
     shifts: groupEntriesByShift(input.entries, shiftOptions),
     shiftTemporal: groupEntriesByShiftAndTime(input.entries, temporalOptions),
     previousShifts: groupEntriesByShift(input.entries, previousShiftOptions),
     weekdayActivity: calculateWeekdayActivity(input.entries, activityOptions),
     workdayWeekend: calculateWorkdayWeekendActivity(input.entries, activityOptions),
     characteristicTimes: calculateCharacteristicTimes(input.entries, activityOptions),
+    financial: calculateReportFinancialAnalytics(input),
     comparison: compareReportMetrics(current, previous, previousPeriod),
   };
 }

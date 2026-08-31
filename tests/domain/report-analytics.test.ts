@@ -3,6 +3,7 @@ import type { BillingPreference, CurrencyCode } from "../../src/lib/billing";
 import type { Client, Project, TimeEntry } from "../../src/lib/mock-data";
 import {
   calculateCharacteristicTimes,
+  calculateReportFinancialAnalytics,
   calculateReportAnalytics,
   calculateReportMetrics,
   calculateWeekdayActivity,
@@ -12,6 +13,7 @@ import {
   groupEntriesByShift,
   groupEntriesByShiftAndTime,
   groupEntriesByTime,
+  getReportBillableCurrencies,
   splitEntryByShift,
 } from "../../src/lib/report-analytics";
 
@@ -312,6 +314,7 @@ describe("report analytics metrics", () => {
       delta: 3_600,
       percentageChange: 100,
     });
+    expect(analytics.previousTemporal.map((bucket) => bucket.totalSeconds)).toEqual([3_600, 0]);
     expect(analytics.previousShifts.find((shift) => shift.shift === "morning")?.seconds).toBe(
       3_600,
     );
@@ -339,6 +342,8 @@ describe("report analytics metrics", () => {
     });
     expect(analytics.temporal).toHaveLength(3);
     expect(analytics.temporal.every((bucket) => bucket.totalSeconds === 0)).toBe(true);
+    expect(analytics.previousTemporal).toHaveLength(3);
+    expect(analytics.previousTemporal.every((bucket) => bucket.totalSeconds === 0)).toBe(true);
     expect(analytics.shifts.every((shift) => shift.seconds === 0)).toBe(true);
   });
 
@@ -362,6 +367,46 @@ describe("report analytics metrics", () => {
     );
 
     expect(metrics.billableValueByCurrency).toEqual({ BRL: 180, USD: 100 });
+  });
+
+  it("compares estimated billable values only within the same currency", () => {
+    const analytics = calculateReportAnalytics(
+      options(
+        [
+          entry("previous-brl", "2026-08-09", "09:00", "10:00", 3_600, {
+            hourlyRate: 50,
+            currency: "BRL",
+          }),
+          entry("previous-usd", "2026-08-09", "10:00", "11:00", 3_600, {
+            hourlyRate: 20,
+            currency: "USD",
+          }),
+          entry("current-brl", "2026-08-10", "09:00", "10:00", 3_600, {
+            hourlyRate: 100,
+            currency: "BRL",
+          }),
+          entry("current-usd", "2026-08-10", "10:00", "12:00", 7_200, {
+            hourlyRate: 40,
+            currency: "USD",
+          }),
+        ],
+        "2026-08-10",
+        "2026-08-10",
+      ),
+    );
+
+    expect(analytics.comparison.billableValueByCurrency.BRL).toMatchObject({
+      current: 100,
+      previous: 50,
+      delta: 50,
+      percentageChange: 100,
+    });
+    expect(analytics.comparison.billableValueByCurrency.USD).toMatchObject({
+      current: 80,
+      previous: 20,
+      delta: 60,
+      percentageChange: 300,
+    });
   });
 
   it("assigns zero billable value to internal entries", () => {
@@ -400,5 +445,127 @@ describe("report analytics metrics", () => {
 
     expect(metrics.totalSeconds).toBe(7_290.5);
     expect(metrics.entryCount).toBe(3);
+  });
+});
+
+describe("report financial analytics", () => {
+  const projects: Project[] = [
+    {
+      id: "p1",
+      name: "Website",
+      clientId: "c1",
+      billable: true,
+      status: "active",
+      color: "blue",
+      lastActivity: "2026-08-10",
+      memberIds: ["u1"],
+    },
+    {
+      id: "p2",
+      name: "Campaign",
+      clientId: "c2",
+      billable: true,
+      status: "active",
+      color: "green",
+      lastActivity: "2026-08-11",
+      memberIds: ["u1"],
+    },
+  ];
+  const clients: Client[] = [
+    { id: "c1", name: "Acme", contact: "acme@example.com" },
+    { id: "c2", name: "Globex", contact: "globex@example.com" },
+  ];
+
+  it("keeps project, client and temporal values separated by snapshot currency", () => {
+    const entries = [
+      entry("brl", "2026-08-10", "09:00", "10:00", 3_600, {
+        projectId: "p1",
+        hourlyRate: 100,
+        currency: "BRL",
+      }),
+      entry("usd", "2026-08-11", "09:00", "11:00", 7_200, {
+        projectId: "p2",
+        hourlyRate: 50,
+        currency: "USD",
+      }),
+      entry("internal", "2026-08-11", "11:00", "12:00", 3_600, {
+        projectId: "p2",
+        billable: false,
+        hourlyRate: 500,
+        currency: "USD",
+      }),
+    ];
+    const input = options(entries, "2026-08-10", "2026-08-11", { projects, clients });
+    const financial = calculateReportFinancialAnalytics(input);
+
+    expect(getReportBillableCurrencies(entries, input)).toEqual(["BRL", "USD"]);
+    expect(financial.currencies).toEqual(["BRL", "USD"]);
+    expect(financial.projects).toMatchObject([
+      { id: "p2", billableSeconds: 7_200, valueByCurrency: { USD: 100 } },
+      { id: "p1", billableSeconds: 3_600, valueByCurrency: { BRL: 100 } },
+    ]);
+    expect(financial.clients).toMatchObject([
+      { id: "c2", label: "Globex", billableSeconds: 7_200, valueByCurrency: { USD: 100 } },
+      { id: "c1", label: "Acme", billableSeconds: 3_600, valueByCurrency: { BRL: 100 } },
+    ]);
+    expect(financial.temporal.map((bucket) => bucket.valueByCurrency)).toEqual([
+      { BRL: 100 },
+      { USD: 100 },
+    ]);
+  });
+
+  it("keeps snapshots stable when the fallback rate changes", () => {
+    const entries = [
+      entry("snapshot", "2026-08-10", "09:00", "10:00", 3_600, {
+        hourlyRate: 100,
+        currency: "BRL",
+      }),
+      entry("legacy", "2026-08-10", "10:00", "11:00", 3_600, { projectId: "p2" }),
+    ];
+    const base = options(entries, "2026-08-10", "2026-08-10", { projects, clients });
+    const first = calculateReportFinancialAnalytics({
+      ...base,
+      fallbackForEntry: () => ({ hourlyRate: 80, currency: "BRL" }),
+    });
+    const changed = calculateReportFinancialAnalytics({
+      ...base,
+      fallbackForEntry: () => ({ hourlyRate: 200, currency: "BRL" }),
+    });
+
+    expect(first.projects.find((project) => project.id === "p1")?.valueByCurrency.BRL).toBe(100);
+    expect(changed.projects.find((project) => project.id === "p1")?.valueByCurrency.BRL).toBe(100);
+    expect(first.projects.find((project) => project.id === "p2")?.valueByCurrency.BRL).toBe(80);
+    expect(changed.projects.find((project) => project.id === "p2")?.valueByCurrency.BRL).toBe(200);
+  });
+
+  it("groups estimated billable value weekly and monthly according to the report period", () => {
+    const weekly = calculateReportFinancialAnalytics(
+      options(
+        [
+          entry("week-one", "2026-02-02", "09:00", "10:00", 3_600, { hourlyRate: 100 }),
+          entry("week-two", "2026-02-09", "09:00", "10:00", 3_600, { hourlyRate: 100 }),
+        ],
+        "2026-02-01",
+        "2026-03-10",
+        { projects, clients },
+      ),
+    );
+    const monthly = calculateReportFinancialAnalytics(
+      options(
+        [entry("month", "2026-07-15", "09:00", "10:00", 3_600, { hourlyRate: 100 })],
+        "2026-01-01",
+        "2026-08-01",
+        { projects, clients },
+      ),
+    );
+
+    expect(weekly.temporal[0]?.granularity).toBe("week");
+    expect(weekly.temporal.find((bucket) => bucket.key === "2026-02-02")?.valueByCurrency.BRL).toBe(
+      100,
+    );
+    expect(monthly.temporal[0]?.granularity).toBe("month");
+    expect(monthly.temporal.find((bucket) => bucket.key === "2026-07")?.valueByCurrency.BRL).toBe(
+      100,
+    );
   });
 });

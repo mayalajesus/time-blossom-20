@@ -122,6 +122,20 @@ const ptBR: Record<string, string> = {
   Inactive: "Inativo",
   Archived: "Arquivado",
   "New project": "Novo projeto",
+  "Edit project": "Editar projeto",
+  "Duplicate project": "Duplicar projeto",
+  "Project duplicated": "Projeto duplicado",
+  "Copy of {name}": "Cópia de {name}",
+  "Project updated": "Projeto atualizado",
+  "Project color": "Cor do projeto",
+  Sky: "Azul-céu",
+  Violet: "Violeta",
+  Pink: "Rosa",
+  Orange: "Laranja",
+  Emerald: "Esmeralda",
+  Amber: "Âmbar",
+  Red: "Vermelho",
+  Slate: "Ardósia",
   "No projects here": "Nenhum projeto aqui",
   "Change the status filter or create a new project to get started.":
     "Altere o filtro de status ou crie um novo projeto para começar.",
@@ -212,8 +226,8 @@ const ptBR: Record<string, string> = {
     "Consulte cada registro com projeto, cliente, pessoa e faturamento.",
   "Compare totals with flexible project, client, member, task or date groups.":
     "Compare totais por projeto, cliente, membro, tarefa ou data.",
-  "See where tracked time and billable value are concentrated.":
-    "Veja onde o tempo registrado e o valor faturável estão concentrados.",
+  "See where tracked time and estimated billable value are concentrated.":
+    "Veja onde o tempo registrado e o valor faturável estimado estão concentrados.",
   "Review one complete week across projects or team members.":
     "Revise uma semana completa por projeto ou membro da equipe.",
   "Understand when registered activity happens and how routines change over time.":
@@ -231,6 +245,33 @@ const ptBR: Record<string, string> = {
   "Tracked time": "Tempo registrado",
   "Billable time": "Tempo faturável",
   "Estimated billable value": "Valor faturável estimado",
+  "More information about {label}": "Mais informações sobre {label}",
+  "Comparisons use the previous equivalent period.":
+    "As comparações usam o período anterior equivalente.",
+  "Only entries marked as billable are included in this total.":
+    "Somente lançamentos marcados como faturáveis entram neste total.",
+  "The line compares the previous equivalent period with the current one.":
+    "A linha compara o período anterior equivalente com o período atual.",
+  "Current period": "Período atual",
+  "Previous period": "Período anterior",
+  Difference: "Diferença",
+  "Estimate based on billable time and the hourly-rate snapshot of each entry.":
+    "Estimativa baseada no tempo faturável e no snapshot do valor/hora de cada lançamento.",
+  Change: "Variação",
+  "versus previous period": "em relação ao período anterior",
+  "Estimated billable value by project": "Valor faturável estimado por projeto",
+  "Estimated billable value by client": "Valor faturável estimado por cliente",
+  "Estimated billable value evolution": "Evolução do valor faturável estimado",
+  "Up to six projects, shown in {currency}.": "Até seis projetos, exibidos em {currency}.",
+  "Up to six clients, with billable time as supporting information.":
+    "Até seis clientes, com o tempo faturável como informação secundária.",
+  "Daily, weekly or monthly grouping according to the selected period.":
+    "Agrupamento diário, semanal ou mensal conforme o período selecionado.",
+  "Select one currency": "Selecione uma moeda",
+  "Use the currency filter to compare values on a single axis.":
+    "Use o filtro de moeda para comparar valores em um único eixo.",
+  "No estimated billable value": "Sem valor faturável estimado",
+  "All currencies": "Todas as moedas",
   "Active days": "Dias ativos",
   "Activity evolution": "Evolução da atividade",
   "Billable and internal time over the selected period.":
@@ -294,18 +335,56 @@ const ptBR: Record<string, string> = {
   "Billing by group": "Cobrança por grupo",
   "Billable and internal time within each leading group.":
     "Tempo faturável e interno em cada grupo principal.",
-  "Billable value by group": "Valor faturável por grupo",
+  "Estimated billable value by group": "Valor faturável estimado por grupo",
   "Values shown in {currency}.": "Valores exibidos em {currency}.",
-  "No billable value": "Sem valor faturável",
   "Multiple currencies cannot be compared on the same axis.":
     "Múltiplas moedas não podem ser comparadas no mesmo eixo.",
-  "No billable value in the selected period.": "Não há valor faturável no período selecionado.",
+  "No estimated billable value in the selected period.":
+    "Não há valor faturável estimado no período selecionado.",
   "Totals remain separated by currency; no conversion is applied.":
     "Os totais permanecem separados por moeda; nenhuma conversão é aplicada.",
   "Complete analysis": "Análise completa",
   "All groups in the selected hierarchy.": "Todos os grupos da hierarquia selecionada.",
   "Billable percentage": "Percentual faturável",
   "Average entry duration": "Duração média por lançamento",
+  "Detailed entries": "Lançamentos detalhados",
+  Billing: "Cobrança",
+  View: "Visualização",
+  Grouping: "Agrupamento",
+  Subgroup: "Subgrupo",
+  Day: "Dia",
+  Week: "Semana",
+  Month: "Mês",
+  "Shift analysis": "Análise por turno",
+  "Time by member": "Tempo por membro",
+  "Up to eight members, ordered by registered activity.":
+    "Até oito membros, ordenados pela atividade registrada.",
+  "Billable percentage by member": "Percentual faturável por membro",
+  "Billable duration is shown with each percentage.":
+    "A duração faturável é exibida com cada percentual.",
+  "Estimated billable value by member": "Valor faturável estimado por membro",
+  "Currencies are shown in separate groups and are never combined.":
+    "As moedas são exibidas em grupos separados e nunca são somadas.",
+  "Members are compared only within the same currency.":
+    "Os membros são comparados somente dentro da mesma moeda.",
+  "Team share": "Participação da equipe",
+  "Share represents only the distribution of registered activity.":
+    "A participação representa somente a distribuição da atividade registrada.",
+  "This member accounts for the largest share of registered activity in the period.":
+    "Este membro concentra a maior participação na atividade registrada do período.",
+  "Active days and daily average": "Dias ativos e média diária",
+  "Comparison of registered activity by active day.":
+    "Comparação da atividade registrada por dia ativo.",
+  "Average per active day": "Média por dia ativo",
+  "active days": "dias ativos",
+  "Complete team activity": "Atividade completa da equipe",
+  "All members in the current report scope.": "Todos os membros no escopo atual do relatório.",
+  "Team reports are available only to Admins and the Owner.":
+    "Os relatórios de equipe estão disponíveis somente para Administradores e o Proprietário.",
+  "Team report unavailable": "Relatório de equipe indisponível",
+  "Only Admins and the Owner can view team reports.":
+    "Somente Administradores e o Proprietário podem visualizar relatórios de equipe.",
+  "Go to overview": "Ir para a Visão geral",
   "Busiest day": "Dia com maior atividade",
   "Top project": "Principal projeto",
   "Time without project": "Tempo sem projeto",
@@ -319,8 +398,8 @@ const ptBR: Record<string, string> = {
   Export: "Exportar",
   Close: "Fechar",
   "Included data": "Dados incluídos",
-  "This export uses the current period, filters and report view ({count} rows).":
-    "Esta exportação usa o período, os filtros e a visualização atuais ({count} linhas).",
+  "This export uses the current period, filters, permission scope, report view and grouping ({count} rows).":
+    "Esta exportação usa o período, os filtros, o escopo de permissão, a visualização e o agrupamento atuais ({count} linhas).",
   Format: "Formato",
   "Export started": "Exportação iniciada",
   "A print-ready report opened for printing or saving as PDF.":

@@ -24,11 +24,11 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleDollar,
   Folder,
   Magnifier,
   Person,
   Persons,
+  Wallet,
 } from "@gravity-ui/icons";
 import {
   Fragment,
@@ -41,6 +41,7 @@ import {
 } from "react";
 import { CalendarDate } from "@internationalized/date";
 import type { RangeValue } from "@react-types/shared";
+import { BillableIndicator } from "@/components/billable-indicator";
 import { useI18n } from "@/lib/i18n";
 import {
   formatReportPeriod,
@@ -50,6 +51,7 @@ import {
   type ReportPeriodPreset,
 } from "@/lib/format";
 import type { Client, Member, Project } from "@/lib/mock-data";
+import type { CurrencyCode } from "@/lib/billing";
 
 export type ReportFilterKey = "member" | "client" | "project" | "description" | "billability";
 
@@ -59,9 +61,15 @@ export type ReportFilterValues = {
   projectIds: string[];
   description: string;
   billability: "all" | "billable" | "internal";
+  currency: CurrencyCode | "all";
 };
 
-export type ReportFilterOption = { id: string; label: string; description?: string };
+export type ReportFilterOption = {
+  id: string;
+  label: string;
+  description?: string;
+  billable?: boolean | null;
+};
 
 const reportFilterIconClassName = "size-4 shrink-0";
 
@@ -328,6 +336,9 @@ function ReportFilterDropdown({
             >
               {filteredOptions.map((option) => (
                 <Dropdown.Item key={option.id} id={option.id} textValue={option.label}>
+                  {option.billable !== undefined ? (
+                    <BillableIndicator billable={option.billable} mode="icon" />
+                  ) : null}
                   <Label>{option.label}</Label>
                   <Dropdown.ItemIndicator />
                 </Dropdown.Item>
@@ -410,10 +421,12 @@ function ReportPeriodPicker({
     toRangeValue(range),
   );
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const rangeStartDate = range.startDate;
+  const rangeEndDate = range.endDate;
 
   useEffect(() => {
-    setCalendarValue(toRangeValue(range));
-  }, [range.endDate, range.startDate]);
+    setCalendarValue(toRangeValue({ startDate: rangeStartDate, endDate: rangeEndDate }));
+  }, [rangeEndDate, rangeStartDate]);
 
   return (
     <I18nProvider locale={locale}>
@@ -605,6 +618,7 @@ export function ReportFiltersBar({
   members,
   clients,
   projects,
+  currencies,
   showTeam,
   weeklyNavigation = false,
   onPeriodChange,
@@ -621,6 +635,7 @@ export function ReportFiltersBar({
   members: Member[];
   clients: Client[];
   projects: Project[];
+  currencies: readonly CurrencyCode[];
   showTeam: boolean;
   weeklyNavigation?: boolean;
   onPeriodChange: (preset: ReportPeriodPreset, range: DateRange) => void;
@@ -667,6 +682,7 @@ export function ReportFiltersBar({
     values.projectIds.length > 0,
     values.description.trim().length > 0,
     values.billability !== "all",
+    values.currency !== "all",
   ].filter(Boolean).length;
   const hasActiveFilters = activeFilterCount > 0;
   const dataFilterControls: ReactElement[] = [];
@@ -717,16 +733,42 @@ export function ReportFiltersBar({
       <ReportSingleSelect
         key="billability"
         label={t("Billability")}
-        icon={<CircleDollar aria-hidden="true" className={reportFilterIconClassName} />}
+        icon={
+          <BillableIndicator
+            billable={values.billability === "all" ? null : values.billability === "billable"}
+            mode="icon"
+            className={reportFilterIconClassName}
+          />
+        }
         value={values.billability}
         options={[
-          { id: "all", label: t("All billability") },
-          { id: "billable", label: t("Billable") },
-          { id: "internal", label: t("Internal") },
+          { id: "all", label: t("All billability"), billable: null },
+          { id: "billable", label: t("Billable"), billable: true },
+          { id: "internal", label: t("Internal"), billable: false },
         ]}
         onChange={(billability) =>
           onChange({ billability: billability as ReportFilterValues["billability"] })
         }
+        className={billabilityClassName}
+      />,
+    );
+  }
+  if (currencies.length > 1 || values.currency !== "all") {
+    const currencyOptions =
+      values.currency !== "all" && !currencies.includes(values.currency)
+        ? [values.currency, ...currencies]
+        : currencies;
+    dataFilterControls.push(
+      <ReportSingleSelect
+        key="currency"
+        label={t("Currency")}
+        icon={<Wallet aria-hidden="true" className={reportFilterIconClassName} />}
+        value={values.currency}
+        options={[
+          { id: "all", label: t("All currencies") },
+          ...currencyOptions.map((currency) => ({ id: currency, label: currency })),
+        ]}
+        onChange={(currency) => onChange({ currency: currency as ReportFilterValues["currency"] })}
         className={billabilityClassName}
       />,
     );

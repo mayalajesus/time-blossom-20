@@ -89,7 +89,7 @@ export function ExportModal({
                   </Typography>
                   <Description>
                     {t(
-                      "This export uses the current period, filters and report view ({count} rows).",
+                      "This export uses the current period, filters, permission scope, report view and grouping ({count} rows).",
                       {
                         count: payload.rows.length,
                       },

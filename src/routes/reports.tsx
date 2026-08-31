@@ -1,7 +1,7 @@
 import {
   Button,
   ButtonGroup,
-  Card,
+  Chip,
   Checkbox,
   Dropdown,
   Input,
@@ -9,15 +9,20 @@ import {
   Popover,
   Table,
   TextField,
+  Tooltip,
   Typography,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  ArrowDown,
   ArrowDownToLine,
   ArrowRotateLeft,
+  ArrowUp,
   ChartColumn,
   ChevronDown,
   ChevronRight,
+  CircleInfo,
+  Minus,
 } from "@gravity-ui/icons";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
@@ -25,15 +30,17 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
+  Label as ChartLabel,
   LabelList,
+  Line,
   Pie,
   PieChart,
-  PolarAngleAxis,
-  RadialBar,
-  RadialBarChart,
   XAxis,
   YAxis,
 } from "recharts";
+import { BillableIndicator } from "@/components/billable-indicator";
+import { ProjectLabel } from "@/components/project-color";
 import { DataTable } from "@/components/data-table";
 import { ExportModal } from "@/components/export-modal";
 import {
@@ -43,8 +50,9 @@ import {
 } from "@/components/report-filters";
 import { PageHeader } from "@/components/page-header";
 import { EmptyBlock, CardsSkeleton } from "@/components/states";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import {
+  ReportChart,
   ReportChartLegend,
   ReportChartWidget,
   ReportKpi,
@@ -86,26 +94,25 @@ import {
   currencyOptions,
   formatMoney,
   formatMoneyTotals,
+  isCurrencyCode,
   sumBillableValues,
   type BillingPreference,
   type MoneyTotals,
 } from "@/lib/billing";
 import {
   calculateReportAnalytics,
+  calculateReportMetrics,
+  getReportBillableCurrencies,
   type ReportAnalytics,
   type ShiftId,
   type TemporalBucket,
 } from "@/lib/report-analytics";
-
-const reportViews = [
-  { id: "overview", label: "Overview" },
-  { id: "summary", label: "Analysis" },
-  { id: "detailed", label: "Detailed" },
-  { id: "weekly", label: "Activity" },
-  { id: "team", label: "Team" },
-] as const;
-
-type ReportView = (typeof reportViews)[number]["id"];
+import {
+  isLegacyTeamReportView,
+  normalizeReportView,
+  reportViews,
+  type ReportView,
+} from "@/lib/report-views";
 type GroupDimension = "project" | "client" | "member" | "task" | "date";
 type WeeklyDimension = "project" | "member";
 type DetailedColumn =
@@ -118,6 +125,8 @@ type DetailedColumn =
   | "end"
   | "duration"
   | "billability"
+  | "hourlyRate"
+  | "currency"
   | "value";
 
 const groupOptions: Array<{ id: GroupDimension; label: string }> = [
@@ -137,25 +146,30 @@ const defaultVisibleFilters: ReportFilterKey[] = ["member", "client", "project",
 
 const detailedColumnOptions: Array<{ id: DetailedColumn; label: string }> = [
   { id: "date", label: "Date" },
-  { id: "task", label: "Task" },
+  { id: "member", label: "Member" },
   { id: "projectClient", label: "Project / client" },
+  { id: "task", label: "Task" },
+  { id: "description", label: "Description" },
   { id: "start", label: "Start" },
   { id: "end", label: "End" },
   { id: "duration", label: "Duration" },
-  { id: "billability", label: "Billability" },
-  { id: "value", label: "Billable value" },
-  { id: "member", label: "Member" },
-  { id: "description", label: "Description" },
+  { id: "billability", label: "Billing" },
+  { id: "hourlyRate", label: "Hourly rate" },
+  { id: "currency", label: "Currency" },
+  { id: "value", label: "Estimated billable value" },
 ];
 
 const defaultDetailedColumns: DetailedColumn[] = [
   "date",
-  "task",
+  "member",
   "projectClient",
+  "task",
   "start",
   "end",
   "duration",
   "billability",
+  "hourlyRate",
+  "currency",
   "value",
 ];
 
@@ -169,17 +183,13 @@ type ReportSearch = {
   projects?: string;
   description?: string;
   billability?: ReportFilterValues["billability"];
+  currency?: ReportFilterValues["currency"];
   visible?: string;
   group?: GroupDimension;
   subgroup?: GroupDimension | "none";
-  weeklyGroup?: WeeklyDimension;
   columns?: string;
   page?: number;
 };
-
-function isReportView(value: unknown): value is ReportView {
-  return reportViews.some((view) => view.id === value);
-}
 
 function isPeriodPreset(value: unknown): value is ReportPeriodPreset {
   return [
@@ -198,10 +208,6 @@ function isPeriodPreset(value: unknown): value is ReportPeriodPreset {
 
 function isGroupDimension(value: unknown): value is GroupDimension {
   return groupOptions.some((option) => option.id === value);
-}
-
-function isWeeklyDimension(value: unknown): value is WeeklyDimension {
-  return weeklyOptions.some((option) => option.id === value);
 }
 
 function isDetailedColumn(value: string): value is DetailedColumn {
@@ -372,7 +378,7 @@ function buildGroups(
 
 export const Route = createFileRoute("/reports")({
   validateSearch: (search: Record<string, unknown>): ReportSearch => ({
-    view: isReportView(search["view"]) ? search["view"] : "overview",
+    view: normalizeReportView(search["view"]),
     preset: isPeriodPreset(search["preset"]) ? search["preset"] : "this-month",
     start: asText(search["start"]),
     end: asText(search["end"]),
@@ -384,14 +390,21 @@ export const Route = createFileRoute("/reports")({
       search["billability"] === "billable" || search["billability"] === "internal"
         ? search["billability"]
         : "all",
+    currency:
+      search["currency"] === "all" || isCurrencyCode(search["currency"])
+        ? search["currency"]
+        : "all",
     visible:
       typeof search["visible"] === "string" ? search["visible"] : defaultVisibleFilters.join(","),
-    group: isGroupDimension(search["group"]) ? search["group"] : "project",
+    group: isLegacyTeamReportView(search["view"])
+      ? "member"
+      : isGroupDimension(search["group"])
+        ? search["group"]
+        : "project",
     subgroup:
       search["subgroup"] === "none" || isGroupDimension(search["subgroup"])
         ? search["subgroup"]
         : "none",
-    weeklyGroup: isWeeklyDimension(search["weeklyGroup"]) ? search["weeklyGroup"] : "project",
     columns: asCsv(search["columns"]),
     page:
       Number.isInteger(search["page"]) && Number(search["page"]) > 0 ? Number(search["page"]) : 1,
@@ -401,7 +414,7 @@ export const Route = createFileRoute("/reports")({
       { title: "Reports — Time Blossom" },
       {
         name: "description",
-        content: "Overview, detailed, summary, weekly and team time reports.",
+        content: "Overview, analysis and detailed time reports.",
       },
       { property: "og:title", content: "Reports — Time Blossom" },
       { property: "og:description", content: "Filter and understand tracked time." },
@@ -422,10 +435,10 @@ function ReportsPage() {
     projects: rawSearch.projects ?? "",
     description: rawSearch.description ?? "",
     billability: rawSearch.billability ?? "all",
+    currency: rawSearch.currency ?? "all",
     visible: rawSearch.visible ?? defaultVisibleFilters.join(","),
     group: rawSearch.group ?? "project",
     subgroup: rawSearch.subgroup ?? "none",
-    weeklyGroup: rawSearch.weeklyGroup ?? "project",
     columns: rawSearch.columns ?? defaultDetailedColumns.join(","),
     page: rawSearch.page ?? 1,
   };
@@ -450,6 +463,10 @@ function ReportsPage() {
   const weekStartsOn = settings.weekStart === "sunday" ? 0 : 1;
   const range = makeRange(search.preset, search.start, search.end, today, weekStartsOn);
   const showTeam = can("view-all-reports");
+  const effectiveGroup: GroupDimension =
+    !showTeam && search.group === "member" ? "project" : search.group;
+  const effectiveSubgroup: GroupDimension | "none" =
+    !showTeam && search.subgroup === "member" ? "none" : search.subgroup;
   const filterValues = useMemo<ReportFilterValues>(
     () => ({
       memberIds: parseIds(search.members),
@@ -457,8 +474,16 @@ function ReportsPage() {
       projectIds: parseIds(search.projects),
       description: search.description,
       billability: search.billability,
+      currency: search.currency,
     }),
-    [search.billability, search.clients, search.description, search.members, search.projects],
+    [
+      search.billability,
+      search.clients,
+      search.currency,
+      search.description,
+      search.members,
+      search.projects,
+    ],
   );
   const visibleFilters = parseIds(search.visible).filter((key): key is ReportFilterKey =>
     ["member", "client", "project", "description", "billability"].includes(key),
@@ -521,9 +546,17 @@ function ReportsPage() {
     [projects],
   );
   const clientMap = useMemo(() => new Map(clients.map((client) => [client.id, client])), [clients]);
+  const fallbackForEntry = useCallback(
+    (entry: TimeEntry): BillingPreference =>
+      billingPreferencesByUserId[entry.userId] ?? {
+        hourlyRate: preferences.hourlyRate,
+        currency: preferences.currency,
+      },
+    [billingPreferencesByUserId, preferences.currency, preferences.hourlyRate],
+  );
   const normalizedDescription = normalizeSearch(filterValues.description);
 
-  const reportEntries = useMemo(() => {
+  const reportEntriesBeforeCurrency = useMemo(() => {
     const selectedMemberIds = new Set(filterValues.memberIds);
     const selectedClientIds = new Set(filterValues.clientIds);
     const selectedProjectIds = new Set(filterValues.projectIds);
@@ -549,6 +582,26 @@ function ReportsPage() {
           (filterValues.billability === "billable" ? entry.billable : !entry.billable),
       );
   }, [filterValues, normalizedDescription, projectMap, scopedEntries]);
+  const availableCurrencies = useMemo(
+    () =>
+      getReportBillableCurrencies(reportEntriesBeforeCurrency, {
+        range,
+        fallbackForEntry,
+        timeZone: preferences.timezone,
+      }),
+    [fallbackForEntry, preferences.timezone, range, reportEntriesBeforeCurrency],
+  );
+  const reportEntries = useMemo(
+    () =>
+      filterValues.currency === "all"
+        ? reportEntriesBeforeCurrency
+        : reportEntriesBeforeCurrency.filter(
+            (entry) =>
+              entry.billable &&
+              billingForEntry(entry, fallbackForEntry(entry)).currency === filterValues.currency,
+          ),
+    [fallbackForEntry, filterValues.currency, reportEntriesBeforeCurrency],
+  );
   const filteredEntries = useMemo(
     () =>
       reportEntries
@@ -562,14 +615,6 @@ function ReportsPage() {
     .filter((entry) => entry.billable)
     .reduce((sum, entry) => sum + entry.seconds, 0);
   const internal = total - billable;
-  const fallbackForEntry = useCallback(
-    (entry: TimeEntry): BillingPreference =>
-      billingPreferencesByUserId[entry.userId] ?? {
-        hourlyRate: preferences.hourlyRate,
-        currency: preferences.currency,
-      },
-    [billingPreferencesByUserId, preferences.currency, preferences.hourlyRate],
-  );
   const reportAnalytics = useMemo(
     () =>
       calculateReportAnalytics({
@@ -578,13 +623,15 @@ function ReportsPage() {
         projects,
         clients,
         fallbackForEntry,
-        emptyCurrency: preferences.currency,
+        emptyCurrency:
+          filterValues.currency === "all" ? preferences.currency : filterValues.currency,
         timeZone: preferences.timezone,
         weekStartsOn,
       }),
     [
       clients,
       fallbackForEntry,
+      filterValues.currency,
       preferences.currency,
       preferences.timezone,
       projects,
@@ -593,29 +640,29 @@ function ReportsPage() {
       weekStartsOn,
     ],
   );
-  const billableValues = sumBillableValues(filteredEntries, fallbackForEntry, preferences.currency);
-  const formattedBillableValue = formatMoneyTotals(billableValues, locale);
-  const overviewBillableValue = formatMoneyTotals(
-    reportAnalytics.summary.billableValueByCurrency,
-    locale,
+  const billableValues = sumBillableValues(
+    filteredEntries,
+    fallbackForEntry,
+    filterValues.currency === "all" ? preferences.currency : filterValues.currency,
   );
-  const exportTotal = search.view === "overview" ? reportAnalytics.summary.totalSeconds : total;
-  const exportBillable =
-    search.view === "overview" ? reportAnalytics.summary.billableSeconds : billable;
-  const exportInternal =
-    search.view === "overview" ? reportAnalytics.summary.internalSeconds : internal;
-  const exportRecords =
-    search.view === "overview" ? reportAnalytics.summary.entryCount : filteredEntries.length;
-  const exportBillableValue =
-    search.view === "overview" ? overviewBillableValue : formattedBillableValue;
+  const exportUsesAnalytics = search.view === "overview";
+  const exportTotal = exportUsesAnalytics ? reportAnalytics.summary.totalSeconds : total;
+  const exportBillable = exportUsesAnalytics ? reportAnalytics.summary.billableSeconds : billable;
+  const exportInternal = exportUsesAnalytics ? reportAnalytics.summary.internalSeconds : internal;
+  const exportRecords = exportUsesAnalytics
+    ? reportAnalytics.summary.entryCount
+    : filteredEntries.length;
+  const exportBillableValues = exportUsesAnalytics
+    ? reportAnalytics.summary.billableValueByCurrency
+    : billableValues;
   const reportScope = can("export-all-reports") ? t("Workspace report") : t("Your report");
   const [summaryExpanded, setSummaryExpanded] = useState<Record<string, boolean>>({});
   const groups = useMemo(
     () =>
       buildGroups(
         filteredEntries,
-        search.group,
-        search.subgroup,
+        effectiveGroup,
+        effectiveSubgroup,
         members,
         projects,
         clients,
@@ -629,8 +676,8 @@ function ReportsPage() {
       members,
       projects,
       locale,
-      search.group,
-      search.subgroup,
+      effectiveGroup,
+      effectiveSubgroup,
     ],
   );
   const previousFilteredEntries = useMemo(() => {
@@ -643,8 +690,8 @@ function ReportsPage() {
     () =>
       buildGroups(
         previousFilteredEntries,
-        search.group,
-        search.subgroup,
+        effectiveGroup,
+        effectiveSubgroup,
         members,
         projects,
         clients,
@@ -658,12 +705,29 @@ function ReportsPage() {
       members,
       previousFilteredEntries,
       projects,
-      search.group,
-      search.subgroup,
+      effectiveGroup,
+      effectiveSubgroup,
     ],
   );
-  const exportContext = useMemo(
-    () => ({
+  const exportContext = useMemo(() => {
+    const viewLabel = t(reportViews.find((report) => report.id === search.view)?.label ?? "Time");
+    const temporalGrouping = t(
+      { day: "Day", week: "Week", month: "Month" }[reportAnalytics.granularity],
+    );
+    const grouping =
+      search.view === "summary"
+        ? [
+            t(groupOptions.find((option) => option.id === effectiveGroup)?.label ?? "Group"),
+            effectiveSubgroup === "none"
+              ? ""
+              : t(groupOptions.find((option) => option.id === effectiveSubgroup)?.label ?? "Group"),
+          ]
+            .filter(Boolean)
+            .join(" → ")
+        : search.view === "overview"
+          ? temporalGrouping
+          : t("None");
+    return {
       locale,
       ...(currentWorkspace
         ? {
@@ -673,11 +737,13 @@ function ReportsPage() {
             },
           }
         : {}),
-      displayTitle: `${t(reportViews.find((report) => report.id === search.view)?.label ?? "Time")} ${t("report")}`,
+      displayTitle: `${viewLabel} ${t("report")}`,
       subtitle: `Time Blossom · ${formatDateRange(range.startDate, range.endDate, locale)}`,
       meta: [
         { label: t("Period"), value: formatDateRange(range.startDate, range.endDate, locale) },
         { label: t("Scope"), value: reportScope },
+        { label: t("View"), value: viewLabel },
+        { label: t("Grouping"), value: grouping },
         {
           label: t("Filters"),
           value:
@@ -693,43 +759,53 @@ function ReportsPage() {
                 : "",
               search.description ? `${t("Description")}: ${search.description}` : "",
               search.billability !== "all" ? t(search.billability) : "",
+              search.currency !== "all" ? `${t("Currency")}: ${search.currency}` : "",
             ]
               .filter(Boolean)
               .join(" · ") || t("None"),
         },
       ],
       summary: [
+        { label: t("Entries"), value: String(exportRecords) },
         { label: t("Tracked"), value: formatDuration(exportTotal, locale) },
         { label: t("Billable"), value: formatDuration(exportBillable, locale) },
         { label: t("Internal"), value: formatDuration(exportInternal, locale) },
-        { label: t("Records"), value: String(exportRecords) },
-        { label: t("Billable value"), value: exportBillableValue },
+        ...currencyOptions
+          .filter((currency) => exportBillableValues[currency] !== undefined)
+          .map((currency) => ({
+            label: `${t("Estimated billable value")} (${currency})`,
+            value: formatMoney(exportBillableValues[currency] ?? 0, currency, locale),
+          })),
       ],
-    }),
-    [
-      currentWorkspace,
-      exportBillable,
-      exportBillableValue,
-      exportInternal,
-      exportRecords,
-      exportTotal,
-      locale,
-      range.endDate,
-      range.startDate,
-      reportScope,
-      search.billability,
-      search.clients,
-      search.description,
-      search.members,
-      search.projects,
-      search.view,
-      t,
-    ],
-  );
+    };
+  }, [
+    currentWorkspace,
+    exportBillable,
+    exportBillableValues,
+    exportInternal,
+    exportRecords,
+    exportTotal,
+    locale,
+    range.endDate,
+    range.startDate,
+    reportScope,
+    reportAnalytics.granularity,
+    effectiveGroup,
+    effectiveSubgroup,
+    search.billability,
+    search.clients,
+    search.currency,
+    search.description,
+    search.members,
+    search.projects,
+    search.view,
+    t,
+  ]);
 
   const exportPayload = useMemo<ReportExportPayload>(() => {
     if (search.view === "overview") {
       const summary = reportAnalytics.summary;
+      const exportedProjects = overviewProjectRows(reportAnalytics, projects, clients);
       return {
         ...exportContext,
         title: `time-blossom-${search.view}`,
@@ -763,6 +839,82 @@ function ReportsPage() {
               ),
             })),
         ],
+        sections: [
+          {
+            title: t("Activity evolution"),
+            columns: [
+              t("Period"),
+              t("Billable"),
+              t("Internal"),
+              t("Tracked"),
+              t("Previous period"),
+              t("Difference"),
+            ],
+            rows: reportAnalytics.temporal.map((bucket, index) => {
+              const previous = reportAnalytics.previousTemporal[index]?.totalSeconds ?? 0;
+              const difference = bucket.totalSeconds - previous;
+              const differencePrefix = difference > 0 ? "+" : difference < 0 ? "−" : "";
+              return {
+                [t("Period")]: formatOverviewBucket(bucket, locale),
+                [t("Billable")]: formatDuration(bucket.billableSeconds, locale),
+                [t("Internal")]: formatDuration(bucket.internalSeconds, locale),
+                [t("Tracked")]: formatDuration(bucket.totalSeconds, locale),
+                [t("Previous period")]: formatDuration(previous, locale),
+                [t("Difference")]: `${differencePrefix}${formatDuration(
+                  Math.abs(difference),
+                  locale,
+                )}`,
+              };
+            }),
+          },
+          {
+            title: t("Billing distribution"),
+            columns: [t("Billing"), t("Tracked"), t("Share")],
+            rows: [
+              {
+                [t("Billing")]: t("Billable"),
+                [t("Tracked")]: formatDuration(summary.billableSeconds, locale),
+                [t("Share")]: `${Math.round(summary.billablePercentage)}%`,
+              },
+              {
+                [t("Billing")]: t("Internal"),
+                [t("Tracked")]: formatDuration(summary.internalSeconds, locale),
+                [t("Share")]: summary.totalSeconds
+                  ? `${Math.round((summary.internalSeconds / summary.totalSeconds) * 100)}%`
+                  : "0%",
+              },
+            ],
+          },
+          {
+            title: t("Hours by shift"),
+            columns: [t("Shift"), t("Tracked"), t("Share")],
+            rows: reportAnalytics.shifts.map((shift) => ({
+              [t("Shift")]: t(shiftLabels[shift.shift]),
+              [t("Tracked")]: formatDuration(shift.seconds, locale),
+              [t("Share")]: summary.totalSeconds
+                ? `${Math.round((shift.seconds / summary.totalSeconds) * 100)}%`
+                : "0%",
+            })),
+          },
+          {
+            title: t("Top projects"),
+            columns: [
+              t("Project"),
+              t("Client"),
+              t("Tracked"),
+              t("Billable"),
+              t("Estimated billable value"),
+            ],
+            rows: exportedProjects.map((project) => ({
+              [t("Project")]: project.id === "none" ? t("No project") : project.project,
+              [t("Client")]: project.client ?? t("No client"),
+              [t("Tracked")]: formatDuration(project.seconds, locale),
+              [t("Billable")]: formatDuration(project.billableSeconds, locale),
+              [t("Estimated billable value")]:
+                formatMoneyTotals(project.valueByCurrency, locale) || "—",
+            })),
+          },
+        ],
       };
     }
     if (search.view === "detailed") {
@@ -781,7 +933,7 @@ function ReportsPage() {
         t("Duration"),
         t("Hourly rate"),
         t("Currency"),
-        t("Billable value"),
+        t("Estimated billable value"),
       ];
       return {
         ...exportContext,
@@ -806,7 +958,7 @@ function ReportsPage() {
             [t("Duration")]: formatDuration(entry.seconds, locale),
             [t("Hourly rate")]: formatMoney(billing.hourlyRate, billing.currency, locale),
             [t("Currency")]: billing.currency,
-            [t("Billable value")]: formatMoney(
+            [t("Estimated billable value")]: formatMoney(
               billableValue(entry, billing),
               billing.currency,
               locale,
@@ -815,145 +967,63 @@ function ReportsPage() {
         }),
       };
     }
-    if (search.view === "summary") {
+    {
+      const hasSubgroup = effectiveSubgroup !== "none" && effectiveSubgroup !== effectiveGroup;
+      const exportGroups = hasSubgroup
+        ? groups.flatMap((group) =>
+            (group.children ?? []).map((child) => ({
+              primaryLabel: group.label,
+              secondaryLabel: child.label,
+              group: child,
+            })),
+          )
+        : groups.map((group) => ({ primaryLabel: group.label, secondaryLabel: "", group }));
       return {
         ...exportContext,
         title: `time-blossom-${search.view}`,
         columns: [
           t("Group"),
+          ...(hasSubgroup ? [t("Subgroup")] : []),
           t("Tracked"),
           t("Share"),
           t("Billable"),
           t("Internal"),
           t("Billable percentage"),
-          t("Billable value"),
+          t("Estimated billable value"),
           t("Records"),
           t("Average entry duration"),
         ],
-        rows: groups.map((group) => ({
-          [t("Group")]: group.label,
-          [t("Tracked")]: formatDuration(group.seconds, locale),
-          [t("Share")]: total ? `${Math.round((group.seconds / total) * 100)}%` : "0%",
-          [t("Billable")]: formatDuration(group.billable, locale),
-          [t("Internal")]: formatDuration(group.seconds - group.billable, locale),
-          [t("Billable percentage")]: group.seconds
-            ? `${Math.round((group.billable / group.seconds) * 100)}%`
+        rows: exportGroups.map((item) => ({
+          [t("Group")]: item.primaryLabel,
+          ...(hasSubgroup ? { [t("Subgroup")]: item.secondaryLabel } : {}),
+          [t("Tracked")]: formatDuration(item.group.seconds, locale),
+          [t("Share")]: total ? `${Math.round((item.group.seconds / total) * 100)}%` : "0%",
+          [t("Billable")]: formatDuration(item.group.billable, locale),
+          [t("Internal")]: formatDuration(item.group.seconds - item.group.billable, locale),
+          [t("Billable percentage")]: item.group.seconds
+            ? `${Math.round((item.group.billable / item.group.seconds) * 100)}%`
             : "0%",
-          [t("Billable value")]: formatMoneyTotals(group.billableValue, locale),
-          [t("Records")]: group.records,
+          [t("Estimated billable value")]: formatMoneyTotals(item.group.billableValue, locale),
+          [t("Records")]: item.group.records,
           [t("Average entry duration")]: formatDuration(
-            group.records ? group.seconds / group.records : 0,
+            item.group.records ? item.group.seconds / item.group.records : 0,
             locale,
           ),
         })),
       };
     }
-    if (search.view === "weekly") {
-      const isExactWeek = getDayOffset(range.startDate, range.endDate) + 1 === 7;
-      if (!isExactWeek) {
-        return {
-          ...exportContext,
-          title: `time-blossom-${search.view}`,
-          columns: [t("Shift"), t("Registered activity"), t("Share")],
-          rows: reportAnalytics.shifts.map((shift) => ({
-            [t("Shift")]: t(shiftLabels[shift.shift]),
-            [t("Registered activity")]: formatDuration(shift.seconds, locale),
-            [t("Share")]: reportAnalytics.summary.totalSeconds
-              ? `${Math.round((shift.seconds / reportAnalytics.summary.totalSeconds) * 100)}%`
-              : "0%",
-          })),
-        };
-      }
-      const weekDates = Array.from({ length: 7 }, (_, index) => shiftDate(range.startDate, index));
-      const rows = buildWeeklyRows(
-        filteredEntries,
-        search.weeklyGroup,
-        members,
-        projects,
-        weekDates,
-        fallbackForEntry,
-      );
-      return {
-        ...exportContext,
-        title: `time-blossom-${search.view}`,
-        columns: [
-          t("Group"),
-          ...weekDates.map((date) => formatDate(date, locale)),
-          t("Tracked"),
-          t("Billable"),
-          t("Internal"),
-          t("Billable value"),
-        ],
-        rows: rows.map((row) => ({
-          [t("Group")]: row.label,
-          ...Object.fromEntries(
-            weekDates.map((date) => [
-              formatDate(date, locale),
-              formatDuration(row.byDate[date] ?? 0, locale),
-            ]),
-          ),
-          [t("Tracked")]: formatDuration(row.seconds, locale),
-          [t("Billable")]: formatDuration(row.billable, locale),
-          [t("Internal")]: formatDuration(row.seconds - row.billable, locale),
-          [t("Billable value")]: formatMoneyTotals(row.billableValue, locale),
-        })),
-      };
-    }
-    const teamRows = buildTeamRows(
-      filteredEntries,
-      members,
-      projects,
-      clients,
-      showTeam ? null : currentUserId,
-      fallbackForEntry,
-    );
-    return {
-      ...exportContext,
-      title: `time-blossom-${search.view}`,
-      columns: [
-        t("Member"),
-        t("Tracked"),
-        t("Billable"),
-        t("Internal"),
-        t("Billable value"),
-        t("Records"),
-        t("Projects"),
-        t("Clients"),
-        t("Average/day"),
-        t("Share"),
-      ],
-      rows: teamRows.map((row) => ({
-        [t("Member")]: row.member.name,
-        [t("Tracked")]: formatDuration(row.seconds, locale),
-        [t("Billable")]: formatDuration(row.billable, locale),
-        [t("Internal")]: formatDuration(row.seconds - row.billable, locale),
-        [t("Billable value")]: formatMoneyTotals(row.billableValue, locale),
-        [t("Records")]: row.records,
-        [t("Projects")]: row.projectCount,
-        [t("Clients")]: row.clientCount,
-        [t("Average/day")]: formatDuration(
-          row.activeDays ? Math.round(row.seconds / row.activeDays) : 0,
-          locale,
-        ),
-        [t("Share")]: total ? `${Math.round((row.seconds / total) * 100)}%` : "0%",
-      })),
-    };
   }, [
     clients,
-    currentUserId,
+    effectiveGroup,
+    effectiveSubgroup,
     filteredEntries,
     groups,
-    members,
     memberMap,
     projects,
-    range.endDate,
-    range.startDate,
     exportContext,
     search.view,
-    search.weeklyGroup,
     locale,
     reportAnalytics,
-    showTeam,
     t,
     total,
     fallbackForEntry,
@@ -962,9 +1032,7 @@ function ReportsPage() {
   const description = {
     overview: t("See tracked time, billability, estimated value and activity distribution."),
     detailed: t("Inspect every entry with its project, client, person and billability."),
-    summary: t("See where tracked time and billable value are concentrated."),
-    weekly: t("Understand when registered activity happens and how routines change over time."),
-    team: t("Compare time, billing mix and activity across the available team."),
+    summary: t("See where tracked time and estimated billable value are concentrated."),
   }[search.view];
 
   const clearFilters = () =>
@@ -974,20 +1042,18 @@ function ReportsPage() {
       projects: "",
       description: "",
       billability: "all",
+      currency: "all",
     });
 
   return (
-    <div className="space-y-6">
+    <div className={search.view === "overview" ? "space-y-5" : "space-y-6"}>
       <PageHeader
         title={t("Reports")}
         description={description}
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" onPress={() => setExportOpen(true)}>
-              <ArrowDownToLine className="size-4" />
-              {t("Export")}
-            </Button>
-          </div>
+          search.view === "overview" ? (
+            <ReportExportButton onPress={() => setExportOpen(true)} />
+          ) : undefined
         }
       />
 
@@ -1001,6 +1067,7 @@ function ReportsPage() {
         members={members}
         clients={clients}
         projects={projects}
+        currencies={availableCurrencies}
         showTeam={showTeam}
         weeklyNavigation
         onPeriodChange={updatePeriod}
@@ -1013,6 +1080,7 @@ function ReportsPage() {
             projects: encodeIds(next.projectIds),
             description: next.description,
             billability: next.billability,
+            currency: next.currency,
           });
         }}
         onClear={() =>
@@ -1022,6 +1090,7 @@ function ReportsPage() {
             projects: "",
             description: "",
             billability: "all",
+            currency: "all",
           })
         }
       />
@@ -1030,17 +1099,8 @@ function ReportsPage() {
         <CardsSkeleton count={3} />
       ) : (
         <>
-          {search.view !== "overview" && search.view !== "weekly" && search.view !== "summary" ? (
-            <ReportOverview
-              total={total}
-              billable={billable}
-              internal={internal}
-              records={filteredEntries.length}
-              billableValue={formattedBillableValue}
-            />
-          ) : null}
           {search.view === "overview" ? (
-            <OverviewDashboard analytics={reportAnalytics} />
+            <OverviewDashboard analytics={reportAnalytics} projects={projects} clients={clients} />
           ) : search.view === "detailed" ? (
             <DetailedReport
               entries={filteredEntries}
@@ -1053,14 +1113,17 @@ function ReportsPage() {
               columns={parseDetailedColumns(search.columns)}
               onChangeColumns={(columns) => updateSearch({ columns: encodeIds(columns) })}
               fallbackForEntry={fallbackForEntry}
+              onExport={() => setExportOpen(true)}
             />
-          ) : search.view === "summary" ? (
+          ) : (
             <SummaryReport
               groups={groups}
               previousGroups={previousGroups}
+              projects={projects}
               total={total}
-              primary={search.group}
-              secondary={search.subgroup}
+              primary={effectiveGroup}
+              secondary={effectiveSubgroup}
+              canGroupByMember={showTeam}
               expanded={summaryExpanded}
               onToggle={(key) =>
                 setSummaryExpanded((current) => ({ ...current, [key]: !current[key] }))
@@ -1073,29 +1136,7 @@ function ReportsPage() {
               }
               onChangeSubgroup={(subgroup) => updateSearch({ subgroup })}
               onClear={clearFilters}
-            />
-          ) : search.view === "weekly" ? (
-            <ActivityDashboard
-              analytics={reportAnalytics}
-              entries={filteredEntries}
-              range={range}
-              dimension={search.weeklyGroup}
-              members={members}
-              projects={projects}
-              onChange={(weeklyGroup) => updateSearch({ weeklyGroup })}
-              onClear={clearFilters}
-              fallbackForEntry={fallbackForEntry}
-            />
-          ) : (
-            <TeamReport
-              entries={filteredEntries}
-              members={members}
-              projects={projects}
-              clients={clients}
-              total={total}
-              scopeToMember={showTeam ? null : currentUserId}
-              onClear={clearFilters}
-              fallbackForEntry={fallbackForEntry}
+              onExport={() => setExportOpen(true)}
             />
           )}
         </>
@@ -1138,15 +1179,15 @@ function comparisonVariation(
   comparison: ReportAnalytics["comparison"]["metrics"]["totalSeconds"],
   locale: Locale,
   t: Translate,
+  colorByDirection = false,
 ) {
   if (comparison.current === 0 && comparison.previous === 0) return null;
   if (comparison.previous === 0) {
-    const value = formatDuration(Math.abs(comparison.delta), locale);
     return {
-      label: `+${value}`,
-      accessibleLabel: `${value} ${t("more than previous period")}`,
+      label: "+100%",
+      accessibleLabel: `100% ${t("more than previous period")}`,
       direction: "up" as const,
-      tone: "neutral" as const,
+      tone: colorByDirection ? ("positive" as const) : ("neutral" as const),
     };
   }
 
@@ -1168,17 +1209,45 @@ function comparisonVariation(
       change > 0 ? "more than previous period" : "less than previous period",
     )}`,
     direction: change > 0 ? ("up" as const) : ("down" as const),
-    tone: "neutral" as const,
+    tone: colorByDirection
+      ? change > 0
+        ? ("positive" as const)
+        : ("negative" as const)
+      : ("neutral" as const),
   };
 }
 
-function selectTopProjects(analytics: ReportAnalytics) {
+function selectTopProjects(analytics: ReportAnalytics, maximum = 5) {
   const noProject = analytics.summary.projectBreakdown.find((item) => item.id === "none");
   const projects = analytics.summary.projectBreakdown.filter((item) => item.id !== "none");
-  const selected = noProject ? [...projects.slice(0, 5), noProject] : projects.slice(0, 6);
+  const selected = noProject
+    ? [...projects.slice(0, Math.max(0, maximum - 1)), noProject]
+    : projects.slice(0, maximum);
   return selected.sort(
     (first, second) => second.seconds - first.seconds || first.label.localeCompare(second.label),
   );
+}
+
+function overviewProjectRows(analytics: ReportAnalytics, projects: Project[], clients: Client[]) {
+  const projectMap = new Map(projects.map((project) => [project.id, project]));
+  const clientMap = new Map(clients.map((client) => [client.id, client]));
+  const financialMap = new Map(
+    analytics.financial.projects.map((project) => [project.id, project]),
+  );
+
+  return selectTopProjects(analytics).map((dimension) => {
+    const project = dimension.id === "none" ? null : projectMap.get(dimension.id);
+    const financial = financialMap.get(dimension.id);
+    return {
+      id: dimension.id,
+      projectColor: project?.color ?? null,
+      project: dimension.label,
+      client: project ? clientMap.get(project.clientId)?.name : null,
+      seconds: dimension.seconds,
+      billableSeconds: financial?.billableSeconds ?? 0,
+      valueByCurrency: financial?.valueByCurrency ?? {},
+    };
+  });
 }
 
 function ActivitySummaryItem({ label, value }: { label: string; value: ReactNode }) {
@@ -1194,7 +1263,81 @@ function ActivitySummaryItem({ label, value }: { label: string; value: ReactNode
   );
 }
 
-function OverviewDashboard({ analytics }: { analytics: ReportAnalytics }) {
+function ReportExportButton({ onPress }: { onPress: () => void }) {
+  const { t } = useI18n();
+  return (
+    <Button variant="secondary" onPress={onPress}>
+      <ArrowDownToLine className="size-4" />
+      {t("Export")}
+    </Button>
+  );
+}
+
+function OverviewTooltipTitle({ label, help }: { label: string; help: ReactNode }) {
+  const { t } = useI18n();
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span>{label}</span>
+      <OverviewAccessibleTooltip
+        label={t("More information about {label}", { label })}
+        content={help}
+        className="size-5 min-w-5 items-center justify-center"
+      >
+        <CircleInfo aria-hidden="true" className="size-3.5" />
+      </OverviewAccessibleTooltip>
+    </span>
+  );
+}
+
+function OverviewAccessibleTooltip({
+  label,
+  content,
+  children,
+  className = "",
+}: {
+  label: string;
+  content: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <Tooltip delay={0} closeDelay={0} shouldSkipAnimation isOpen={isOpen} onOpenChange={setIsOpen}>
+      <Tooltip.Trigger
+        aria-label={label}
+        className={`inline-flex shrink-0 ${className}`}
+        tabIndex={0}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setIsOpen(false)}
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        onClick={() => setIsOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") setIsOpen(false);
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setIsOpen((current) => !current);
+          }
+        }}
+      >
+        {children}
+      </Tooltip.Trigger>
+      <Tooltip.Content className="max-w-xs" showArrow>
+        {content}
+      </Tooltip.Content>
+    </Tooltip>
+  );
+}
+
+function OverviewDashboard({
+  analytics,
+  projects,
+  clients,
+}: {
+  analytics: ReportAnalytics;
+  projects: Project[];
+  clients: Client[];
+}) {
   const { locale, t } = useI18n();
   const { summary } = analytics;
   const percentageFormatter = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
@@ -1202,10 +1345,38 @@ function OverviewDashboard({ analytics }: { analytics: ReportAnalytics }) {
     analytics.comparison.metrics.totalSeconds,
     locale,
     t,
+    true,
+  );
+  const billableVariation = comparisonVariation(
+    analytics.comparison.metrics.billableSeconds,
+    locale,
+    t,
+    true,
   );
   const monetaryTotals = currencyOptions.filter(
-    (currency) => summary.billableValueByCurrency[currency] !== undefined,
+    (currency) =>
+      summary.billableValueByCurrency[currency] !== undefined ||
+      analytics.comparison.billableValueByCurrency[currency] !== undefined,
   );
+  const periodValueData = monetaryTotals.map((currency) => {
+    const comparison = analytics.comparison.billableValueByCurrency[currency] ?? {
+      current: summary.billableValueByCurrency[currency] ?? 0,
+      previous: 0,
+      delta: summary.billableValueByCurrency[currency] ?? 0,
+      percentageChange: null,
+    };
+    const deltaPrefix = comparison.delta > 0 ? "+" : comparison.delta < 0 ? "−" : "";
+    const percentageChange = comparison.percentageChange ?? (comparison.current > 0 ? 100 : 0);
+    const percentagePrefix = percentageChange > 0 ? "+" : percentageChange < 0 ? "−" : "";
+    return {
+      currency,
+      value: formatMoney(comparison.current, currency, locale),
+      previous: formatMoney(comparison.previous, currency, locale),
+      delta: `${deltaPrefix}${formatMoney(Math.abs(comparison.delta), currency, locale)}`,
+      comparison: `${percentagePrefix}${percentageFormatter.format(Math.abs(percentageChange))}%`,
+      direction: comparison.delta > 0 ? "up" : comparison.delta < 0 ? "down" : "neutral",
+    };
+  });
   const predominantShift = [...analytics.shifts].sort(
     (first, second) => second.seconds - first.seconds,
   )[0];
@@ -1213,418 +1384,419 @@ function OverviewDashboard({ analytics }: { analytics: ReportAnalytics }) {
   const predominantShiftLabel = hasPredominantShift
     ? t(shiftLabels[predominantShift!.shift])
     : t("No activity");
-  const evolutionData = analytics.temporal.map((bucket) => ({
-    label: formatOverviewBucket(bucket, locale),
-    billable: bucket.billableSeconds,
-    internal: bucket.internalSeconds,
-  }));
-  const evolutionTickInterval = Math.max(0, Math.ceil(evolutionData.length / 8) - 1);
+  const evolutionData = analytics.temporal.map((bucket, index) => {
+    const previous = analytics.previousTemporal[index]?.totalSeconds ?? 0;
+    return {
+      label: formatOverviewBucket(bucket, locale),
+      billable: bucket.billableSeconds,
+      internal: bucket.internalSeconds,
+      currentTotal: bucket.totalSeconds,
+      previous,
+      difference: bucket.totalSeconds - previous,
+    };
+  });
+  const hasPreviousActivity = analytics.comparison.previous.totalSeconds > 0;
+  const evolutionTicks =
+    evolutionData.length <= 8
+      ? evolutionData.map((item) => item.label)
+      : Array.from({ length: 8 }, (_, index) => {
+          const dataIndex = Math.round((index * (evolutionData.length - 1)) / 7);
+          return evolutionData[dataIndex]?.label;
+        }).filter((label): label is string => Boolean(label));
   const shiftData = analytics.shifts.map((shift) => {
     const percentage = summary.totalSeconds > 0 ? (shift.seconds / summary.totalSeconds) * 100 : 0;
     return {
       shift: t(shiftLabels[shift.shift]),
       seconds: shift.seconds,
+      percentage,
       display: `${formatDuration(shift.seconds, locale)} · ${percentageFormatter.format(percentage)}%`,
     };
   });
-  const projectData = selectTopProjects(analytics).map((project) => ({
-    project: project.id === "none" ? t("No project") : project.label,
-    seconds: project.seconds,
-    display: formatDuration(project.seconds, locale),
-  }));
-  const billabilityData = [
+  const projectData = overviewProjectRows(analytics, projects, clients);
+  const billingData = [
     {
       name: t("Billable"),
       value: summary.billableSeconds,
       color: reportChartColors.success,
-      tone: "success" as const,
     },
     {
       name: t("Internal"),
       value: summary.internalSeconds,
       color: reportChartColors.muted,
-      tone: "default" as const,
     },
   ].filter((item) => item.value > 0);
   const billablePercentage = percentageFormatter.format(summary.billablePercentage);
-  const internalPercentage = percentageFormatter.format(
-    summary.totalSeconds > 0 ? (summary.internalSeconds / summary.totalSeconds) * 100 : 0,
-  );
-  const evolutionSummary = `${t("Billable")}: ${formatDuration(summary.billableSeconds, locale)}. ${t(
-    "Internal",
-  )}: ${formatDuration(summary.internalSeconds, locale)}.`;
+  const internalPercentage =
+    summary.totalSeconds > 0
+      ? percentageFormatter.format((summary.internalSeconds / summary.totalSeconds) * 100)
+      : "0";
+  const evolutionSummary = `${t("Current period")}: ${formatDuration(
+    summary.totalSeconds,
+    locale,
+  )}. ${t("Previous period")}: ${formatDuration(
+    analytics.comparison.previous.totalSeconds,
+    locale,
+  )}.`;
   const shiftSummary = shiftData.map((item) => `${item.shift}: ${item.display}`).join(". ");
   const projectSummary = projectData
     .map((item) => `${item.project}: ${formatDuration(item.seconds, locale)}`)
     .join(". ");
 
   return (
-    <ReportWidgetGrid>
-      <ReportKpi
-        title={t("Tracked time")}
-        value={formatDuration(summary.totalSeconds, locale)}
-        secondaryInformation={t("{count} entries", { count: summary.entryCount })}
-        variation={trackedVariation}
-        neutralComparisonLabel={t("No comparison")}
-        contentDescription={`${t("Tracked")}: ${formatDuration(summary.totalSeconds, locale)}. ${t(
-          "Previous",
-        )}: ${formatDuration(analytics.comparison.previous.totalSeconds, locale)}.`}
-      />
-      <ReportKpi
-        title={t("Billable time")}
-        value={formatDuration(summary.billableSeconds, locale)}
-        secondaryInformation={`${billablePercentage}% ${t("of tracked time")}`}
-        neutralComparisonLabel={t("No comparison")}
-        contentDescription={`${t("Billable")}: ${formatDuration(
-          summary.billableSeconds,
-          locale,
-        )}, ${billablePercentage}% ${t("of tracked time")}.`}
-      />
-      <ReportKpi
-        title={t("Estimated billable value")}
-        value={
-          <>
-            {monetaryTotals.map((currency) => (
-              <span key={currency} className="block">
-                {formatMoney(summary.billableValueByCurrency[currency] ?? 0, currency, locale)}
-              </span>
-            ))}
-          </>
-        }
-        secondaryInformation={t("No currency conversion applied.")}
-        neutralComparisonLabel={t("No comparison")}
-        contentDescription={monetaryTotals
-          .map((currency) =>
-            formatMoney(summary.billableValueByCurrency[currency] ?? 0, currency, locale),
-          )
-          .join(". ")}
-      />
-      <ReportKpi
-        title={t("Active days")}
-        value={String(summary.activeDays)}
-        secondaryInformation={t("Average {value} per active day", {
-          value: formatDuration(summary.averageSecondsPerActiveDay, locale),
-        })}
-        neutralComparisonLabel={t("No comparison")}
-        contentDescription={`${t("Active days")}: ${summary.activeDays}. ${t("Average/day")}: ${formatDuration(
-          summary.averageSecondsPerActiveDay,
-          locale,
-        )}.`}
-      />
-      <ReportChartWidget
-        title={t("Activity evolution")}
-        description={t("Billable and internal time over the selected period.")}
-        contentDescription={evolutionSummary}
-        config={{
-          billable: { label: t("Billable"), color: reportChartColors.success },
-          internal: { label: t("Internal"), color: reportChartColors.muted },
-        }}
-        summary={evolutionSummary}
-        legend={
-          <ReportChartLegend
-            accessibleLabel={t("Chart legend")}
-            items={[
-              { key: "billable", label: t("Billable"), tone: "success" },
-              { key: "internal", label: t("Internal"), tone: "default" },
-            ]}
-          />
-        }
-        isEmpty={summary.totalSeconds === 0}
-        emptyState={{ title: t("No chart data") }}
-      >
-        <BarChart accessibilityLayer data={evolutionData} margin={{ left: 0, right: 8 }}>
-          <CartesianGrid {...reportChartGridProps} />
-          <XAxis
-            {...reportChartAxisProps}
-            dataKey="label"
-            interval={evolutionTickInterval}
-            tickFormatter={(value) => shortenReportChartLabel(value, 12)}
-          />
-          <YAxis {...reportChartAxisProps} hide />
-          <ChartTooltip
-            {...reportChartTooltipProps}
-            content={
-              <ChartTooltipContent
-                valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
-              />
-            }
-          />
-          <Bar
-            {...reportVerticalBarProps}
-            dataKey="internal"
-            stackId="tracked"
-            fill={reportChartColors.muted}
-            radius={[0, 0, 4, 4]}
-          />
-          <Bar
-            {...reportVerticalBarProps}
-            dataKey="billable"
-            stackId="tracked"
-            fill={reportChartColors.success}
-          />
-        </BarChart>
-      </ReportChartWidget>
-      <ReportChartWidget
-        title={t("Hours by shift")}
-        description={t("Predominant shift: {shift}", { shift: predominantShiftLabel })}
-        contentDescription={shiftSummary || t("No activity")}
-        config={{ seconds: { label: t("Tracked"), color: reportChartColors.accent } }}
-        summary={shiftSummary || t("No activity")}
-        width="compact"
-        isEmpty={summary.totalSeconds === 0}
-        emptyState={{ title: t("No chart data") }}
-      >
-        <BarChart
-          accessibilityLayer
-          data={shiftData}
-          layout="vertical"
-          margin={{ left: 0, right: 96 }}
-        >
-          <XAxis {...reportChartAxisProps} type="number" dataKey="seconds" hide />
-          <YAxis
-            {...reportChartAxisProps}
-            dataKey="shift"
-            type="category"
-            width={72}
-            tickFormatter={(value) => shortenReportChartLabel(value, 10)}
-          />
-          <ChartTooltip
-            {...reportChartTooltipProps}
-            content={
-              <ChartTooltipContent
-                hideLabel
-                valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
-              />
-            }
-          />
-          <Bar {...reportHorizontalBarProps} dataKey="seconds" fill={reportChartColors.accent}>
-            <LabelList dataKey="display" position="right" fill={reportChartColors.foreground} />
-          </Bar>
-        </BarChart>
-      </ReportChartWidget>
-      <ReportChartWidget
-        title={t("Top projects")}
-        description={t("Projects with the most tracked time.")}
-        contentDescription={projectSummary || t("No activity")}
-        config={{ seconds: { label: t("Tracked"), color: reportChartColors.accent } }}
-        summary={projectSummary || t("No activity")}
-        width="compact"
-        height="tall"
-        isEmpty={projectData.length === 0}
-        emptyState={{ title: t("No chart data") }}
-      >
-        <BarChart
-          accessibilityLayer
-          data={projectData}
-          layout="vertical"
-          margin={{ left: 0, right: 72 }}
-        >
-          <XAxis {...reportChartAxisProps} type="number" dataKey="seconds" hide />
-          <YAxis
-            {...reportChartAxisProps}
-            dataKey="project"
-            type="category"
-            width={88}
-            tickFormatter={(value) => shortenReportChartLabel(value, 12)}
-          />
-          <ChartTooltip
-            {...reportChartTooltipProps}
-            content={
-              <ChartTooltipContent
-                hideLabel
-                valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
-              />
-            }
-          />
-          <Bar {...reportHorizontalBarProps} dataKey="seconds" fill={reportChartColors.accent}>
-            <LabelList dataKey="display" position="right" fill={reportChartColors.foreground} />
-          </Bar>
-        </BarChart>
-      </ReportChartWidget>
-      <ReportChartWidget
-        title={t("Billing distribution")}
-        description={t("Billable versus internal time.")}
-        contentDescription={`${t("Billable")}: ${billablePercentage}%. ${t(
-          "Internal",
-        )}: ${internalPercentage}%.`}
-        config={Object.fromEntries(
-          billabilityData.map((item) => [item.name, { label: item.name, color: item.color }]),
-        )}
-        summary={`${t("Billable")}: ${billablePercentage}%. ${t(
-          "Internal",
-        )}: ${internalPercentage}%.`}
-        width="compact"
-        height="compact"
-        legend={
-          <ReportChartLegend
-            accessibleLabel={t("Chart legend")}
-            items={billabilityData.map((item) => ({
-              key: item.name,
-              label: `${item.name} · ${percentageFormatter.format(
-                summary.totalSeconds > 0 ? (item.value / summary.totalSeconds) * 100 : 0,
-              )}%`,
-              tone: item.tone,
-            }))}
-          />
-        }
-        isEmpty={summary.totalSeconds === 0}
-        emptyState={{ title: t("No chart data") }}
-      >
-        <PieChart accessibilityLayer>
-          <ChartTooltip
-            {...reportChartTooltipProps}
-            content={
-              <ChartTooltipContent
-                hideLabel
-                valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
-              />
-            }
-          />
-          <Pie
-            data={billabilityData}
-            dataKey="value"
-            nameKey="name"
-            innerRadius="58%"
-            outerRadius="82%"
-            isAnimationActive={false}
-          >
-            {billabilityData.map((item) => (
-              <Cell key={item.name} fill={item.color} />
-            ))}
-          </Pie>
-        </PieChart>
-      </ReportChartWidget>
-      <ReportWidget
-        title={t("Activity summary")}
-        description={t("Highlights from the selected period.")}
-        contentDescription={`${t("Predominant shift")}: ${predominantShiftLabel}. ${t(
-          "Busiest day",
-        )}: ${
-          summary.busiestDay ? formatDate(summary.busiestDay.id, locale) : t("No activity")
-        }. ${t("Top project")}: ${summary.topProject?.label ?? t("No activity")}. ${t(
-          "Time without project",
-        )}: ${formatDuration(summary.noProjectSeconds, locale)}.`}
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <ActivitySummaryItem label={t("Predominant shift")} value={predominantShiftLabel} />
-          <ActivitySummaryItem
-            label={t("Busiest day")}
-            value={
-              summary.busiestDay ? formatDate(summary.busiestDay.id, locale) : t("No activity")
-            }
-          />
-          <ActivitySummaryItem
-            label={t("Top project")}
-            value={summary.topProject?.label ?? t("No activity")}
-          />
-          <ActivitySummaryItem
-            label={t("Time without project")}
-            value={formatDuration(summary.noProjectSeconds, locale)}
-          />
-        </div>
-      </ReportWidget>
-    </ReportWidgetGrid>
-  );
-}
-
-function ReportOverview({
-  total,
-  billable,
-  internal,
-  records,
-  billableValue,
-}: {
-  total: number;
-  billable: number;
-  internal: number;
-  records: number;
-  billableValue: string;
-}) {
-  const { locale, t } = useI18n();
-  const metrics = [
-    { label: t("Tracked"), value: formatDuration(total, locale) },
-    { label: t("Billable"), value: formatDuration(billable, locale) },
-    { label: t("Internal"), value: formatDuration(internal, locale) },
-    { label: t("Entries"), value: String(records) },
-    { label: t("Billable value"), value: billableValue },
-  ];
-  return (
-    <Card className="overflow-hidden">
-      <Card.Content className="grid grid-cols-2 gap-px p-0 sm:grid-cols-5">
-        {metrics.map((metric) => (
-          <div key={metric.label} className="min-w-0 px-4 py-3">
-            <Typography type="body-xs" color="muted" weight="semibold" truncate>
-              {metric.label}
-            </Typography>
-            <Typography type="body-sm" weight="semibold" className="mt-1" truncate>
-              {metric.value}
-            </Typography>
-          </div>
-        ))}
-      </Card.Content>
-    </Card>
-  );
-}
-
-function ReportChartCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Card className="min-w-0">
-      <Card.Header className="px-4 pb-0 pt-4">
-        <Card.Title>{title}</Card.Title>
-      </Card.Header>
-      <Card.Content className="min-w-0 px-3 pb-3 pt-2">{children}</Card.Content>
-    </Card>
-  );
-}
-
-function ReportMetricRing({
-  label,
-  seconds,
-  total,
-  color = "success",
-}: {
-  label: string;
-  seconds: number;
-  total: number;
-  color?: "accent" | "default" | "success" | "warning";
-}) {
-  const { locale, t } = useI18n();
-  const percentage = total > 0 ? Math.round((seconds / total) * 100) : 0;
-  const chartColor = `var(--${color})`;
-  const config = { value: { label, color: chartColor } };
-  return (
-    <div
-      className="flex min-w-0 items-center gap-4"
-      aria-label={t("{label}: {value}", {
-        label,
-        value: `${percentage}%`,
-      })}
-    >
-      <div className="relative size-28 shrink-0">
-        <ChartContainer className="size-28" config={config}>
-          <RadialBarChart
-            accessibilityLayer
-            data={[{ name: label, value: percentage }]}
-            innerRadius="65%"
-            outerRadius="100%"
-            startAngle={90}
-            endAngle={-270}
-          >
-            <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-            <RadialBar background dataKey="value" fill={chartColor} isAnimationActive={false} />
-          </RadialBarChart>
-        </ChartContainer>
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          {percentage}%
-        </span>
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12">
+      <div className="grid min-w-0 lg:col-span-4">
+        <ReportKpi
+          title={
+            <OverviewTooltipTitle
+              label={t("Tracked time")}
+              help={t("Comparisons use the previous equivalent period.")}
+            />
+          }
+          value={formatDuration(summary.totalSeconds, locale)}
+          variation={trackedVariation}
+          neutralComparisonLabel={t("No comparison")}
+          contentDescription={`${t("Tracked")}: ${formatDuration(
+            summary.totalSeconds,
+            locale,
+          )}. ${t("Active days")}: ${summary.activeDays}. ${t("Average/day")}: ${formatDuration(
+            summary.averageSecondsPerActiveDay,
+            locale,
+          )}. ${t("Previous period")}: ${formatDuration(
+            analytics.comparison.previous.totalSeconds,
+            locale,
+          )}.`}
+        />
       </div>
-      <div className="min-w-0">
-        <Typography type="body-sm" weight="semibold" truncate>
-          {label}
-        </Typography>
-        <Typography type="body-xs" color="muted" truncate>
-          {formatDuration(seconds, locale)} {t("of tracked time")}
-        </Typography>
+      <div className="grid min-w-0 lg:col-span-4">
+        <ReportKpi
+          title={
+            <OverviewTooltipTitle
+              label={t("Billable time")}
+              help={t("Only entries marked as billable are included in this total.")}
+            />
+          }
+          value={formatDuration(summary.billableSeconds, locale)}
+          variation={billableVariation}
+          neutralComparisonLabel={t("No comparison")}
+          contentDescription={`${t("Billable")}: ${formatDuration(
+            summary.billableSeconds,
+            locale,
+          )}, ${billablePercentage}% ${t("of tracked time")}. ${t(
+            "Internal",
+          )}: ${formatDuration(summary.internalSeconds, locale)}.`}
+        />
+      </div>
+      <div className="grid min-w-0 md:col-span-2 lg:col-span-4">
+        <ReportWidget
+          title={
+            <OverviewTooltipTitle
+              label={t("Estimated billable value")}
+              help={`${t(
+                "Estimate based on billable time and the hourly-rate snapshot of each entry.",
+              )} ${t("No currency conversion applied.")}`}
+            />
+          }
+          contentDescription={periodValueData
+            .map(
+              (item) =>
+                `${item.currency}: ${item.value}. ${t("Previous")}: ${item.previous}. ${t(
+                  "Change",
+                )}: ${item.delta}.`,
+            )
+            .join(" ")}
+        >
+          <div className="min-h-[72px] space-y-3">
+            {periodValueData.map((item) => {
+              const DirectionIcon =
+                item.direction === "up" ? ArrowUp : item.direction === "down" ? ArrowDown : Minus;
+              return (
+                <div key={item.currency} className="min-w-0 space-y-3">
+                  <div className="flex min-w-0 items-baseline gap-2">
+                    <Typography type="h2" weight="semibold">
+                      {item.value}
+                    </Typography>
+                    <Typography type="body-xs" color="muted" weight="semibold">
+                      {item.currency}
+                    </Typography>
+                  </div>
+                  <div className="flex justify-end">
+                    <OverviewAccessibleTooltip
+                      label={`${t("Change")}: ${item.comparison}. ${t("Previous")}: ${item.previous}`}
+                      content={`${t("Previous")}: ${item.previous} · ${t("Change")}: ${item.delta}`}
+                    >
+                      <Chip
+                        size="sm"
+                        variant="soft"
+                        color={
+                          item.direction === "up"
+                            ? "success"
+                            : item.direction === "down"
+                              ? "danger"
+                              : "default"
+                        }
+                      >
+                        <DirectionIcon aria-hidden="true" className="size-3" />
+                        <Chip.Label>{item.comparison}</Chip.Label>
+                      </Chip>
+                    </OverviewAccessibleTooltip>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </ReportWidget>
+      </div>
+      <div className="grid min-w-0 md:col-span-2 lg:col-span-8">
+        <ReportChartWidget
+          title={
+            <OverviewTooltipTitle
+              label={t("Activity evolution")}
+              help={t("The line compares the previous equivalent period with the current one.")}
+            />
+          }
+          action={
+            <ReportChartLegend
+              accessibleLabel={t("Chart legend")}
+              items={[
+                { key: "billable", label: t("Billable"), tone: "success" },
+                { key: "internal", label: t("Internal"), tone: "default" },
+                ...(hasPreviousActivity
+                  ? [
+                      {
+                        key: "previous",
+                        label: t("Previous period"),
+                        tone: "accent" as const,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          }
+          contentDescription={evolutionSummary}
+          config={{
+            billable: { label: t("Billable"), color: reportChartColors.success },
+            internal: { label: t("Internal"), color: reportChartColors.muted },
+            previous: { label: t("Previous period"), color: reportChartColors.accent },
+          }}
+          summary={evolutionSummary}
+          width="compact"
+          isEmpty={summary.totalSeconds === 0}
+          emptyState={{ title: t("No chart data") }}
+        >
+          <ComposedChart accessibilityLayer data={evolutionData} margin={{ left: 0, right: 8 }}>
+            <CartesianGrid {...reportChartGridProps} />
+            <XAxis
+              {...reportChartAxisProps}
+              dataKey="label"
+              ticks={evolutionTicks}
+              interval="preserveStartEnd"
+              minTickGap={24}
+              tickFormatter={(value) => shortenReportChartLabel(value, 12)}
+            />
+            <YAxis {...reportChartAxisProps} hide />
+            <ChartTooltip
+              {...reportChartTooltipProps}
+              content={
+                <ChartTooltipContent
+                  valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
+                  footerFormatter={(payload) => {
+                    const datum = payload[0]?.payload as { difference?: number } | undefined;
+                    const difference = datum?.difference ?? 0;
+                    const prefix = difference > 0 ? "+" : difference < 0 ? "−" : "";
+                    return `${t("Difference")}: ${prefix}${formatDuration(
+                      Math.abs(difference),
+                      locale,
+                    )}`;
+                  }}
+                />
+              }
+            />
+            <Bar
+              {...reportVerticalBarProps}
+              dataKey="internal"
+              stackId="tracked"
+              fill={reportChartColors.muted}
+              radius={[0, 0, 4, 4]}
+            />
+            <Bar
+              {...reportVerticalBarProps}
+              dataKey="billable"
+              stackId="tracked"
+              fill={reportChartColors.success}
+            />
+            {hasPreviousActivity ? (
+              <Line
+                dataKey="previous"
+                type="monotone"
+                stroke={reportChartColors.accent}
+                strokeWidth={2}
+                dot={false}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+            ) : null}
+          </ComposedChart>
+        </ReportChartWidget>
+      </div>
+      <div className="grid min-w-0 lg:col-span-4">
+        <ReportChartWidget
+          title={t("Billing distribution")}
+          contentDescription={`${t("Billable")}: ${formatDuration(
+            summary.billableSeconds,
+            locale,
+          )}, ${billablePercentage}%. ${t("Internal")}: ${formatDuration(
+            summary.internalSeconds,
+            locale,
+          )}, ${internalPercentage}%.`}
+          config={{
+            billable: { label: t("Billable"), color: reportChartColors.success },
+            internal: { label: t("Internal"), color: reportChartColors.muted },
+          }}
+          summary={`${t("Billable")}: ${billablePercentage}%. ${t(
+            "Internal",
+          )}: ${internalPercentage}%.`}
+          width="compact"
+          height="compact"
+          legend={
+            <div className="grid grid-cols-2 gap-3" aria-label={t("Chart legend")}>
+              <div className="min-w-0 space-y-1">
+                <BillableIndicator billable />
+                <Typography type="body-sm" weight="semibold">
+                  {formatDuration(summary.billableSeconds, locale)} · {billablePercentage}%
+                </Typography>
+              </div>
+              <div className="min-w-0 space-y-1">
+                <BillableIndicator billable={false} />
+                <Typography type="body-sm" weight="semibold">
+                  {formatDuration(summary.internalSeconds, locale)} · {internalPercentage}%
+                </Typography>
+              </div>
+            </div>
+          }
+          isEmpty={summary.totalSeconds === 0}
+          emptyState={{ title: t("No chart data") }}
+        >
+          <PieChart accessibilityLayer>
+            <ChartTooltip
+              {...reportChartTooltipProps}
+              content={
+                <ChartTooltipContent
+                  hideLabel
+                  valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
+                />
+              }
+            />
+            <Pie
+              data={billingData}
+              dataKey="value"
+              nameKey="name"
+              innerRadius="58%"
+              outerRadius="82%"
+              isAnimationActive={false}
+            >
+              <ChartLabel
+                value={formatDuration(summary.totalSeconds, locale)}
+                position="center"
+                fill={reportChartColors.foreground}
+              />
+              {billingData.map((item) => (
+                <Cell key={item.name} fill={item.color} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ReportChartWidget>
+      </div>
+      <div className="grid min-w-0 lg:col-span-4">
+        <ReportChartWidget
+          title={t("Hours by shift")}
+          description={t("Predominant shift: {shift}", { shift: predominantShiftLabel })}
+          contentDescription={shiftSummary || t("No activity")}
+          config={{ seconds: { label: t("Tracked"), color: reportChartColors.accent } }}
+          summary={shiftSummary || t("No activity")}
+          width="compact"
+          isEmpty={summary.totalSeconds === 0}
+          emptyState={{ title: t("No chart data") }}
+        >
+          <BarChart
+            accessibilityLayer
+            data={shiftData}
+            layout="vertical"
+            margin={{ left: 0, right: 8 }}
+          >
+            <XAxis {...reportChartAxisProps} type="number" dataKey="seconds" hide />
+            <YAxis
+              {...reportChartAxisProps}
+              dataKey="shift"
+              type="category"
+              width={72}
+              tickFormatter={(value) => shortenReportChartLabel(value, 10)}
+            />
+            <ChartTooltip
+              {...reportChartTooltipProps}
+              content={
+                <ChartTooltipContent
+                  hideLabel
+                  valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
+                  footerFormatter={(payload) => {
+                    const datum = payload[0]?.payload as { percentage?: number } | undefined;
+                    return `${t("Share")}: ${percentageFormatter.format(datum?.percentage ?? 0)}%`;
+                  }}
+                />
+              }
+            />
+            <Bar {...reportHorizontalBarProps} dataKey="seconds" fill={reportChartColors.accent} />
+          </BarChart>
+        </ReportChartWidget>
+      </div>
+      <div className="grid min-w-0 md:col-span-2 lg:col-span-8">
+        <ReportWidget
+          title={t("Top projects")}
+          contentDescription={projectSummary || t("No activity")}
+          isEmpty={projectData.length === 0}
+          emptyState={{ title: t("No projects found") }}
+        >
+          <DataTable
+            label={t("Top projects")}
+            minWidth="min-w-[640px]"
+            scrollHint={t("Scroll horizontally to see all columns")}
+          >
+            <Table.Header>
+              {["Project / client", "Tracked", "Billable", "Estimated billable value"].map(
+                (label, index) => (
+                  <Table.Column key={label} isRowHeader={index === 0}>
+                    {t(label)}
+                  </Table.Column>
+                ),
+              )}
+            </Table.Header>
+            <Table.Body>
+              {projectData.map((project) => (
+                <Table.Row key={project.id}>
+                  <Table.Cell>
+                    <div className="min-w-0">
+                      <ProjectLabel
+                        project={project.projectColor ? { color: project.projectColor } : null}
+                        label={project.id === "none" ? t("No project") : project.project}
+                      />
+                      <Typography type="body-xs" color="muted" truncate>
+                        {project.client ?? t("No client")}
+                      </Typography>
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell className="whitespace-nowrap">
+                    {formatDuration(project.seconds, locale)}
+                  </Table.Cell>
+                  <Table.Cell className="whitespace-nowrap">
+                    {formatDuration(project.billableSeconds, locale)}
+                  </Table.Cell>
+                  <Table.Cell className="whitespace-nowrap">
+                    {formatMoneyTotals(project.valueByCurrency, locale) || "—"}
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </DataTable>
+        </ReportWidget>
       </div>
     </div>
   );
@@ -1658,6 +1830,7 @@ function DetailedReport({
   columns,
   onChangeColumns,
   fallbackForEntry,
+  onExport,
 }: {
   entries: TimeEntry[];
   page: number;
@@ -1669,9 +1842,9 @@ function DetailedReport({
   columns: DetailedColumn[];
   onChangeColumns: (columns: DetailedColumn[]) => void;
   fallbackForEntry: (entry: TimeEntry) => BillingPreference;
+  onExport: () => void;
 }) {
   const { locale, t } = useI18n();
-  if (entries.length === 0) return <EmptyReport onClear={onClear} />;
   const pageSize = 50;
   const pageCount = Math.max(1, Math.ceil(entries.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -1681,30 +1854,62 @@ function DetailedReport({
   const billableSeconds = entries
     .filter((entry) => entry.billable)
     .reduce((sum, entry) => sum + entry.seconds, 0);
-  const billableTotal = formatMoneyTotals(sumBillableValues(entries, fallbackForEntry), locale);
+  const billableTotals = sumBillableValues(entries, fallbackForEntry);
+  const billableCurrencies = currencyOptions.filter(
+    (currency) => billableTotals[currency] !== undefined,
+  );
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Typography type="body-sm" color="muted">
-          {t("Choose the columns you need for this view.")}
-        </Typography>
-        <ReportColumnPicker columns={columns} onChange={onChangeColumns} />
-      </div>
+    <ReportTableWidget
+      title={t("Detailed entries")}
+      description={t("Choose the columns you need for this view.")}
+      action={
+        <div className="flex items-center gap-2">
+          <ReportColumnPicker columns={columns} onChange={onChangeColumns} />
+          <ReportExportButton onPress={onExport} />
+        </div>
+      }
+      contentDescription={t("Detailed report table")}
+      isEmpty={entries.length === 0}
+      emptyState={{
+        title: t("No time entries match"),
+        description: t("Try a wider period or clear one of the active filters."),
+        action: (
+          <Button variant="secondary" onPress={onClear}>
+            <ArrowRotateLeft className="size-4" />
+            {t("Clear filters")}
+          </Button>
+        ),
+      }}
+    >
       <DataTable
         label={t("Detailed report table")}
-        minWidth="min-w-[900px]"
+        minWidth="min-w-[1280px]"
         scrollHint={t("Scroll horizontally to see all columns")}
         footer={
-          <div className="flex w-full flex-wrap items-center justify-between gap-3">
-            <span>{t("Total · {count} entries", { count: entries.length })}</span>
-            <span className="whitespace-nowrap">{formatDuration(totalSeconds, locale)}</span>
+          <div className="flex w-full flex-wrap items-center gap-4">
             <span className="whitespace-nowrap">
-              {formatDuration(billableSeconds, locale)} {t("billable")}
+              {t("Entries")}: {entries.length}
             </span>
             <span className="whitespace-nowrap">
-              {formatDuration(totalSeconds - billableSeconds, locale)} {t("internal")}
+              {t("Tracked")}: {formatDuration(totalSeconds, locale)}
             </span>
-            <span className="whitespace-nowrap">{billableTotal}</span>
+            <span className="whitespace-nowrap">
+              {t("Billable")}: {formatDuration(billableSeconds, locale)}
+            </span>
+            <span className="whitespace-nowrap">
+              {t("Internal")}: {formatDuration(totalSeconds - billableSeconds, locale)}
+            </span>
+            {billableCurrencies.map((currency) => (
+              <span key={currency} className="whitespace-nowrap">
+                {t("Estimated billable value")} ({currency}):{" "}
+                {formatMoney(billableTotals[currency] ?? 0, currency, locale)}
+              </span>
+            ))}
+            {billableCurrencies.length === 0 ? (
+              <span className="whitespace-nowrap">
+                {t("Estimated billable value")}: {t("No estimated billable value")}
+              </span>
+            ) : null}
           </div>
         }
         pagination={{
@@ -1728,70 +1933,94 @@ function DetailedReport({
         <Table.Header>
           {visibleColumns.map((column, index) => (
             <Table.Column key={column.id} isRowHeader={index === 0}>
-              {t(column.label)}
+              {column.id === "billability" ? (
+                <span className="inline-flex items-center gap-2">
+                  <BillableIndicator billable={null} mode="icon" />
+                  <span>{t(column.label)}</span>
+                </span>
+              ) : (
+                t(column.label)
+              )}
             </Table.Column>
           ))}
         </Table.Header>
         <Table.Body>
           {pageEntries.map((entry) => (
             <Table.Row key={entry.id}>
-              {columns.includes("date") ? (
-                <Table.Cell className="whitespace-nowrap">
-                  {formatDate(entry.date, locale)}
+              {visibleColumns.map((column) => (
+                <Table.Cell
+                  key={column.id}
+                  className={
+                    column.id === "task" ||
+                    column.id === "projectClient" ||
+                    column.id === "description"
+                      ? ""
+                      : "whitespace-nowrap"
+                  }
+                >
+                  {renderDetailedCell(
+                    entry,
+                    column.id,
+                    members,
+                    projects,
+                    clients,
+                    fallbackForEntry,
+                    locale,
+                    t,
+                  )}
                 </Table.Cell>
-              ) : null}
-              {columns.includes("task") ? (
-                <Table.Cell>
-                  <div className="truncate">{entry.task}</div>
-                </Table.Cell>
-              ) : null}
-              {columns.includes("projectClient") ? (
-                <Table.Cell>
-                  <div className="truncate">{projectNameFor(projects, entry.projectId)}</div>
-                  <div className="truncate">
-                    {clientNameFor(clients, projects, entry.projectId)}
-                  </div>
-                </Table.Cell>
-              ) : null}
-              {columns.includes("start") ? (
-                <Table.Cell className="whitespace-nowrap">{entry.start}</Table.Cell>
-              ) : null}
-              {columns.includes("end") ? (
-                <Table.Cell className="whitespace-nowrap">{endLabel(entry)}</Table.Cell>
-              ) : null}
-              {columns.includes("duration") ? (
-                <Table.Cell className="whitespace-nowrap">
-                  {formatDuration(entry.seconds, locale)}
-                </Table.Cell>
-              ) : null}
-              {columns.includes("billability") ? (
-                <Table.Cell className="whitespace-nowrap">
-                  {entry.billable ? t("Billable") : t("Internal")}
-                </Table.Cell>
-              ) : null}
-              {columns.includes("value") ? (
-                <Table.Cell className="whitespace-nowrap">
-                  {(() => {
-                    const billing = billingForEntry(entry, fallbackForEntry(entry));
-                    return formatMoney(billableValue(entry, billing), billing.currency, locale);
-                  })()}
-                </Table.Cell>
-              ) : null}
-              {columns.includes("member") ? (
-                <Table.Cell className="whitespace-nowrap">
-                  {nameForMember(members, entry.userId)}
-                </Table.Cell>
-              ) : null}
-              {columns.includes("description") ? (
-                <Table.Cell>
-                  <div className="truncate">{entry.description ?? "—"}</div>
-                </Table.Cell>
-              ) : null}
+              ))}
             </Table.Row>
           ))}
         </Table.Body>
       </DataTable>
-    </div>
+    </ReportTableWidget>
+  );
+}
+
+function renderDetailedCell(
+  entry: TimeEntry,
+  column: DetailedColumn,
+  members: Member[],
+  projects: Project[],
+  clients: Client[],
+  fallbackForEntry: (entry: TimeEntry) => BillingPreference,
+  locale: Locale,
+  t: Translate,
+): ReactNode {
+  if (column === "date") return formatDate(entry.date, locale);
+  if (column === "member") return nameForMember(members, entry.userId);
+  if (column === "projectClient") {
+    return (
+      <div className="min-w-0">
+        <ProjectLabel
+          project={projectFor(projects, entry.projectId)}
+          label={projectNameFor(projects, entry.projectId)}
+        />
+        <div className="truncate">{clientNameFor(clients, projects, entry.projectId)}</div>
+      </div>
+    );
+  }
+  if (column === "task") return <div className="truncate">{entry.task}</div>;
+  if (column === "description") {
+    return <div className="truncate">{entry.description ?? "—"}</div>;
+  }
+  if (column === "start") return entry.start;
+  if (column === "end") return endLabel(entry);
+  if (column === "duration") return formatDuration(entry.seconds, locale);
+  if (column === "billability") return <BillableIndicator billable={entry.billable} />;
+  const billing = billingForEntry(entry, fallbackForEntry(entry));
+  if (column === "hourlyRate") return formatMoney(billing.hourlyRate, billing.currency, locale);
+  if (column === "currency") return billing.currency;
+  return formatMoney(billableValue(entry, billing), billing.currency, locale);
+}
+
+function BillableTableLabel({ billable, label }: { billable: boolean; label: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <BillableIndicator billable={billable} mode="icon" />
+      <span>{label}</span>
+    </span>
   );
 }
 
@@ -1856,6 +2085,7 @@ function ReportColumnPicker({
 function SummaryReport({
   groups,
   previousGroups,
+  projects,
   total,
   primary,
   secondary,
@@ -1864,9 +2094,12 @@ function SummaryReport({
   onChangeGroup,
   onChangeSubgroup,
   onClear,
+  canGroupByMember,
+  onExport,
 }: {
   groups: ReportGroup[];
   previousGroups: ReportGroup[];
+  projects: Project[];
   total: number;
   primary: GroupDimension;
   secondary: GroupDimension | "none";
@@ -1875,15 +2108,28 @@ function SummaryReport({
   onChangeGroup: (group: GroupDimension) => void;
   onChangeSubgroup: (group: GroupDimension | "none") => void;
   onClear: () => void;
+  canGroupByMember: boolean;
+  onExport: () => void;
 }) {
   const { locale, t } = useI18n();
-  if (groups.length === 0) return <EmptyReport onClear={onClear} />;
+  if (groups.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <ReportExportButton onPress={onExport} />
+        </div>
+        <EmptyReport onClear={onClear} />
+      </div>
+    );
+  }
   const percentageFormatter = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
+  const projectById = new Map(projects.map((project) => [project.id, project]));
+  const projectGrouping = primary === "project" || secondary === "project";
   const topGroups = groups.slice(0, 8);
   const topGroup = groups[0]!;
   const topGroupShare = total > 0 ? (topGroup.seconds / total) * 100 : 0;
   const previousTotal = previousGroups.reduce((sum, group) => sum + group.seconds, 0);
-  const previousTopGroup = previousGroups.find((group) => group.key === topGroup.key);
+  const previousTopGroup = previousGroups[0];
   const previousTopGroupShare =
     previousTotal > 0 ? ((previousTopGroup?.seconds ?? 0) / previousTotal) * 100 : 0;
   const shareDelta = topGroupShare - previousTopGroupShare;
@@ -1929,7 +2175,7 @@ function SummaryReport({
     )
     .join(". ");
   const currencies = currencyOptions.filter((currency) =>
-    groups.some((group) => (group.billableValue[currency] ?? 0) > 0),
+    groups.some((group) => group.billableValue[currency] !== undefined),
   );
   const singleCurrency = currencies.length === 1 ? currencies[0] : null;
   const valueData = singleCurrency
@@ -1959,253 +2205,268 @@ function SummaryReport({
           return formatMoney(value, currency, locale);
         })
         .join(". ");
+  const availableGroupOptions = canGroupByMember
+    ? groupOptions
+    : groupOptions.filter((option) => option.id !== "member");
 
   return (
-    <ReportWidgetGrid>
-      <ReportChartWidget
-        title={t("Top groups by time")}
-        description={t("Groups with the highest concentration of tracked time.")}
-        contentDescription={topGroupsSummary}
-        config={{ seconds: { label: t("Tracked"), color: reportChartColors.accent } }}
-        summary={topGroupsSummary}
-        height="tall"
-      >
-        <BarChart
-          accessibilityLayer
-          data={topGroupData}
-          layout="vertical"
-          margin={{ left: 0, right: 72 }}
-        >
-          <XAxis {...reportChartAxisProps} type="number" dataKey="seconds" hide />
-          <YAxis
-            {...reportChartAxisProps}
-            dataKey="label"
-            type="category"
-            width={96}
-            tickFormatter={(value) => shortenReportChartLabel(value, 14)}
-          />
-          <ChartTooltip
-            {...reportChartTooltipProps}
-            content={
-              <ChartTooltipContent
-                hideLabel
-                valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
-              />
-            }
-          />
-          <Bar {...reportHorizontalBarProps} dataKey="seconds" fill={reportChartColors.accent}>
-            <LabelList dataKey="display" position="right" fill={reportChartColors.foreground} />
-          </Bar>
-        </BarChart>
-      </ReportChartWidget>
-      <ReportKpi
-        title={t("Top group share")}
-        value={`${percentageFormatter.format(topGroupShare)}%`}
-        secondaryInformation={`${topGroup.label} · ${formatDuration(topGroup.seconds, locale)}`}
-        variation={shareVariation}
-        neutralComparisonLabel={t("No comparison")}
-        contentDescription={`${topGroup.label}: ${formatDuration(
-          topGroup.seconds,
-          locale,
-        )}, ${percentageFormatter.format(topGroupShare)}%. ${t("Previous")}: ${percentageFormatter.format(
-          previousTopGroupShare,
-        )}%.`}
-      />
-      <ReportChartWidget
-        title={t("Billing by group")}
-        description={t("Billable and internal time within each leading group.")}
-        contentDescription={billingSummary}
-        config={{
-          billable: { label: t("Billable"), color: reportChartColors.success },
-          internal: { label: t("Internal"), color: reportChartColors.muted },
-        }}
-        summary={billingSummary}
-        height="tall"
-        legend={
-          <ReportChartLegend
-            accessibleLabel={t("Chart legend")}
-            items={[
-              { key: "billable", label: t("Billable"), tone: "success" },
-              { key: "internal", label: t("Internal") },
-            ]}
-          />
-        }
-      >
-        <BarChart
-          accessibilityLayer
-          data={billingData}
-          layout="vertical"
-          margin={{ left: 0, right: 8 }}
-        >
-          <XAxis {...reportChartAxisProps} type="number" hide />
-          <YAxis
-            {...reportChartAxisProps}
-            dataKey="label"
-            type="category"
-            width={96}
-            tickFormatter={(value) => shortenReportChartLabel(value, 14)}
-          />
-          <ChartTooltip
-            {...reportChartTooltipProps}
-            content={
-              <ChartTooltipContent
-                valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
-              />
-            }
-          />
-          <Bar
-            {...reportHorizontalBarProps}
-            dataKey="billable"
-            stackId="billing"
-            fill={reportChartColors.success}
-            radius={[4, 0, 0, 4]}
-          />
-          <Bar
-            {...reportHorizontalBarProps}
-            dataKey="internal"
-            stackId="billing"
-            fill={reportChartColors.muted}
-          />
-        </BarChart>
-      </ReportChartWidget>
-      {singleCurrency ? (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <ReportExportButton onPress={onExport} />
+      </div>
+      <ReportWidgetGrid>
         <ReportChartWidget
-          title={t("Billable value by group")}
-          description={t("Values shown in {currency}.", { currency: singleCurrency })}
-          contentDescription={valueSummary}
-          config={{ value: { label: t("Billable value"), color: reportChartColors.accent } }}
-          summary={valueSummary}
-          width="compact"
+          title={t("Top groups by time")}
+          description={t("Groups with the highest concentration of tracked time.")}
+          contentDescription={topGroupsSummary}
+          config={{ seconds: { label: t("Tracked"), color: reportChartColors.accent } }}
+          summary={topGroupsSummary}
           height="tall"
-          isEmpty={valueData.length === 0}
-          emptyState={{ title: t("No billable value") }}
         >
           <BarChart
             accessibilityLayer
-            data={valueData}
+            data={topGroupData}
             layout="vertical"
-            margin={{ left: 0, right: 88 }}
+            margin={{ left: 0, right: 72 }}
           >
-            <XAxis {...reportChartAxisProps} type="number" dataKey="value" hide />
+            <XAxis {...reportChartAxisProps} type="number" dataKey="seconds" hide />
             <YAxis
               {...reportChartAxisProps}
               dataKey="label"
               type="category"
-              width={88}
-              tickFormatter={(value) => shortenReportChartLabel(value, 12)}
+              width={96}
+              tickFormatter={(value) => shortenReportChartLabel(value, 14)}
             />
             <ChartTooltip
               {...reportChartTooltipProps}
               content={
                 <ChartTooltipContent
                   hideLabel
-                  valueFormatter={(value) =>
-                    formatMoney(Number(value ?? 0), singleCurrency, locale)
-                  }
+                  valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
                 />
               }
             />
-            <Bar {...reportHorizontalBarProps} dataKey="value" fill={reportChartColors.accent}>
+            <Bar {...reportHorizontalBarProps} dataKey="seconds" fill={reportChartColors.accent}>
               <LabelList dataKey="display" position="right" fill={reportChartColors.foreground} />
             </Bar>
           </BarChart>
         </ReportChartWidget>
-      ) : (
-        <ReportWidget
-          title={t("Billable value by group")}
-          description={
-            currencies.length > 1
-              ? t("Multiple currencies cannot be compared on the same axis.")
-              : t("No billable value in the selected period.")
-          }
-          contentDescription={valueSummary || t("No billable value")}
-          isEmpty={currencies.length === 0}
-          emptyState={{ title: t("No billable value") }}
-        >
-          <div className="space-y-4">
-            {currencies.map((currency) => {
-              const value = groups.reduce(
-                (sum, group) => sum + (group.billableValue[currency] ?? 0),
-                0,
-              );
-              return (
-                <ActivitySummaryItem
-                  key={currency}
-                  label={currency}
-                  value={formatMoney(value, currency, locale)}
-                />
-              );
-            })}
-            <Typography type="body-sm" color="muted">
-              {t("Totals remain separated by currency; no conversion is applied.")}
-            </Typography>
-          </div>
-        </ReportWidget>
-      )}
-      <ReportTableWidget
-        title={t("Complete analysis")}
-        description={t("All groups in the selected hierarchy.")}
-        action={
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <GroupSelect
-              label="Group by"
-              value={primary}
-              options={groupOptions}
-              onChange={(value) => {
-                if (value !== "none") onChangeGroup(value);
-              }}
-            />
-            <GroupSelect
-              label="Then by"
-              value={secondary}
-              options={[
-                { id: "none", label: t("None") },
-                ...groupOptions.filter((option) => option.id !== primary),
+        <ReportKpi
+          title={t("Top group share")}
+          value={`${percentageFormatter.format(topGroupShare)}%`}
+          secondaryInformation={`${topGroup.label} · ${formatDuration(topGroup.seconds, locale)}`}
+          variation={shareVariation}
+          neutralComparisonLabel={t("No comparison")}
+          contentDescription={`${topGroup.label}: ${formatDuration(
+            topGroup.seconds,
+            locale,
+          )}, ${percentageFormatter.format(topGroupShare)}%. ${t("Previous")}: ${percentageFormatter.format(
+            previousTopGroupShare,
+          )}%.`}
+        />
+        <ReportChartWidget
+          title={t("Billing by group")}
+          description={t("Billable and internal time within each leading group.")}
+          contentDescription={billingSummary}
+          config={{
+            billable: { label: t("Billable"), color: reportChartColors.success },
+            internal: { label: t("Internal"), color: reportChartColors.muted },
+          }}
+          summary={billingSummary}
+          height="tall"
+          legend={
+            <ReportChartLegend
+              accessibleLabel={t("Chart legend")}
+              items={[
+                { key: "billable", label: t("Billable"), tone: "success", billable: true },
+                { key: "internal", label: t("Internal"), billable: false },
               ]}
-              onChange={onChangeSubgroup}
             />
-          </div>
-        }
-        contentDescription={t("Summary report table")}
-      >
-        <DataTable
-          label={t("Summary report table")}
-          minWidth="min-w-[1180px]"
-          scrollHint={t("Scroll horizontally to see all columns")}
+          }
         >
-          <Table.Header>
-            {[
-              "Group",
-              "Tracked",
-              "Share",
-              "Billable",
-              "Internal",
-              "Billable percentage",
-              "Billable value",
-              "Records",
-              "Average entry duration",
-            ].map((label, index) => (
-              <Table.Column key={label} isRowHeader={index === 0}>
-                {t(label)}
-              </Table.Column>
-            ))}
-          </Table.Header>
-          <Table.Body>
-            {flattenSummaryRows(groups, expanded).map(({ group, level, path }) => (
-              <SummaryRow
-                key={path}
-                group={group}
-                total={total}
-                level={level}
-                path={path}
-                expanded={expanded}
-                onToggle={onToggle}
+          <BarChart
+            accessibilityLayer
+            data={billingData}
+            layout="vertical"
+            margin={{ left: 0, right: 8 }}
+          >
+            <XAxis {...reportChartAxisProps} type="number" hide />
+            <YAxis
+              {...reportChartAxisProps}
+              dataKey="label"
+              type="category"
+              width={96}
+              tickFormatter={(value) => shortenReportChartLabel(value, 14)}
+            />
+            <ChartTooltip
+              {...reportChartTooltipProps}
+              content={
+                <ChartTooltipContent
+                  valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
+                />
+              }
+            />
+            <Bar
+              {...reportHorizontalBarProps}
+              dataKey="billable"
+              stackId="billing"
+              fill={reportChartColors.success}
+              radius={[4, 0, 0, 4]}
+            />
+            <Bar
+              {...reportHorizontalBarProps}
+              dataKey="internal"
+              stackId="billing"
+              fill={reportChartColors.muted}
+            />
+          </BarChart>
+        </ReportChartWidget>
+        {singleCurrency ? (
+          <ReportChartWidget
+            title={t("Estimated billable value by group")}
+            description={t("Values shown in {currency}.", { currency: singleCurrency })}
+            contentDescription={valueSummary}
+            config={{
+              value: { label: t("Estimated billable value"), color: reportChartColors.accent },
+            }}
+            summary={valueSummary}
+            width="compact"
+            height="tall"
+            isEmpty={valueData.length === 0}
+            emptyState={{ title: t("No estimated billable value") }}
+          >
+            <BarChart
+              accessibilityLayer
+              data={valueData}
+              layout="vertical"
+              margin={{ left: 0, right: 88 }}
+            >
+              <XAxis {...reportChartAxisProps} type="number" dataKey="value" hide />
+              <YAxis
+                {...reportChartAxisProps}
+                dataKey="label"
+                type="category"
+                width={88}
+                tickFormatter={(value) => shortenReportChartLabel(value, 12)}
               />
-            ))}
-          </Table.Body>
-        </DataTable>
-      </ReportTableWidget>
-    </ReportWidgetGrid>
+              <ChartTooltip
+                {...reportChartTooltipProps}
+                content={
+                  <ChartTooltipContent
+                    hideLabel
+                    valueFormatter={(value) =>
+                      formatMoney(Number(value ?? 0), singleCurrency, locale)
+                    }
+                  />
+                }
+              />
+              <Bar {...reportHorizontalBarProps} dataKey="value" fill={reportChartColors.accent}>
+                <LabelList dataKey="display" position="right" fill={reportChartColors.foreground} />
+              </Bar>
+            </BarChart>
+          </ReportChartWidget>
+        ) : (
+          <ReportWidget
+            title={t("Estimated billable value by group")}
+            description={
+              currencies.length > 1
+                ? t("Multiple currencies cannot be compared on the same axis.")
+                : t("No estimated billable value in the selected period.")
+            }
+            contentDescription={valueSummary || t("No estimated billable value")}
+            isEmpty={currencies.length === 0}
+            emptyState={{ title: t("No estimated billable value") }}
+          >
+            <div className="space-y-4">
+              {currencies.map((currency) => {
+                const value = groups.reduce(
+                  (sum, group) => sum + (group.billableValue[currency] ?? 0),
+                  0,
+                );
+                return (
+                  <ActivitySummaryItem
+                    key={currency}
+                    label={currency}
+                    value={formatMoney(value, currency, locale)}
+                  />
+                );
+              })}
+              <Typography type="body-sm" color="muted">
+                {t("Totals remain separated by currency; no conversion is applied.")}
+              </Typography>
+            </div>
+          </ReportWidget>
+        )}
+        <ReportTableWidget
+          title={t("Complete analysis")}
+          description={t("All groups in the selected hierarchy.")}
+          action={
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <GroupSelect
+                label="Group by"
+                value={primary}
+                options={availableGroupOptions}
+                onChange={(value) => {
+                  if (value !== "none") onChangeGroup(value);
+                }}
+              />
+              <GroupSelect
+                label="Then by"
+                value={secondary}
+                options={[
+                  { id: "none", label: t("None") },
+                  ...availableGroupOptions.filter((option) => option.id !== primary),
+                ]}
+                onChange={onChangeSubgroup}
+              />
+            </div>
+          }
+          contentDescription={t("Summary report table")}
+        >
+          <DataTable
+            label={t("Summary report table")}
+            minWidth="min-w-[1180px]"
+            scrollHint={t("Scroll horizontally to see all columns")}
+          >
+            <Table.Header>
+              {[
+                "Group",
+                "Tracked",
+                "Share",
+                "Billable",
+                "Internal",
+                "Billable percentage",
+                "Estimated billable value",
+                "Records",
+                "Average entry duration",
+              ].map((label, index) => (
+                <Table.Column key={label} isRowHeader={index === 0}>
+                  {label === "Billable" || label === "Internal" ? (
+                    <BillableTableLabel billable={label === "Billable"} label={t(label)} />
+                  ) : (
+                    t(label)
+                  )}
+                </Table.Column>
+              ))}
+            </Table.Header>
+            <Table.Body>
+              {flattenSummaryRows(groups, expanded).map(({ group, level, path }) => (
+                <SummaryRow
+                  key={path}
+                  group={group}
+                  total={total}
+                  level={level}
+                  path={path}
+                  project={projectGrouping ? (projectById.get(group.key) ?? null) : null}
+                  expanded={expanded}
+                  onToggle={onToggle}
+                />
+              ))}
+            </Table.Body>
+          </DataTable>
+        </ReportTableWidget>
+      </ReportWidgetGrid>
+    </div>
   );
 }
 
@@ -2214,6 +2475,7 @@ function SummaryRow({
   total,
   level,
   path,
+  project,
   expanded,
   onToggle,
 }: {
@@ -2221,6 +2483,7 @@ function SummaryRow({
   total: number;
   level: number;
   path: string;
+  project: Project | null;
   expanded: Record<string, boolean>;
   onToggle: (key: string) => void;
 }) {
@@ -2250,7 +2513,7 @@ function SummaryRow({
           ) : (
             <span className="size-8" />
           )}
-          <span className="truncate">{group.label}</span>
+          <ProjectLabel project={project} label={group.label} />
           {expandable ? (
             <span id={childrenId} className="sr-only">
               {t("{count} nested report groups", { count: group.children?.length ?? 0 })}
@@ -2353,6 +2616,7 @@ function GroupSelect({
 type WeeklyRow = {
   key: string;
   label: string;
+  color: string | null;
   seconds: number;
   billable: number;
   byDate: Record<string, number>;
@@ -2377,6 +2641,8 @@ function buildWeeklyRows(
     const current = map.get(key) ?? {
       key,
       label,
+      color:
+        dimension === "project" ? (projectFor(projects, entry.projectId)?.color ?? null) : null,
       seconds: 0,
       billable: 0,
       byDate: {},
@@ -2783,14 +3049,23 @@ function ActivityDashboard({
                 <Table.Column key={date}>{formatDate(date, locale)}</Table.Column>
               ))}
               <Table.Column>{t("Tracked")}</Table.Column>
-              <Table.Column>{t("Billable")}</Table.Column>
-              <Table.Column>{t("Internal")}</Table.Column>
-              <Table.Column>{t("Billable value")}</Table.Column>
+              <Table.Column>
+                <BillableTableLabel billable={true} label={t("Billable")} />
+              </Table.Column>
+              <Table.Column>
+                <BillableTableLabel billable={false} label={t("Internal")} />
+              </Table.Column>
+              <Table.Column>{t("Estimated billable value")}</Table.Column>
             </Table.Header>
             <Table.Body>
               {rows.map((row) => (
                 <Table.Row key={row.key}>
-                  <Table.Cell>{row.label}</Table.Cell>
+                  <Table.Cell>
+                    <ProjectLabel
+                      project={row.color ? { color: row.color } : null}
+                      label={row.label}
+                    />
+                  </Table.Cell>
                   {dates.map((date) => (
                     <Table.Cell key={date}>
                       {formatDuration(row.byDate[date] ?? 0, locale)}
@@ -2814,7 +3089,6 @@ type TeamRow = {
   member: Member;
   seconds: number;
   billable: number;
-  records: number;
   projectCount: number;
   clientCount: number;
   activeDays: number;
@@ -2826,28 +3100,40 @@ function buildTeamRows(
   members: Member[],
   projects: Project[],
   clients: Client[],
-  onlyMemberId: string | null,
+  memberIds: readonly string[],
+  range: DateRange,
+  timeZone: string,
   fallbackForEntry: (entry: TimeEntry) => BillingPreference,
 ): TeamRow[] {
+  const memberFilter = new Set(memberIds);
   return members
-    .filter((member) => member.status === "active" && (!onlyMemberId || member.id === onlyMemberId))
+    .filter(
+      (member) =>
+        member.status === "active" && (memberFilter.size === 0 || memberFilter.has(member.id)),
+    )
     .map((member) => {
       const memberEntries = entries.filter((entry) => entry.userId === member.id);
+      const metrics = calculateReportMetrics({
+        entries: memberEntries,
+        range,
+        projects,
+        clients,
+        fallbackForEntry,
+        timeZone,
+      });
+      const projectIds = metrics.projectBreakdown
+        .filter((project) => project.id !== "none")
+        .map((project) => project.id);
       return {
         member,
-        seconds: memberEntries.reduce((sum, entry) => sum + entry.seconds, 0),
-        billable: memberEntries
-          .filter((entry) => entry.billable)
-          .reduce((sum, entry) => sum + entry.seconds, 0),
-        records: memberEntries.length,
-        projectCount: new Set(memberEntries.map((entry) => entry.projectId)).size,
+        seconds: metrics.totalSeconds,
+        billable: metrics.billableSeconds,
+        projectCount: projectIds.length,
         clientCount: new Set(
-          memberEntries
-            .map((entry) => projectFor(projects, entry.projectId)?.clientId)
-            .filter(Boolean),
+          projectIds.map((projectId) => projectFor(projects, projectId)?.clientId).filter(Boolean),
         ).size,
-        activeDays: new Set(memberEntries.map((entry) => entry.date)).size,
-        billableValue: sumBillableValues(memberEntries, fallbackForEntry),
+        activeDays: metrics.activeDays,
+        billableValue: metrics.billableValueByCurrency,
       };
     })
     .sort((a, b) => b.seconds - a.seconds || a.member.name.localeCompare(b.member.name));
@@ -2858,8 +3144,9 @@ function TeamReport({
   members,
   projects,
   clients,
-  total,
-  scopeToMember,
+  memberIds,
+  range,
+  timeZone,
   onClear,
   fallbackForEntry,
 }: {
@@ -2867,108 +3154,397 @@ function TeamReport({
   members: Member[];
   projects: Project[];
   clients: Client[];
-  total: number;
-  scopeToMember: string | null;
+  memberIds: readonly string[];
+  range: DateRange;
+  timeZone: string;
   onClear: () => void;
   fallbackForEntry: (entry: TimeEntry) => BillingPreference;
 }) {
   const { locale, t } = useI18n();
-  const rows = buildTeamRows(entries, members, projects, clients, scopeToMember, fallbackForEntry);
-  if (rows.length === 0) return <EmptyReport onClear={onClear} />;
-  return (
-    <div className="space-y-4">
-      <TeamComparisonChart rows={rows} />
-      <DataTable
-        label={t("Team report table")}
-        minWidth="min-w-[1040px]"
-        scrollHint={t("Scroll horizontally to see all columns")}
-      >
-        <Table.Header>
-          {[
-            "Member",
-            "Tracked",
-            "Billable",
-            "Internal",
-            "Billable value",
-            "Records",
-            "Projects",
-            "Clients",
-            "Average/day",
-            "Share",
-          ].map((label, index) => (
-            <Table.Column key={label} isRowHeader={index === 0}>
-              {t(label)}
-            </Table.Column>
-          ))}
-        </Table.Header>
-        <Table.Body>
-          {rows.map((row) => (
-            <Table.Row key={row.member.id}>
-              <Table.Cell>
-                <div>{row.member.name}</div>
-                <div>{row.member.email}</div>
-              </Table.Cell>
-              <Table.Cell>{formatDuration(row.seconds, locale)}</Table.Cell>
-              <Table.Cell>{formatDuration(row.billable, locale)}</Table.Cell>
-              <Table.Cell>{formatDuration(row.seconds - row.billable, locale)}</Table.Cell>
-              <Table.Cell>{formatMoneyTotals(row.billableValue, locale)}</Table.Cell>
-              <Table.Cell>{row.records}</Table.Cell>
-              <Table.Cell>{row.projectCount}</Table.Cell>
-              <Table.Cell>{row.clientCount}</Table.Cell>
-              <Table.Cell>
-                {formatDuration(
-                  row.activeDays ? Math.round(row.seconds / row.activeDays) : 0,
-                  locale,
-                )}
-              </Table.Cell>
-              <Table.Cell>
-                {total ? `${Math.round((row.seconds / total) * 100)}%` : "0%"}
-              </Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
-      </DataTable>
-    </div>
+  const rows = buildTeamRows(
+    entries,
+    members,
+    projects,
+    clients,
+    memberIds,
+    range,
+    timeZone,
+    fallbackForEntry,
   );
-}
-
-function TeamComparisonChart({ rows }: { rows: TeamRow[] }) {
-  const { locale, t } = useI18n();
+  if (rows.length === 0) return <EmptyReport onClear={onClear} />;
   const totalSeconds = rows.reduce((sum, row) => sum + row.seconds, 0);
-  const data = rows.slice(0, 8).map((row) => ({
-    label: row.member.name.length > 16 ? `${row.member.name.slice(0, 15)}…` : row.member.name,
-    seconds: row.seconds,
-    share: totalSeconds ? Math.round((row.seconds / totalSeconds) * 100) : 0,
+  const percentageFormatter = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 });
+  const visibleRows = rows.slice(0, 8);
+  const trackedData = visibleRows
+    .filter((row) => row.seconds > 0)
+    .map((row) => ({
+      member: row.member.name,
+      seconds: row.seconds,
+      display: formatDuration(row.seconds, locale),
+    }));
+  const billablePercentageData = visibleRows
+    .filter((row) => row.seconds > 0)
+    .map((row) => ({
+      member: row.member.name,
+      percentage: (row.billable / row.seconds) * 100,
+      display: `${percentageFormatter.format((row.billable / row.seconds) * 100)}% · ${formatDuration(
+        row.billable,
+        locale,
+      )}`,
+    }));
+  const dailyAverageData = rows
+    .filter((row) => row.activeDays > 0)
+    .map((row) => ({
+      member: row.member.name,
+      average: row.seconds / row.activeDays,
+      activeDays: row.activeDays,
+      display: `${row.activeDays} ${t("active days")} · ${formatDuration(
+        row.seconds / row.activeDays,
+        locale,
+      )}`,
+    }))
+    .sort(
+      (first, second) =>
+        second.average - first.average || first.member.localeCompare(second.member),
+    )
+    .slice(0, 8);
+  const valueCurrencies = currencyOptions.filter((currency) =>
+    rows.some((row) => row.billableValue[currency] !== undefined),
+  );
+  const valueGroups = valueCurrencies.map((currency) => ({
+    currency,
+    data: rows
+      .filter((row) => row.billableValue[currency] !== undefined)
+      .map((row) => ({
+        member: row.member.name,
+        value: row.billableValue[currency] ?? 0,
+        display: formatMoney(row.billableValue[currency] ?? 0, currency, locale),
+      }))
+      .sort(
+        (first, second) => second.value - first.value || first.member.localeCompare(second.member),
+      )
+      .slice(0, 8),
   }));
+  const largestShare = rows.find((row) => row.seconds > 0);
+  const trackedSummary = trackedData
+    .map((item) => `${item.member}: ${formatDuration(item.seconds, locale)}`)
+    .join(". ");
+  const billableSummary = billablePercentageData
+    .map((item) => `${item.member}: ${item.display}`)
+    .join(". ");
+  const dailyAverageSummary = dailyAverageData
+    .map((item) => `${item.member}: ${item.display}`)
+    .join(". ");
+  const valueSummary = valueGroups
+    .flatMap((group) => group.data.map((item) => `${item.member}: ${item.display}`))
+    .join(". ");
+
   return (
-    <ReportChartCard title={t("Tracked by member")}>
-      <div className="grid gap-5 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <ChartContainer
-          className="h-64 w-full"
-          config={{ seconds: { label: t("Tracked"), color: "var(--accent)" } }}
+    <ReportWidgetGrid>
+      <ReportChartWidget
+        title={t("Time by member")}
+        description={t("Up to eight members, ordered by registered activity.")}
+        contentDescription={trackedSummary || t("No activity")}
+        config={{ seconds: { label: t("Tracked"), color: reportChartColors.accent } }}
+        summary={trackedSummary || t("No activity")}
+        height="tall"
+        isEmpty={trackedData.length === 0}
+        emptyState={{ title: t("No activity") }}
+      >
+        <BarChart
+          accessibilityLayer
+          data={trackedData}
+          layout="vertical"
+          margin={{ left: 0, right: 72 }}
         >
-          <BarChart accessibilityLayer data={data} layout="vertical" margin={{ left: 0, right: 8 }}>
-            <CartesianGrid horizontal={false} />
-            <XAxis type="number" dataKey="seconds" hide />
-            <YAxis dataKey="label" type="category" axisLine={false} tickLine={false} width={96} />
-            <ChartTooltip content={<ChartTooltipContent hideLabel />} />
-            <Bar dataKey="seconds" fill="var(--accent)" isAnimationActive={false} />
-          </BarChart>
-        </ChartContainer>
-        {data[0] ? (
-          <div className="flex items-center gap-4 lg:block">
-            <ReportMetricRing
-              label={t("Top member")}
-              seconds={data[0].seconds}
-              total={totalSeconds}
-              color="accent"
-            />
-            <Typography type="body-sm" color="muted" className="mt-2">
-              {data[0].share}% · {formatDuration(data[0].seconds, locale)}
+          <XAxis {...reportChartAxisProps} type="number" dataKey="seconds" hide />
+          <YAxis
+            {...reportChartAxisProps}
+            dataKey="member"
+            type="category"
+            width={96}
+            tickFormatter={(value) => shortenReportChartLabel(value, 14)}
+          />
+          <ChartTooltip
+            {...reportChartTooltipProps}
+            content={
+              <ChartTooltipContent
+                hideLabel
+                valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
+              />
+            }
+          />
+          <Bar {...reportHorizontalBarProps} dataKey="seconds" fill={reportChartColors.accent}>
+            <LabelList dataKey="display" position="right" fill={reportChartColors.foreground} />
+          </Bar>
+        </BarChart>
+      </ReportChartWidget>
+
+      <ReportChartWidget
+        title={t("Billable percentage by member")}
+        description={t("Billable duration is shown with each percentage.")}
+        contentDescription={billableSummary || t("No activity")}
+        config={{
+          percentage: { label: t("Billable percentage"), color: reportChartColors.success },
+        }}
+        summary={billableSummary || t("No activity")}
+        width="compact"
+        height="tall"
+        isEmpty={billablePercentageData.length === 0}
+        emptyState={{ title: t("No activity") }}
+      >
+        <BarChart
+          accessibilityLayer
+          data={billablePercentageData}
+          layout="vertical"
+          margin={{ left: 0, right: 112 }}
+        >
+          <XAxis
+            {...reportChartAxisProps}
+            type="number"
+            dataKey="percentage"
+            domain={[0, 100]}
+            hide
+          />
+          <YAxis
+            {...reportChartAxisProps}
+            dataKey="member"
+            type="category"
+            width={84}
+            tickFormatter={(value) => shortenReportChartLabel(value, 11)}
+          />
+          <ChartTooltip
+            {...reportChartTooltipProps}
+            content={
+              <ChartTooltipContent
+                hideLabel
+                valueFormatter={(value) => `${percentageFormatter.format(Number(value ?? 0))}%`}
+              />
+            }
+          />
+          <Bar {...reportHorizontalBarProps} dataKey="percentage" fill={reportChartColors.success}>
+            <LabelList dataKey="display" position="right" fill={reportChartColors.foreground} />
+          </Bar>
+        </BarChart>
+      </ReportChartWidget>
+
+      <ReportWidget
+        title={t("Estimated billable value by member")}
+        description={
+          valueCurrencies.length > 1
+            ? t("Currencies are shown in separate groups and are never combined.")
+            : t("Members are compared only within the same currency.")
+        }
+        width="medium"
+        contentDescription={valueSummary || t("No estimated billable value")}
+        isEmpty={valueGroups.length === 0}
+        emptyState={{ title: t("No estimated billable value") }}
+      >
+        <div className="space-y-6">
+          {valueGroups.map((group) => (
+            <div key={group.currency} className="space-y-2">
+              <Typography type="body-sm" weight="semibold">
+                {group.currency}
+              </Typography>
+              <ReportChart
+                config={{
+                  value: { label: t("Estimated billable value"), color: reportChartColors.accent },
+                }}
+                summary={group.data.map((item) => `${item.member}: ${item.display}`).join(". ")}
+                height="tall"
+                isEmpty={group.data.length === 0}
+                emptyState={
+                  <Typography type="body-sm" color="muted">
+                    {t("No estimated billable value")}
+                  </Typography>
+                }
+              >
+                <BarChart
+                  accessibilityLayer
+                  data={group.data}
+                  layout="vertical"
+                  margin={{ left: 0, right: 96 }}
+                >
+                  <XAxis {...reportChartAxisProps} type="number" dataKey="value" hide />
+                  <YAxis
+                    {...reportChartAxisProps}
+                    dataKey="member"
+                    type="category"
+                    width={92}
+                    tickFormatter={(value) => shortenReportChartLabel(value, 13)}
+                  />
+                  <ChartTooltip
+                    {...reportChartTooltipProps}
+                    content={
+                      <ChartTooltipContent
+                        hideLabel
+                        valueFormatter={(value) =>
+                          formatMoney(Number(value ?? 0), group.currency, locale)
+                        }
+                      />
+                    }
+                  />
+                  <Bar
+                    {...reportHorizontalBarProps}
+                    dataKey="value"
+                    fill={reportChartColors.accent}
+                  >
+                    <LabelList
+                      dataKey="display"
+                      position="right"
+                      fill={reportChartColors.foreground}
+                    />
+                  </Bar>
+                </BarChart>
+              </ReportChart>
+            </div>
+          ))}
+        </div>
+      </ReportWidget>
+
+      <ReportWidget
+        title={t("Team share")}
+        description={t("Share represents only the distribution of registered activity.")}
+        contentDescription={
+          largestShare
+            ? `${largestShare.member.name}: ${formatDuration(
+                largestShare.seconds,
+                locale,
+              )}, ${percentageFormatter.format((largestShare.seconds / totalSeconds) * 100)}%.`
+            : t("No activity")
+        }
+        isEmpty={!largestShare}
+        emptyState={{ title: t("No activity") }}
+      >
+        {largestShare ? (
+          <div className="space-y-3">
+            <Typography type="h2" weight="semibold">
+              {largestShare.member.name}
+            </Typography>
+            <Typography type="body-sm" color="muted">
+              {formatDuration(largestShare.seconds, locale)} ·{" "}
+              {percentageFormatter.format((largestShare.seconds / totalSeconds) * 100)}%
+            </Typography>
+            <Typography type="body-sm">
+              {t(
+                "This member accounts for the largest share of registered activity in the period.",
+              )}
             </Typography>
           </div>
-        ) : null}
-      </div>
-    </ReportChartCard>
+        ) : (
+          <span />
+        )}
+      </ReportWidget>
+
+      <ReportChartWidget
+        title={t("Active days and daily average")}
+        description={t("Comparison of registered activity by active day.")}
+        contentDescription={dailyAverageSummary || t("No activity")}
+        config={{
+          average: { label: t("Average per active day"), color: reportChartColors.accent },
+        }}
+        summary={dailyAverageSummary || t("No activity")}
+        height="tall"
+        isEmpty={dailyAverageData.length === 0}
+        emptyState={{ title: t("No activity") }}
+      >
+        <BarChart
+          accessibilityLayer
+          data={dailyAverageData}
+          layout="vertical"
+          margin={{ left: 0, right: 148 }}
+        >
+          <XAxis {...reportChartAxisProps} type="number" dataKey="average" hide />
+          <YAxis
+            {...reportChartAxisProps}
+            dataKey="member"
+            type="category"
+            width={92}
+            tickFormatter={(value) => shortenReportChartLabel(value, 13)}
+          />
+          <ChartTooltip
+            {...reportChartTooltipProps}
+            content={
+              <ChartTooltipContent
+                hideLabel
+                valueFormatter={(value) => formatDuration(Number(value ?? 0), locale)}
+              />
+            }
+          />
+          <Bar {...reportHorizontalBarProps} dataKey="average" fill={reportChartColors.accent}>
+            <LabelList dataKey="display" position="right" fill={reportChartColors.foreground} />
+          </Bar>
+        </BarChart>
+      </ReportChartWidget>
+
+      <ReportTableWidget
+        title={t("Complete team activity")}
+        description={t("All members in the current report scope.")}
+        contentDescription={t("Team report table")}
+      >
+        <DataTable
+          label={t("Team report table")}
+          minWidth="min-w-[1280px]"
+          scrollHint={t("Scroll horizontally to see all columns")}
+        >
+          <Table.Header>
+            {[
+              "Member",
+              "Tracked",
+              "Billable",
+              "Internal",
+              "Billable percentage",
+              "Estimated billable value",
+              "Active days",
+              "Average per active day",
+              "Projects",
+              "Clients",
+              "Share",
+            ].map((label, index) => (
+              <Table.Column key={label} isRowHeader={index === 0}>
+                {label === "Billable" || label === "Internal" ? (
+                  <BillableTableLabel billable={label === "Billable"} label={t(label)} />
+                ) : (
+                  t(label)
+                )}
+              </Table.Column>
+            ))}
+          </Table.Header>
+          <Table.Body>
+            {rows.map((row) => (
+              <Table.Row key={row.member.id}>
+                <Table.Cell>
+                  <div>{row.member.name}</div>
+                  <div>{row.member.email}</div>
+                </Table.Cell>
+                <Table.Cell>{formatDuration(row.seconds, locale)}</Table.Cell>
+                <Table.Cell>{formatDuration(row.billable, locale)}</Table.Cell>
+                <Table.Cell>{formatDuration(row.seconds - row.billable, locale)}</Table.Cell>
+                <Table.Cell>
+                  {row.seconds
+                    ? `${percentageFormatter.format((row.billable / row.seconds) * 100)}%`
+                    : "0%"}
+                </Table.Cell>
+                <Table.Cell>{formatMoneyTotals(row.billableValue, locale)}</Table.Cell>
+                <Table.Cell>{row.activeDays}</Table.Cell>
+                <Table.Cell>
+                  {formatDuration(
+                    row.activeDays ? Math.round(row.seconds / row.activeDays) : 0,
+                    locale,
+                  )}
+                </Table.Cell>
+                <Table.Cell>{row.projectCount}</Table.Cell>
+                <Table.Cell>{row.clientCount}</Table.Cell>
+                <Table.Cell>
+                  {totalSeconds
+                    ? `${percentageFormatter.format((row.seconds / totalSeconds) * 100)}%`
+                    : "0%"}
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </DataTable>
+      </ReportTableWidget>
+    </ReportWidgetGrid>
   );
 }
