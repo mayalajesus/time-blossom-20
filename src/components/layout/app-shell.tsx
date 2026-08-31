@@ -214,7 +214,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
 
         <div className={`min-h-screen min-w-0 ${collapsed ? "md:pl-20" : "md:pl-56"}`}>
           <header
-            className={`sticky inset-x-0 top-0 z-20 bg-background ${
+            className={`fixed inset-x-0 top-0 z-20 bg-background ${
               collapsed ? "md:left-20" : "md:left-56"
             }`}
           >
@@ -245,12 +245,12 @@ function AppShellContent({ children }: { children: ReactNode }) {
             <Separator />
           </header>
 
+          <div aria-hidden="true" className="h-[61px] shrink-0 sm:h-[65px]" />
+
           <main
             id="main-content"
             tabIndex={-1}
-            className={`mx-auto w-full max-w-6xl flex-1 px-4 md:px-8 ${
-              reportsActive ? "pb-0 pt-6" : "py-6"
-            }`}
+            className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8"
           >
             {children}
           </main>
