@@ -176,9 +176,12 @@ function SettingsPage() {
       : parsedHourlyRate === null
         ? t("Enter a valid hourly rate with up to two decimal places.")
         : undefined;
+  const billingHasChanges =
+    parsedHourlyRate !== null &&
+    (parsedHourlyRate !== preferences.hourlyRate || currency !== preferences.currency);
 
   const saveBillingPreferences = () => {
-    if (parsedHourlyRate === null) return;
+    if (!billingHasChanges || parsedHourlyRate === null) return;
     void savePreference({ hourlyRate: parsedHourlyRate, currency });
   };
 
@@ -603,7 +606,7 @@ function SettingsPage() {
           <Typography type="body-sm" weight="semibold">
             {t("Billing rate")}
           </Typography>
-          <div className="grid items-end gap-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
+          <div className="grid items-end gap-3 sm:grid-cols-[9rem_minmax(0,1fr)_auto]">
             <Select
               fullWidth
               variant="secondary"
@@ -640,17 +643,15 @@ function SettingsPage() {
               <Input variant="secondary" inputMode="decimal" placeholder="0.00" />
               <FieldError>{hourlyRateError}</FieldError>
             </TextField>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Typography type="body-sm" color="muted">
-              {t("Preview: {value}", {
-                value: formatMoney(parsedHourlyRate ?? 0, currency, preferences.language),
-              })}
-            </Typography>
-            <Button type="submit" isDisabled={Boolean(hourlyRateError)}>
+            <Button type="submit" isDisabled={!billingHasChanges || Boolean(hourlyRateError)}>
               {t("Save billing rate")}
             </Button>
           </div>
+          <Typography type="body-sm" color="muted">
+            {t("Preview: {value}", {
+              value: formatMoney(parsedHourlyRate ?? 0, currency, preferences.language),
+            })}
+          </Typography>
         </Form>
 
         <div className="space-y-3">
