@@ -34,7 +34,7 @@ export function extractAuthIdentity({ id, email, name, metadata = {} }) {
     firstText(metadata, ["family_name", "last_name", "lastName"]) ||
     declaredParts.slice(1).join(" ");
   const providerName = [firstName, lastName].filter(Boolean).join(" ");
-  const avatarUrl = [metadata?.avatar_url, metadata?.picture]
+  const avatarUrl = [metadata?.avatar_url, metadata?.picture, metadata?.image]
     .map(trustedGoogleAvatarUrl)
     .find(Boolean);
 

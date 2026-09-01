@@ -240,7 +240,7 @@ async function authenticate(request, config) {
     throw new DataApiError(500, "Neon authentication is not configured.");
   }
   const sessionResult = await getPool(config).query(
-    `select u.id::text, u.email, u.name
+    `select u.id::text, u.email, u.name, u.image
        from neon_auth.session s
        join neon_auth."user" u on u.id = s."userId"
       where s.token = $1 and s."expiresAt" > now()
@@ -252,6 +252,7 @@ async function authenticate(request, config) {
       id: sessionResult.rows[0].id,
       email: sessionResult.rows[0].email,
       name: sessionResult.rows[0].name,
+      metadata: { image: sessionResult.rows[0].image },
     });
   }
   let keySet = jwks.get(config.neonAuthUrl);

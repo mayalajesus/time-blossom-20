@@ -31,4 +31,15 @@ describe("OAuth profile extraction", () => {
     expect(trustedGoogleAvatarUrl("http://lh3.googleusercontent.com/a/photo")).toBeNull();
     expect(trustedGoogleAvatarUrl("https://example.com/photo.jpg")).toBeNull();
   });
+
+  it("extracts the Google photo stored by Neon Auth", () => {
+    expect(
+      extractAuthIdentity({
+        id: "neon-user",
+        email: "maya@example.com",
+        name: "Maya Silva",
+        metadata: { image: "https://lh3.googleusercontent.com/a/neon-photo" },
+      }).avatarUrl,
+    ).toBe("https://lh3.googleusercontent.com/a/neon-photo");
+  });
 });
