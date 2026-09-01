@@ -47,6 +47,7 @@ import { ProjectLabel } from "@/components/project-color";
 import { RouterLink } from "@/components/router-link";
 import { FormAlert } from "@/components/form-feedback";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
+import { ModalSelect } from "@/components/modal-select";
 import { EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
 import { getSessionDefaultAvatarUrl } from "@/lib/default-avatar";
@@ -759,50 +760,18 @@ function ProjectsPage() {
                     </ColorSwatchPicker>
                   </div>
 
-                  <div className="flex flex-col gap-2">
-                    <Label>{t("Client")}</Label>
-                    <Dropdown>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        aria-label={t("Client")}
-                        className="h-9 w-full justify-between gap-2 px-3"
-                      >
-                        <span className="truncate">
-                          {clients.find((client) => client.id === clientId)?.name ??
-                            t("Select a client")}
-                        </span>
-                        <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
-                      </Button>
-                      <Dropdown.Popover
-                        className="max-w-[calc(100vw-2rem)] min-w-0"
-                        style={{ width: "var(--trigger-width)", maxWidth: "calc(100vw - 2rem)" }}
-                      >
-                        <Dropdown.Menu
-                          aria-label={t("Client")}
-                          className="max-h-60 overflow-y-auto"
-                          selectionMode="single"
-                          selectedKeys={new Set([clientId || "none"])}
-                          onAction={(key) => {
-                            const value = String(key);
-                            setClientId(value === "none" ? "" : value);
-                            setCreateError(null);
-                          }}
-                        >
-                          <Dropdown.Item id="none" textValue={t("Select a client")} isDisabled>
-                            <Label>{t("Select a client")}</Label>
-                            <Dropdown.ItemIndicator />
-                          </Dropdown.Item>
-                          {clients.map((c) => (
-                            <Dropdown.Item key={c.id} id={c.id} textValue={c.name}>
-                              <Label>{c.name}</Label>
-                              <Dropdown.ItemIndicator />
-                            </Dropdown.Item>
-                          ))}
-                        </Dropdown.Menu>
-                      </Dropdown.Popover>
-                    </Dropdown>
-                  </div>
+                  <ModalSelect
+                    label={t("Client")}
+                    value={clientId || "none"}
+                    options={[
+                      { id: "none", label: t("Select a client"), isDisabled: true },
+                      ...clients.map((client) => ({ id: client.id, label: client.name })),
+                    ]}
+                    onChange={(value) => {
+                      setClientId(value === "none" ? "" : value);
+                      setCreateError(null);
+                    }}
+                  />
 
                   <div className="space-y-2">
                     <Label>{t("Project members")}</Label>

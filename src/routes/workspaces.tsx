@@ -3,7 +3,6 @@ import {
   Button,
   Chip,
   Description,
-  Dropdown,
   FieldError,
   Form,
   Input,
@@ -22,7 +21,6 @@ import {
   ArrowRotateLeft,
   ArrowUpRightFromSquare,
   CloudArrowUpIn,
-  ChevronDown,
   Layers,
   Pencil,
   Plus,
@@ -32,6 +30,7 @@ import type { RefObject } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { DataTable } from "@/components/data-table";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
+import { ModalSelect } from "@/components/modal-select";
 import { PageHeader } from "@/components/page-header";
 import { EmptyBlock } from "@/components/states";
 import { useI18n } from "@/lib/i18n";
@@ -665,49 +664,16 @@ function WorkspaceFormModal({
                   </Description>
                 </div>
                 {workspaceSettings ? (
-                  <div>
-                    <div className="flex flex-col gap-2">
-                      <Label>{t("Week starts on")}</Label>
-                      <Dropdown>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          aria-label={t("Choose week start day")}
-                          className="h-9 w-full justify-between gap-2 px-3"
-                        >
-                          <span className="truncate">
-                            {t(workspaceSettings.weekStart === "monday" ? "Monday" : "Sunday")}
-                          </span>
-                          <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
-                        </Button>
-                        <Dropdown.Popover
-                          className="max-w-[calc(100vw-2rem)] min-w-0"
-                          style={{ width: "var(--trigger-width)", maxWidth: "calc(100vw - 2rem)" }}
-                        >
-                          <Dropdown.Menu
-                            aria-label={t("Week starts on")}
-                            className="max-h-60 overflow-y-auto"
-                            selectionMode="single"
-                            selectedKeys={new Set([workspaceSettings.weekStart])}
-                            onAction={(key) =>
-                              onWeekStartChange?.(String(key) as "monday" | "sunday")
-                            }
-                          >
-                            {(["monday", "sunday"] as const).map((day) => (
-                              <Dropdown.Item
-                                key={day}
-                                id={day}
-                                textValue={t(day === "monday" ? "Monday" : "Sunday")}
-                              >
-                                <Label>{t(day === "monday" ? "Monday" : "Sunday")}</Label>
-                                <Dropdown.ItemIndicator />
-                              </Dropdown.Item>
-                            ))}
-                          </Dropdown.Menu>
-                        </Dropdown.Popover>
-                      </Dropdown>
-                    </div>
-                  </div>
+                  <ModalSelect
+                    label={t("Week starts on")}
+                    buttonAriaLabel={t("Choose week start day")}
+                    value={workspaceSettings.weekStart}
+                    options={(["monday", "sunday"] as const).map((day) => ({
+                      id: day,
+                      label: t(day === "monday" ? "Monday" : "Sunday"),
+                    }))}
+                    onChange={(value) => onWeekStartChange?.(value as "monday" | "sunday")}
+                  />
                 ) : null}
               </Modal.Body>
               <Modal.Footer className="gap-2 pt-3">
