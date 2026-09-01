@@ -21,7 +21,7 @@ import { FormAlert } from "@/components/form-feedback";
 import { PageHeader } from "@/components/page-header";
 import { localeOptions, translate, useI18n } from "@/lib/i18n";
 import { ProfileAvatar } from "@/components/profile-avatar";
-import { prepareAvatarImage } from "@/lib/profile-image";
+import { isUserUploadedAvatarUrl, prepareAvatarImage } from "@/lib/profile-image";
 import { useStore, type ThemeMode } from "@/lib/store";
 import { updateEmail, updatePassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
@@ -329,7 +329,7 @@ function SettingsPage() {
               <Button size="sm" type="button" onPress={() => avatarInputRef.current?.click()}>
                 {t("Change profile photo")}
               </Button>
-              {preferences.avatarUrl ? (
+              {isUserUploadedAvatarUrl(preferences.avatarUrl) ? (
                 <Button
                   size="sm"
                   type="button"

@@ -1,8 +1,18 @@
 export const MAX_AVATAR_FILE_SIZE = 1_000_000;
 const MAX_AVATAR_DIMENSION = 256;
 const SUPPORTED_AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const UPLOADED_AVATAR_URL_PATTERN =
+  /^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/sign\/avatars\//;
 
 export type AvatarImageError = "type" | "size" | "read";
+
+export function isUserUploadedAvatarUrl(value: string | null | undefined): value is string {
+  return (
+    typeof value === "string" &&
+    (/^data:image\/(?:png|jpeg|webp|gif);base64,/.test(value) ||
+      UPLOADED_AVATAR_URL_PATTERN.test(value))
+  );
+}
 
 export async function prepareAvatarImage(file: File): Promise<string> {
   if (!SUPPORTED_AVATAR_TYPES.has(file.type)) {
