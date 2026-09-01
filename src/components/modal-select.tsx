@@ -51,7 +51,7 @@ export function ModalSelect({
                 key={option.id}
                 id={option.id}
                 textValue={option.label}
-                isDisabled={option.isDisabled}
+                isDisabled={option.isDisabled ?? false}
               >
                 <Label>{option.label}</Label>
                 <Dropdown.ItemIndicator />

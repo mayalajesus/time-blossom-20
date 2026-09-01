@@ -594,7 +594,7 @@ function TrackerGroupSummaryRow({
         <Surface variant={summarySurfaceVariant} className="flex min-h-20 items-center px-4 py-3">
           <span className="flex min-w-0 flex-col">
             <span className={`${summaryTextClass} flex items-center gap-2 font-medium`}>
-              <ProjectLabel project={project} label={projectName} />
+              <ProjectLabel project={project ?? null} label={projectName} />
             </span>
             <span className={`${summaryTextClass} text-xs font-light`}>{clientName}</span>
           </span>
@@ -1355,7 +1355,7 @@ function TrackerEntryRow({
           >
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="flex w-full min-w-0 items-center gap-2 truncate font-medium">
-                <ProjectLabel project={project} label={projectName} />
+                <ProjectLabel project={project ?? null} label={projectName} />
               </span>
               <span className="block w-full min-w-0 truncate text-xs font-light">{clientName}</span>
             </span>

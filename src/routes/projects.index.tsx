@@ -320,7 +320,7 @@ function ProjectsPage() {
             <span className="max-w-40 truncate">{member.name}</span>
             <Tag.RemoveButton
               aria-label={t("Remove {name}", { name: member.name })}
-              className={member.id === currentUserId ? "hidden" : undefined}
+              {...(member.id === currentUserId ? { className: "hidden" } : {})}
               isDisabled={member.id === currentUserId}
             />
           </Tag>

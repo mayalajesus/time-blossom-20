@@ -1,7 +1,7 @@
 import { Button, Toast, Typography } from "@heroui/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "../components/layout/app-shell";
-import { useI18n } from "../lib/i18n";
+import { defaultLocale, translate, type Locale, useI18n } from "../lib/i18n";
 import { StoreProvider } from "../lib/store";
 import { AuthProvider } from "../lib/auth-context";
 import {
@@ -15,9 +15,15 @@ import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 
+function getRootFallbackLocale(): Locale {
+  if (typeof document === "undefined") return defaultLocale;
+  return document.documentElement.lang.toLowerCase().startsWith("pt") ? "pt-BR" : "en-US";
+}
+
 function NotFoundComponent() {
   const navigate = useNavigate();
-  const { t } = useI18n();
+  const locale = getRootFallbackLocale();
+  const t = (key: string) => translate(key, locale);
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
@@ -42,7 +48,8 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-  const { t } = useI18n();
+  const locale = getRootFallbackLocale();
+  const t = (key: string) => translate(key, locale);
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">

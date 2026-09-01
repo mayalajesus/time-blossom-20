@@ -332,6 +332,10 @@ function exportTime(time: string): string {
   return time.length === 5 ? `${time}:00` : time;
 }
 
+function getReportExportView(): ReportView {
+  return "detailed";
+}
+
 function compareEntries(a: TimeEntry, b: TimeEntry): number {
   return (
     b.date.localeCompare(a.date) ||
@@ -652,9 +656,8 @@ function ReportsPage() {
       search.columns !== encodeIds(normalizedFilters.detailedColumns);
 
     if (shouldNavigate) {
-      setUserPreferences({
-        reportFilters: { ...preferences.reportFilters, [workspaceId]: normalizedFilters },
-      });
+      // Let the URL become the source of truth before persisting the hydrated filters.
+      // Updating preferences here would render again with the old URL and restart hydration.
       void navigate({
         search: { ...search, ...patch, page: 1 },
         replace: true,
@@ -891,7 +894,7 @@ function ReportsPage() {
     fallbackForEntry,
     filterValues.currency === "all" ? workspaceBilling.currency : filterValues.currency,
   );
-  const exportView: ReportView = "detailed";
+  const exportView = getReportExportView();
   const exportUsesAnalytics = exportView === "overview";
   const exportTotal = exportUsesAnalytics ? reportAnalytics.summary.totalSeconds : total;
   const exportBillable = exportUsesAnalytics ? reportAnalytics.summary.billableSeconds : billable;
@@ -2540,7 +2543,7 @@ function OverviewDashboard({
                         <Typography
                           type="h1"
                           aria-hidden="true"
-                          className={item.id === "overnight" ? "scale-110" : undefined}
+                          {...(item.id === "overnight" ? { className: "scale-110" } : {})}
                         >
                           {shiftEmoji[item.id]}
                         </Typography>
@@ -2655,13 +2658,11 @@ function DetailedReport({
             <Table.Column
               key={column.id}
               isRowHeader={index === 0}
-              className={
-                column.id === "description"
-                  ? "max-w-[26rem]"
-                  : column.id === "task"
-                    ? "max-w-[22rem]"
-                    : undefined
-              }
+              {...(column.id === "description"
+                ? { className: "max-w-[26rem]" }
+                : column.id === "task"
+                  ? { className: "max-w-[22rem]" }
+                  : {})}
             >
               {t(column.label)}
             </Table.Column>
@@ -3318,9 +3319,10 @@ function GroupSelect({
       <Button type="button" aria-label={t(label)} className="h-9 min-w-0 flex-1 justify-start">
         {t(options.find((option) => option.id === value)?.label ?? label)}
       </Button>
-      <Dropdown>
+      <GroupedDropdown>
         <Button
           isIconOnly
+          size="sm"
           variant="tertiary"
           aria-label={t("Open {label}", { label: t(label) })}
           className="h-9 w-9 min-w-9 shrink-0 px-0"
@@ -3343,9 +3345,13 @@ function GroupSelect({
             ))}
           </Dropdown.Menu>
         </Dropdown.Popover>
-      </Dropdown>
+      </GroupedDropdown>
     </ButtonGroup>
   );
+}
+
+function GroupedDropdown({ children }: { children: ReactNode }) {
+  return <Dropdown>{children}</Dropdown>;
 }
 
 type WeeklyRow = {

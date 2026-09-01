@@ -1,6 +1,30 @@
 import { expect, test } from "@playwright/test";
 import { signInAs } from "../support/qa-auth";
 
+test("loads reports directly without entering an update loop", async ({ page }) => {
+  await signInAs(page, "owner");
+
+  const runtimeErrors: string[] = [];
+  page.on("pageerror", (error) => runtimeErrors.push(error.message));
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      /Maximum update depth exceeded|useI18n must be used inside AppI18nProvider/.test(
+        message.text(),
+      )
+    ) {
+      runtimeErrors.push(message.text());
+    }
+  });
+
+  await page.goto("/reports");
+  await expect(page.getByRole("heading", { name: /Reports|Relatórios/, level: 1 })).toBeVisible();
+  await expect(page).toHaveURL(/\/reports\?.*preset=/);
+  await page.waitForTimeout(500);
+
+  expect(runtimeErrors).toEqual([]);
+});
+
 test("keeps reports interactive while switching and reusing periods", async ({ page }) => {
   const reportRequests: Array<{ startDate: string; endDate: string }> = [];
   page.on("request", (request) => {

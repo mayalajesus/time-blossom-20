@@ -132,7 +132,7 @@ function ReportPeriodNavigation({
       className="relative shrink-0"
       aria-label={navigationLabel}
     >
-      <ButtonGroup.Separator className="start-0" />
+      <GroupedButtonSeparator className="start-0" />
       <Button
         isIconOnly
         slot={null}
@@ -144,7 +144,7 @@ function ReportPeriodNavigation({
           <ChevronLeft aria-hidden="true" className={reportFilterIconClassName} />
         </ReportFilterIcon>
       </Button>
-      <ButtonGroup.Separator className="start-8" />
+      <GroupedButtonSeparator className="start-8" />
       <Button
         isIconOnly
         slot={null}
@@ -158,6 +158,10 @@ function ReportPeriodNavigation({
       </Button>
     </ButtonGroup>
   );
+}
+
+function GroupedButtonSeparator({ className }: { className?: string }) {
+  return <ButtonGroup.Separator {...(className ? { className } : {})} />;
 }
 
 function ReportFilterActions({
@@ -227,6 +231,10 @@ function selectedLabel(options: ReportFilterOption[], values: string[], empty: s
   return `${values.length} selected`;
 }
 
+function GroupedDropdown({ children }: { children: ReactNode }) {
+  return <Dropdown>{children}</Dropdown>;
+}
+
 function ReportFilterDropdown({
   label,
   icon,
@@ -274,9 +282,10 @@ function ReportFilterDropdown({
         <ReportFilterIcon>{icon}</ReportFilterIcon>
         <ReportFilterValue>{selectedLabel(options, values, label)}</ReportFilterValue>
       </Button>
-      <Dropdown>
+      <GroupedDropdown>
         <Button
           isIconOnly
+          size="sm"
           variant="tertiary"
           aria-label={t("Open {label}", { label })}
           className="h-9 w-9 min-w-9 shrink-0 px-0"
@@ -352,7 +361,7 @@ function ReportFilterDropdown({
             </Dropdown.Menu>
           )}
         </Dropdown.Popover>
-      </Dropdown>
+      </GroupedDropdown>
     </ButtonGroup>
   );
 }
@@ -541,9 +550,10 @@ function ReportPeriodPicker({
                 >
                   {t(reportPeriodPresets.find((option) => option.id === preset)?.label ?? "Custom")}
                 </Button>
-                <Dropdown>
+                <GroupedDropdown>
                   <Button
                     isIconOnly
+                    size="sm"
                     variant="tertiary"
                     aria-label={t("Choose date range preset")}
                     className="h-9 w-9 min-w-9 shrink-0 px-0"
@@ -580,7 +590,7 @@ function ReportPeriodPicker({
                       ))}
                     </Dropdown.Menu>
                   </Dropdown.Popover>
-                </Dropdown>
+                </GroupedDropdown>
               </ButtonGroup>
             </div>
             <div className="min-w-0 flex-1 p-2 pe-4 sm:w-64 sm:flex-none">
