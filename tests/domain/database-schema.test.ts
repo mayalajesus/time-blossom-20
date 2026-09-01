@@ -31,6 +31,10 @@ const googleOauthProfile = readFileSync(
   new URL("../../db/providers/supabase/20260831140000_google_oauth_profile.sql", import.meta.url),
   "utf8",
 );
+const workspaceMemberBilling = readFileSync(
+  new URL("../../db/migrations/20260831150000_workspace_member_billing.sql", import.meta.url),
+  "utf8",
+);
 const qaSeed = readFileSync(new URL("../../db/seeds/qa/001_demo.sql", import.meta.url), "utf8");
 
 describe("portable database schema", () => {
@@ -103,6 +107,16 @@ describe("portable database schema", () => {
     expect(productionStorage).toContain("public.is_workspace_member");
     expect(productionStorage).toContain("public.is_workspace_owner");
     expect(productionStorage).toMatch(/avatar_select[\s\S]*workspace_members viewer/i);
+  });
+
+  it("stores each user's billing rate independently in every workspace", () => {
+    expect(workspaceMemberBilling).toMatch(
+      /alter table public\.workspace_members[\s\S]*hourly_rate numeric/i,
+    );
+    expect(workspaceMemberBilling).toMatch(/workspace_members[\s\S]*currency text/i);
+    expect(workspaceMemberBilling).toMatch(
+      /from public\.user_preferences up[\s\S]*up\.user_id = wm\.user_id/i,
+    );
   });
 
   it("creates Google accounts with provider profile data without replacing custom photos", () => {

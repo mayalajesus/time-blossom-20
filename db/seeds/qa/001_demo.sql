@@ -55,12 +55,12 @@ begin
 
   insert into public.user_preferences (
     user_id, language, theme, timezone, reminders, weekly_digest,
-    idle_detection, hourly_rate, currency
+    idle_detection
   )
   values
-    (owner_id, 'pt-BR', 'system', 'America/Sao_Paulo', true, true, true, 180, 'BRL'),
-    (admin_id, 'pt-BR', 'light', 'America/Sao_Paulo', true, false, true, 140, 'BRL'),
-    (member_id, 'pt-BR', 'dark', 'America/Sao_Paulo', true, false, true, 95, 'BRL')
+    (owner_id, 'pt-BR', 'system', 'America/Sao_Paulo', true, true, true),
+    (admin_id, 'pt-BR', 'light', 'America/Sao_Paulo', true, false, true),
+    (member_id, 'pt-BR', 'dark', 'America/Sao_Paulo', true, false, true)
   on conflict (user_id) do update
     set language = excluded.language,
         theme = excluded.theme,
@@ -68,8 +68,6 @@ begin
         reminders = excluded.reminders,
         weekly_digest = excluded.weekly_digest,
         idle_detection = excluded.idle_detection,
-        hourly_rate = excluded.hourly_rate,
-        currency = excluded.currency,
         updated_at = now();
 
   insert into public.workspaces (id, name, owner_id, status)
@@ -80,14 +78,18 @@ begin
         status = 'active',
         archived_at = null;
 
-  insert into public.workspace_members (workspace_id, user_id, role, status, joined_at)
+  insert into public.workspace_members (
+    workspace_id, user_id, role, status, hourly_rate, currency, joined_at
+  )
   values
-    (v_workspace_id, owner_id, 'Owner', 'active', timestamptz '2026-01-02 12:00:00+00'),
-    (v_workspace_id, admin_id, 'Admin', 'active', timestamptz '2026-01-03 12:00:00+00'),
-    (v_workspace_id, member_id, 'Member', 'active', timestamptz '2026-01-06 12:00:00+00')
+    (v_workspace_id, owner_id, 'Owner', 'active', 180, 'BRL', timestamptz '2026-01-02 12:00:00+00'),
+    (v_workspace_id, admin_id, 'Admin', 'active', 140, 'BRL', timestamptz '2026-01-03 12:00:00+00'),
+    (v_workspace_id, member_id, 'Member', 'active', 95, 'BRL', timestamptz '2026-01-06 12:00:00+00')
   on conflict (workspace_id, user_id) do update
     set role = excluded.role,
         status = excluded.status,
+        hourly_rate = excluded.hourly_rate,
+        currency = excluded.currency,
         joined_at = excluded.joined_at;
 
   insert into public.workspace_settings (workspace_id, default_billable, week_start)

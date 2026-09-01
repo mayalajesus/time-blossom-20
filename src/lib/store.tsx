@@ -98,6 +98,8 @@ export interface WorkspaceMembership {
   userId: string;
   role: Role;
   status: Member["status"];
+  hourlyRate: number;
+  currency: CurrencyCode;
   invitedAt?: string;
   joinedAt?: string;
 }
@@ -107,6 +109,8 @@ export interface WorkspaceSummary extends Workspace {
   role: Role;
   membershipStatus: Member["status"];
   isOwned: boolean;
+  hourlyRate: number;
+  currency: CurrencyCode;
 }
 
 export interface WorkspaceSettings {
@@ -123,8 +127,6 @@ export interface UserPreferences {
   theme: ThemeMode;
   avatarUrl: string | null;
   timezone: string;
-  hourlyRate: number;
-  currency: CurrencyCode;
   activeWorkspaceId: string | null;
   reportFilters: Record<string, StoredReportFilters>;
 }
@@ -151,7 +153,7 @@ export interface WorkspaceData {
 }
 
 export type PersistedAccount = {
-  version: 11;
+  version: 12;
   identities: UserIdentity[];
   workspaces: WorkspaceData[];
   preferencesByUserId: Record<string, UserPreferences>;
@@ -180,8 +182,6 @@ const initialPreferences: UserPreferences = {
   theme: "system",
   avatarUrl: null,
   timezone: getInitialTimeZone(),
-  hourlyRate: 0,
-  currency: defaultCurrencyForLocale(defaultLocale),
   activeWorkspaceId: null,
   reportFilters: {},
 };
@@ -262,9 +262,6 @@ function isValidPreferences(value: unknown): value is UserPreferences {
     isThemeMode(prefs.theme) &&
     isValidAvatarUrl(prefs.avatarUrl) &&
     isValidTimeZone(prefs.timezone) &&
-    isFiniteNumber(prefs.hourlyRate) &&
-    prefs.hourlyRate >= 0 &&
-    isCurrencyCode(prefs.currency) &&
     (prefs.activeWorkspaceId === null || typeof prefs.activeWorkspaceId === "string") &&
     isRecord(prefs.reportFilters) &&
     Object.values(prefs.reportFilters).every(
@@ -380,14 +377,27 @@ function membershipToMember(
   };
 }
 
-function membersToMemberships(workspaceId: string, members: Member[]): WorkspaceMembership[] {
-  return members.map((member) => ({
-    workspaceId,
-    userId: member.id,
-    role: member.role,
-    status: member.status,
-    ...(member.invitedAt ? { invitedAt: member.invitedAt } : {}),
-  }));
+function membersToMemberships(
+  workspaceId: string,
+  members: Member[],
+  existingMemberships: WorkspaceMembership[] = [],
+  billingByUserId: Record<string, BillingPreference> = {},
+): WorkspaceMembership[] {
+  const existingByUserId = new Map(
+    existingMemberships.map((membership) => [membership.userId, membership]),
+  );
+  return members.map((member) => {
+    const billing = billingByUserId[member.id] ?? existingByUserId.get(member.id);
+    return {
+      workspaceId,
+      userId: member.id,
+      role: member.role,
+      status: member.status,
+      hourlyRate: billing?.hourlyRate ?? 0,
+      currency: billing?.currency ?? defaultCurrencyForLocale(defaultLocale),
+      ...(member.invitedAt ? { invitedAt: member.invitedAt } : {}),
+    };
+  });
 }
 
 function createIdentity(member: Member): UserIdentity {
@@ -442,13 +452,25 @@ function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
       : "Studio Co.";
   const identities = members.map(createIdentity);
   const preferencesByUserId: Record<string, UserPreferences> = {};
+  const billingByUserId: Record<string, BillingPreference> = {};
   const legacyPreferences = raw["preferencesByMemberId"];
   for (const member of members) {
     const candidate =
       legacyPreferences && typeof legacyPreferences === "object"
         ? (legacyPreferences as Record<string, unknown>)[member.id]
         : null;
-    const legacy = candidate as Partial<UserPreferences> | null;
+    const legacy = candidate as (Partial<UserPreferences> & Partial<BillingPreference>) | null;
+    const language = legacy && isLocale(legacy.language) ? legacy.language : defaultLocale;
+    billingByUserId[member.id] = {
+      hourlyRate:
+        legacy && isFiniteNumber(legacy.hourlyRate) && legacy.hourlyRate >= 0
+          ? legacy.hourlyRate
+          : 0,
+      currency:
+        legacy && isCurrencyCode(legacy.currency)
+          ? legacy.currency
+          : defaultCurrencyForLocale(language),
+    };
     preferencesByUserId[member.id] =
       legacy &&
       typeof legacy.idleDetection === "boolean" &&
@@ -461,18 +483,13 @@ function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
             theme: legacy.theme,
             avatarUrl: legacy.avatarUrl,
             timezone: isValidTimeZone(legacy.timezone) ? legacy.timezone : getInitialTimeZone(),
-            hourlyRate:
-              isFiniteNumber(legacy.hourlyRate) && legacy.hourlyRate >= 0 ? legacy.hourlyRate : 0,
-            currency: isCurrencyCode(legacy.currency)
-              ? legacy.currency
-              : defaultCurrencyForLocale(legacy.language),
             activeWorkspaceId: null,
             reportFilters: {},
           }
         : { ...initialPreferences };
   }
   return {
-    version: 11,
+    version: 12,
     identities,
     workspaces: [
       {
@@ -484,7 +501,7 @@ function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
           status: "active",
           createdAt: new Date().toISOString(),
         },
-        memberships: membersToMemberships(workspaceId, members),
+        memberships: membersToMemberships(workspaceId, members, [], billingByUserId),
         entries,
         projects,
         clients,
@@ -508,20 +525,22 @@ export function migrateAccountSnapshot(value: unknown): PersistedAccount | null 
     preferencesByUserId?: Record<string, unknown>;
   };
   if (
-    (raw.version !== 9 && raw.version !== 10) ||
+    (raw.version !== 9 && raw.version !== 10 && raw.version !== 11) ||
     !Array.isArray(raw.identities) ||
     !Array.isArray(raw.workspaces) ||
+    !raw.workspaces.every((workspace) => Array.isArray(workspace?.memberships)) ||
     !raw.preferencesByUserId ||
     typeof raw.preferencesByUserId !== "object"
   )
     return null;
 
   const preferencesByUserId: Record<string, UserPreferences> = {};
+  const billingByUserId: Record<string, BillingPreference> = {};
   for (const identity of raw.identities) {
     if (!identity || typeof identity !== "object" || typeof identity.id !== "string") return null;
     const candidate = raw.preferencesByUserId[identity.id];
     if (!candidate || typeof candidate !== "object") return null;
-    const preferences = candidate as Partial<UserPreferences>;
+    const preferences = candidate as Partial<UserPreferences> & Partial<BillingPreference>;
     if (
       typeof preferences.idleDetection !== "boolean" ||
       !isLocale(preferences.language) ||
@@ -529,12 +548,7 @@ export function migrateAccountSnapshot(value: unknown): PersistedAccount | null 
       !isValidAvatarUrl(preferences.avatarUrl)
     )
       return null;
-    preferencesByUserId[identity.id] = {
-      idleDetection: preferences.idleDetection,
-      language: preferences.language,
-      theme: preferences.theme,
-      avatarUrl: preferences.avatarUrl,
-      timezone: isValidTimeZone(preferences.timezone) ? preferences.timezone : getInitialTimeZone(),
+    billingByUserId[identity.id] = {
       hourlyRate:
         isFiniteNumber(preferences.hourlyRate) && preferences.hourlyRate >= 0
           ? preferences.hourlyRate
@@ -542,15 +556,50 @@ export function migrateAccountSnapshot(value: unknown): PersistedAccount | null 
       currency: isCurrencyCode(preferences.currency)
         ? preferences.currency
         : defaultCurrencyForLocale(preferences.language),
-      activeWorkspaceId: null,
-      reportFilters: {},
+    };
+    const reportFilters =
+      isRecord(preferences.reportFilters) &&
+      Object.values(preferences.reportFilters).every(
+        (filters) => parseStoredReportFiltersValue(filters) !== null,
+      )
+        ? (preferences.reportFilters as Record<string, StoredReportFilters>)
+        : {};
+    preferencesByUserId[identity.id] = {
+      idleDetection: preferences.idleDetection,
+      language: preferences.language,
+      theme: preferences.theme,
+      avatarUrl: preferences.avatarUrl,
+      timezone: isValidTimeZone(preferences.timezone) ? preferences.timezone : getInitialTimeZone(),
+      activeWorkspaceId:
+        preferences.activeWorkspaceId === null || typeof preferences.activeWorkspaceId === "string"
+          ? preferences.activeWorkspaceId
+          : null,
+      reportFilters,
     };
   }
 
   const migrated: PersistedAccount = {
-    version: 11,
+    version: 12,
     identities: raw.identities,
-    workspaces: raw.workspaces,
+    workspaces: raw.workspaces.map((data) => ({
+      ...data,
+      memberships: data.memberships.map((membership) => {
+        const current = membership as Partial<WorkspaceMembership> &
+          Pick<WorkspaceMembership, "userId">;
+        const fallback = billingByUserId[current.userId] ?? {
+          hourlyRate: 0,
+          currency: "USD" as const,
+        };
+        return {
+          ...membership,
+          hourlyRate:
+            isFiniteNumber(current.hourlyRate) && current.hourlyRate >= 0
+              ? current.hourlyRate
+              : fallback.hourlyRate,
+          currency: isCurrencyCode(current.currency) ? current.currency : fallback.currency,
+        };
+      }),
+    })),
     preferencesByUserId,
   };
   const repaired = repairDuplicateEntryIds(migrated);
@@ -565,7 +614,7 @@ export function migrateAccountSnapshot(value: unknown): PersistedAccount | null 
 export function repairDuplicateEntryIds(value: unknown): unknown {
   if (
     !isRecord(value) ||
-    (value["version"] !== 10 && value["version"] !== 11) ||
+    (value["version"] !== 10 && value["version"] !== 11 && value["version"] !== 12) ||
     !Array.isArray(value["workspaces"])
   ) {
     return value;
@@ -659,7 +708,7 @@ export function makeSeedAccount(): PersistedAccount {
     trello: initialTrello,
   };
   return {
-    version: 11,
+    version: 12,
     identities,
     workspaces: [defaultWorkspace, sharedWorkspace],
     preferencesByUserId: Object.fromEntries(
@@ -672,7 +721,7 @@ export function isValidAccount(value: unknown): value is PersistedAccount {
   if (!value || typeof value !== "object") return false;
   const account = value as Partial<PersistedAccount>;
   if (
-    account.version !== 11 ||
+    account.version !== 12 ||
     !Array.isArray(account.identities) ||
     !Array.isArray(account.workspaces) ||
     !account.preferencesByUserId ||
@@ -744,6 +793,9 @@ export function isValidAccount(value: unknown): value is PersistedAccount {
           (membership.status === "active" ||
             membership.status === "invited" ||
             membership.status === "removed") &&
+          isFiniteNumber(membership.hourlyRate) &&
+          membership.hourlyRate >= 0 &&
+          isCurrencyCode(membership.currency) &&
           (membership.invitedAt === undefined ||
             (typeof membership.invitedAt === "string" &&
               !Number.isNaN(Date.parse(membership.invitedAt)))) &&
@@ -847,6 +899,7 @@ interface StoreValue {
   settings: WorkspaceSettings;
   preferences: UserPreferences;
   preferencesByUserId: Record<string, UserPreferences>;
+  workspaceBilling: BillingPreference;
   billingPreferencesByUserId: Record<string, BillingPreference>;
   currentMember: Member | null;
   currentWorkspace: Workspace | null;
@@ -900,7 +953,8 @@ interface StoreValue {
   updateCurrentMemberName: (name: string) => StoreResult;
   updateCurrentMemberEmail: (email: string) => StoreResult;
   switchWorkspace: (workspaceId: string) => StoreResult;
-  createWorkspace: (name: string) => StoreResult;
+  createWorkspace: (name: string, billing: BillingPreference) => StoreResult;
+  setWorkspaceBilling: (workspaceId: string, billing: BillingPreference) => StoreResult;
   updateWorkspace: (
     workspaceId: string,
     patch: { name?: string; logoDataUrl?: string | null },
@@ -970,7 +1024,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const dataSource = useMemo(() => createApiDataSource(), []);
   const [account, setAccount] = useState<PersistedAccount>({
-    version: 11,
+    version: 12,
     identities: [],
     workspaces: [],
     preferencesByUserId: {},
@@ -1008,7 +1062,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       entries,
       projects,
       clients,
-      memberships: membersToMemberships(activeWorkspaceId, members),
+      memberships: membersToMemberships(activeWorkspaceId, members, current.memberships),
       settings,
       trello,
     };
@@ -1032,23 +1086,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   accountForSyncRef.current = accountForSync;
   const [elapsed, setElapsed] = useState(() => elapsedForTimer(timer));
   const preferences = account.preferencesByUserId[activeMemberId] ?? initialPreferences;
-  const billingPreferencesByUserId = useMemo(
-    () =>
-      Object.fromEntries(
-        account.identities.map((identity) => {
-          const userPreferences = account.preferencesByUserId[identity.id] ?? initialPreferences;
-          return [
-            identity.id,
-            { hourlyRate: userPreferences.hourlyRate, currency: userPreferences.currency },
-          ];
-        }),
-      ),
-    [account.identities, account.preferencesByUserId],
-  );
-  const [today, setToday] = useState(() => getLocalToday(new Date(), preferences.timezone));
   const currentWorkspace = activeData?.workspace ?? null;
   const currentWorkspaceMembership =
     activeData?.memberships.find((membership) => membership.userId === activeMemberId) ?? null;
+  const workspaceBilling = useMemo<BillingPreference>(
+    () =>
+      currentWorkspaceMembership
+        ? {
+            hourlyRate: currentWorkspaceMembership.hourlyRate,
+            currency: currentWorkspaceMembership.currency,
+          }
+        : { hourlyRate: 0, currency: defaultCurrencyForLocale(preferences.language) },
+    [currentWorkspaceMembership, preferences.language],
+  );
+  const billingPreferencesByUserId = useMemo(
+    () =>
+      Object.fromEntries(
+        (activeData?.memberships ?? []).map((membership) => [
+          membership.userId,
+          { hourlyRate: membership.hourlyRate, currency: membership.currency },
+        ]),
+      ),
+    [activeData?.memberships],
+  );
+  const [today, setToday] = useState(() => getLocalToday(new Date(), preferences.timezone));
   const currentMember = members.find((member) => member.id === activeMemberId) ?? null;
   const timerRef = useRef(timer);
   timerRef.current = timer;
@@ -1135,7 +1196,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setHydrated(false);
       setTimerHydrated(false);
       setSessionStatus("signed-out");
-      setAccount({ version: 11, identities: [], workspaces: [], preferencesByUserId: {} });
+      setAccount({ version: 12, identities: [], workspaces: [], preferencesByUserId: {} });
       setActiveMemberId("");
       setActiveWorkspaceId("");
       setEntries([]);
@@ -1273,7 +1334,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       entries,
       projects,
       clients,
-      memberships: membersToMemberships(activeWorkspaceId, members),
+      memberships: membersToMemberships(activeWorkspaceId, members, current.memberships),
       settings,
       trello,
     };
@@ -1462,8 +1523,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           now,
           startedDate: getLocalToday(new Date(now), preferences.timezone),
           startClock: nowTime(preferences.timezone),
-          hourlyRate: preferences.hourlyRate,
-          currency: preferences.currency,
+          hourlyRate: workspaceBilling.hourlyRate,
+          currency: workspaceBilling.currency,
         },
       );
       timerRef.current = next;
@@ -1579,8 +1640,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           projectId: current.projectId,
           task: current.task,
           billable: current.billable,
-          hourlyRate: current.hourlyRate ?? preferences.hourlyRate,
-          currency: current.currency ?? preferences.currency,
+          hourlyRate: current.hourlyRate ?? workspaceBilling.hourlyRate,
+          currency: current.currency ?? workspaceBilling.currency,
         };
         conflict = findEntryConflict(stoppedEntry);
         warning = conflict ? "This time overlaps another entry. It was saved anyway." : undefined;
@@ -1613,11 +1674,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...entry,
         hourlyRate:
           options.refreshBilling || entry.hourlyRate === undefined
-            ? preferences.hourlyRate
+            ? workspaceBilling.hourlyRate
             : entry.hourlyRate,
         currency:
           options.refreshBilling || entry.currency === undefined
-            ? preferences.currency
+            ? workspaceBilling.currency
             : entry.currency,
       } satisfies Omit<TimeEntry, "id">;
       const validation = validateEntry(billedEntry);
@@ -2135,7 +2196,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           entries,
           projects,
           clients,
-          memberships: membersToMemberships(activeWorkspaceId, members),
+          memberships: membersToMemberships(activeWorkspaceId, members, current.memberships),
           settings,
           trello,
         };
@@ -2174,7 +2235,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { success: true };
     };
 
-    const createWorkspace = (name: string): StoreResult => {
+    const createWorkspace = (name: string, billing: BillingPreference): StoreResult => {
       if (sessionStatus !== "active" || !currentMember || currentMember.status !== "active")
         return { success: false, error: "Choose an active account." };
       if (timerRef.current.status !== "idle")
@@ -2188,6 +2249,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "You can create up to 5 workspaces." };
       const trimmedName = name.trim();
       if (!trimmedName) return { success: false, error: "A workspace name is required." };
+      if (!isFiniteNumber(billing.hourlyRate) || billing.hourlyRate < 0) {
+        return { success: false, error: "Choose a valid hourly rate." };
+      }
+      if (!isCurrencyCode(billing.currency)) {
+        return { success: false, error: "Choose a valid currency." };
+      }
       if (
         account.workspaces.some(
           (data) => data.workspace.name.toLowerCase() === trimmedName.toLowerCase(),
@@ -2213,6 +2280,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             userId: activeMemberId,
             role: "Owner",
             status: "active",
+            hourlyRate: billing.hourlyRate,
+            currency: billing.currency,
             joinedAt: new Date().toISOString(),
           },
         ],
@@ -2233,7 +2302,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   entries,
                   projects,
                   clients,
-                  memberships: membersToMemberships(activeWorkspaceId, members),
+                  memberships: membersToMemberships(
+                    activeWorkspaceId,
+                    members,
+                    current.memberships,
+                  ),
                   settings,
                   trello,
                 }
@@ -2295,6 +2368,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { success: true };
     };
 
+    const setWorkspaceBilling = (workspaceId: string, billing: BillingPreference): StoreResult => {
+      const target = account.workspaces.find((data) => data.workspace.id === workspaceId);
+      if (!target) return { success: false, error: "This workspace could not be found." };
+      const membership = target.memberships.find((item) => item.userId === activeMemberId);
+      if (!membership || membership.status !== "active") {
+        return { success: false, error: "You do not have access to this workspace." };
+      }
+      if (target.workspace.status === "archived") {
+        return { success: false, error: "Archived workspaces are read-only. Restore it first." };
+      }
+      if (!isFiniteNumber(billing.hourlyRate) || billing.hourlyRate < 0) {
+        return { success: false, error: "Choose a valid hourly rate." };
+      }
+      if (!isCurrencyCode(billing.currency)) {
+        return { success: false, error: "Choose a valid currency." };
+      }
+      setAccount((current) => ({
+        ...current,
+        workspaces: current.workspaces.map((data) =>
+          data.workspace.id === workspaceId
+            ? {
+                ...data,
+                memberships: data.memberships.map((item) =>
+                  item.userId === activeMemberId ? { ...item, ...billing } : item,
+                ),
+              }
+            : data,
+        ),
+      }));
+      return { success: true };
+    };
+
     const archiveWorkspace = (workspaceId: string): StoreResult => {
       const target = account.workspaces.find((data) => data.workspace.id === workspaceId);
       if (!target) return { success: false, error: "This workspace could not be found." };
@@ -2332,7 +2437,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             entries,
             projects,
             clients,
-            memberships: membersToMemberships(activeWorkspaceId, members),
+            memberships: membersToMemberships(activeWorkspaceId, members, target.memberships),
             settings,
             trello,
           }
@@ -2532,6 +2637,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           role: membership.role,
           membershipStatus: membership.status,
           isOwned: data.workspace.ownerId === activeMemberId,
+          hourlyRate: membership.hourlyRate,
+          currency: membership.currency,
         };
       });
 
@@ -2546,6 +2653,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       settings,
       preferences,
       preferencesByUserId: account.preferencesByUserId,
+      workspaceBilling,
       billingPreferencesByUserId,
       currentMember,
       currentWorkspace,
@@ -2593,6 +2701,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateCurrentMemberEmail,
       switchWorkspace,
       createWorkspace,
+      setWorkspaceBilling,
       updateWorkspace,
       archiveWorkspace,
       restoreWorkspace,
@@ -2614,6 +2723,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     entries,
     members,
     preferences,
+    workspaceBilling,
     billingPreferencesByUserId,
     projects,
     recentTasks,

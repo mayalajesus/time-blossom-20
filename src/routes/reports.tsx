@@ -515,6 +515,7 @@ function ReportsPage() {
     settings,
     preferences,
     setUserPreferences,
+    workspaceBilling,
     billingPreferencesByUserId,
     today,
   } = useStore();
@@ -792,10 +793,10 @@ function ReportsPage() {
   const fallbackForEntry = useCallback(
     (entry: TimeEntry): BillingPreference =>
       billingPreferencesByUserId[entry.userId] ?? {
-        hourlyRate: preferences.hourlyRate,
-        currency: preferences.currency,
+        hourlyRate: workspaceBilling.hourlyRate,
+        currency: workspaceBilling.currency,
       },
-    [billingPreferencesByUserId, preferences.currency, preferences.hourlyRate],
+    [billingPreferencesByUserId, workspaceBilling.currency, workspaceBilling.hourlyRate],
   );
   const normalizedDescription = normalizeSearch(filterValues.description);
 
@@ -869,7 +870,7 @@ function ReportsPage() {
         clients,
         fallbackForEntry,
         emptyCurrency:
-          filterValues.currency === "all" ? preferences.currency : filterValues.currency,
+          filterValues.currency === "all" ? workspaceBilling.currency : filterValues.currency,
         timeZone: preferences.timezone,
         weekStartsOn,
       }),
@@ -877,7 +878,7 @@ function ReportsPage() {
       clients,
       fallbackForEntry,
       filterValues.currency,
-      preferences.currency,
+      workspaceBilling.currency,
       preferences.timezone,
       projects,
       range,
@@ -888,7 +889,7 @@ function ReportsPage() {
   const billableValues = sumBillableValues(
     filteredEntries,
     fallbackForEntry,
-    filterValues.currency === "all" ? preferences.currency : filterValues.currency,
+    filterValues.currency === "all" ? workspaceBilling.currency : filterValues.currency,
   );
   const exportView: ReportView = "detailed";
   const exportUsesAnalytics = exportView === "overview";
@@ -1198,7 +1199,7 @@ function ReportsPage() {
     }
     if (exportView === "detailed") {
       const exportCurrency =
-        filterValues.currency === "all" ? preferences.currency : filterValues.currency;
+        filterValues.currency === "all" ? workspaceBilling.currency : filterValues.currency;
       const detailedTableColumns =
         locale === "pt-BR"
           ? [
@@ -1397,7 +1398,7 @@ function ReportsPage() {
     groups,
     memberMap,
     projects,
-    preferences.currency,
+    workspaceBilling.currency,
     exportContext,
     exportView,
     locale,

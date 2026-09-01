@@ -36,6 +36,12 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyBlock } from "@/components/states";
 import { useI18n } from "@/lib/i18n";
 import { useStore, type WorkspaceSummary } from "@/lib/store";
+import {
+  currencyOptions,
+  defaultCurrencyForLocale,
+  parseHourlyRateInput,
+  type CurrencyCode,
+} from "@/lib/billing";
 
 export const Route = createFileRoute("/workspaces")({
   head: () => ({
@@ -104,6 +110,7 @@ function WorkspacesPage() {
     timer,
     createWorkspace,
     updateWorkspace,
+    setWorkspaceBilling,
     setWorkspaceSettings,
     archiveWorkspace,
     restoreWorkspace,
@@ -111,7 +118,7 @@ function WorkspacesPage() {
     switchWorkspace,
     pauseTimer,
   } = useStore();
-  const { t, error } = useI18n();
+  const { locale, t, error } = useI18n();
   const navigate = Route.useNavigate();
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -119,6 +126,8 @@ function WorkspacesPage() {
   const [name, setName] = useState("");
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState<"monday" | "sunday">(settings.weekStart);
+  const [hourlyRate, setHourlyRate] = useState("0.00");
+  const [currency, setCurrency] = useState<CurrencyCode>(defaultCurrencyForLocale(locale));
   const [formError, setFormError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
@@ -132,18 +141,30 @@ function WorkspacesPage() {
   const hasAnotherActiveWorkspace = workspaces.some(
     (workspace) => workspace.id !== activeWorkspaceId && workspace.status === "active",
   );
+  const parsedHourlyRate = parseHourlyRateInput(hourlyRate);
+  const hourlyRateError = !hourlyRate.trim()
+    ? t("Hourly rate is required.")
+    : hourlyRate.trim().startsWith("-")
+      ? t("Hourly rate must be zero or greater.")
+      : parsedHourlyRate === null
+        ? t("Enter a valid hourly rate with up to two decimal places.")
+        : undefined;
 
   useEffect(() => {
     if (editWorkspace) {
       setName(editWorkspace.name);
       setLogoDataUrl(editWorkspace.logoDataUrl);
       setWeekStart(settings.weekStart);
+      setHourlyRate(editWorkspace.hourlyRate.toFixed(2));
+      setCurrency(editWorkspace.currency);
     }
   }, [editWorkspace, settings.weekStart]);
 
   const resetForm = () => {
     setName("");
     setLogoDataUrl(null);
+    setHourlyRate("0.00");
+    setCurrency(defaultCurrencyForLocale(locale));
     setFormError(null);
   };
 
@@ -174,7 +195,13 @@ function WorkspacesPage() {
   };
 
   const submitCreate = () => {
-    const result = createWorkspace(name);
+    if (parsedHourlyRate === null) {
+      setFormError(
+        hourlyRateError ?? t("Enter a valid hourly rate with up to two decimal places."),
+      );
+      return;
+    }
+    const result = createWorkspace(name, { hourlyRate: parsedHourlyRate, currency });
     if (!result.success) {
       setFormError(error(result.error));
       return;
@@ -194,18 +221,34 @@ function WorkspacesPage() {
 
   const submitEdit = () => {
     if (!editWorkspace) return;
-    if (!name.trim()) {
+    if (editWorkspace.isOwned && !name.trim()) {
       setFormError(t("Workspace name is required"));
       return;
     }
-    const settingsResult = setWorkspaceSettings({ weekStart });
-    if (!settingsResult.success) {
-      setFormError(error(settingsResult.error));
+    if (parsedHourlyRate === null) {
+      setFormError(
+        hourlyRateError ?? t("Enter a valid hourly rate with up to two decimal places."),
+      );
       return;
     }
-    const result = updateWorkspace(editWorkspace.id, { name, logoDataUrl });
-    if (!result.success) {
-      setFormError(error(result.error));
+    if (editWorkspace.isOwned) {
+      const settingsResult = setWorkspaceSettings({ weekStart });
+      if (!settingsResult.success) {
+        setFormError(error(settingsResult.error));
+        return;
+      }
+      const result = updateWorkspace(editWorkspace.id, { name, logoDataUrl });
+      if (!result.success) {
+        setFormError(error(result.error));
+        return;
+      }
+    }
+    const billingResult = setWorkspaceBilling(editWorkspace.id, {
+      hourlyRate: parsedHourlyRate,
+      currency,
+    });
+    if (!billingResult.success) {
+      setFormError(error(billingResult.error));
       return;
     }
     toast.success(t("Workspace updated"), { description: name.trim() });
@@ -271,7 +314,7 @@ function WorkspacesPage() {
 
   const renderWorkspaceRow = (workspace: WorkspaceSummary) => {
     const isCurrent = workspace.id === activeWorkspaceId;
-    const canEdit = workspace.isOwned && workspace.status === "active";
+    const canEdit = workspace.status === "active";
     const ownerLabel = workspace.isOwned
       ? t("Owned by you")
       : t("Owned by {name}", { name: workspace.ownerName });
@@ -423,6 +466,9 @@ function WorkspacesPage() {
         title={t("New workspace")}
         name={name}
         logoDataUrl={logoDataUrl}
+        hourlyRate={hourlyRate}
+        currency={currency}
+        hourlyRateError={hourlyRateError}
         errorMessage={formError}
         inputRef={logoInputRef}
         onOpenChange={(open) => {
@@ -432,8 +478,11 @@ function WorkspacesPage() {
         onNameChange={setName}
         onLogoChange={handleLogo}
         onRemoveLogo={() => setLogoDataUrl(null)}
+        onHourlyRateChange={setHourlyRate}
+        onCurrencyChange={setCurrency}
         onSubmit={submitCreate}
         submitLabel={t("Create workspace")}
+        canEditDetails
       />
 
       <WorkspaceFormModal
@@ -441,6 +490,9 @@ function WorkspacesPage() {
         title={t("Edit workspace")}
         name={name}
         logoDataUrl={logoDataUrl}
+        hourlyRate={hourlyRate}
+        currency={currency}
+        hourlyRateError={hourlyRateError}
         errorMessage={formError}
         inputRef={logoInputRef}
         onOpenChange={(open) => {
@@ -452,8 +504,11 @@ function WorkspacesPage() {
         onNameChange={setName}
         onLogoChange={handleLogo}
         onRemoveLogo={() => setLogoDataUrl(null)}
+        onHourlyRateChange={setHourlyRate}
+        onCurrencyChange={setCurrency}
         onSubmit={submitEdit}
         submitLabel={t("Save changes")}
+        canEditDetails={editWorkspace?.isOwned ?? false}
         workspaceSettings={{ weekStart }}
         onWeekStartChange={setWeekStart}
       />
@@ -552,14 +607,20 @@ function WorkspaceFormModal({
   title,
   name,
   logoDataUrl,
+  hourlyRate,
+  currency,
+  hourlyRateError,
   errorMessage,
   inputRef,
   onOpenChange,
   onNameChange,
   onLogoChange,
   onRemoveLogo,
+  onHourlyRateChange,
+  onCurrencyChange,
   onSubmit,
   submitLabel,
+  canEditDetails,
   workspaceSettings,
   onWeekStartChange,
 }: {
@@ -567,14 +628,20 @@ function WorkspaceFormModal({
   title: string;
   name: string;
   logoDataUrl: string | null;
+  hourlyRate: string;
+  currency: CurrencyCode;
+  hourlyRateError: string | undefined;
   errorMessage: string | null;
   inputRef: RefObject<HTMLInputElement | null>;
   onOpenChange: (open: boolean) => void;
   onNameChange: (value: string) => void;
   onLogoChange: (file: File | undefined) => void;
   onRemoveLogo: () => void;
+  onHourlyRateChange: (value: string) => void;
+  onCurrencyChange: (value: CurrencyCode) => void;
   onSubmit: () => void;
   submitLabel: string;
+  canEditDetails: boolean;
   workspaceSettings?: {
     weekStart: "monday" | "sunday";
   };
@@ -603,60 +670,101 @@ function WorkspaceFormModal({
                     description={errorMessage}
                   />
                 ) : null}
-                <TextField
-                  isRequired
-                  fullWidth
-                  name="workspace-name"
-                  value={name}
-                  validate={(value) => (value.trim() ? null : t("Workspace name is required"))}
-                  onChange={onNameChange}
-                >
-                  <Label>{t("Name")}</Label>
-                  <Input variant="secondary" placeholder={t("Workspace name")} />
-                  <FieldError />
-                </TextField>
-                <div className="flex flex-col gap-2">
-                  <Label>{t("Workspace logo")}</Label>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Avatar size="lg" aria-label={t("Workspace logo preview")}>
-                      {logoDataUrl ? <Avatar.Image alt="" src={logoDataUrl} /> : null}
-                      <Avatar.Fallback>
-                        {initialsForWorkspace(name || t("Workspace"))}
-                      </Avatar.Fallback>
-                    </Avatar>
-                    <div className="flex flex-wrap gap-2">
-                      <input
-                        ref={inputRef}
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        className="sr-only"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          event.target.value = "";
-                          onLogoChange(file);
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onPress={() => inputRef.current?.click()}
-                      >
-                        <CloudArrowUpIn className="size-4" />
-                        {t("Upload logo")}
-                      </Button>
-                      {logoDataUrl ? (
-                        <Button type="button" size="sm" variant="tertiary" onPress={onRemoveLogo}>
-                          {t("Remove")}
-                        </Button>
-                      ) : null}
+                {canEditDetails ? (
+                  <>
+                    <TextField
+                      isRequired
+                      fullWidth
+                      name="workspace-name"
+                      value={name}
+                      validate={(value) => (value.trim() ? null : t("Workspace name is required"))}
+                      onChange={onNameChange}
+                    >
+                      <Label>{t("Name")}</Label>
+                      <Input variant="secondary" placeholder={t("Workspace name")} />
+                      <FieldError />
+                    </TextField>
+                    <div className="flex flex-col gap-2">
+                      <Label>{t("Workspace logo")}</Label>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Avatar size="lg" aria-label={t("Workspace logo preview")}>
+                          {logoDataUrl ? <Avatar.Image alt="" src={logoDataUrl} /> : null}
+                          <Avatar.Fallback>
+                            {initialsForWorkspace(name || t("Workspace"))}
+                          </Avatar.Fallback>
+                        </Avatar>
+                        <div className="flex flex-wrap gap-2">
+                          <input
+                            ref={inputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            className="sr-only"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              event.target.value = "";
+                              onLogoChange(file);
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onPress={() => inputRef.current?.click()}
+                          >
+                            <CloudArrowUpIn className="size-4" />
+                            {t("Upload logo")}
+                          </Button>
+                          {logoDataUrl ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="tertiary"
+                              onPress={onRemoveLogo}
+                            >
+                              {t("Remove")}
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                      <Description className="text-xs">
+                        {t("PNG, JPG or WebP up to 500 KB.")}
+                      </Description>
                     </div>
+                  </>
+                ) : (
+                  <Typography type="body-sm" weight="semibold">
+                    {name}
+                  </Typography>
+                )}
+                <div className="space-y-3">
+                  <div>
+                    <Typography type="body-sm" weight="semibold">
+                      {t("Billing rate")}
+                    </Typography>
                   </div>
-                  <Description className="text-xs">
-                    {t("PNG, JPG or WebP up to 500 KB.")}
-                  </Description>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ModalSelect
+                      label={t("Currency")}
+                      buttonAriaLabel={t("Choose currency")}
+                      value={currency}
+                      options={currencyOptions.map((option) => ({ id: option, label: option }))}
+                      onChange={(value) => onCurrencyChange(value as CurrencyCode)}
+                    />
+                    <TextField
+                      isRequired
+                      fullWidth
+                      name="hourly-rate"
+                      value={hourlyRate}
+                      isInvalid={Boolean(hourlyRateError)}
+                      onChange={onHourlyRateChange}
+                    >
+                      <Label>{t("Hourly rate")}</Label>
+                      <Input variant="secondary" inputMode="decimal" placeholder="0.00" />
+                      <FieldError>{hourlyRateError}</FieldError>
+                    </TextField>
+                  </div>
                 </div>
-                {workspaceSettings ? (
+                {canEditDetails && workspaceSettings ? (
                   <ModalSelect
                     label={t("Week starts on")}
                     buttonAriaLabel={t("Choose week start day")}
@@ -673,7 +781,10 @@ function WorkspaceFormModal({
                 <Button type="button" variant="tertiary" onPress={() => onOpenChange(false)}>
                   {t("Cancel")}
                 </Button>
-                <Button type="submit" isDisabled={!name.trim()}>
+                <Button
+                  type="submit"
+                  isDisabled={(canEditDetails && !name.trim()) || Boolean(hourlyRateError)}
+                >
                   {submitLabel}
                 </Button>
               </ModalLayout.Footer>

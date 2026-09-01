@@ -8,7 +8,7 @@ import type {
 } from "./data-source";
 import type { TimerState, UserPreferences, Workspace, WorkspaceSettings } from "./store";
 import { supabase } from "./supabase";
-import { defaultCurrencyForLocale, isCurrencyCode } from "./billing";
+import { isCurrencyCode } from "./billing";
 
 type PreferenceRow = {
   user_id: string;
@@ -16,8 +16,6 @@ type PreferenceRow = {
   theme: UserPreferences["theme"];
   timezone: string;
   idle_detection: boolean;
-  hourly_rate?: number;
-  currency?: string;
   active_workspace_id?: string | null;
   report_filters?: UserPreferences["reportFilters"] | null;
   avatar_data_url?: string | null;
@@ -111,8 +109,6 @@ async function mapPreferences(
     timezone: row.timezone,
     idleDetection: row.idle_detection,
     avatarUrl,
-    hourlyRate: typeof row.hourly_rate === "number" && row.hourly_rate >= 0 ? row.hourly_rate : 0,
-    currency: isCurrencyCode(row.currency) ? row.currency : defaultCurrencyForLocale(row.language),
     activeWorkspaceId: row.active_workspace_id ?? null,
     reportFilters: row.report_filters ?? {},
   };
@@ -265,7 +261,6 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
         const {
           avatarUrl: _avatarUrl,
           idleDetection,
-          hourlyRate,
           activeWorkspaceId,
           reportFilters,
           ...rest
@@ -276,7 +271,6 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
             user_id: userId,
             ...rest,
             ...(idleDetection === undefined ? {} : { idle_detection: idleDetection }),
-            ...(hourlyRate === undefined ? {} : { hourly_rate: hourlyRate }),
             ...(activeWorkspaceId === undefined ? {} : { active_workspace_id: activeWorkspaceId }),
             ...(reportFilters === undefined ? {} : { report_filters: reportFilters }),
           })

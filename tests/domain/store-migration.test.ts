@@ -18,27 +18,41 @@ describe("local account persistence", () => {
     expect(isValidAccount(JSON.parse(JSON.stringify(account)))).toBe(true);
   });
 
-  it("migrates version 10 preferences without deleting entries", () => {
+  it("moves version 11 billing preferences to every workspace membership", () => {
     const current = makeSeedAccount();
     const firstEntry = current.workspaces[0]?.entries[0];
     const legacy = {
       ...structuredClone(current),
-      version: 10,
-      preferencesByUserId: Object.fromEntries(
-        Object.entries(current.preferencesByUserId).map(([userId, preferences]) => {
-          const { hourlyRate: _hourlyRate, currency: _currency, ...oldPreferences } = preferences;
-          return [userId, oldPreferences];
+      version: 11,
+      workspaces: current.workspaces.map((workspace) => ({
+        ...structuredClone(workspace),
+        memberships: workspace.memberships.map((membership) => {
+          const { hourlyRate: _hourlyRate, currency: _currency, ...legacyMembership } = membership;
+          return legacyMembership;
         }),
+      })),
+      preferencesByUserId: Object.fromEntries(
+        Object.entries(current.preferencesByUserId).map(([userId, preferences]) => [
+          userId,
+          { ...preferences, hourlyRate: userId === "u1" ? 180 : 95, currency: "BRL" },
+        ]),
       ),
     };
 
     const migrated = migrateAccountSnapshot(legacy);
 
-    expect(migrated?.version).toBe(11);
+    expect(migrated?.version).toBe(12);
     expect(migrated?.workspaces[0]?.entries).toEqual(current.workspaces[0]?.entries);
     expect(migrated?.workspaces[0]?.entries[0]).toEqual(firstEntry);
-    expect(migrated?.preferencesByUserId.u1?.hourlyRate).toBe(0);
-    expect(migrated?.preferencesByUserId.u1?.currency).toBe("USD");
+    expect(
+      migrated?.workspaces.map((workspace) =>
+        workspace.memberships.find((membership) => membership.userId === "u1"),
+      ),
+    ).toEqual(
+      expect.arrayContaining([expect.objectContaining({ hourlyRate: 180, currency: "BRL" })]),
+    );
+    expect(migrated?.preferencesByUserId.u1).not.toHaveProperty("hourlyRate");
+    expect(migrated?.preferencesByUserId.u1).not.toHaveProperty("currency");
   });
 
   it("repairs duplicate entry IDs without changing the original records", () => {

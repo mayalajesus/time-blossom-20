@@ -553,8 +553,6 @@ const ptBR: Record<string, string> = {
     "Digite um valor-hora válido com até duas casas decimais.",
   "Billable value is calculated from billable hours only. No currency conversion is applied.":
     "O valor faturável considera apenas horas faturáveis. Nenhuma conversão cambial é aplicada.",
-  "Preview: {value}": "Prévia: {value}",
-  "Save billing rate": "Salvar valor-hora",
   "Billable value": "Valor faturável",
   "Overlapping time": "Horários sobrepostos",
   "This entry overlaps another.": "Este lançamento se sobrepõe a outro.",

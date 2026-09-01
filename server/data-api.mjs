@@ -137,6 +137,17 @@ function numberValue(value, fallback = 0) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
+function membershipBilling(membership) {
+  const hourlyRate = Number(membership?.hourlyRate);
+  if (!Number.isFinite(hourlyRate) || hourlyRate < 0) {
+    throw new DataApiError(400, "Choose a valid hourly rate.");
+  }
+  if (!["BRL", "USD", "EUR", "GBP"].includes(membership?.currency)) {
+    throw new DataApiError(400, "Choose a valid currency.");
+  }
+  return { hourlyRate, currency: membership.currency };
+}
+
 const avatarDataValue = (value) => profileAvatarDataValue(value, defaultAvatarUrls);
 
 function defaultAvatarForUser(userId) {
@@ -448,7 +459,7 @@ async function loadAccount(client, user, config) {
   }));
   const profileIds = identityRows.rows.map((identity) => identity.id);
   const memberships = await client.query(
-    `select workspace_id::text, user_id, role, status, invited_at, joined_at
+    `select workspace_id::text, user_id, role, status, hourly_rate, currency, invited_at, joined_at
      from public.workspace_members where workspace_id = any($1::uuid[])`,
     [workspaceIds],
   );
@@ -500,7 +511,7 @@ async function loadAccount(client, user, config) {
     }
   }
   const preferences = await client.query(
-    `select user_id, language, theme, timezone, idle_detection, hourly_rate, currency, ${
+    `select user_id, language, theme, timezone, idle_detection, ${
       hasAvatarData ? "avatar_data_url" : "null::text as avatar_data_url"
     }, ${hasActiveWorkspace ? "active_workspace_id::text" : "null::text as active_workspace_id"},
        ${hasReportFilters ? "report_filters" : "'{}'::jsonb as report_filters"}
@@ -516,6 +527,8 @@ async function loadAccount(client, user, config) {
       userId: row.user_id,
       role: row.role,
       status: row.status,
+      hourlyRate: numberValue(row.hourly_rate),
+      currency: ["BRL", "USD", "EUR", "GBP"].includes(row.currency) ? row.currency : "USD",
       ...(row.invited_at ? { invitedAt: iso(row.invited_at) } : {}),
       ...(row.joined_at ? { joinedAt: iso(row.joined_at) } : {}),
     });
@@ -528,6 +541,8 @@ async function loadAccount(client, user, config) {
       userId: row.id,
       role: row.role,
       status: "invited",
+      hourlyRate: 0,
+      currency: "USD",
       invitedAt: iso(row.invited_at),
     });
     membershipsByWorkspace.set(row.workspace_id, list);
@@ -598,8 +613,6 @@ async function loadAccount(client, user, config) {
             avatarDataValue(row?.avatar_data_url) ??
             defaultAvatarForUser(id),
           timezone: isOwnPreferences ? (row?.timezone ?? "UTC") : "UTC",
-          hourlyRate: numberValue(row?.hourly_rate),
-          currency: ["BRL", "USD", "EUR", "GBP"].includes(row?.currency) ? row.currency : "USD",
           activeWorkspaceId: isOwnPreferences ? (row?.active_workspace_id ?? null) : null,
           reportFilters: isOwnPreferences ? reportFiltersValue(row?.report_filters) : {},
         },
@@ -607,7 +620,7 @@ async function loadAccount(client, user, config) {
     }),
   );
   return {
-    version: 11,
+    version: 12,
     identities,
     workspaces: workspaces.rows.map((row) => ({
       workspace: {
@@ -768,13 +781,11 @@ async function syncAccount(client, user, config, account) {
       ownPreferences.theme,
       ownPreferences.timezone,
       ownPreferences.idleDetection,
-      numberValue(ownPreferences.hourlyRate),
-      ownPreferences.currency,
     ];
     await client.query(
-      `insert into public.user_preferences (user_id, language, theme, timezone, idle_detection, hourly_rate, currency)
-       values ($1, $2, $3, $4, $5, $6, $7)
-       on conflict (user_id) do update set language = excluded.language, theme = excluded.theme, timezone = excluded.timezone, idle_detection = excluded.idle_detection, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now()`,
+      `insert into public.user_preferences (user_id, language, theme, timezone, idle_detection)
+       values ($1, $2, $3, $4, $5)
+       on conflict (user_id) do update set language = excluded.language, theme = excluded.theme, timezone = excluded.timezone, idle_detection = excluded.idle_detection, updated_at = now()`,
       preferenceValues,
     );
     if (hasReportFilters) {
@@ -880,6 +891,17 @@ async function syncAccount(client, user, config, account) {
       ? data.memberships.filter((membership) => membership?.status !== "invited")
       : [];
     if (access.role === "Member") {
+      const ownMembership = memberships.find((membership) => membership?.userId === user.id);
+      if (!ownMembership || ownMembership.status !== "active") {
+        throw new DataApiError(403, "You cannot remove your own workspace access.");
+      }
+      const billing = membershipBilling(ownMembership);
+      await client.query(
+        `update public.workspace_members
+            set hourly_rate = $3, currency = $4
+          where workspace_id = $1 and user_id = $2 and status = 'active'`,
+        [workspaceId, user.id, billing.hourlyRate, billing.currency],
+      );
       await syncEntries(client, user.id, workspaceId, data.entries ?? [], true);
       continue;
     }
@@ -894,6 +916,7 @@ async function syncAccount(client, user, config, account) {
       ) {
         throw new DataApiError(400, "Invalid workspace membership payload.");
       }
+      membershipBilling(membership);
       membershipByUserId.set(membership.userId, membership);
       const identity = identities.get(membership.userId);
       if (!identity) throw new DataApiError(400, "A workspace member profile is missing.");
@@ -978,19 +1001,38 @@ async function syncAccount(client, user, config, account) {
       [workspaceId, memberships.map((item) => String(item.userId))],
     );
     for (const membership of memberships) {
-      await client.query(
-        `insert into public.workspace_members (workspace_id, user_id, role, status, invited_at, joined_at)
-         values ($1, $2, $3, $4, $5, $6)
-         on conflict (workspace_id, user_id) do update set role = excluded.role, status = excluded.status, invited_at = excluded.invited_at, joined_at = excluded.joined_at`,
-        [
-          workspaceId,
-          membership.userId,
-          membership.role,
-          membership.status,
-          membership.invitedAt ?? null,
-          membership.joinedAt ?? null,
-        ],
-      );
+      if (membership.userId === user.id) {
+        const billing = membershipBilling(membership);
+        await client.query(
+          `insert into public.workspace_members (workspace_id, user_id, role, status, hourly_rate, currency, invited_at, joined_at)
+           values ($1, $2, $3, $4, $5, $6, $7, $8)
+           on conflict (workspace_id, user_id) do update set role = excluded.role, status = excluded.status, hourly_rate = excluded.hourly_rate, currency = excluded.currency, invited_at = excluded.invited_at, joined_at = excluded.joined_at`,
+          [
+            workspaceId,
+            membership.userId,
+            membership.role,
+            membership.status,
+            billing.hourlyRate,
+            billing.currency,
+            membership.invitedAt ?? null,
+            membership.joinedAt ?? null,
+          ],
+        );
+      } else {
+        await client.query(
+          `insert into public.workspace_members (workspace_id, user_id, role, status, invited_at, joined_at)
+           values ($1, $2, $3, $4, $5, $6)
+           on conflict (workspace_id, user_id) do update set role = excluded.role, status = excluded.status, invited_at = excluded.invited_at, joined_at = excluded.joined_at`,
+          [
+            workspaceId,
+            membership.userId,
+            membership.role,
+            membership.status,
+            membership.invitedAt ?? null,
+            membership.joinedAt ?? null,
+          ],
+        );
+      }
     }
     for (const item of data.clients ?? []) {
       await client.query(
@@ -1270,8 +1312,6 @@ async function updatePreferences(client, user, config, body) {
     "theme",
     "avatarUrl",
     "timezone",
-    "hourlyRate",
-    "currency",
     "activeWorkspaceId",
     "reportFilters",
   ]);
@@ -1319,17 +1359,6 @@ async function updatePreferences(client, user, config, body) {
       throw new DataApiError(400, "Choose a valid timezone.");
     }
     addValue("timezone", patch.timezone);
-  }
-  if (patch.hourlyRate !== undefined) {
-    const hourlyRate = Number(patch.hourlyRate);
-    if (!Number.isFinite(hourlyRate) || hourlyRate < 0)
-      throw new DataApiError(400, "Choose a valid hourly rate.");
-    addValue("hourly_rate", hourlyRate);
-  }
-  if (patch.currency !== undefined) {
-    if (!["BRL", "USD", "EUR", "GBP"].includes(patch.currency))
-      throw new DataApiError(400, "Choose a valid currency.");
-    addValue("currency", patch.currency);
   }
   if (
     patch.reportFilters !== undefined &&
