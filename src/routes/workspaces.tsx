@@ -615,7 +615,7 @@ function WorkspaceFormModal({
                   <Input variant="secondary" placeholder={t("Workspace name")} />
                   <FieldError />
                 </TextField>
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <Label>{t("Workspace logo")}</Label>
                   <div className="flex flex-wrap items-center gap-3">
                     <Avatar size="lg" aria-label={t("Workspace logo preview")}>
