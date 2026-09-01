@@ -11,11 +11,12 @@ import {
   Switch,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
   toast,
 } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronDown } from "@gravity-ui/icons";
+import { ChevronDown, CircleInfo } from "@gravity-ui/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { PageHeader } from "@/components/page-header";
@@ -646,23 +647,33 @@ function SettingsPage() {
 
         <div className="space-y-3">
           {toggles.map((item) => (
-            <Switch
-              key={item.key}
-              aria-label={t(item.title)}
-              className="w-full"
-              isSelected={preferences[item.key]}
-              onChange={(selected: boolean) =>
-                savePreference({ [item.key]: selected } as Partial<typeof preferences>)
-              }
-            >
-              <Switch.Control>
-                <Switch.Thumb />
-              </Switch.Control>
-              <Switch.Content className="min-w-0">
-                <Label>{t(item.title)}</Label>
-                <Description>{t(item.hint)}</Description>
-              </Switch.Content>
-            </Switch>
+            <div key={item.key} className="flex items-center gap-1.5">
+              <Switch
+                aria-label={t(item.title)}
+                isSelected={preferences[item.key]}
+                onChange={(selected: boolean) =>
+                  savePreference({ [item.key]: selected } as Partial<typeof preferences>)
+                }
+              >
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+                <Switch.Content className="min-w-0">
+                  <Label>{t(item.title)}</Label>
+                </Switch.Content>
+              </Switch>
+              <Tooltip delay={0} closeDelay={0} shouldSkipAnimation>
+                <Tooltip.Trigger
+                  aria-label={t("More information about {label}", { label: t(item.title) })}
+                  className="inline-flex size-5 min-w-5 shrink-0 items-center justify-center text-muted"
+                >
+                  <CircleInfo aria-hidden="true" className="size-3.5" />
+                </Tooltip.Trigger>
+                <Tooltip.Content className="max-w-xs" showArrow>
+                  {t(item.hint)}
+                </Tooltip.Content>
+              </Tooltip>
+            </div>
           ))}
         </div>
       </Card>
