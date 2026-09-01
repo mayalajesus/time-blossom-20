@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createDetailedReportPdf,
   formatPdfDuration,
+  sanitizeSpreadsheetCell,
   type ReportExportPayload,
 } from "../../src/lib/report-export";
 
@@ -25,6 +26,15 @@ function payload(entries: NonNullable<ReportExportPayload["pdf"]>["entries"]): R
 }
 
 describe("detailed report export", () => {
+  it("neutralizes spreadsheet formulas from user-authored cells", () => {
+    expect(sanitizeSpreadsheetCell('=HYPERLINK("https://example.test")')).toBe(
+      '\'=HYPERLINK("https://example.test")',
+    );
+    expect(sanitizeSpreadsheetCell("  +SUM(1,1)")).toBe("'  +SUM(1,1)");
+    expect(sanitizeSpreadsheetCell("ordinary task")).toBe("ordinary task");
+    expect(sanitizeSpreadsheetCell(-15)).toBe(-15);
+  });
+
   it("formats individual and accumulated durations as H:MM", () => {
     expect(formatPdfDuration(0)).toBe("0:00");
     expect(formatPdfDuration(5 * 3600 + 33 * 60)).toBe("5:33");

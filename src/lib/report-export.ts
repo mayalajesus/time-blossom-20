@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx";
 import { defaultLocale, translate, type Locale } from "./i18n";
 
 export type ReportExportFormat = "csv" | "xlsx" | "pdf";
@@ -65,8 +64,13 @@ export type ReportExportPayload = {
 
 export type ReportExportResult = { success: true } | { success: false; error: string };
 
+export function sanitizeSpreadsheetCell(value: string | number): string | number {
+  if (typeof value !== "string") return value;
+  return /^[\t\r ]*[=+\-@]/.test(value) ? `'${value}` : value;
+}
+
 function escapeCsv(value: string | number): string {
-  const text = String(value);
+  const text = String(sanitizeSpreadsheetCell(value));
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -114,16 +118,25 @@ function exportCsv(payload: ReportExportPayload): ReportExportResult {
   }
 }
 
-function exportXlsx(payload: ReportExportPayload): ReportExportResult {
+function spreadsheetRows(rows: Array<Array<string | number>>): Array<Array<string | number>> {
+  return rows.map((row) => row.map(sanitizeSpreadsheetCell));
+}
+
+async function exportXlsx(payload: ReportExportPayload): Promise<ReportExportResult> {
   try {
-    const workbook = XLSX.utils.book_new();
+    const { default: writeXlsxFile } = await import("write-excel-file/browser");
+    const sheets: Array<{
+      data: Array<Array<string | number>>;
+      sheet: string;
+      stickyRowsCount?: number;
+    }> = [];
     if (payload.detailedTable) {
-      const worksheet = XLSX.utils.aoa_to_sheet([
-        payload.detailedTable.columns,
-        ...payload.detailedTable.rows,
-      ]);
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-      XLSX.writeFile(workbook, `${payload.title}.xlsx`);
+      sheets.push({
+        sheet: "Report",
+        stickyRowsCount: 1,
+        data: spreadsheetRows([payload.detailedTable.columns, ...payload.detailedTable.rows]),
+      });
+      downloadBlob(await writeXlsxFile(sheets).toBlob(), `${payload.title}.xlsx`);
       return { success: true };
     }
     const contextRows: Array<Array<string | number>> = [];
@@ -133,11 +146,17 @@ function exportXlsx(payload: ReportExportPayload): ReportExportResult {
     if ((payload.meta?.length ?? 0) > 0) contextRows.push([]);
     for (const item of payload.summary ?? []) contextRows.push([item.label, item.value]);
     if (contextRows.length > 0) {
-      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(contextRows), "Summary");
+      sheets.push({ sheet: "Summary", data: spreadsheetRows(contextRows) });
     }
-    const worksheet = XLSX.utils.json_to_sheet(payload.rows, { header: payload.columns });
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-    const usedNames = new Set(workbook.SheetNames);
+    sheets.push({
+      sheet: "Report",
+      stickyRowsCount: 1,
+      data: spreadsheetRows([
+        payload.columns,
+        ...payload.rows.map((row) => payload.columns.map((column) => row[column] ?? "")),
+      ]),
+    });
+    const usedNames = new Set(sheets.map((sheet) => sheet.sheet));
     for (const [index, section] of (payload.sections ?? []).entries()) {
       const baseName =
         section.title
@@ -152,13 +171,16 @@ function exportXlsx(payload: ReportExportPayload): ReportExportResult {
         suffix += 1;
       }
       usedNames.add(sheetName);
-      XLSX.utils.book_append_sheet(
-        workbook,
-        XLSX.utils.json_to_sheet(section.rows, { header: section.columns }),
-        sheetName,
-      );
+      sheets.push({
+        sheet: sheetName,
+        stickyRowsCount: 1,
+        data: spreadsheetRows([
+          section.columns,
+          ...section.rows.map((row) => section.columns.map((column) => row[column] ?? "")),
+        ]),
+      });
     }
-    XLSX.writeFile(workbook, `${payload.title}.xlsx`);
+    downloadBlob(await writeXlsxFile(sheets).toBlob(), `${payload.title}.xlsx`);
     return { success: true };
   } catch {
     return {

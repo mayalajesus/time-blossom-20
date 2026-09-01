@@ -7,6 +7,9 @@ const { Pool } = pg;
 const pools = new Map();
 const jwks = new Map();
 const supabaseAdmins = new Map();
+const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
+const MAX_INTEGER_SECONDS = 2_147_483_647;
+const allowedCurrencies = new Set(["BRL", "USD", "EUR", "GBP"]);
 const defaultAvatarUrls = [
   "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/blue.jpg",
   "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/green.jpg",
@@ -88,14 +91,29 @@ function uuid(value) {
     typeof value !== "string" ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
   ) {
-    throw new Error("The data payload contains an invalid identifier.");
+    throw new DataApiError(400, "The data payload contains an invalid identifier.");
   }
   return value;
 }
 
 function dateValue(value) {
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  throw new Error("The data payload contains an invalid date.");
+  if (typeof value === "string") {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      if (
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
+      ) {
+        return value;
+      }
+    }
+  }
+  throw new DataApiError(400, "The data payload contains an invalid date.");
 }
 
 function iso(value) {
@@ -103,8 +121,11 @@ function iso(value) {
 }
 
 function timeValue(value) {
-  if (typeof value !== "string" || !/^\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(value)) {
-    throw new Error("The data payload contains an invalid time.");
+  if (
+    typeof value !== "string" ||
+    !/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?$/.test(value)
+  ) {
+    throw new DataApiError(400, "The data payload contains an invalid time.");
   }
   return value;
 }
@@ -137,12 +158,57 @@ function numberValue(value, fallback = 0) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
+function requiredText(value, label, maxLength) {
+  const text = String(value ?? "").trim();
+  if (!text || text.length > maxLength) {
+    throw new DataApiError(400, `${label} must be between 1 and ${maxLength} characters.`);
+  }
+  return text;
+}
+
+function optionalText(value, label, maxLength) {
+  if (value === null || value === undefined || value === "") return null;
+  const text = String(value);
+  if (text.length > maxLength) {
+    throw new DataApiError(400, `${label} must be ${maxLength} characters or fewer.`);
+  }
+  return text;
+}
+
+function optionalCurrency(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (!allowedCurrencies.has(value)) {
+    throw new DataApiError(400, "Choose a valid currency.");
+  }
+  return value;
+}
+
+function projectColorValue(value) {
+  const color = requiredText(value, "Project color", 40).toLowerCase();
+  const legacyColors = new Set([
+    "accent",
+    "bg-accent",
+    "success",
+    "bg-success",
+    "warning",
+    "bg-warning",
+    "danger",
+    "bg-danger",
+    "foreground",
+    "bg-foreground",
+  ]);
+  if (!/^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/.test(color) && !legacyColors.has(color)) {
+    throw new DataApiError(400, "Choose a valid project color.");
+  }
+  return color;
+}
+
 function membershipBilling(membership) {
   const hourlyRate = Number(membership?.hourlyRate);
   if (!Number.isFinite(hourlyRate) || hourlyRate < 0) {
     throw new DataApiError(400, "Choose a valid hourly rate.");
   }
-  if (!["BRL", "USD", "EUR", "GBP"].includes(membership?.currency)) {
+  if (!allowedCurrencies.has(membership?.currency)) {
     throw new DataApiError(400, "Choose a valid currency.");
   }
   return { hourlyRate, currency: membership.currency };
@@ -202,6 +268,14 @@ function parseImageDataUrl(value) {
 function reportFiltersValue(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return value;
+}
+
+function reportFiltersJson(value) {
+  const serialized = JSON.stringify(reportFiltersValue(value));
+  if (Buffer.byteLength(serialized, "utf8") > 100_000) {
+    throw new DataApiError(400, "The saved report filters are too large.");
+  }
+  return serialized;
 }
 
 async function hasColumn(client, tableName, columnName) {
@@ -265,7 +339,10 @@ async function authenticate(request, config) {
   }
   let verified;
   try {
-    verified = await jwtVerify(token, keySet);
+    verified = await jwtVerify(token, keySet, {
+      issuer: config.neonAuthUrl,
+      audience: config.neonAuthUrl,
+    });
   } catch {
     throw new DataApiError(401, "The authentication token is invalid or expired.");
   }
@@ -673,68 +750,81 @@ async function loadReportEntries(client, user, body) {
   return result.rows.map(timeEntryFromRow);
 }
 
-async function syncEntries(client, userId, workspaceId, entries, ownOnly) {
+export async function upsertOwnEntry(client, userId, workspaceId, entry, entryId) {
+  if (typeof entry.userId !== "string" || entry.userId !== userId) {
+    throw new DataApiError(403, "You can only update your own time entries.");
+  }
+  const endDate = entry.endDate ?? entry.date;
+  const seconds = Number(entry.seconds);
+  if (!Number.isFinite(seconds) || seconds < 1 || seconds > MAX_INTEGER_SECONDS) {
+    throw new DataApiError(400, "The data payload contains an invalid duration.");
+  }
+  const hourlyRate = entry.hourlyRate === undefined ? null : Number(entry.hourlyRate);
+  if (hourlyRate !== null && (!Number.isFinite(hourlyRate) || hourlyRate < 0)) {
+    throw new DataApiError(400, "The data payload contains an invalid hourly rate.");
+  }
+  let startAt = null;
+  let endAt = null;
+  try {
+    startAt =
+      typeof entry.startTimestamp === "number"
+        ? new Date(entry.startTimestamp).toISOString()
+        : null;
+    endAt =
+      typeof entry.endTimestamp === "number" ? new Date(entry.endTimestamp).toISOString() : null;
+  } catch {
+    throw new DataApiError(400, "The data payload contains an invalid timestamp.");
+  }
+  if ((startAt === null) !== (endAt === null) || (startAt && endAt && endAt <= startAt)) {
+    throw new DataApiError(400, "The data payload contains an invalid time interval.");
+  }
+  const result = await client.query(
+    `insert into public.time_entries (id, workspace_id, user_id, date, start_time, end_time, end_date, start_at, end_at, duration_seconds, project_id, task, description, billable, hourly_rate, currency)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+     on conflict (id) do update set date = excluded.date, start_time = excluded.start_time, end_date = excluded.end_date, end_time = excluded.end_time, start_at = excluded.start_at, end_at = excluded.end_at, duration_seconds = excluded.duration_seconds, project_id = excluded.project_id, task = excluded.task, description = excluded.description, billable = excluded.billable, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now()
+     where time_entries.workspace_id = excluded.workspace_id
+       and time_entries.user_id = excluded.user_id
+     returning id::text`,
+    [
+      entryId,
+      workspaceId,
+      userId,
+      dateValue(entry.date),
+      timeValue(entry.start),
+      timeValue(entry.end),
+      dateValue(endDate),
+      startAt,
+      endAt,
+      Math.floor(seconds),
+      entry.projectId ? uuid(entry.projectId) : null,
+      requiredText(entry.task, "Task", 240),
+      optionalText(entry.description, "Description", 10_000),
+      Boolean(entry.billable),
+      hourlyRate,
+      optionalCurrency(entry.currency),
+    ],
+  );
+  if (!result.rowCount) {
+    throw new DataApiError(403, "A time entry identifier belongs to another user or workspace.");
+  }
+}
+
+export async function syncEntries(client, userId, workspaceId, entries) {
   if (!Array.isArray(entries)) throw new DataApiError(400, "Invalid time entries payload.");
-  const entryIds = entries.map((entry) => uuid(entry.id));
+  const ownEntries = entries.filter((entry) => entry?.userId === userId);
+  const entryIds = ownEntries.map((entry) => uuid(entry.id));
   if (new Set(entryIds).size !== entryIds.length) {
     throw new DataApiError(400, "The data payload contains duplicate time entry identifiers.");
   }
 
-  if (ownOnly) {
-    await client.query(
-      `delete from public.time_entries
-        where workspace_id = $1 and user_id = $2 and not (id = any($3::uuid[]))`,
-      [workspaceId, userId, entryIds],
-    );
-  } else {
-    await client.query(
-      `delete from public.time_entries where workspace_id = $1 and not (id = any($2::uuid[]))`,
-      [workspaceId, entryIds],
-    );
-  }
+  await client.query(
+    `delete from public.time_entries
+      where workspace_id = $1 and user_id = $2 and not (id = any($3::uuid[]))`,
+    [workspaceId, userId, entryIds],
+  );
 
-  for (const [index, entry] of entries.entries()) {
-    if (typeof entry.userId !== "string" || (ownOnly && entry.userId !== userId)) {
-      throw new DataApiError(403, "You can only update your own time entries.");
-    }
-    const endDate = entry.endDate ?? entry.date;
-    const seconds = Number(entry.seconds);
-    if (!Number.isFinite(seconds) || seconds <= 0) {
-      throw new DataApiError(400, "The data payload contains an invalid duration.");
-    }
-    const hourlyRate = entry.hourlyRate === undefined ? null : Number(entry.hourlyRate);
-    if (hourlyRate !== null && (!Number.isFinite(hourlyRate) || hourlyRate < 0)) {
-      throw new DataApiError(400, "The data payload contains an invalid hourly rate.");
-    }
-    const startAt =
-      typeof entry.startTimestamp === "number"
-        ? new Date(entry.startTimestamp).toISOString()
-        : null;
-    const endAt =
-      typeof entry.endTimestamp === "number" ? new Date(entry.endTimestamp).toISOString() : null;
-    await client.query(
-      `insert into public.time_entries (id, workspace_id, user_id, date, start_time, end_time, end_date, start_at, end_at, duration_seconds, project_id, task, description, billable, hourly_rate, currency)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-       on conflict (id) do update set date = excluded.date, start_time = excluded.start_time, end_date = excluded.end_date, end_time = excluded.end_time, start_at = excluded.start_at, end_at = excluded.end_at, duration_seconds = excluded.duration_seconds, project_id = excluded.project_id, task = excluded.task, description = excluded.description, billable = excluded.billable, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now()`,
-      [
-        entryIds[index],
-        workspaceId,
-        entry.userId,
-        dateValue(entry.date),
-        timeValue(entry.start),
-        timeValue(entry.end),
-        dateValue(endDate),
-        startAt,
-        endAt,
-        Math.floor(seconds),
-        entry.projectId ? uuid(entry.projectId) : null,
-        String(entry.task).trim(),
-        entry.description ?? null,
-        Boolean(entry.billable),
-        hourlyRate,
-        entry.currency ?? null,
-      ],
-    );
+  for (const [index, entry] of ownEntries.entries()) {
+    await upsertOwnEntry(client, userId, workspaceId, entry, entryIds[index]);
   }
 }
 
@@ -758,10 +848,10 @@ async function syncAccount(client, user, config, account) {
   const ownEmail = String(ownIdentity.email ?? "")
     .trim()
     .toLowerCase();
-  if (!ownName || ownName.split(" ").length < 2) {
+  if (!ownName || ownName.length > 120 || ownName.split(" ").length < 2) {
     throw new DataApiError(400, "A first and last name are required.");
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownEmail)) {
+  if (ownEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ownEmail)) {
     throw new DataApiError(400, "A valid email is required.");
   }
   const ownInitials = ownName
@@ -791,7 +881,7 @@ async function syncAccount(client, user, config, account) {
     if (hasReportFilters) {
       await client.query(
         `update public.user_preferences set report_filters = $2::jsonb, updated_at = now() where user_id = $1`,
-        [user.id, JSON.stringify(reportFiltersValue(ownPreferences.reportFilters))],
+        [user.id, reportFiltersJson(ownPreferences.reportFilters)],
       );
     }
     if (await hasColumn(client, "user_preferences", "avatar_data_url")) {
@@ -804,8 +894,19 @@ async function syncAccount(client, user, config, account) {
     }
   }
   for (const data of account.workspaces) {
+    if (!data || typeof data !== "object" || !data.workspace) {
+      throw new DataApiError(400, "Invalid workspace payload.");
+    }
+    for (const collection of ["memberships", "clients", "projects", "entries"]) {
+      if (data[collection] !== undefined && !Array.isArray(data[collection])) {
+        throw new DataApiError(400, "Invalid workspace payload.");
+      }
+    }
     const workspaceId = uuid(data.workspace.id);
     const ownerId = String(data.workspace.ownerId);
+    if (data.workspace.status !== "active" && data.workspace.status !== "archived") {
+      throw new DataApiError(400, "Choose a valid workspace status.");
+    }
     const existingWorkspace = await client.query(
       `select owner_id, name, status, ${
         hasLogoPath ? "logo_path" : "null::text as logo_path"
@@ -855,7 +956,7 @@ async function syncAccount(client, user, config, account) {
     if (access.role !== "Member") {
       const workspaceValues = [
         workspaceId,
-        String(data.workspace.name).trim(),
+        requiredText(data.workspace.name, "Workspace name", 120),
         ownerId,
         data.workspace.status,
         data.workspace.createdAt,
@@ -902,7 +1003,7 @@ async function syncAccount(client, user, config, account) {
           where workspace_id = $1 and user_id = $2 and status = 'active'`,
         [workspaceId, user.id, billing.hourlyRate, billing.currency],
       );
-      await syncEntries(client, user.id, workspaceId, data.entries ?? [], true);
+      await syncEntries(client, user.id, workspaceId, data.entries ?? []);
       continue;
     }
     const membershipByUserId = new Map();
@@ -925,6 +1026,12 @@ async function syncAccount(client, user, config, account) {
         [workspaceId, membership.userId],
       );
       const previousMembership = existingMembership.rows[0];
+      if (!previousMembership && membership.userId !== user.id) {
+        throw new DataApiError(
+          403,
+          "New workspace members must accept a valid invitation before they become active.",
+        );
+      }
       if (membership.userId !== user.id) {
         const existingProfile = await client.query(`select 1 from public.profiles where id = $1`, [
           membership.userId,
@@ -983,10 +1090,6 @@ async function syncAccount(client, user, config, account) {
         throw new DataApiError(403, "You cannot remove this workspace member.");
       }
     }
-    await client.query(
-      `delete from public.time_entries where workspace_id = $1 and not (id = any($2::uuid[]))`,
-      [workspaceId, (data.entries ?? []).map((entry) => uuid(entry.id))],
-    );
     await client.query(`delete from public.project_members where workspace_id = $1`, [workspaceId]);
     await client.query(
       `delete from public.projects where workspace_id = $1 and not (id = any($2::uuid[]))`,
@@ -1035,21 +1138,43 @@ async function syncAccount(client, user, config, account) {
       }
     }
     for (const item of data.clients ?? []) {
-      await client.query(
-        `insert into public.clients (id, workspace_id, name, contact) values ($1, $2, $3, $4) on conflict (id) do update set name = excluded.name, contact = excluded.contact`,
-        [uuid(item.id), workspaceId, String(item.name).trim(), String(item.contact ?? "")],
+      if (!item || typeof item !== "object") {
+        throw new DataApiError(400, "Invalid client payload.");
+      }
+      const result = await client.query(
+        `insert into public.clients (id, workspace_id, name, contact)
+         values ($1, $2, $3, $4)
+         on conflict (id) do update set name = excluded.name, contact = excluded.contact
+         where clients.workspace_id = excluded.workspace_id
+         returning id::text`,
+        [
+          uuid(item.id),
+          workspaceId,
+          requiredText(item.name, "Client name", 160),
+          optionalText(item.contact, "Client contact", 2_000) ?? "",
+        ],
       );
+      if (!result.rowCount) {
+        throw new DataApiError(403, "A client identifier belongs to another workspace.");
+      }
     }
     for (const project of data.projects ?? []) {
+      if (!project || typeof project !== "object" || !Array.isArray(project.memberIds ?? [])) {
+        throw new DataApiError(400, "Invalid project payload.");
+      }
       const projectId = uuid(project.id);
-      const projectName = String(project.name ?? "")
-        .trim()
-        .replace(/\s+/g, " ");
-      if (!projectName) throw new DataApiError(400, "A project name is required.");
+      const projectName = requiredText(project.name, "Project name", 160).replace(/\s+/g, " ");
+      if (!["active", "on-hold", "archived"].includes(project.status)) {
+        throw new DataApiError(400, "Choose a valid project status.");
+      }
       const clientId = uuid(project.clientId);
       await ensureProjectNameAvailable(client, workspaceId, clientId, projectName, projectId);
-      await client.query(
-        `insert into public.projects (id, workspace_id, name, client_id, billable, status, color, last_activity) values ($1, $2, $3, $4, $5, $6, $7, $8) on conflict (id) do update set name = excluded.name, client_id = excluded.client_id, billable = excluded.billable, status = excluded.status, color = excluded.color, last_activity = excluded.last_activity`,
+      const result = await client.query(
+        `insert into public.projects (id, workspace_id, name, client_id, billable, status, color, last_activity)
+         values ($1, $2, $3, $4, $5, $6, $7, $8)
+         on conflict (id) do update set name = excluded.name, client_id = excluded.client_id, billable = excluded.billable, status = excluded.status, color = excluded.color, last_activity = excluded.last_activity
+         where projects.workspace_id = excluded.workspace_id
+         returning id::text`,
         [
           projectId,
           workspaceId,
@@ -1057,10 +1182,13 @@ async function syncAccount(client, user, config, account) {
           clientId,
           Boolean(project.billable),
           project.status,
-          String(project.color),
+          projectColorValue(project.color),
           dateValue(project.lastActivity),
         ],
       );
+      if (!result.rowCount) {
+        throw new DataApiError(403, "A project identifier belongs to another workspace.");
+      }
       for (const memberId of project.memberIds ?? []) {
         if (membershipByUserId.get(memberId)?.status !== "active") {
           throw new DataApiError(400, "Only active members can be assigned to a project.");
@@ -1071,36 +1199,7 @@ async function syncAccount(client, user, config, account) {
         );
       }
     }
-    for (const entry of data.entries ?? []) {
-      const endDate = entry.endDate ?? entry.date;
-      await client.query(
-        `insert into public.time_entries (id, workspace_id, user_id, date, start_time, end_time, end_date, start_at, end_at, duration_seconds, project_id, task, description, billable, hourly_rate, currency)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-         on conflict (id) do update set date = excluded.date, start_time = excluded.start_time, end_time = excluded.end_time, end_date = excluded.end_date, start_at = excluded.start_at, end_at = excluded.end_at, duration_seconds = excluded.duration_seconds, project_id = excluded.project_id, task = excluded.task, description = excluded.description, billable = excluded.billable, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now()`,
-        [
-          uuid(entry.id),
-          workspaceId,
-          entry.userId,
-          dateValue(entry.date),
-          timeValue(entry.start),
-          timeValue(entry.end),
-          dateValue(endDate),
-          typeof entry.startTimestamp === "number"
-            ? new Date(entry.startTimestamp).toISOString()
-            : null,
-          typeof entry.endTimestamp === "number"
-            ? new Date(entry.endTimestamp).toISOString()
-            : null,
-          Math.floor(entry.seconds),
-          entry.projectId ? uuid(entry.projectId) : null,
-          String(entry.task).trim(),
-          entry.description ?? null,
-          Boolean(entry.billable),
-          entry.hourlyRate ?? null,
-          entry.currency ?? null,
-        ],
-      );
-    }
+    await syncEntries(client, user.id, workspaceId, data.entries ?? []);
   }
   if (ownPreferences && hasActiveWorkspace) {
     const requestedWorkspaceId = ownPreferences.activeWorkspaceId
@@ -1371,7 +1470,7 @@ async function updatePreferences(client, user, config, body) {
     ) {
       throw new DataApiError(400, "Choose valid report filters.");
     }
-    addValue("report_filters", JSON.stringify(patch.reportFilters), "::jsonb");
+    addValue("report_filters", reportFiltersJson(patch.reportFilters), "::jsonb");
   }
   if (
     patch.activeWorkspaceId !== undefined &&
@@ -1434,11 +1533,26 @@ async function operation(request, user, config, body) {
       if (timer.status !== "running" && timer.status !== "paused") {
         throw new DataApiError(400, "Invalid timer status.");
       }
-      if (typeof timer.task !== "string" || !timer.task.trim()) {
-        throw new DataApiError(400, "A task is required.");
-      }
-      if (!Number.isFinite(Number(timer.accumulated)) || Number(timer.accumulated) < 0) {
+      const task = requiredText(timer.task, "Task", 240);
+      const accumulated = Number(timer.accumulated);
+      if (!Number.isFinite(accumulated) || accumulated < 0 || accumulated > MAX_INTEGER_SECONDS) {
         throw new DataApiError(400, "The data payload contains an invalid timer duration.");
+      }
+      const hourlyRate = timer.hourlyRate === undefined ? null : Number(timer.hourlyRate);
+      if (hourlyRate !== null && (!Number.isFinite(hourlyRate) || hourlyRate < 0)) {
+        throw new DataApiError(400, "The data payload contains an invalid hourly rate.");
+      }
+      let startedAt = null;
+      try {
+        startedAt = timer.startedAt ? new Date(timer.startedAt).toISOString() : null;
+      } catch {
+        throw new DataApiError(400, "The data payload contains an invalid timer timestamp.");
+      }
+      if (
+        (timer.status === "running" && startedAt === null) ||
+        (timer.status === "paused" && startedAt !== null)
+      ) {
+        throw new DataApiError(400, "The data payload contains an invalid timer state.");
       }
       if (timer.projectId) {
         const projectId = uuid(timer.projectId);
@@ -1466,15 +1580,15 @@ async function operation(request, user, config, body) {
           user.id,
           workspaceId,
           timer.status,
-          String(timer.task).trim(),
+          task,
           timer.projectId ? uuid(timer.projectId) : null,
           Boolean(timer.billable),
-          timer.startedAt ? new Date(timer.startedAt).toISOString() : null,
+          startedAt,
           timer.startedDate ? dateValue(timer.startedDate) : null,
-          Math.floor(timer.accumulated),
+          Math.floor(accumulated),
           timeValue(timer.startClock),
-          timer.hourlyRate ?? null,
-          timer.currency ?? null,
+          hourlyRate,
+          optionalCurrency(timer.currency),
         ],
       );
       return timerFromRow(result.rows[0]);
@@ -1494,10 +1608,29 @@ async function operation(request, user, config, body) {
   }
 }
 
-async function readBody(request) {
-  if (request.body && typeof request.body === "object") return request.body;
-  let raw = "";
-  for await (const chunk of request) raw += chunk;
+export async function readBody(request) {
+  const declaredLength = Number(request.headers?.["content-length"] ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
+    throw new DataApiError(413, "The request body is too large.");
+  }
+  if (request.body && typeof request.body === "object") {
+    const serialized = JSON.stringify(request.body);
+    if (Buffer.byteLength(serialized, "utf8") > MAX_REQUEST_BODY_BYTES) {
+      throw new DataApiError(413, "The request body is too large.");
+    }
+    return request.body;
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += bytes.byteLength;
+    if (size > MAX_REQUEST_BODY_BYTES) {
+      throw new DataApiError(413, "The request body is too large.");
+    }
+    chunks.push(bytes);
+  }
+  const raw = Buffer.concat(chunks).toString("utf8");
   if (!raw.trim()) return {};
   try {
     return JSON.parse(raw);
@@ -1522,10 +1655,15 @@ export async function handleDataRequest(request, response, env = {}) {
     return;
   }
   if (method !== "POST") {
+    response.setHeader("allow", "POST, OPTIONS");
     sendJson(response, 405, { error: "Method not allowed." });
     return;
   }
   try {
+    const contentType = String(request.headers?.["content-type"] ?? "").toLowerCase();
+    if (contentType && !contentType.startsWith("application/json")) {
+      throw new DataApiError(415, "The request content type must be application/json.");
+    }
     const config = providerEnv(env);
     const user = await authenticate(request, config);
     const body = await readBody(request);
@@ -1534,23 +1672,22 @@ export async function handleDataRequest(request, response, env = {}) {
   } catch (error) {
     const isProjectNameConflict =
       error?.code === "23505" && error?.constraint === "projects_workspace_client_name_idx";
-    const message = isProjectNameConflict
+    const internalMessage = isProjectNameConflict
       ? "A project with this name already exists for this client."
       : error instanceof Error && error.message.trim()
         ? error.message
         : "The data request failed.";
+    const status = isProjectNameConflict ? 409 : error instanceof DataApiError ? error.status : 500;
+    const publicMessage =
+      status < 500
+        ? internalMessage
+        : "The data service is temporarily unavailable. Please try again.";
     console.error("[watchtag data api]", {
       name: error instanceof Error ? error.name : typeof error,
-      message,
+      message: internalMessage,
       code: error?.code,
     });
-    sendJson(
-      response,
-      isProjectNameConflict ? 409 : typeof error?.status === "number" ? error.status : 500,
-      {
-        error: message,
-      },
-    );
+    sendJson(response, status, { error: publicMessage });
   }
 }
 
