@@ -11,7 +11,7 @@ begin
   end if;
 
   perform pg_advisory_xact_lock(
-    hashtextextended('watchtag:personal-workspace:' || p_user_id, 0)
+    hashtextextended('time-blossom:personal-workspace:' || p_user_id, 0)
   );
 
   select w.id
