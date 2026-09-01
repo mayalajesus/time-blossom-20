@@ -150,9 +150,9 @@ function SettingsPage() {
   const themeOptions: Array<{
     id: ThemeMode;
     label: string;
-    hint: string;
+    hint: string | null;
   }> = [
-    { id: "system", label: "System", hint: "Follow your device theme." },
+    { id: "system", label: "System", hint: null },
     { id: "light", label: "Light", hint: "Always use the light theme." },
     { id: "dark", label: "Dark", hint: "Always use the dark theme." },
   ];
@@ -583,11 +583,13 @@ function SettingsPage() {
                 ))}
               </Tabs.List>
             </Tabs.ListContainer>
-            {themeOptions.map((option) => (
-              <Tabs.Panel key={option.id} className="px-0 pt-2" id={option.id}>
-                {t(option.hint)}
-              </Tabs.Panel>
-            ))}
+            {themeOptions.map((option) =>
+              option.hint ? (
+                <Tabs.Panel key={option.id} className="px-0 pt-2" id={option.id}>
+                  {t(option.hint)}
+                </Tabs.Panel>
+              ) : null,
+            )}
           </Tabs>
         </div>
 
