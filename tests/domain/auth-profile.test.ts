@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { extractAuthIdentity, trustedGoogleAvatarUrl } from "../../server/auth-profile.mjs";
+import {
+  avatarDataValue,
+  extractAuthIdentity,
+  trustedGoogleAvatarUrl,
+} from "../../server/auth-profile.mjs";
 
 describe("OAuth profile extraction", () => {
   it("extracts Google first name, last name, email and photo", () => {
@@ -41,5 +45,16 @@ describe("OAuth profile extraction", () => {
         metadata: { image: "https://lh3.googleusercontent.com/a/neon-photo" },
       }).avatarUrl,
     ).toBe("https://lh3.googleusercontent.com/a/neon-photo");
+  });
+
+  it("accepts only supported avatar values for database persistence", () => {
+    expect(avatarDataValue("data:image/jpeg;base64,YXZhdGFy")).toBe(
+      "data:image/jpeg;base64,YXZhdGFy",
+    );
+    expect(avatarDataValue("https://lh3.googleusercontent.com/a/photo")).toBe(
+      "https://lh3.googleusercontent.com/a/photo",
+    );
+    expect(avatarDataValue("https://example.com/untrusted-photo")).toBeNull();
+    expect(avatarDataValue(null)).toBeNull();
   });
 });

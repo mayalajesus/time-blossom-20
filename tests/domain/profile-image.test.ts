@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isUserUploadedAvatarUrl } from "../../src/lib/profile-image";
+import { getGoogleProfileAvatarUrl, isUserUploadedAvatarUrl } from "../../src/lib/profile-image";
 
 describe("profile image source", () => {
   it("recognizes profile photos uploaded by the user", () => {
@@ -21,5 +21,20 @@ describe("profile image source", () => {
       ),
     ).toBe(false);
     expect(isUserUploadedAvatarUrl(null)).toBe(false);
+  });
+
+  it("finds only trusted Google photos in provider metadata", () => {
+    expect(
+      getGoogleProfileAvatarUrl({ picture: "https://lh3.googleusercontent.com/a/photo" }),
+    ).toBe("https://lh3.googleusercontent.com/a/photo");
+    expect(getGoogleProfileAvatarUrl({ image: "https://googleusercontent.com/a/neon-photo" })).toBe(
+      "https://googleusercontent.com/a/neon-photo",
+    );
+    expect(
+      getGoogleProfileAvatarUrl({ avatar_url: "https://googleusercontent.com.evil.test/photo" }),
+    ).toBeNull();
+    expect(
+      getGoogleProfileAvatarUrl({ picture: "http://lh3.googleusercontent.com/photo" }),
+    ).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import pg from "pg";
-import { extractAuthIdentity, trustedGoogleAvatarUrl } from "./auth-profile.mjs";
+import { avatarDataValue as profileAvatarDataValue, extractAuthIdentity } from "./auth-profile.mjs";
 
 const { Pool } = pg;
 const pools = new Map();
@@ -137,15 +137,7 @@ function numberValue(value, fallback = 0) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
-function avatarDataValue(value) {
-  if (typeof value !== "string") return null;
-  if (
-    /^data:image\/(?:png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
-    value.length <= 1_500_000
-  )
-    return value;
-  return defaultAvatarUrls.includes(value) ? value : trustedGoogleAvatarUrl(value);
-}
+const avatarDataValue = (value) => profileAvatarDataValue(value, defaultAvatarUrls);
 
 function defaultAvatarForUser(userId) {
   let hash = 0;
@@ -1323,6 +1315,16 @@ async function updatePreferences(client, user, config, body) {
     if (!["system", "light", "dark"].includes(patch.theme))
       throw new DataApiError(400, "Choose a valid theme.");
     addValue("theme", patch.theme);
+  }
+  if (patch.avatarUrl !== undefined) {
+    if (!(await hasColumn(client, "user_preferences", "avatar_data_url"))) {
+      throw new DataApiError(500, "Profile photo persistence is unavailable.");
+    }
+    const avatarUrl = avatarDataValue(patch.avatarUrl);
+    if (patch.avatarUrl !== null && avatarUrl === null) {
+      throw new DataApiError(400, "Choose a valid profile photo.");
+    }
+    addValue("avatar_data_url", avatarUrl);
   }
   if (patch.timezone !== undefined) {
     if (typeof patch.timezone !== "string" || !patch.timezone.trim())

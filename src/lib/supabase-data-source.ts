@@ -328,6 +328,14 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
           upsert: false,
         });
         if (upload.error) return { data: null, error: upload.error };
+        const signed = await client!.storage.from("avatars").createSignedUrl(path, 3_600);
+        if (signed.error || !signed.data?.signedUrl) {
+          await client!.storage.from("avatars").remove([path]);
+          return {
+            data: null,
+            error: signed.error ?? { message: "The uploaded profile photo is unavailable." },
+          };
+        }
         const updated = await client!
           .from("profiles")
           .update({ avatar_path: path, updated_at: new Date().toISOString() })
@@ -337,11 +345,9 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
           return { data: null, error: updated.error };
         }
         if (previousPath && previousPath !== path) {
-          const removed = await client!.storage.from("avatars").remove([previousPath]);
-          if (removed.error) return { data: null, error: removed.error };
+          await client!.storage.from("avatars").remove([previousPath]);
         }
-        const signed = await client!.storage.from("avatars").createSignedUrl(path, 3_600);
-        return { data: signed.data?.signedUrl ?? "", error: signed.error };
+        return { data: signed.data.signedUrl, error: null };
       }),
 
     removeAvatar: (userId) =>
@@ -353,15 +359,28 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
           .single();
         if (current.error) return { data: null, error: current.error };
         const path = (current.data as { avatar_path?: string | null }).avatar_path;
-        if (path) {
-          const removed = await client!.storage.from("avatars").remove([path]);
-          if (removed.error) return { data: null, error: removed.error };
-        }
         const updated = await client!
           .from("profiles")
           .update({ avatar_path: null, updated_at: new Date().toISOString() })
           .eq("id", userId);
-        return { data: null, error: updated.error };
+        if (updated.error) return { data: null, error: updated.error };
+        if (!path) return { data: null, error: null };
+
+        const removed = await client!.storage.from("avatars").remove([path]);
+        if (!removed.error) return { data: null, error: null };
+
+        const restored = await client!
+          .from("profiles")
+          .update({ avatar_path: path, updated_at: new Date().toISOString() })
+          .eq("id", userId);
+        return {
+          data: null,
+          error:
+            restored.error ??
+            ({ message: `The profile photo could not be removed: ${removed.error.message}` } as {
+              message: string;
+            }),
+        };
       }),
 
     listWorkspaces: (userId) =>

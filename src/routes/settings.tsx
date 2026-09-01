@@ -21,7 +21,11 @@ import { FormAlert } from "@/components/form-feedback";
 import { PageHeader } from "@/components/page-header";
 import { localeOptions, translate, useI18n } from "@/lib/i18n";
 import { ProfileAvatar } from "@/components/profile-avatar";
-import { isUserUploadedAvatarUrl, prepareAvatarImage } from "@/lib/profile-image";
+import {
+  getGoogleProfileAvatarUrl,
+  isUserUploadedAvatarUrl,
+  prepareAvatarImage,
+} from "@/lib/profile-image";
 import { useStore, type ThemeMode } from "@/lib/store";
 import { updateEmail, updatePassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
@@ -81,7 +85,9 @@ function SettingsPage() {
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [accountError, setAccountError] = useState<string | null>(null);
+  const [photoAction, setPhotoAction] = useState<"uploading" | "removing" | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const photoActionRef = useRef<"uploading" | "removing" | null>(null);
 
   useEffect(() => {
     const name = splitAccountName(currentMember?.name ?? "");
@@ -152,9 +158,12 @@ function SettingsPage() {
   };
 
   const savePhoto = async (file: File) => {
+    if (photoActionRef.current) return;
+    photoActionRef.current = "uploading";
+    setPhotoAction("uploading");
+    setAccountError(null);
     try {
       const avatarUrl = await prepareAvatarImage(file);
-      let savedAvatarUrl = avatarUrl;
       if (isSupabaseConfigured && session) {
         const image = await fetch(avatarUrl).then((response) => response.blob());
         const remote = await dataSource.uploadAvatar(session.user.id, image);
@@ -162,12 +171,17 @@ function SettingsPage() {
           setAccountError(remote.error);
           return;
         }
-        savedAvatarUrl = remote.data;
-      }
-      const result = setUserPreferences({ avatarUrl: savedAvatarUrl });
-      if (!result.success) {
-        setAccountError(result.error);
-        return;
+        const result = setUserPreferences({ avatarUrl: remote.data });
+        if (!result.success) {
+          setAccountError(result.error);
+          return;
+        }
+      } else {
+        const result = await saveUserPreferences({ avatarUrl });
+        if (!result.success) {
+          setAccountError(result.error);
+          return;
+        }
       }
       setAccountError(null);
       toast.success(t("Your profile photo is updated"));
@@ -180,24 +194,40 @@ function SettingsPage() {
             ? "Profile photos must be smaller than 1 MB."
             : t("The profile photo couldn't be read. Try another image."),
       );
+    } finally {
+      photoActionRef.current = null;
+      setPhotoAction(null);
     }
   };
 
   const removePhoto = async () => {
-    if (isSupabaseConfigured && session) {
-      const remote = await dataSource.removeAvatar(session.user.id);
-      if (!remote.success) {
-        setAccountError(remote.error);
+    if (photoActionRef.current || !isUserUploadedAvatarUrl(preferences.avatarUrl)) return;
+    photoActionRef.current = "removing";
+    setPhotoAction("removing");
+    setAccountError(null);
+    let storageWasRemoved = false;
+    const fallbackAvatarUrl = getGoogleProfileAvatarUrl(session?.user.user_metadata);
+    try {
+      if (isSupabaseConfigured && session) {
+        const remote = await dataSource.removeAvatar(session.user.id);
+        if (!remote.success) {
+          setAccountError(remote.error);
+          return;
+        }
+        storageWasRemoved = true;
+      }
+      const result = await saveUserPreferences({ avatarUrl: fallbackAvatarUrl });
+      if (!result.success) {
+        if (storageWasRemoved) setUserPreferences({ avatarUrl: fallbackAvatarUrl });
+        setAccountError(result.error);
         return;
       }
+      setAccountError(null);
+      toast.success(t("Your profile photo was removed"));
+    } finally {
+      photoActionRef.current = null;
+      setPhotoAction(null);
     }
-    const result = setUserPreferences({ avatarUrl: null });
-    if (!result.success) {
-      setAccountError(result.error);
-      return;
-    }
-    setAccountError(null);
-    toast.success(t("Your profile photo was removed"));
   };
 
   const saveAccount = async () => {
@@ -318,6 +348,7 @@ function SettingsPage() {
               accept="image/jpeg,image/png,image/webp,image/gif"
               aria-label={t("Change profile photo")}
               className="hidden"
+              disabled={photoAction !== null}
               type="file"
               onChange={(event) => {
                 const file = event.target.files?.[0];
@@ -326,7 +357,13 @@ function SettingsPage() {
               }}
             />
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" type="button" onPress={() => avatarInputRef.current?.click()}>
+              <Button
+                size="sm"
+                type="button"
+                isDisabled={photoAction !== null}
+                isPending={photoAction === "uploading"}
+                onPress={() => avatarInputRef.current?.click()}
+              >
                 {t("Change profile photo")}
               </Button>
               {isUserUploadedAvatarUrl(preferences.avatarUrl) ? (
@@ -334,6 +371,8 @@ function SettingsPage() {
                   size="sm"
                   type="button"
                   variant="tertiary"
+                  isDisabled={photoAction !== null}
+                  isPending={photoAction === "removing"}
                   onPress={() => void removePhoto()}
                 >
                   {t("Remove profile photo")}

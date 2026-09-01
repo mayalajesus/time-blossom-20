@@ -6,6 +6,28 @@ const UPLOADED_AVATAR_URL_PATTERN =
 
 export type AvatarImageError = "type" | "size" | "read";
 
+export function getGoogleProfileAvatarUrl(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const values = metadata as Record<string, unknown>;
+  for (const key of ["avatar_url", "picture", "image"] as const) {
+    const candidate = typeof values[key] === "string" ? values[key].trim() : "";
+    if (!candidate || candidate.length > 2_048) continue;
+    try {
+      const url = new URL(candidate);
+      const hostname = url.hostname.toLowerCase();
+      if (
+        url.protocol === "https:" &&
+        (hostname === "googleusercontent.com" || hostname.endsWith(".googleusercontent.com"))
+      ) {
+        return candidate;
+      }
+    } catch {
+      // Ignore malformed provider metadata and continue to the next supported field.
+    }
+  }
+  return null;
+}
+
 export function isUserUploadedAvatarUrl(value: string | null | undefined): value is string {
   return (
     typeof value === "string" &&

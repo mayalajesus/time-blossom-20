@@ -25,6 +25,17 @@ export function trustedGoogleAvatarUrl(value) {
   }
 }
 
+export function avatarDataValue(value, defaultAvatarUrls = []) {
+  if (typeof value !== "string") return null;
+  if (
+    /^data:image\/(?:png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=\r\n]+$/.test(value) &&
+    value.length <= 1_500_000
+  ) {
+    return value;
+  }
+  return defaultAvatarUrls.includes(value) ? value : trustedGoogleAvatarUrl(value);
+}
+
 export function extractAuthIdentity({ id, email, name, metadata = {} }) {
   const declaredName = firstText(metadata, ["full_name", "name", "displayName"]);
   const declaredParts = declaredName.split(" ").filter(Boolean);
