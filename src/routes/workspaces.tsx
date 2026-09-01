@@ -675,12 +675,15 @@ function WorkspaceFormModal({
                           aria-label={t("Choose week start day")}
                           className="h-9 w-full justify-between gap-2 px-3"
                         >
-                          <span className="truncate text-sm">
+                          <span className="truncate">
                             {t(workspaceSettings.weekStart === "monday" ? "Monday" : "Sunday")}
                           </span>
                           <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
                         </Button>
-                        <Dropdown.Popover>
+                        <Dropdown.Popover
+                          className="max-w-[calc(100vw-2rem)] min-w-0"
+                          style={{ width: "var(--trigger-width)", maxWidth: "calc(100vw - 2rem)" }}
+                        >
                           <Dropdown.Menu
                             aria-label={t("Week starts on")}
                             className="max-h-60 overflow-y-auto"
