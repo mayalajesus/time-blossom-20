@@ -603,19 +603,7 @@ function SettingsPage() {
           <Typography type="body-sm" weight="semibold">
             {t("Billing rate")}
           </Typography>
-          <div className="grid items-end gap-3 sm:grid-cols-[minmax(0,1fr)_9rem]">
-            <TextField
-              isRequired
-              fullWidth
-              name="hourly-rate"
-              value={hourlyRate}
-              isInvalid={Boolean(hourlyRateError)}
-              onChange={setHourlyRate}
-            >
-              <Label>{t("Hourly rate")}</Label>
-              <Input variant="secondary" inputMode="decimal" placeholder="0.00" />
-              <FieldError>{hourlyRateError}</FieldError>
-            </TextField>
+          <div className="grid items-end gap-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
             <Select
               fullWidth
               variant="secondary"
@@ -640,6 +628,18 @@ function SettingsPage() {
                 </ListBox>
               </Select.Popover>
             </Select>
+            <TextField
+              isRequired
+              fullWidth
+              name="hourly-rate"
+              value={hourlyRate}
+              isInvalid={Boolean(hourlyRateError)}
+              onChange={setHourlyRate}
+            >
+              <Label>{t("Hourly rate")}</Label>
+              <Input variant="secondary" inputMode="decimal" placeholder="0.00" />
+              <FieldError>{hourlyRateError}</FieldError>
+            </TextField>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Typography type="body-sm" color="muted">
