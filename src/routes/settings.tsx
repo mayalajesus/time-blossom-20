@@ -58,6 +58,20 @@ function splitAccountName(name: string): { firstName: string; lastName: string }
   };
 }
 
+type AccountFormSnapshot = {
+  firstName: string;
+  lastName: string;
+  email: string;
+};
+
+function normalizeAccountNamePart(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function normalizeAccountEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
 function SettingsPage() {
   const {
     preferences,
@@ -85,6 +99,13 @@ function SettingsPage() {
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [accountError, setAccountError] = useState<string | null>(null);
+  const [accountBaseline, setAccountBaseline] = useState<AccountFormSnapshot>(() => {
+    const name = splitAccountName(currentMember?.name ?? "");
+    return {
+      ...name,
+      email: session?.user.email ?? currentMember?.email ?? "",
+    };
+  });
   const [photoAction, setPhotoAction] = useState<"uploading" | "removing" | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const photoActionRef = useRef<"uploading" | "removing" | null>(null);
@@ -94,6 +115,10 @@ function SettingsPage() {
     setAccountFirstName(name.firstName);
     setAccountLastName(name.lastName);
     setAccountEmail(session?.user.email ?? currentMember?.email ?? "");
+    setAccountBaseline({
+      ...name,
+      email: session?.user.email ?? currentMember?.email ?? "",
+    });
     setPassword("");
     setPasswordConfirmation("");
     setAccountError(null);
@@ -156,6 +181,14 @@ function SettingsPage() {
     if (parsedHourlyRate === null) return;
     void savePreference({ hourlyRate: parsedHourlyRate, currency });
   };
+
+  const accountHasChanges =
+    normalizeAccountNamePart(accountFirstName) !==
+      normalizeAccountNamePart(accountBaseline.firstName) ||
+    normalizeAccountNamePart(accountLastName) !==
+      normalizeAccountNamePart(accountBaseline.lastName) ||
+    normalizeAccountEmail(accountEmail) !== normalizeAccountEmail(accountBaseline.email) ||
+    Boolean(password || passwordConfirmation);
 
   const savePhoto = async (file: File) => {
     if (photoActionRef.current) return;
@@ -231,6 +264,7 @@ function SettingsPage() {
   };
 
   const saveAccount = async () => {
+    if (!accountHasChanges) return;
     const firstName = accountFirstName.trim().replace(/\s+/g, " ");
     const lastName = accountLastName.trim().replace(/\s+/g, " ");
     if (!firstName) {
@@ -299,6 +333,7 @@ function SettingsPage() {
       }
     }
     setAccountError(null);
+    setAccountBaseline({ firstName, lastName, email: accountEmail.trim() });
     setPassword("");
     setPasswordConfirmation("");
     toast.success(t("Your account is up to date"));
@@ -482,7 +517,10 @@ function SettingsPage() {
           </TextField>
 
           <div className="flex justify-end pt-1">
-            <Button type="submit" isDisabled={!(accountEmail || currentMember.email).trim()}>
+            <Button
+              type="submit"
+              isDisabled={!accountHasChanges || !(accountEmail || currentMember.email).trim()}
+            >
               {t("Save account")}
             </Button>
           </div>
