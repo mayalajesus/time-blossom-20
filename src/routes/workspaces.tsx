@@ -1,7 +1,6 @@
 import {
   Avatar,
   Button,
-  ButtonGroup,
   Chip,
   Description,
   Dropdown,
@@ -670,21 +669,17 @@ function WorkspaceFormModal({
                     <div className="flex flex-col gap-2">
                       <Label>{t("Week starts on")}</Label>
                       <Dropdown>
-                        <ButtonGroup variant="secondary" size="sm" className="w-full">
-                          <Button
-                            type="button"
-                            aria-label={t("Week starts on")}
-                            className="h-9 min-w-0 flex-1 justify-start"
-                          >
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          aria-label={t("Choose week start day")}
+                          className="h-9 w-full justify-between gap-2 px-3"
+                        >
+                          <span className="truncate text-sm">
                             {t(workspaceSettings.weekStart === "monday" ? "Monday" : "Sunday")}
-                          </Button>
-                          <Dropdown.Trigger
-                            aria-label={t("Choose week start day")}
-                            className="h-9 w-9 min-w-9 shrink-0 px-0"
-                          >
-                            <ChevronDown aria-hidden="true" className="size-4" />
-                          </Dropdown.Trigger>
-                        </ButtonGroup>
+                          </span>
+                          <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
+                        </Button>
                         <Dropdown.Popover>
                           <Dropdown.Menu
                             aria-label={t("Week starts on")}
