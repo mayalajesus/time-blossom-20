@@ -118,8 +118,6 @@ export type ThemeMode = "system" | "light" | "dark";
 export type SessionStatus = "active" | "signed-out";
 
 export interface UserPreferences {
-  reminders: boolean;
-  weeklyDigest: boolean;
   idleDetection: boolean;
   language: Locale;
   theme: ThemeMode;
@@ -177,8 +175,6 @@ const initialSettings: WorkspaceSettings = {
 };
 
 const initialPreferences: UserPreferences = {
-  reminders: true,
-  weeklyDigest: false,
   idleDetection: true,
   language: defaultLocale,
   theme: "system",
@@ -261,8 +257,6 @@ function isValidPreferences(value: unknown): value is UserPreferences {
   if (!value || typeof value !== "object") return false;
   const prefs = value as Partial<UserPreferences>;
   return (
-    typeof prefs.reminders === "boolean" &&
-    typeof prefs.weeklyDigest === "boolean" &&
     typeof prefs.idleDetection === "boolean" &&
     isLocale(prefs.language) &&
     isThemeMode(prefs.theme) &&
@@ -457,15 +451,11 @@ function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
     const legacy = candidate as Partial<UserPreferences> | null;
     preferencesByUserId[member.id] =
       legacy &&
-      typeof legacy.reminders === "boolean" &&
-      typeof legacy.weeklyDigest === "boolean" &&
       typeof legacy.idleDetection === "boolean" &&
       isLocale(legacy.language) &&
       isThemeMode(legacy.theme) &&
       isValidAvatarUrl(legacy.avatarUrl)
         ? {
-            reminders: legacy.reminders,
-            weeklyDigest: legacy.weeklyDigest,
             idleDetection: legacy.idleDetection,
             language: legacy.language,
             theme: legacy.theme,
@@ -533,8 +523,6 @@ export function migrateAccountSnapshot(value: unknown): PersistedAccount | null 
     if (!candidate || typeof candidate !== "object") return null;
     const preferences = candidate as Partial<UserPreferences>;
     if (
-      typeof preferences.reminders !== "boolean" ||
-      typeof preferences.weeklyDigest !== "boolean" ||
       typeof preferences.idleDetection !== "boolean" ||
       !isLocale(preferences.language) ||
       !isThemeMode(preferences.theme) ||
@@ -542,8 +530,6 @@ export function migrateAccountSnapshot(value: unknown): PersistedAccount | null 
     )
       return null;
     preferencesByUserId[identity.id] = {
-      reminders: preferences.reminders,
-      weeklyDigest: preferences.weeklyDigest,
       idleDetection: preferences.idleDetection,
       language: preferences.language,
       theme: preferences.theme,

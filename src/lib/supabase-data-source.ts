@@ -15,8 +15,6 @@ type PreferenceRow = {
   language: UserPreferences["language"];
   theme: UserPreferences["theme"];
   timezone: string;
-  reminders: boolean;
-  weekly_digest: boolean;
   idle_detection: boolean;
   hourly_rate?: number;
   currency?: string;
@@ -111,8 +109,6 @@ async function mapPreferences(
     language: row.language,
     theme: row.theme,
     timezone: row.timezone,
-    reminders: row.reminders,
-    weeklyDigest: row.weekly_digest,
     idleDetection: row.idle_detection,
     avatarUrl,
     hourlyRate: typeof row.hourly_rate === "number" && row.hourly_rate >= 0 ? row.hourly_rate : 0,
@@ -268,7 +264,6 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
       call(async () => {
         const {
           avatarUrl: _avatarUrl,
-          weeklyDigest,
           idleDetection,
           hourlyRate,
           activeWorkspaceId,
@@ -280,7 +275,6 @@ export function createSupabaseDataSource(client: SupabaseClient | null = supabas
           .upsert({
             user_id: userId,
             ...rest,
-            ...(weeklyDigest === undefined ? {} : { weekly_digest: weeklyDigest }),
             ...(idleDetection === undefined ? {} : { idle_detection: idleDetection }),
             ...(hourlyRate === undefined ? {} : { hourly_rate: hourlyRate }),
             ...(activeWorkspaceId === undefined ? {} : { active_workspace_id: activeWorkspaceId }),

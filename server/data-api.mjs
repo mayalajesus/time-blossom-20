@@ -500,7 +500,7 @@ async function loadAccount(client, user, config) {
     }
   }
   const preferences = await client.query(
-    `select user_id, language, theme, timezone, reminders, weekly_digest, idle_detection, hourly_rate, currency, ${
+    `select user_id, language, theme, timezone, idle_detection, hourly_rate, currency, ${
       hasAvatarData ? "avatar_data_url" : "null::text as avatar_data_url"
     }, ${hasActiveWorkspace ? "active_workspace_id::text" : "null::text as active_workspace_id"},
        ${hasReportFilters ? "report_filters" : "'{}'::jsonb as report_filters"}
@@ -587,8 +587,6 @@ async function loadAccount(client, user, config) {
       return [
         id,
         {
-          reminders: isOwnPreferences ? (row?.reminders ?? true) : true,
-          weeklyDigest: isOwnPreferences ? (row?.weekly_digest ?? false) : false,
           idleDetection: isOwnPreferences ? (row?.idle_detection ?? true) : true,
           language: isOwnPreferences && row?.language === "pt-BR" ? "pt-BR" : "en-US",
           theme:
@@ -769,16 +767,14 @@ async function syncAccount(client, user, config, account) {
       ownPreferences.language,
       ownPreferences.theme,
       ownPreferences.timezone,
-      ownPreferences.reminders,
-      ownPreferences.weeklyDigest,
       ownPreferences.idleDetection,
       numberValue(ownPreferences.hourlyRate),
       ownPreferences.currency,
     ];
     await client.query(
-      `insert into public.user_preferences (user_id, language, theme, timezone, reminders, weekly_digest, idle_detection, hourly_rate, currency)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       on conflict (user_id) do update set language = excluded.language, theme = excluded.theme, timezone = excluded.timezone, reminders = excluded.reminders, weekly_digest = excluded.weekly_digest, idle_detection = excluded.idle_detection, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now()`,
+      `insert into public.user_preferences (user_id, language, theme, timezone, idle_detection, hourly_rate, currency)
+       values ($1, $2, $3, $4, $5, $6, $7)
+       on conflict (user_id) do update set language = excluded.language, theme = excluded.theme, timezone = excluded.timezone, idle_detection = excluded.idle_detection, hourly_rate = excluded.hourly_rate, currency = excluded.currency, updated_at = now()`,
       preferenceValues,
     );
     if (hasReportFilters) {
@@ -1269,8 +1265,6 @@ async function updatePreferences(client, user, config, body) {
     throw new DataApiError(400, "Invalid preferences payload.");
   }
   const allowedKeys = new Set([
-    "reminders",
-    "weeklyDigest",
     "idleDetection",
     "language",
     "theme",
@@ -1291,16 +1285,6 @@ async function updatePreferences(client, user, config, body) {
     values.push(value);
     updates.push(`${column} = $${values.length}${cast}`);
   };
-  if (patch.reminders !== undefined) {
-    if (typeof patch.reminders !== "boolean")
-      throw new DataApiError(400, "Choose a valid reminders preference.");
-    addValue("reminders", patch.reminders);
-  }
-  if (patch.weeklyDigest !== undefined) {
-    if (typeof patch.weeklyDigest !== "boolean")
-      throw new DataApiError(400, "Choose a valid weekly digest preference.");
-    addValue("weekly_digest", patch.weeklyDigest);
-  }
   if (patch.idleDetection !== undefined) {
     if (typeof patch.idleDetection !== "boolean")
       throw new DataApiError(400, "Choose a valid idle detection preference.");

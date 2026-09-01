@@ -131,16 +131,6 @@ function SettingsPage() {
 
   const toggles = [
     {
-      key: "reminders" as const,
-      title: "Reminders",
-      hint: "Remind me every 60 minutes while a timer is running.",
-    },
-    {
-      key: "weeklyDigest" as const,
-      title: "Weekly digest",
-      hint: "Email me a summary every Monday.",
-    },
-    {
       key: "idleDetection" as const,
       title: "Idle detection",
       hint: "Ask whether to pause the timer after long inactivity.",

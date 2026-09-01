@@ -499,11 +499,6 @@ const ptBR: Record<string, string> = {
   Preferences: "Preferências",
   "These preferences apply only to your account.":
     "Estas preferências se aplicam somente à sua conta.",
-  Reminders: "Lembretes",
-  "Nudge me when I forget to start a timer.":
-    "Lembre você quando esquecer de iniciar um cronômetro.",
-  "Weekly digest": "Resumo semanal",
-  "Email me a summary every Monday.": "Envie um resumo por e-mail toda segunda-feira.",
   "Idle detection": "Detecção de inatividade",
   "Ask whether to pause the timer after long inactivity.":
     "Pergunte se o timer deve ser pausado após um longo período de inatividade.",
@@ -548,11 +543,6 @@ const ptBR: Record<string, string> = {
     "Esta conta não pode atualizar o cronômetro ativo.",
   "There is no active timer to update.": "Ainda não há um cronômetro ativo para atualizar.",
   "A task is required.": "Uma tarefa é obrigatória.",
-  "Timer is still running": "O cronômetro ainda está em andamento",
-  "Keep working or stop it when you're done. Your timer will keep counting.":
-    "Continue trabalhando ou pare quando terminar. O cronômetro continuará contando.",
-  "Remind me every 60 minutes while a timer is running.":
-    "Lembre-me a cada 60 minutos enquanto um cronômetro estiver em andamento.",
   "Billing rate": "Valor da hora",
   "Hourly rate": "Valor-hora",
   Currency: "Moeda",
