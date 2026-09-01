@@ -10,7 +10,6 @@ import {
   Input,
   Label,
   Modal,
-  Switch,
   Table,
   TextField,
   Toolbar,
@@ -31,7 +30,6 @@ import {
 } from "@gravity-ui/icons";
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { BillableIndicator } from "@/components/billable-indicator";
 import { FormAlert } from "@/components/form-feedback";
 import { DataTable } from "@/components/data-table";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
@@ -121,7 +119,6 @@ function WorkspacesPage() {
   const [editWorkspace, setEditWorkspace] = useState<WorkspaceSummary | null>(null);
   const [name, setName] = useState("");
   const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
-  const [defaultBillable, setDefaultBillable] = useState(settings.defaultBillable);
   const [weekStart, setWeekStart] = useState<"monday" | "sunday">(settings.weekStart);
   const [formError, setFormError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -141,10 +138,9 @@ function WorkspacesPage() {
     if (editWorkspace) {
       setName(editWorkspace.name);
       setLogoDataUrl(editWorkspace.logoDataUrl);
-      setDefaultBillable(settings.defaultBillable);
       setWeekStart(settings.weekStart);
     }
-  }, [editWorkspace, settings.defaultBillable, settings.weekStart]);
+  }, [editWorkspace, settings.weekStart]);
 
   const resetForm = () => {
     setName("");
@@ -203,7 +199,7 @@ function WorkspacesPage() {
       setFormError(t("Workspace name is required"));
       return;
     }
-    const settingsResult = setWorkspaceSettings({ defaultBillable, weekStart });
+    const settingsResult = setWorkspaceSettings({ weekStart });
     if (!settingsResult.success) {
       setFormError(error(settingsResult.error));
       return;
@@ -459,8 +455,7 @@ function WorkspacesPage() {
         onRemoveLogo={() => setLogoDataUrl(null)}
         onSubmit={submitEdit}
         submitLabel={t("Save changes")}
-        workspaceSettings={{ defaultBillable, weekStart }}
-        onDefaultBillableChange={setDefaultBillable}
+        workspaceSettings={{ weekStart }}
         onWeekStartChange={setWeekStart}
       />
 
@@ -571,7 +566,6 @@ function WorkspaceFormModal({
   onSubmit,
   submitLabel,
   workspaceSettings,
-  onDefaultBillableChange,
   onWeekStartChange,
 }: {
   isOpen: boolean;
@@ -587,10 +581,8 @@ function WorkspaceFormModal({
   onSubmit: () => void;
   submitLabel: string;
   workspaceSettings?: {
-    defaultBillable: boolean;
     weekStart: "monday" | "sunday";
   };
-  onDefaultBillableChange?: (value: boolean) => void;
   onWeekStartChange?: (value: "monday" | "sunday") => void;
 }) {
   const { t } = useI18n();
@@ -674,34 +666,7 @@ function WorkspaceFormModal({
                   </Description>
                 </div>
                 {workspaceSettings ? (
-                  <div className="space-y-5 border-t border-divider pt-5">
-                    <div>
-                      <Typography type="h3" weight="semibold">
-                        {t("Workspace settings")}
-                      </Typography>
-                      <Typography type="body-sm" color="muted" className="mt-1">
-                        {t("Defaults shared by everyone in the workspace.")}
-                      </Typography>
-                    </div>
-                    <Switch
-                      aria-label={t("Billable by default")}
-                      isSelected={workspaceSettings.defaultBillable}
-                      onChange={(selected: boolean) => onDefaultBillableChange?.(selected)}
-                    >
-                      <Switch.Control>
-                        <Switch.Thumb />
-                      </Switch.Control>
-                      <Switch.Content>
-                        <div className="flex items-center gap-2">
-                          <BillableIndicator
-                            billable={workspaceSettings.defaultBillable}
-                            mode="icon"
-                          />
-                          <Label>{t("Billable by default")}</Label>
-                        </div>
-                        <Description>{t("New entries start marked as billable.")}</Description>
-                      </Switch.Content>
-                    </Switch>
+                  <div>
                     <div className="flex flex-col gap-2">
                       <Label>{t("Week starts on")}</Label>
                       <Dropdown>
