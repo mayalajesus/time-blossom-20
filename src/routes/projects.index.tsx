@@ -46,6 +46,7 @@ import { PageHeader } from "@/components/page-header";
 import { ProjectLabel } from "@/components/project-color";
 import { RouterLink } from "@/components/router-link";
 import { FormAlert } from "@/components/form-feedback";
+import { ModalLayout } from "@/components/modal-layout";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { ModalSelect } from "@/components/modal-select";
 import { EmptyBlock } from "@/components/states";
@@ -584,10 +585,8 @@ function ProjectsPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Archive project?")}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body className="flex flex-col gap-4">
+              <ModalLayout.Header>{t("Archive project?")}</ModalLayout.Header>
+              <ModalLayout.Body>
                 {statusError ? (
                   <FormAlert
                     title={t("We couldn't archive this project")}
@@ -602,8 +601,8 @@ function ProjectsPage() {
                     },
                   )}
                 </Typography>
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button slot="close" variant="secondary">
                   {t("Cancel")}
                 </Button>
@@ -612,7 +611,7 @@ function ProjectsPage() {
                     {t("Archive project")}
                   </Chip>
                 </Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>
@@ -682,18 +681,16 @@ function ProjectsPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header className="pb-2">
-                <Modal.Heading className="text-lg font-semibold tracking-tight">
-                  {t(editingProject ? "Edit project" : "New project")}
-                </Modal.Heading>
-              </Modal.Header>
+              <ModalLayout.Header>
+                {t(editingProject ? "Edit project" : "New project")}
+              </ModalLayout.Header>
               <Form
                 onSubmit={(event) => {
                   event.preventDefault();
                   saveProject();
                 }}
               >
-                <Modal.Body className="flex flex-col gap-5 py-2">
+                <ModalLayout.Body>
                   {createError ? (
                     <FormAlert
                       title={t("We couldn't create this project")}
@@ -839,15 +836,15 @@ function ProjectsPage() {
                     </Dropdown>
                     <div className="pt-1">{renderAssignedMemberTags()}</div>
                   </div>
-                </Modal.Body>
-                <Modal.Footer className="gap-2 pt-3">
+                </ModalLayout.Body>
+                <ModalLayout.Footer>
                   <Button slot="close" type="button" variant="secondary">
                     {t("Cancel")}
                   </Button>
                   <Button type="submit" isDisabled={!name.trim() || !clientId}>
                     {t(editingProject ? "Save changes" : "Create project")}
                   </Button>
-                </Modal.Footer>
+                </ModalLayout.Footer>
               </Form>
             </Modal.Dialog>
           </Modal.Container>
@@ -869,10 +866,8 @@ function ProjectsPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Manage project members")}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body className="space-y-4">
+              <ModalLayout.Header>{t("Manage project members")}</ModalLayout.Header>
+              <ModalLayout.Body>
                 {memberError ? (
                   <FormAlert
                     title={t("We couldn't update project access")}
@@ -942,13 +937,13 @@ function ProjectsPage() {
                   </Dropdown.Popover>
                 </Dropdown>
                 {renderAssignedMemberTags()}
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button slot="close" variant="secondary">
                   {t("Cancel")}
                 </Button>
                 <Button onPress={saveMembers}>{t("Save members")}</Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>

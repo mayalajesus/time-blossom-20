@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { BillableIndicator } from "@/components/billable-indicator";
 import { FormAlert } from "@/components/form-feedback";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
+import { ModalLayout } from "@/components/modal-layout";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { OverlapConfirmation } from "@/components/overlap-confirmation";
 import { ProjectSelect } from "@/components/project-select";
@@ -201,11 +202,9 @@ export function LogTimeModal({
         <Modal.Container size="sm">
           <Modal.Dialog className="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col overflow-hidden">
             <Modal.CloseTrigger />
-            <Modal.Header className="shrink-0 pb-2">
-              <Modal.Heading className="text-lg font-semibold tracking-tight">
-                {t(entry ? "Edit time entry" : "Log time manually")}
-              </Modal.Heading>
-            </Modal.Header>
+            <ModalLayout.Header className="shrink-0">
+              {t(entry ? "Edit time entry" : "Log time manually")}
+            </ModalLayout.Header>
             <Form
               className="flex min-h-0 flex-1 flex-col overflow-visible"
               onSubmit={(event) => {
@@ -213,7 +212,7 @@ export function LogTimeModal({
                 submit();
               }}
             >
-              <Modal.Body className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto overscroll-contain py-2">
+              <ModalLayout.Body className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 {saveError ? (
                   <FormAlert
                     title={t("We couldn't save this time entry")}
@@ -398,15 +397,15 @@ export function LogTimeModal({
                     {t("Keep useful context attached to this entry.")}
                   </Description>
                 </TextField>
-              </Modal.Body>
-              <Modal.Footer className="shrink-0 gap-2 pt-3">
+              </ModalLayout.Body>
+              <ModalLayout.Footer className="shrink-0">
                 <Button slot="close" type="button" variant="secondary">
                   {t("Cancel")}
                 </Button>
                 <Button type="submit" isDisabled={invalid}>
                   {t("Save entry")}
                 </Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Form>
           </Modal.Dialog>
         </Modal.Container>

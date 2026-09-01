@@ -17,6 +17,7 @@ import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
 import { FormAlert } from "@/components/form-feedback";
+import { ModalLayout } from "@/components/modal-layout";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { PageHeader } from "@/components/page-header";
 import { EmptyBlock } from "@/components/states";
@@ -184,18 +185,14 @@ function ClientsPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header className="pb-2">
-                <Modal.Heading className="text-lg font-semibold tracking-tight">
-                  {t("New client")}
-                </Modal.Heading>
-              </Modal.Header>
+              <ModalLayout.Header>{t("New client")}</ModalLayout.Header>
               <Form
                 onSubmit={(event) => {
                   event.preventDefault();
                   create();
                 }}
               >
-                <Modal.Body className="flex flex-col gap-5 py-2">
+                <ModalLayout.Body>
                   {createError ? (
                     <FormAlert title={t("We couldn't add this client")} description={createError} />
                   ) : null}
@@ -236,15 +233,15 @@ function ClientsPage() {
                     <Description className="text-xs">{t("Optional")}</Description>
                     <FieldError />
                   </TextField>
-                </Modal.Body>
-                <Modal.Footer className="gap-2 pt-3">
+                </ModalLayout.Body>
+                <ModalLayout.Footer>
                   <Button slot="close" type="button" variant="secondary">
                     {t("Cancel")}
                   </Button>
                   <Button type="submit" isDisabled={!name.trim()}>
                     {t("Create client")}
                   </Button>
-                </Modal.Footer>
+                </ModalLayout.Footer>
               </Form>
             </Modal.Dialog>
           </Modal.Container>
@@ -265,10 +262,8 @@ function ClientsPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Delete client?")}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body className="flex flex-col gap-4">
+              <ModalLayout.Header>{t("Delete client?")}</ModalLayout.Header>
+              <ModalLayout.Body>
                 {deleteError ? (
                   <FormAlert
                     title={t("We couldn't delete this client")}
@@ -298,8 +293,8 @@ function ClientsPage() {
                     )}
                   </Typography>
                 )}
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button slot="close" variant="secondary">
                   {t("Cancel")}
                 </Button>
@@ -310,7 +305,7 @@ function ClientsPage() {
                 >
                   {t("Delete client")}
                 </Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>

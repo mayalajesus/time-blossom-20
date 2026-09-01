@@ -1,6 +1,7 @@
 import { Button, Card, Description, Dropdown, Modal, Typography, toast } from "@heroui/react";
 import { Check, ChevronDown, Layers } from "@gravity-ui/icons";
 import { useState } from "react";
+import { ModalLayout } from "@/components/modal-layout";
 import { useI18n } from "@/lib/i18n";
 import { useStore, type WorkspaceSummary } from "@/lib/store";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
@@ -190,10 +191,8 @@ export function WorkspaceSwitcher({
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Pause timer before switching?")}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body className="space-y-3">
+              <ModalLayout.Header>{t("Pause timer before switching?")}</ModalLayout.Header>
+              <ModalLayout.Body>
                 <Typography type="body-sm" color="muted">
                   {t(
                     "Your active timer is running in {workspace}. Pause it before opening another workspace.",
@@ -213,13 +212,13 @@ export function WorkspaceSwitcher({
                     </Description>
                   </div>
                 </div>
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button variant="tertiary" onPress={() => setSwitchOpen(false)}>
                   {t("Cancel")}
                 </Button>
                 <Button onPress={confirmSwitch}>{t("Pause and switch")}</Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>

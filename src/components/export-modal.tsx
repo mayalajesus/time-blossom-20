@@ -2,6 +2,7 @@ import { Button, Description, Form, Label, Modal, Radio, RadioGroup, toast } fro
 import { ArrowDownToLine } from "@gravity-ui/icons";
 import { useState } from "react";
 import { FormAlert } from "@/components/form-feedback";
+import { ModalLayout } from "@/components/modal-layout";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import {
   exportReport,
@@ -43,9 +44,7 @@ export function ExportModal({
         <Modal.Container size="sm">
           <Modal.Dialog>
             <Modal.CloseTrigger />
-            <Modal.Header>
-              <Modal.Heading>{t("Export {scope}", { scope })}</Modal.Heading>
-            </Modal.Header>
+            <ModalLayout.Header>{t("Export {scope}", { scope })}</ModalLayout.Header>
             <Form
               onSubmit={async (event) => {
                 event.preventDefault();
@@ -72,7 +71,7 @@ export function ExportModal({
                 }
               }}
             >
-              <Modal.Body className="flex flex-col gap-5">
+              <ModalLayout.Body>
                 <Description className="text-foreground">
                   {t("Ready to export: {count} records.", { count: payload.rows.length })}
                 </Description>
@@ -118,8 +117,8 @@ export function ExportModal({
                     description={exportError}
                   />
                 ) : null}
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button slot="close" type="button" variant="secondary">
                   {t("Close")}
                 </Button>
@@ -127,7 +126,7 @@ export function ExportModal({
                   <ArrowDownToLine className="size-4" />
                   {t("Export")}
                 </Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Form>
           </Modal.Dialog>
         </Modal.Container>

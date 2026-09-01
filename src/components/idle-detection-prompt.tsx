@@ -1,5 +1,6 @@
 import { Button, Modal } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
+import { ModalLayout } from "@/components/modal-layout";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -53,17 +54,15 @@ export function IdleDetectionPrompt() {
       <Modal.Backdrop>
         <Modal.Container size="sm">
           <Modal.Dialog>
-            <Modal.Header>
-              <Modal.Heading>
-                {t("You were inactive. Would you like to pause the timer?")}
-              </Modal.Heading>
-            </Modal.Header>
-            <Modal.Footer>
+            <ModalLayout.Header>
+              {t("You were inactive. Would you like to pause the timer?")}
+            </ModalLayout.Header>
+            <ModalLayout.Footer>
               <Button variant="tertiary" onPress={continueWorking}>
                 {t("Continue working")}
               </Button>
               <Button onPress={() => controllerRef.current?.pause()}>{t("Pause timer")}</Button>
-            </Modal.Footer>
+            </ModalLayout.Footer>
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>

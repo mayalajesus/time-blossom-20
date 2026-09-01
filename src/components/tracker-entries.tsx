@@ -19,6 +19,7 @@ import { ActionDropdown } from "@/components/action-dropdown";
 import { BillableIndicator } from "@/components/billable-indicator";
 import { DataTable } from "@/components/data-table";
 import { HeroUIDatePicker } from "@/components/hero-ui-date-picker";
+import { ModalLayout } from "@/components/modal-layout";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { OverlapConfirmation } from "@/components/overlap-confirmation";
 import { ProjectLabel } from "@/components/project-color";
@@ -466,10 +467,8 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Delete time entry?")}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body>
+              <ModalLayout.Header>{t("Delete time entry?")}</ModalLayout.Header>
+              <ModalLayout.Body>
                 <Typography type="body-sm" color="muted">
                   {pendingDelete
                     ? t("Delete “{task}”? This action cannot be undone.", {
@@ -477,15 +476,15 @@ export function TrackerEntries({ days }: { days: TrackerDay[] }) {
                       })
                     : null}
                 </Typography>
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button slot="close" variant="secondary">
                   {t("Keep entry")}
                 </Button>
                 <Button variant="danger" onPress={confirmDelete}>
                   {t("Delete entry")}
                 </Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>

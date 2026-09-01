@@ -29,6 +29,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { DataTable } from "@/components/data-table";
+import { ModalLayout } from "@/components/modal-layout";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { ModalSelect } from "@/components/modal-select";
 import { PageHeader } from "@/components/page-header";
@@ -463,16 +464,14 @@ function WorkspacesPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>
-                  {confirmation?.kind === "archive"
-                    ? t("Archive workspace?")
-                    : confirmation?.kind === "restore"
-                      ? t("Restore workspace?")
-                      : t("Leave workspace?")}
-                </Modal.Heading>
-              </Modal.Header>
-              <Modal.Body>
+              <ModalLayout.Header>
+                {confirmation?.kind === "archive"
+                  ? t("Archive workspace?")
+                  : confirmation?.kind === "restore"
+                    ? t("Restore workspace?")
+                    : t("Leave workspace?")}
+              </ModalLayout.Header>
+              <ModalLayout.Body>
                 <Typography type="body-sm" color="muted">
                   {confirmation?.kind === "archive"
                     ? isArchivingCurrent
@@ -488,8 +487,8 @@ function WorkspacesPage() {
                           "You will lose access to this workspace. Your tracked history stays intact.",
                         )}
                 </Typography>
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button variant="tertiary" onPress={() => setConfirmation(null)}>
                   {t("Cancel")}
                 </Button>
@@ -514,7 +513,7 @@ function WorkspacesPage() {
                     t("Leave")
                   )}
                 </Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>
@@ -526,22 +525,20 @@ function WorkspacesPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Pause timer before switching?")}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body>
+              <ModalLayout.Header>{t("Pause timer before switching?")}</ModalLayout.Header>
+              <ModalLayout.Body>
                 <Typography type="body-sm" color="muted">
                   {t(
                     "Pause the active timer before opening another workspace. It will remain paused in its original workspace.",
                   )}
                 </Typography>
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button variant="tertiary" onPress={() => setSwitchOpen(false)}>
                   {t("Cancel")}
                 </Button>
                 <Button onPress={confirmSwitch}>{t("Pause and switch")}</Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>
@@ -591,11 +588,7 @@ function WorkspaceFormModal({
         <Modal.Container size="sm">
           <Modal.Dialog>
             <Modal.CloseTrigger />
-            <Modal.Header className="pb-2">
-              <Modal.Heading className="text-lg font-semibold tracking-tight">
-                {title}
-              </Modal.Heading>
-            </Modal.Header>
+            <ModalLayout.Header>{title}</ModalLayout.Header>
             <Form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -603,7 +596,7 @@ function WorkspaceFormModal({
               }}
               className="min-h-0"
             >
-              <Modal.Body className="flex flex-col gap-5 py-2">
+              <ModalLayout.Body>
                 {errorMessage ? (
                   <FormAlert
                     title={t("We couldn't save this workspace")}
@@ -675,15 +668,15 @@ function WorkspaceFormModal({
                     onChange={(value) => onWeekStartChange?.(value as "monday" | "sunday")}
                   />
                 ) : null}
-              </Modal.Body>
-              <Modal.Footer className="gap-2 pt-3">
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button type="button" variant="tertiary" onPress={() => onOpenChange(false)}>
                   {t("Cancel")}
                 </Button>
                 <Button type="submit" isDisabled={!name.trim()}>
                   {submitLabel}
                 </Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Form>
           </Modal.Dialog>
         </Modal.Container>

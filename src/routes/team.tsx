@@ -26,6 +26,7 @@ import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
 import { FormAlert } from "@/components/form-feedback";
+import { ModalLayout } from "@/components/modal-layout";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { PageHeader } from "@/components/page-header";
 import { ProfileAvatar } from "@/components/profile-avatar";
@@ -352,18 +353,14 @@ function TeamPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header className="pb-2">
-                <Modal.Heading className="text-lg font-semibold tracking-tight">
-                  {t("Invite member")}
-                </Modal.Heading>
-              </Modal.Header>
+              <ModalLayout.Header>{t("Invite member")}</ModalLayout.Header>
               <Form
                 onSubmit={(event) => {
                   event.preventDefault();
                   submitInvite();
                 }}
               >
-                <Modal.Body className="flex flex-col gap-5 py-2">
+                <ModalLayout.Body>
                   {inviteError ? (
                     <FormAlert
                       title={t("We couldn't prepare this invitation")}
@@ -431,15 +428,15 @@ function TeamPage() {
                       </Dropdown.Popover>
                     </Dropdown>
                   </div>
-                </Modal.Body>
-                <Modal.Footer className="gap-2 pt-3">
+                </ModalLayout.Body>
+                <ModalLayout.Footer>
                   <Button slot="close" type="button" variant="secondary">
                     {t("Cancel")}
                   </Button>
                   <Button type="submit" isDisabled={!email.trim()} isPending={inviteBusy}>
                     {t("Send invite")}
                   </Button>
-                </Modal.Footer>
+                </ModalLayout.Footer>
               </Form>
             </Modal.Dialog>
           </Modal.Container>
@@ -460,10 +457,8 @@ function TeamPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Cancel invitation?")}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body className="flex flex-col gap-4">
+              <ModalLayout.Header>{t("Cancel invitation?")}</ModalLayout.Header>
+              <ModalLayout.Body>
                 {cancelError ? (
                   <FormAlert
                     title={t("We couldn't cancel this invitation")}
@@ -475,8 +470,8 @@ function TeamPage() {
                     email: pendingCancel?.email ?? t("this member"),
                   })}
                 </Typography>
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button slot="close" variant="secondary">
                   {t("Keep invitation")}
                 </Button>
@@ -487,7 +482,7 @@ function TeamPage() {
                 >
                   {t("Cancel invitation")}
                 </Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>
@@ -507,10 +502,8 @@ function TeamPage() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Remove member from team?")}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body className="flex flex-col gap-4">
+              <ModalLayout.Header>{t("Remove member from team?")}</ModalLayout.Header>
+              <ModalLayout.Body>
                 {removeError ? (
                   <FormAlert
                     title={t("We couldn't remove this member")}
@@ -525,15 +518,15 @@ function TeamPage() {
                     },
                   )}
                 </Typography>
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button slot="close" variant="secondary">
                   {t("Keep member")}
                 </Button>
                 <Button variant="danger" onPress={confirmRemove}>
                   {t("Remove from team")}
                 </Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>

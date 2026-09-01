@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ActionDropdown } from "@/components/action-dropdown";
 import { DataTable } from "@/components/data-table";
 import { LogTimeModal } from "@/components/log-time-modal";
+import { ModalLayout } from "@/components/modal-layout";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 import { useStore } from "@/lib/store";
 import { formatDate, formatDuration, getEntryEndDayOffset } from "@/lib/format";
@@ -154,10 +155,8 @@ export function EntriesTable({
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.CloseTrigger />
-              <Modal.Header>
-                <Modal.Heading>{t("Delete time entry?")}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body>
+              <ModalLayout.Header>{t("Delete time entry?")}</ModalLayout.Header>
+              <ModalLayout.Body>
                 <Typography type="body-sm" color="muted">
                   {t(
                     "This removes {task}. You can undo it from the confirmation toast for 20 seconds.",
@@ -166,15 +165,15 @@ export function EntriesTable({
                     },
                   )}
                 </Typography>
-              </Modal.Body>
-              <Modal.Footer>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
                 <Button slot="close" variant="secondary">
                   {t("Cancel")}
                 </Button>
                 <Button variant="danger" onPress={confirmDelete}>
                   {t("Delete entry")}
                 </Button>
-              </Modal.Footer>
+              </ModalLayout.Footer>
             </Modal.Dialog>
           </Modal.Container>
         </Modal.Backdrop>
