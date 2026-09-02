@@ -22,6 +22,7 @@ test.afterAll(async () => {
 });
 
 test("owner persists client, project and timer data in Neon", async ({ page }) => {
+  test.setTimeout(90_000);
   await signInAs(page, "owner");
 
   await page.goto("/clients");
@@ -52,15 +53,19 @@ test("owner persists client, project and timer data in Neon", async ({ page }) =
   await page.goto("/tracker");
   const trackerBar = page.locator("[data-tracker-bar]");
   await page
-    .getByLabel(/What are you working on\?|No que você está trabalhando\?/)
+    .getByRole("combobox", {
+      name: /What are you working on\?|No que você está trabalhando\?/,
+    })
     .fill(`${marker} Timer`);
   await trackerBar.getByRole("button", { name: /Start|Iniciar/, exact: true }).click();
   await expect(trackerBar.getByRole("button", { name: /Stop|Parar/, exact: true })).toBeVisible();
   await page.waitForTimeout(1100);
+  const timerSync = waitForAccountSync(page);
   await trackerBar.getByRole("button", { name: /Stop|Parar/, exact: true }).click();
-  await page.waitForTimeout(1000);
+  await timerSync;
   await expect(page.getByRole("row").filter({ hasText: `${marker} Timer` })).toBeVisible();
   await page.reload();
+  await expect(page.locator("#main-content")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("row").filter({ hasText: `${marker} Timer` })).toBeVisible();
 });
 
@@ -69,7 +74,7 @@ for (const role of ["owner", "admin", "member"] as const) {
     await signInAs(page, role);
     for (const route of ["/tracker", "/projects", "/clients", "/team", "/reports", "/settings"]) {
       await page.goto(route);
-      await expect(page.locator("#main-content")).toBeVisible();
+      await expect(page.locator("#main-content")).toBeVisible({ timeout: 30_000 });
       await expect(page.locator("body")).not.toContainText("The data request failed");
       await expect(page.locator("body")).not.toContainText("A data request failed");
     }

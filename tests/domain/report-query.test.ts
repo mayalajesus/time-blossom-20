@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { TimeEntry } from "../../src/lib/mock-data";
+import type { TimeEntry } from "../../src/lib/domain";
 import {
   entriesForReportWindow,
   reportEntryOverlaps,

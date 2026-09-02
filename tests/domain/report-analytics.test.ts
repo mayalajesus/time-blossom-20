@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BillingPreference, CurrencyCode } from "../../src/lib/billing";
-import type { Client, Project, TimeEntry } from "../../src/lib/mock-data";
+import type { Client, Project, TimeEntry } from "../../src/lib/domain";
 import {
   calculateCharacteristicTimes,
   calculateReportFinancialAnalytics,

@@ -10,8 +10,10 @@ import {
 describe("local account persistence", () => {
   it("accepts the current snapshot after changing one user's theme", () => {
     const account = makeSeedAccount();
-    account.preferencesByUserId.u1 = {
-      ...account.preferencesByUserId.u1,
+    const preferences = account.preferencesByUserId["u1"];
+    if (!preferences) throw new Error("The seed account must include user u1.");
+    account.preferencesByUserId["u1"] = {
+      ...preferences,
       theme: "dark",
     };
 
@@ -41,7 +43,7 @@ describe("local account persistence", () => {
 
     const migrated = migrateAccountSnapshot(legacy);
 
-    expect(migrated?.version).toBe(12);
+    expect(migrated?.version).toBe(13);
     expect(migrated?.workspaces[0]?.entries).toEqual(current.workspaces[0]?.entries);
     expect(migrated?.workspaces[0]?.entries[0]).toEqual(firstEntry);
     expect(
@@ -51,8 +53,8 @@ describe("local account persistence", () => {
     ).toEqual(
       expect.arrayContaining([expect.objectContaining({ hourlyRate: 180, currency: "BRL" })]),
     );
-    expect(migrated?.preferencesByUserId.u1).not.toHaveProperty("hourlyRate");
-    expect(migrated?.preferencesByUserId.u1).not.toHaveProperty("currency");
+    expect(migrated?.preferencesByUserId["u1"]).not.toHaveProperty("hourlyRate");
+    expect(migrated?.preferencesByUserId["u1"]).not.toHaveProperty("currency");
   });
 
   it("repairs duplicate entry IDs without changing the original records", () => {

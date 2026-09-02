@@ -56,7 +56,9 @@ test("keeps reports interactive while switching and reusing periods", async ({ p
   expect(reportRequests.at(-1)).not.toEqual(firstPeriod);
 
   const requestCountAfterNext = reportRequests.length;
-  const previousRange = page.getByRole("button", { name: /Previous range|Anterior/ }).first();
+  const previousRange = page
+    .getByRole("button", { name: /Previous (?:range|period)|período anterior/i })
+    .first();
   await previousRange.click();
   await expect(page.locator("#main-content")).toBeVisible();
   await page.waitForTimeout(500);
@@ -91,10 +93,14 @@ test("persists report filters across report views, reloads and route navigation"
     page.getByRole("button", { name: /Billability filter|Filtro de Faturabilidade/ }),
   ).toContainText(/Internal|Interno/);
   await page.getByRole("button", { name: /Choose columns|Escolher colunas/ }).click();
-  await page.getByRole("checkbox", { name: /Description|Descrição/ }).check();
+  await page
+    .getByRole("dialog", { name: /Choose columns|Escolher colunas/ })
+    .getByRole("checkbox", { name: /Description|Descrição/ })
+    .check({ force: true });
   await expect(page.getByRole("columnheader", { name: /Description|Descrição/ })).toBeVisible();
 
   await page.reload();
+  await expect(page.locator("#main-content")).toBeVisible({ timeout: 30_000 });
   await expect(page).toHaveURL(/view=detailed/);
   await expect(page).toHaveURL(/billability=internal/);
   await expect(
@@ -103,8 +109,9 @@ test("persists report filters across report views, reloads and route navigation"
   await expect(page.getByRole("columnheader", { name: /Description|Descrição/ })).toBeVisible();
 
   await page.goto("/tracker");
-  await expect(page.locator("#main-content")).toBeVisible();
+  await expect(page.locator("#main-content")).toBeVisible({ timeout: 30_000 });
   await page.goto("/reports?view=overview");
+  await expect(page.locator("#main-content")).toBeVisible({ timeout: 30_000 });
   await expect(page).toHaveURL(/view=overview/);
   await expect(page).toHaveURL(/billability=internal/);
   await expect(

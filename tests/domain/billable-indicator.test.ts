@@ -9,7 +9,10 @@ function renderIndicator(
   locale: "en-US" | "pt-BR" = "en-US",
 ) {
   return renderToStaticMarkup(
-    createElement(AppI18nProvider, { locale }, createElement(BillableIndicator, props)),
+    createElement(AppI18nProvider, {
+      locale,
+      children: createElement(BillableIndicator, props),
+    }),
   );
 }
 

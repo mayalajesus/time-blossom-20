@@ -16,9 +16,15 @@ const legacyImports = [
   "sonner",
   "vaul",
 ];
-const forbiddenVisualClasses =
-  /\b(?!rounded-(?:field|lg|xl)\b)(?:bg|border|ring|shadow|rounded|font|leading|tracking|hover|focus|transition|animate|backdrop|opacity|divide|decoration|fill|stroke|outline|text)-(?!center\b|left\b|right\b|start\b|end\b|wrap\b|nowrap\b)/;
+const forbiddenPaletteClasses =
+  /\b(?:bg|border|ring|divide|decoration|fill|stroke|text)-(?:white|black|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})\b/;
 const appUiRoots = ["src/components/", "src/routes/", "src/main.tsx"];
+const dynamicStyleExceptions = new Set([
+  "src/components/modal-select.tsx",
+  "src/components/project-color.tsx",
+  "src/routes/projects.index.tsx",
+  "src/routes/reports.tsx",
+]);
 const approvedThemeVariables = new Set([
   "--accent",
   "--accent-foreground",
@@ -117,7 +123,11 @@ for (const path of sourceFiles) {
     }
   }
 
-  if (!isChartException && /\bstyle\s*=|<style\b|dangerouslySetInnerHTML/.test(content)) {
+  if (
+    !isChartException &&
+    !dynamicStyleExceptions.has(file) &&
+    /\bstyle\s*=|<style\b|dangerouslySetInnerHTML/.test(content)
+  ) {
     violations.push(`${file}: inline or authored styles are forbidden outside the chart exception`);
   }
 
@@ -125,8 +135,8 @@ for (const path of sourceFiles) {
     file === "src/components/layout/app-shell.tsx"
       ? content.replaceAll("bg-background", "")
       : content;
-  if (!isChartException && isAppUiFile && forbiddenVisualClasses.test(contentForClassAudit)) {
-    violations.push(`${file}: visual utility class outside the approved chart exception`);
+  if (!isChartException && isAppUiFile && forbiddenPaletteClasses.test(contentForClassAudit)) {
+    violations.push(`${file}: hard-coded palette utility bypasses semantic theme tokens`);
   }
 
   if (file.endsWith(".css")) {

@@ -23,7 +23,19 @@ export default tseslint.config(
       // Shared UI modules intentionally export their variants/context helpers
       // alongside components; keep the Fast Refresh rule from flagging them.
       "react-refresh/only-export-components": "off",
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  {
+    extends: [js.configs.recommended],
+    files: ["**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "module",
+      globals: globals.node,
     },
   },
   eslintPluginPrettier,

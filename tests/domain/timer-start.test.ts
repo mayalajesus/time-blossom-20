@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Project, TimeEntry } from "../../src/lib/mock-data";
+import type { Project, TimeEntry } from "../../src/lib/domain";
 import {
   createRunningTimer,
   rememberRecentTimerTask,

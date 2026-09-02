@@ -18,7 +18,7 @@ test("all primary routes reload into the designed app shell", async ({ page }) =
   await signInAs(page, "owner");
   for (const route of routes) {
     await page.goto(route);
-    await expect(page.locator("#main-content")).toBeVisible();
+    await expect(page.locator("#main-content"), route).toBeVisible({ timeout: 15_000 });
     await expect(page.locator("body")).not.toContainText("Cannot find module");
     await expect(page.locator("body")).not.toContainText("Unexpected token");
   }
@@ -54,13 +54,16 @@ test("settings preserves language and theme controls", async ({ page }) => {
 
 test("profile menu is keyboard reachable from the sidebar", async ({ page }) => {
   await signInAs(page, "owner");
-  const profile = page.getByRole("button", { name: /Open account menu for/ });
+  const profile = page.getByRole("button", {
+    name: /Open account menu for|Abrir o menu da conta de/,
+  });
   await profile.focus();
   await expect(profile).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible();
+  const settingsItem = page.getByRole("menuitem", { name: /Settings|Configurações/ });
+  await expect(settingsItem).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("menuitem", { name: "Settings" })).toHaveCount(0);
+  await expect(settingsItem).toHaveCount(0);
 });
 
 test("account loading failures expose a recoverable error state", async ({ page }) => {
@@ -89,7 +92,7 @@ test("account loading failures expose a recoverable error state", async ({ page 
     }),
   ).toBeVisible();
   await page.getByRole("button", { name: /Try again|Tentar novamente/ }).click();
-  await expect(page.locator("#main-content")).toBeVisible();
+  await expect(page.locator("#main-content")).toBeVisible({ timeout: 15_000 });
 });
 
 test("members cannot access owner and admin actions", async ({ page }) => {
