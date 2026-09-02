@@ -1,4 +1,6 @@
-import { Pagination, Table, Typography } from "@heroui/react";
+import { Pagination } from "@heroui/react/pagination";
+import { Table } from "@heroui/react/table";
+import { Typography } from "@heroui/react/typography";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 export type DataTablePagination = {

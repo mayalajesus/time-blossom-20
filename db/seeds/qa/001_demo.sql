@@ -92,11 +92,10 @@ begin
         currency = excluded.currency,
         joined_at = excluded.joined_at;
 
-  insert into public.workspace_settings (workspace_id, default_billable, week_start)
-  values (v_workspace_id, true, 'monday')
+  insert into public.workspace_settings (workspace_id, week_start)
+  values (v_workspace_id, 'monday')
   on conflict (workspace_id) do update
-    set default_billable = excluded.default_billable,
-        week_start = excluded.week_start,
+    set week_start = excluded.week_start,
         updated_at = now();
 
   insert into public.clients (id, workspace_id, name, contact)

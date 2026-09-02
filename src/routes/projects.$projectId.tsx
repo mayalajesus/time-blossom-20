@@ -1,4 +1,5 @@
-import { Button, Chip } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowLeft, Clock } from "@gravity-ui/icons";
 import { BillableIndicator } from "@/components/billable-indicator";
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/projects/$projectId")({
 
 function ProjectDetail() {
   const { projectId } = Route.useParams();
-  const { projects, clients, entries, members, settings } = useStore();
+  const { projects, clients, entries, members } = useStore();
   const { locale, t } = useI18n();
 
   const project = projects.find((p) => p.id === projectId);

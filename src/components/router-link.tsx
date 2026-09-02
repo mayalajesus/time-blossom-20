@@ -1,4 +1,4 @@
-import { Link as HeroLink } from "@heroui/react";
+import { Link as HeroLink } from "@heroui/react/link";
 import { createLink } from "@tanstack/react-router";
 
 /**

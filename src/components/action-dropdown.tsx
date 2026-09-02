@@ -1,4 +1,6 @@
-import { Chip, Dropdown, Label } from "@heroui/react";
+import { Chip } from "@heroui/react/chip";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
 import type { ReactNode } from "react";
 import { Ellipsis } from "@gravity-ui/icons";
 

@@ -1,4 +1,5 @@
-import { Alert, CloseButton } from "@heroui/react";
+import { Alert } from "@heroui/react/alert";
+import { CloseButton } from "@heroui/react/close-button";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";

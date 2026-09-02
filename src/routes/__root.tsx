@@ -1,4 +1,6 @@
-import { Button, Toast, Typography } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Toast } from "@heroui/react/toast";
+import { Typography } from "@heroui/react/typography";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "../components/layout/app-shell";
 import { defaultLocale, translate, type Locale, useI18n } from "../lib/i18n";
@@ -12,8 +14,6 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { useEffect } from "react";
-
-import appCss from "../styles.css?url";
 
 function getRootFallbackLocale(): Locale {
   if (typeof document === "undefined") return defaultLocale;
@@ -98,10 +98,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
       { rel: "icon", href: "/favicon.ico?v=orbit-3", sizes: "any" },
       { rel: "icon", href: "/icons/icon-32.png?v=orbit-3", sizes: "32x32", type: "image/png" },
       { rel: "icon", href: "/favicon.svg?v=orbit-3", type: "image/svg+xml" },

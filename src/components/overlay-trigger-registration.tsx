@@ -1,4 +1,7 @@
-import { AlertDialog, Drawer, Modal, Popover } from "@heroui/react";
+import { AlertDialog } from "@heroui/react/alert-dialog";
+import { Drawer } from "@heroui/react/drawer";
+import { Modal } from "@heroui/react/modal";
+import { Popover } from "@heroui/react/popover";
 
 const registrationClassName = "sr-only";
 

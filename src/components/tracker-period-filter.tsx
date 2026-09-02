@@ -1,5 +1,8 @@
 import { Calendar, ChevronLeft, ChevronRight } from "@gravity-ui/icons";
-import { Button, I18nProvider, Popover, RangeCalendar } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { I18nProvider } from "@heroui/react/rac";
+import { Popover } from "@heroui/react/popover";
+import { RangeCalendar } from "@heroui/react/range-calendar";
 import { CalendarDate } from "@internationalized/date";
 import type { RangeValue } from "@react-types/shared";
 import { useEffect, useState } from "react";

@@ -1,18 +1,16 @@
-import {
-  Button,
-  Chip,
-  Description,
-  Dropdown,
-  FieldError,
-  Form,
-  Input,
-  Label,
-  Modal,
-  Table,
-  TextField,
-  Typography,
-  toast,
-} from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
+import { Description } from "@heroui/react/description";
+import { Dropdown } from "@heroui/react/dropdown";
+import { FieldError } from "@heroui/react/field-error";
+import { Form } from "@heroui/react/form";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Modal } from "@heroui/react/modal";
+import { Table } from "@heroui/react/table";
+import { TextField } from "@heroui/react/textfield";
+import { Typography } from "@heroui/react/typography";
+import { toast } from "@heroui/react/toast";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ChevronDown,
@@ -32,7 +30,7 @@ import { PageHeader } from "@/components/page-header";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
-import type { Member, Role } from "@/lib/mock-data";
+import type { Member, Role } from "@/lib/domain";
 import { useStore } from "@/lib/store";
 
 type InviteRole = Exclude<Role, "Owner">;

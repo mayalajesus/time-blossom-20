@@ -1,19 +1,17 @@
-import {
-  Card,
-  Button,
-  FieldError,
-  Form,
-  Input,
-  Label,
-  ListBox,
-  Select,
-  Switch,
-  Tabs,
-  TextField,
-  Tooltip,
-  Typography,
-  toast,
-} from "@heroui/react";
+import { Card } from "@heroui/react/card";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Form } from "@heroui/react/form";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { Select } from "@heroui/react/select";
+import { Switch } from "@heroui/react/switch";
+import { Tabs } from "@heroui/react/tabs";
+import { TextField } from "@heroui/react/textfield";
+import { Tooltip } from "@heroui/react/tooltip";
+import { Typography } from "@heroui/react/typography";
+import { toast } from "@heroui/react/toast";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, CircleInfo } from "@gravity-ui/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -29,8 +27,7 @@ import {
 import { useStore, type ThemeMode } from "@/lib/store";
 import { updateEmail, updatePassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
-import { createSupabaseDataSource } from "@/lib/supabase-data-source";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { createApiDataSource } from "@/lib/api-data-source";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -76,7 +73,7 @@ function SettingsPage() {
     updateCurrentMemberEmail,
   } = useStore();
   const { configured, session } = useAuth();
-  const dataSource = useMemo(() => createSupabaseDataSource(), []);
+  const dataSource = useMemo(() => createApiDataSource(), []);
   const { t, error } = useI18n();
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
   const [accountFirstName, setAccountFirstName] = useState(
@@ -160,9 +157,8 @@ function SettingsPage() {
     setAccountError(null);
     try {
       const avatarUrl = await prepareAvatarImage(file);
-      if (isSupabaseConfigured && session) {
-        const image = await fetch(avatarUrl).then((response) => response.blob());
-        const remote = await dataSource.uploadAvatar(session.user.id, image);
+      if (configured && session) {
+        const remote = await dataSource.uploadAvatar(avatarUrl);
         if (!remote.success) {
           setAccountError(remote.error);
           return;
@@ -204,8 +200,8 @@ function SettingsPage() {
     let storageWasRemoved = false;
     const fallbackAvatarUrl = getGoogleProfileAvatarUrl(session?.user.user_metadata);
     try {
-      if (isSupabaseConfigured && session) {
-        const remote = await dataSource.removeAvatar(session.user.id);
+      if (configured && session) {
+        const remote = await dataSource.removeAvatar();
         if (!remote.success) {
           setAccountError(remote.error);
           return;
@@ -253,8 +249,8 @@ function SettingsPage() {
     }
 
     if (configured) {
-      if (isSupabaseConfigured && session && nextName !== currentMember?.name) {
-        const nameResult = await dataSource.updateProfileName(session.user.id, nextName);
+      if (session && nextName !== currentMember?.name) {
+        const nameResult = await dataSource.updateProfileName(nextName);
         if (!nameResult.success) {
           setAccountError(nameResult.error);
           return;

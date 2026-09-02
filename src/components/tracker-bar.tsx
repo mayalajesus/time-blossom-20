@@ -1,16 +1,14 @@
-import {
-  Card,
-  ComboBox,
-  EmptyState,
-  Input,
-  Label,
-  ListBox,
-  Separator,
-  ToggleButton,
-  ToggleButtonGroup,
-  Toolbar,
-  toast,
-} from "@heroui/react";
+import { Card } from "@heroui/react/card";
+import { ComboBox } from "@heroui/react/combo-box";
+import { EmptyState } from "@heroui/react/empty-state";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { Separator } from "@heroui/react/separator";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
+import { Toolbar } from "@heroui/react/toolbar";
+import { toast } from "@heroui/react/toast";
 import { Square } from "@gravity-ui/icons";
 import { useEffect, useMemo, useState } from "react";
 import { BillableIndicator } from "@/components/billable-indicator";
@@ -27,7 +25,6 @@ export function TrackerBar() {
     timer,
     entries,
     projects,
-    settings,
     startTimer,
     updateTimer,
     setTimerElapsed,
@@ -40,7 +37,7 @@ export function TrackerBar() {
   const [task, setTask] = useState("");
   const [activeTask, setActiveTask] = useState(timer.task);
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [billable, setBillable] = useState(settings.defaultBillable);
+  const [billable, setBillable] = useState(false);
   const [timerError, setTimerError] = useState<string | null>(null);
   const active = timer.status !== "idle";
   const taskSuggestions = useMemo(() => {
@@ -152,9 +149,9 @@ export function TrackerBar() {
                   setProjectId(nextProjectId);
                   setBillable(
                     nextProjectId === null
-                      ? settings.defaultBillable
+                      ? false
                       : (projects.find((project) => project.id === nextProjectId)?.billable ??
-                          settings.defaultBillable),
+                          false),
                   );
                 }
               }}

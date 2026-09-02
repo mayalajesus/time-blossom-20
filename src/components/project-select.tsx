@@ -1,4 +1,8 @@
-import { Autocomplete, EmptyState, ListBox, SearchField, useFilter } from "@heroui/react";
+import { Autocomplete } from "@heroui/react/autocomplete";
+import { EmptyState } from "@heroui/react/empty-state";
+import { ListBox } from "@heroui/react/list-box";
+import { SearchField } from "@heroui/react/search-field";
+import { useFilter } from "@heroui/react/rac";
 import { useMemo, useState } from "react";
 import { ProjectLabel } from "@/components/project-color";
 import { useStore } from "@/lib/store";

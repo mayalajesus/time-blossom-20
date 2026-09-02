@@ -1,4 +1,7 @@
-import { Calendar, DateField, DatePicker, I18nProvider } from "@heroui/react";
+import { Calendar } from "@heroui/react/calendar";
+import { DateField } from "@heroui/react/date-field";
+import { DatePicker } from "@heroui/react/date-picker";
+import { I18nProvider } from "@heroui/react/rac";
 import { CalendarDate } from "@internationalized/date";
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { useI18n } from "@/lib/i18n";

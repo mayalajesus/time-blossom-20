@@ -1,26 +1,21 @@
-import {
-  Button,
-  ButtonGroup,
-  DateField,
-  DateRangePicker,
-  Dropdown,
-  EmptyState,
-  I18nProvider,
-  Input,
-  InputGroup,
-  Label,
-  RangeCalendar,
-  SearchField,
-  Separator,
-  TextField,
-  Toolbar,
-  Typography,
-  useFilter,
-} from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { ButtonGroup } from "@heroui/react/button-group";
+import { DateField } from "@heroui/react/date-field";
+import { DateRangePicker } from "@heroui/react/date-range-picker";
+import { Dropdown } from "@heroui/react/dropdown";
+import { EmptyState } from "@heroui/react/empty-state";
+import { I18nProvider, useFilter } from "@heroui/react/rac";
+import { InputGroup } from "@heroui/react/input-group";
+import { Label } from "@heroui/react/label";
+import { RangeCalendar } from "@heroui/react/range-calendar";
+import { SearchField } from "@heroui/react/search-field";
+import { Separator } from "@heroui/react/separator";
+import { TextField } from "@heroui/react/textfield";
+import { Toolbar } from "@heroui/react/toolbar";
+import { Typography } from "@heroui/react/typography";
 import {
   ArrowRotateLeft,
   Calendar,
-  ChartColumn,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -51,7 +46,7 @@ import {
   type DateRange,
   type ReportPeriodPreset,
 } from "@/lib/format";
-import type { Client, Member, Project } from "@/lib/mock-data";
+import type { Client, Member, Project } from "@/lib/domain";
 import type { CurrencyCode } from "@/lib/billing";
 
 export type ReportFilterKey = "member" | "client" | "project" | "description" | "billability";

@@ -1,4 +1,6 @@
-import { Button, Dropdown, Label } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
 import { ChevronDown } from "@gravity-ui/icons";
 
 export type ModalSelectOption = {

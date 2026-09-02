@@ -1,4 +1,8 @@
-import { Alert, Card, Chip, Spinner, Typography } from "@heroui/react";
+import { Alert } from "@heroui/react/alert";
+import { Card } from "@heroui/react/card";
+import { Chip } from "@heroui/react/chip";
+import { Spinner } from "@heroui/react/spinner";
+import { Typography } from "@heroui/react/typography";
 import { ArrowDown, ArrowUp, Minus } from "@gravity-ui/icons";
 import { useId, type ComponentProps, type ReactNode } from "react";
 import { BillableIndicator } from "./billable-indicator";

@@ -1,0 +1,74 @@
+import { createRemoteJWKSet, jwtVerify } from "jose";
+import { extractAuthIdentity } from "./auth-profile.mjs";
+import { DataApiError } from "./data-api-error.mjs";
+
+const jwksByAuthUrl = new Map();
+
+export async function authenticateDataRequest(request, config, getPool) {
+  const authorization = request.headers?.authorization ?? request.headers?.Authorization ?? "";
+  const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+  if (!token) throw new DataApiError(401, "Authentication is required.");
+
+  if (config.databaseProvider === "supabase") {
+    if (!config.supabaseUrl || !config.supabasePublishableKey) {
+      throw new DataApiError(500, "Supabase authentication is not configured.");
+    }
+    const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
+      headers: { apikey: config.supabasePublishableKey, authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      throw new DataApiError(401, "The authentication token is invalid or expired.");
+    }
+    const user = await response.json();
+    return extractAuthIdentity({
+      id: user.id,
+      email: user.email,
+      name: user.user_metadata?.displayName ?? user.user_metadata?.name,
+      metadata: user.user_metadata,
+    });
+  }
+
+  if (config.databaseProvider !== "neon" || !config.neonAuthUrl || !config.neonAuthIssuer) {
+    throw new DataApiError(500, "Neon authentication is not configured.");
+  }
+  const sessionResult = await getPool(config).query(
+    `select u.id::text, u.email, u.name, u.image
+       from neon_auth.session s
+       join neon_auth."user" u on u.id = s."userId"
+      where s.token = $1 and s."expiresAt" > now()
+      limit 1`,
+    [token],
+  );
+  if (sessionResult.rows[0]) {
+    return extractAuthIdentity({
+      id: sessionResult.rows[0].id,
+      email: sessionResult.rows[0].email,
+      name: sessionResult.rows[0].name,
+      metadata: { image: sessionResult.rows[0].image },
+    });
+  }
+
+  let keySet = jwksByAuthUrl.get(config.neonAuthUrl);
+  if (!keySet) {
+    keySet = createRemoteJWKSet(new URL(`${config.neonAuthUrl}/.well-known/jwks.json`));
+    jwksByAuthUrl.set(config.neonAuthUrl, keySet);
+  }
+  let verified;
+  try {
+    verified = await jwtVerify(token, keySet, {
+      issuer: config.neonAuthIssuer,
+      audience: config.neonAuthIssuer,
+    });
+  } catch {
+    throw new DataApiError(401, "The authentication token is invalid or expired.");
+  }
+  if (!verified.payload.sub) {
+    throw new DataApiError(401, "The authentication token has no user subject.");
+  }
+  return extractAuthIdentity({
+    id: verified.payload.sub,
+    email: verified.payload.email,
+    name: verified.payload.name,
+    metadata: verified.payload,
+  });
+}

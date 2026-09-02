@@ -1,4 +1,5 @@
-import { Button, Typography } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Typography } from "@heroui/react/typography";
 import { createFileRoute } from "@tanstack/react-router";
 import { Calendar, ChevronLeft, ChevronRight, Clock } from "@gravity-ui/icons";
 import { useMemo, useState } from "react";

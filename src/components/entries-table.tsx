@@ -1,4 +1,8 @@
-import { Button, Modal, Table, Typography, toast } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Modal } from "@heroui/react/modal";
+import { Table } from "@heroui/react/table";
+import { Typography } from "@heroui/react/typography";
+import { toast } from "@heroui/react/toast";
 import { Pencil, TrashBin } from "@gravity-ui/icons";
 import { BillableIndicator } from "@/components/billable-indicator";
 import { ProjectLabel } from "@/components/project-color";
@@ -11,7 +15,7 @@ import { ModalTriggerRegistration } from "@/components/overlay-trigger-registrat
 import { useStore } from "@/lib/store";
 import { formatDate, formatDuration, getEntryEndDayOffset } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
-import type { TimeEntry } from "@/lib/mock-data";
+import type { TimeEntry } from "@/lib/domain";
 
 export function EntriesTable({
   entries,

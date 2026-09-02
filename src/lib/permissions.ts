@@ -1,4 +1,4 @@
-import type { Role, ProjectStatus } from "./mock-data";
+import type { Role, ProjectStatus } from "./domain";
 
 export type Permission =
   | "track-own-time"

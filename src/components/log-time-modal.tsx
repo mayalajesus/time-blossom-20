@@ -1,17 +1,15 @@
-import {
-  Button,
-  Description,
-  FieldError,
-  Form,
-  Input,
-  Label,
-  Modal,
-  TextArea,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  toast,
-} from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Description } from "@heroui/react/description";
+import { FieldError } from "@heroui/react/field-error";
+import { Form } from "@heroui/react/form";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Modal } from "@heroui/react/modal";
+import { TextArea } from "@heroui/react/textarea";
+import { TextField } from "@heroui/react/textfield";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
+import { toast } from "@heroui/react/toast";
 import { useEffect, useState } from "react";
 import { BillableIndicator } from "@/components/billable-indicator";
 import { FormAlert } from "@/components/form-feedback";
@@ -36,7 +34,7 @@ import {
   parseDurationInput,
   shiftDate,
 } from "@/lib/format";
-import type { TimeEntry } from "@/lib/mock-data";
+import type { TimeEntry } from "@/lib/domain";
 
 export function LogTimeModal({
   isOpen,
@@ -50,7 +48,6 @@ export function LogTimeModal({
   const {
     projects,
     clients,
-    settings,
     preferences,
     addEntry,
     updateEntry,
@@ -87,13 +84,12 @@ export function LogTimeModal({
     setBillable(
       entry?.billable ??
         (entry?.projectId
-          ? (projects.find((project) => project.id === entry.projectId)?.billable ??
-            settings.defaultBillable)
-          : settings.defaultBillable),
+          ? (projects.find((project) => project.id === entry.projectId)?.billable ?? false)
+          : false),
     );
     setSaveError(null);
     setPendingEntry(null);
-  }, [entry, isOpen, preferences.timezone, projects, settings.defaultBillable]);
+  }, [entry, isOpen, preferences.timezone, projects]);
 
   const originalEndDate = entry ? getEndDateForEntry(entry) : undefined;
   const preserveOriginalRange = Boolean(entry && start === entry.start && end === entry.end);
@@ -292,9 +288,9 @@ export function LogTimeModal({
                         if (!entry) {
                           setBillable(
                             nextProjectId === null
-                              ? settings.defaultBillable
+                              ? false
                               : (projects.find((project) => project.id === nextProjectId)
-                                  ?.billable ?? settings.defaultBillable),
+                                  ?.billable ?? false),
                           );
                         }
                         setSaveError(null);

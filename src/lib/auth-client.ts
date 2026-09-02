@@ -1,7 +1,11 @@
-import { createAuthClient } from "@neondatabase/auth";
-import { SupabaseAuthAdapter } from "@neondatabase/auth/vanilla/adapters";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import { authProvider, isSupabaseConfigured, neonAuthUrl, supabase } from "./supabase";
+import {
+  authProvider,
+  isSupabaseConfigured,
+  neonAuthUrl,
+  supabasePublishableKey,
+  supabaseUrl,
+} from "./supabase";
 
 type ErrorLike = { message: string } | null;
 type SessionResponse = { data: { session: Session | null }; error: ErrorLike };
@@ -11,7 +15,7 @@ type AuthSubscription = {
 };
 type AuthStateCallback = (event: AuthChangeEvent, session: Session | null) => void;
 
-type AuthClient = {
+export type AuthClient = {
   getJWTToken?: () => Promise<string | null>;
   getSession: () => Promise<SessionResponse>;
   onAuthStateChange: (callback: AuthStateCallback) => AuthSubscription;
@@ -33,71 +37,63 @@ type AuthClient = {
   updateUser: (attributes: { password?: string; email?: string }) => Promise<{ error: ErrorLike }>;
 };
 
-const neonAuth =
-  authProvider === "neon" && neonAuthUrl
-    ? createAuthClient(neonAuthUrl, { adapter: SupabaseAuthAdapter() })
-    : null;
+export const isAuthConfigured =
+  isSupabaseConfigured || Boolean(authProvider === "neon" && neonAuthUrl);
 
-function unavailable(): never {
-  throw new Error("Authentication is currently unavailable.");
+let clientPromise: Promise<AuthClient | null> | null = null;
+
+async function createConfiguredClient(): Promise<AuthClient | null> {
+  if (!isAuthConfigured) return null;
+
+  if (authProvider === "supabase") {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(supabaseUrl, supabasePublishableKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+    });
+    return {
+      getSession: () => supabase.auth.getSession(),
+      getJWTToken: () => Promise.resolve(null),
+      onAuthStateChange: (callback) => supabase.auth.onAuthStateChange(callback),
+      signInWithPassword: (credentials) => supabase.auth.signInWithPassword(credentials),
+      signUp: (credentials) => supabase.auth.signUp(credentials),
+      signInWithOAuth: (options) => supabase.auth.signInWithOAuth(options),
+      signOut: () => supabase.auth.signOut(),
+      resetPasswordForEmail: (email, options) =>
+        supabase.auth.resetPasswordForEmail(email, options),
+      updateUser: (attributes) => supabase.auth.updateUser(attributes),
+    };
+  }
+
+  const [{ createAuthClient }, { SupabaseAuthAdapter }] = await Promise.all([
+    import("@neondatabase/auth"),
+    import("@neondatabase/auth/vanilla/adapters"),
+  ]);
+  const neonAuth = createAuthClient(neonAuthUrl, { adapter: SupabaseAuthAdapter() });
+  return {
+    getSession: () => neonAuth.getSession() as unknown as Promise<SessionResponse>,
+    getJWTToken: () => neonAuth.getJWTToken(false),
+    onAuthStateChange: (callback) =>
+      neonAuth.onAuthStateChange(callback) as unknown as AuthSubscription,
+    signInWithPassword: (credentials) =>
+      neonAuth.signInWithPassword(credentials) as unknown as Promise<AuthResponse>,
+    signUp: (credentials) => neonAuth.signUp(credentials) as unknown as Promise<AuthResponse>,
+    signInWithOAuth: (options) =>
+      neonAuth.signInWithOAuth(options) as unknown as Promise<{ error: ErrorLike }>,
+    signOut: () => neonAuth.signOut() as unknown as Promise<{ error: ErrorLike }>,
+    resetPasswordForEmail: (email, options) =>
+      neonAuth.resetPasswordForEmail(email, options) as unknown as Promise<{
+        error: ErrorLike;
+      }>,
+    updateUser: (attributes) =>
+      neonAuth.updateUser(attributes) as unknown as Promise<{ error: ErrorLike }>,
+  };
 }
 
-export const isAuthConfigured = isSupabaseConfigured || Boolean(neonAuth);
-
-export const authClient: AuthClient | null = isAuthConfigured
-  ? {
-      getSession: () => {
-        if (supabase) return supabase.auth.getSession();
-        if (neonAuth) return neonAuth.getSession() as unknown as Promise<SessionResponse>;
-        return Promise.reject(unavailable());
-      },
-      getJWTToken: () => (neonAuth ? neonAuth.getJWTToken(false) : Promise.resolve(null)),
-      onAuthStateChange: (callback) => {
-        if (supabase) return supabase.auth.onAuthStateChange(callback);
-        if (neonAuth) {
-          return neonAuth.onAuthStateChange(callback) as unknown as AuthSubscription;
-        }
-        return unavailable();
-      },
-      signInWithPassword: (credentials) => {
-        if (supabase) return supabase.auth.signInWithPassword(credentials);
-        if (neonAuth) {
-          return neonAuth.signInWithPassword(credentials) as unknown as Promise<AuthResponse>;
-        }
-        return Promise.reject(unavailable());
-      },
-      signUp: (credentials) => {
-        if (supabase) return supabase.auth.signUp(credentials);
-        if (neonAuth) return neonAuth.signUp(credentials) as unknown as Promise<AuthResponse>;
-        return Promise.reject(unavailable());
-      },
-      signInWithOAuth: (options) => {
-        if (supabase) return supabase.auth.signInWithOAuth(options);
-        if (neonAuth) {
-          return neonAuth.signInWithOAuth(options) as unknown as Promise<{ error: ErrorLike }>;
-        }
-        return Promise.reject(unavailable());
-      },
-      signOut: () => {
-        if (supabase) return supabase.auth.signOut();
-        if (neonAuth) return neonAuth.signOut() as unknown as Promise<{ error: ErrorLike }>;
-        return Promise.reject(unavailable());
-      },
-      resetPasswordForEmail: (email, options) => {
-        if (supabase) return supabase.auth.resetPasswordForEmail(email, options);
-        if (neonAuth) {
-          return neonAuth.resetPasswordForEmail(email, options) as unknown as Promise<{
-            error: ErrorLike;
-          }>;
-        }
-        return Promise.reject(unavailable());
-      },
-      updateUser: (attributes) => {
-        if (supabase) return supabase.auth.updateUser(attributes);
-        if (neonAuth) {
-          return neonAuth.updateUser(attributes) as unknown as Promise<{ error: ErrorLike }>;
-        }
-        return Promise.reject(unavailable());
-      },
-    }
-  : null;
+export function getAuthClient(): Promise<AuthClient | null> {
+  clientPromise ??= createConfiguredClient();
+  return clientPromise;
+}

@@ -1,4 +1,4 @@
-import { Chip } from "@heroui/react";
+import { Chip } from "@heroui/react/chip";
 import { CircleDollar } from "@gravity-ui/icons";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/utils";

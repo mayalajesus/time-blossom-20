@@ -1,22 +1,20 @@
-import {
-  Button,
-  Card,
-  Description,
-  Drawer,
-  Form,
-  I18nProvider as HeroI18nProvider,
-  Input,
-  Kbd,
-  Label,
-  Link,
-  Dropdown,
-  ButtonGroup,
-  Separator,
-  Spinner,
-  Surface,
-  TextField,
-  Typography,
-} from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
+import { Description } from "@heroui/react/description";
+import { Drawer } from "@heroui/react/drawer";
+import { Form } from "@heroui/react/form";
+import { I18nProvider as HeroI18nProvider } from "@heroui/react/rac";
+import { Input } from "@heroui/react/input";
+import { Kbd } from "@heroui/react/kbd";
+import { Label } from "@heroui/react/label";
+import { Link } from "@heroui/react/link";
+import { Dropdown } from "@heroui/react/dropdown";
+import { ButtonGroup } from "@heroui/react/button-group";
+import { Separator } from "@heroui/react/separator";
+import { Spinner } from "@heroui/react/spinner";
+import { Surface } from "@heroui/react/surface";
+import { TextField } from "@heroui/react/textfield";
+import { Typography } from "@heroui/react/typography";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { Bars, ChevronDown, Clock, LayoutSideContentLeft } from "@gravity-ui/icons";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";

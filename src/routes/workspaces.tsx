@@ -1,19 +1,17 @@
-import {
-  Avatar,
-  Button,
-  Chip,
-  Description,
-  FieldError,
-  Form,
-  Input,
-  Label,
-  Modal,
-  Table,
-  TextField,
-  Toolbar,
-  Typography,
-  toast,
-} from "@heroui/react";
+import { Avatar } from "@heroui/react/avatar";
+import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
+import { Description } from "@heroui/react/description";
+import { FieldError } from "@heroui/react/field-error";
+import { Form } from "@heroui/react/form";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Modal } from "@heroui/react/modal";
+import { Table } from "@heroui/react/table";
+import { TextField } from "@heroui/react/textfield";
+import { Toolbar } from "@heroui/react/toolbar";
+import { Typography } from "@heroui/react/typography";
+import { toast } from "@heroui/react/toast";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Archive,

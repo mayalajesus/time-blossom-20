@@ -1,6 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { authClient, isAuthConfigured } from "./auth-client";
+import { getAuthClient, isAuthConfigured } from "./auth-client";
 import { resetSessionDefaultAvatar } from "./default-avatar";
 
 interface AuthContextValue {
@@ -16,32 +16,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(isAuthConfigured);
 
   useEffect(() => {
-    if (!authClient) {
+    if (!isAuthConfigured) {
       setLoading(false);
       return;
     }
 
     let mounted = true;
-    void authClient
-      .getSession()
-      .then(({ data }) => {
-        if (!mounted) return;
-        setSession(data.session);
-        setLoading(false);
+    let unsubscribe: (() => void) | undefined;
+    void getAuthClient()
+      .then(async (authClient) => {
+        if (!mounted || !authClient) {
+          if (mounted) setLoading(false);
+          return;
+        }
+        const { data } = authClient.onAuthStateChange((event, nextSession) => {
+          if (event === "SIGNED_IN") resetSessionDefaultAvatar();
+          if (mounted) setSession(nextSession);
+        });
+        unsubscribe = () => data.subscription.unsubscribe();
+        const sessionResponse = await authClient.getSession();
+        if (mounted) setSession(sessionResponse.data.session);
       })
       .catch(() => {
         if (!mounted) return;
         setSession(null);
-        setLoading(false);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
       });
-
-    const { data } = authClient.onAuthStateChange((event, nextSession) => {
-      if (event === "SIGNED_IN") resetSessionDefaultAvatar();
-      if (mounted) setSession(nextSession);
-    });
     return () => {
       mounted = false;
-      data.subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, []);
 

@@ -1,19 +1,19 @@
-import { Button, Typography } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Typography } from "@heroui/react/typography";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AuthPage, ContinueToWorkspaceButton } from "@/components/auth-page";
 import { FormAlert } from "@/components/form-feedback";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
-import { createSupabaseDataSource } from "@/lib/supabase-data-source";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { createApiDataSource } from "@/lib/api-data-source";
 
 export const Route = createFileRoute("/invite/accept")({ component: InviteAcceptPage });
 
 function InviteAcceptPage() {
   const { configured, session } = useAuth();
   const { t } = useI18n();
-  const dataSource = useMemo(() => createSupabaseDataSource(), []);
+  const dataSource = useMemo(() => createApiDataSource(), []);
   const [busy, setBusy] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -27,10 +27,6 @@ function InviteAcceptPage() {
   const accept = async () => {
     if (!invitationId) {
       setErrorMessage("This invitation link is missing or invalid.");
-      return;
-    }
-    if (!isSupabaseConfigured) {
-      setErrorMessage("Invitation management is not configured for this environment.");
       return;
     }
     setBusy(true);

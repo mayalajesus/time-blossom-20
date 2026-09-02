@@ -1,4 +1,8 @@
-import { Card, Input, Label, TextField, Typography } from "@heroui/react";
+import { Card } from "@heroui/react/card";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { TextField } from "@heroui/react/textfield";
+import { Typography } from "@heroui/react/typography";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Magnifier } from "@gravity-ui/icons";
 import { PageHeader } from "@/components/page-header";

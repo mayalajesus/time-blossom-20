@@ -1,5 +1,5 @@
 import { getEndDateForEntry } from "./format";
-import type { TimeEntry } from "./mock-data";
+import type { TimeEntry } from "./domain";
 
 export const reportEntriesQueryName = "report-entries";
 

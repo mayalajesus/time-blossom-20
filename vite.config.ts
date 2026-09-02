@@ -2,7 +2,6 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { defineConfig, loadEnv } from "vite";
-// @ts-expect-error Vite loads this server-only JavaScript module at config time.
 import { createDataMiddleware } from "./server/data-api.mjs";
 
 export default defineConfig(({ mode }) => {
@@ -11,7 +10,7 @@ export default defineConfig(({ mode }) => {
     resolve: { tsconfigPaths: true },
     plugins: [
       tailwindcss(),
-      tanstackRouter({ target: "react" }),
+      tanstackRouter({ target: "react", autoCodeSplitting: true }),
       react(),
       {
         name: "watchtag-data-api",

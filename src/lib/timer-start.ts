@@ -1,4 +1,4 @@
-import type { Project, TimeEntry } from "./mock-data";
+import type { Project, TimeEntry } from "./domain";
 import type { TimerState, TimerStatus } from "./store";
 import type { BillingPreference } from "./billing";
 

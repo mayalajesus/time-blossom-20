@@ -1,4 +1,5 @@
 import "@fontsource-variable/inter";
+import "./styles.css";
 
 type BootLocale = "en-US" | "pt-BR";
 

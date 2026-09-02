@@ -1,4 +1,6 @@
-import { Button, Form, Link } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Form } from "@heroui/react/form";
+import { Link } from "@heroui/react/link";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {

@@ -1,4 +1,10 @@
-import { Button, Card, Description, Dropdown, Modal, Typography, toast } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
+import { Description } from "@heroui/react/description";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Modal } from "@heroui/react/modal";
+import { Typography } from "@heroui/react/typography";
+import { toast } from "@heroui/react/toast";
 import { Check, ChevronDown, Layers } from "@gravity-ui/icons";
 import { useState } from "react";
 import { ModalLayout } from "@/components/modal-layout";

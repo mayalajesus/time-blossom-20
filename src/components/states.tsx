@@ -1,4 +1,8 @@
-import { Alert, Button, Card, Spinner, Typography } from "@heroui/react";
+import { Alert } from "@heroui/react/alert";
+import { Button } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
+import { Spinner } from "@heroui/react/spinner";
+import { Typography } from "@heroui/react/typography";
 import type { ReactNode } from "react";
 import { useI18n } from "@/lib/i18n";
 

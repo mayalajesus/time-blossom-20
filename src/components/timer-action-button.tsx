@@ -1,4 +1,4 @@
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 import { Pause, Play } from "@gravity-ui/icons";
 import type { TimerStatus } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";

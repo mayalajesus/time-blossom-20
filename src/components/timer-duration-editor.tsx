@@ -1,4 +1,6 @@
-import { Input, Label, TextField } from "@heroui/react";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { TextField } from "@heroui/react/textfield";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 

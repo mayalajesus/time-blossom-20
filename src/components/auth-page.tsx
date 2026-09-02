@@ -1,13 +1,11 @@
-import {
-  Button,
-  Description,
-  FieldError,
-  Input,
-  Label,
-  Separator,
-  TextField,
-  Typography,
-} from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Description } from "@heroui/react/description";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Separator } from "@heroui/react/separator";
+import { TextField } from "@heroui/react/textfield";
+import { Typography } from "@heroui/react/typography";
 import type { ReactNode } from "react";
 import { FormAlert } from "@/components/form-feedback";
 import { RouterLink } from "@/components/router-link";

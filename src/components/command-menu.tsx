@@ -1,4 +1,11 @@
-import { Input, Kbd, Label, ListBox, Modal, TextField, Typography, toast } from "@heroui/react";
+import { Input } from "@heroui/react/input";
+import { Kbd } from "@heroui/react/kbd";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { Modal } from "@heroui/react/modal";
+import { TextField } from "@heroui/react/textfield";
+import { Typography } from "@heroui/react/typography";
+import { toast } from "@heroui/react/toast";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Calendar,

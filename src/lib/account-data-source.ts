@@ -1,6 +1,14 @@
-import type { PersistedAccount, TimerState, UserPreferences } from "./store";
-import type { DataSourceResult, ReportEntriesQuery } from "./data-source";
-import type { Member, Role, TimeEntry } from "./mock-data";
+import type { PersistedAccount, UserPreferences } from "./account-types";
+import type { TimerState } from "./store";
+import type { Member, Role, TimeEntry } from "./domain";
+
+export type DataSourceResult<T> = { success: true; data: T } | { success: false; error: string };
+
+export type ReportEntriesQuery = {
+  workspaceId: string;
+  startDate: string;
+  endDate: string;
+};
 
 export interface AccountDataSource {
   loadAccount(userId: string): Promise<DataSourceResult<PersistedAccount>>;
@@ -23,4 +31,8 @@ export interface AccountDataSource {
   ): Promise<DataSourceResult<Member>>;
   resendInvitation(workspaceId: string, invitationId: string): Promise<DataSourceResult<Member>>;
   cancelInvitation(workspaceId: string, invitationId: string): Promise<DataSourceResult<null>>;
+  updateProfileName(name: string): Promise<DataSourceResult<null>>;
+  uploadAvatar(avatarDataUrl: string): Promise<DataSourceResult<string>>;
+  removeAvatar(): Promise<DataSourceResult<null>>;
+  acceptInvitation(invitationId: string): Promise<DataSourceResult<{ workspaceId: string }>>;
 }

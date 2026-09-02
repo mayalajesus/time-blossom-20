@@ -1,4 +1,5 @@
-import { Button, Modal } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Modal } from "@heroui/react/modal";
 import { useEffect, useRef, useState } from "react";
 import { ModalLayout } from "@/components/modal-layout";
 import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";

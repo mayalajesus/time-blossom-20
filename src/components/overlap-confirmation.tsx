@@ -1,7 +1,9 @@
-import { AlertDialog, Button, Description } from "@heroui/react";
+import { AlertDialog } from "@heroui/react/alert-dialog";
+import { Button } from "@heroui/react/button";
+import { Description } from "@heroui/react/description";
 import { formatDuration } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
-import type { TimeEntry } from "@/lib/mock-data";
+import type { TimeEntry } from "@/lib/domain";
 import { AlertDialogTriggerRegistration } from "@/components/overlay-trigger-registration";
 
 export function formatOverlapConflict(entry: TimeEntry, locale: "en-US" | "pt-BR"): string {

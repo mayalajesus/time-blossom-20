@@ -11,14 +11,25 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useAuth } from "./auth-context";
 import { createApiDataSource } from "./api-data-source";
+import type {
+  PersistedAccount,
+  SessionStatus,
+  ThemeMode,
+  UserIdentity,
+  UserPreferences,
+  Workspace,
+  WorkspaceData,
+  WorkspaceMembership,
+  WorkspaceSettings,
+  WorkspaceSummary,
+} from "./account-types";
 import {
   clients as seedClients,
-  currentUserId as defaultCurrentUserId,
   members as seedMembers,
   projects as seedProjects,
   timeEntries as seedEntries,
 } from "./mock-data";
-import type { Client, Member, Project, Role, TimeEntry, TrelloState } from "./mock-data";
+import type { Client, Member, Project, Role, TimeEntry, TrelloState } from "./domain";
 import {
   addSecondsToDateTime,
   dateTimeToTimestamp,
@@ -28,7 +39,7 @@ import {
   isValidDateOnly,
   nowTime,
 } from "./format";
-import { defaultLocale, isLocale, type Locale } from "./i18n";
+import { defaultLocale, isLocale } from "./i18n";
 import {
   canTrackProject as canTrackProjectForRole,
   hasPermission,
@@ -41,11 +52,7 @@ import {
   type BillingPreference,
   type CurrencyCode,
 } from "./billing";
-import {
-  findTimeEntryConflict,
-  timeEntriesOverlap,
-  type ScopedTimeIntervalEntry,
-} from "./time-entry-overlap";
+import { findTimeEntryConflict, type ScopedTimeIntervalEntry } from "./time-entry-overlap";
 import { entriesForReportWindow, reportEntriesQueryName } from "./report-query";
 import { parseStoredReportFiltersValue, type StoredReportFilters } from "./report-filter-storage";
 import {
@@ -57,6 +64,19 @@ import {
 } from "./timer-start";
 
 export { findTimeEntryConflict, timeEntriesOverlap } from "./time-entry-overlap";
+export type {
+  PersistedAccount,
+  SessionStatus,
+  ThemeMode,
+  UserIdentity,
+  UserPreferences,
+  Workspace,
+  WorkspaceData,
+  WorkspaceMembership,
+  WorkspaceSettings,
+  WorkspaceStatus,
+  WorkspaceSummary,
+} from "./account-types";
 
 export type TimerStatus = "idle" | "running" | "paused";
 
@@ -74,63 +94,6 @@ export interface TimerState {
   currency?: CurrencyCode;
 }
 
-export type WorkspaceStatus = "active" | "archived";
-
-export interface UserIdentity {
-  id: string;
-  name: string;
-  email: string;
-  initials: string;
-}
-
-export interface Workspace {
-  id: string;
-  name: string;
-  ownerId: string;
-  logoDataUrl: string | null;
-  status: WorkspaceStatus;
-  createdAt: string;
-  archivedAt?: string;
-}
-
-export interface WorkspaceMembership {
-  workspaceId: string;
-  userId: string;
-  role: Role;
-  status: Member["status"];
-  hourlyRate: number;
-  currency: CurrencyCode;
-  invitedAt?: string;
-  joinedAt?: string;
-}
-
-export interface WorkspaceSummary extends Workspace {
-  ownerName: string;
-  role: Role;
-  membershipStatus: Member["status"];
-  isOwned: boolean;
-  hourlyRate: number;
-  currency: CurrencyCode;
-}
-
-export interface WorkspaceSettings {
-  defaultBillable: boolean;
-  weekStart: "monday" | "sunday";
-}
-
-export type ThemeMode = "system" | "light" | "dark";
-export type SessionStatus = "active" | "signed-out";
-
-export interface UserPreferences {
-  idleDetection: boolean;
-  language: Locale;
-  theme: ThemeMode;
-  avatarUrl: string | null;
-  timezone: string;
-  activeWorkspaceId: string | null;
-  reportFilters: Record<string, StoredReportFilters>;
-}
-
 export type { Permission } from "./permissions";
 
 export type StoreResult =
@@ -142,29 +105,12 @@ type AddEntryOptions = {
   refreshBilling?: boolean;
 };
 
-export interface WorkspaceData {
-  workspace: Workspace;
-  memberships: WorkspaceMembership[];
-  entries: TimeEntry[];
-  projects: Project[];
-  clients: Client[];
-  settings: WorkspaceSettings;
-  trello: TrelloState;
-}
-
-export type PersistedAccount = {
-  version: 12;
-  identities: UserIdentity[];
-  workspaces: WorkspaceData[];
-  preferencesByUserId: Record<string, UserPreferences>;
-};
-
 const initialTimer: TimerState = {
   status: "idle",
   workspaceId: null,
   task: "",
   projectId: null,
-  billable: true,
+  billable: false,
   startedAt: null,
   startedDate: null,
   accumulated: 0,
@@ -172,7 +118,6 @@ const initialTimer: TimerState = {
 };
 
 const initialSettings: WorkspaceSettings = {
-  defaultBillable: true,
   weekStart: "monday",
 };
 
@@ -273,10 +218,7 @@ function isValidPreferences(value: unknown): value is UserPreferences {
 function isValidSettings(value: unknown): value is WorkspaceSettings {
   if (!value || typeof value !== "object") return false;
   const settings = value as Partial<WorkspaceSettings>;
-  return (
-    typeof settings.defaultBillable === "boolean" &&
-    (settings.weekStart === "monday" || settings.weekStart === "sunday")
-  );
+  return settings.weekStart === "monday" || settings.weekStart === "sunday";
 }
 
 function isValidClient(value: unknown): value is Client {
@@ -287,21 +229,6 @@ function isValidClient(value: unknown): value is Client {
     typeof client.name === "string" &&
     Boolean(client.name.trim()) &&
     typeof client.contact === "string"
-  );
-}
-
-function isValidMember(value: unknown): value is Member {
-  if (!value || typeof value !== "object") return false;
-  const member = value as Partial<Member>;
-  return (
-    typeof member.id === "string" &&
-    typeof member.name === "string" &&
-    Boolean(member.name.trim()) &&
-    typeof member.email === "string" &&
-    Boolean(member.email.trim()) &&
-    (member.role === "Owner" || member.role === "Admin" || member.role === "Member") &&
-    (member.status === "active" || member.status === "invited" || member.status === "removed") &&
-    typeof member.initials === "string"
   );
 }
 
@@ -404,118 +331,6 @@ function createIdentity(member: Member): UserIdentity {
   return { id: member.id, name: member.name, email: member.email, initials: member.initials };
 }
 
-function normalizeLegacyAccount(value: unknown): PersistedAccount | null {
-  if (!value || typeof value !== "object") return null;
-  const raw = value as Record<string, unknown>;
-  if (
-    !Array.isArray(raw["entries"]) ||
-    !Array.isArray(raw["projects"]) ||
-    !Array.isArray(raw["clients"])
-  )
-    return null;
-  const legacySettings = raw["settings"] as Record<string, unknown> | undefined;
-  if (
-    !legacySettings ||
-    typeof legacySettings["defaultBillable"] !== "boolean" ||
-    (legacySettings["weekStart"] !== "monday" && legacySettings["weekStart"] !== "sunday")
-  )
-    return null;
-  const clients = raw["clients"].filter(isValidClient) as Client[];
-  if (clients.length !== raw["clients"].length) return null;
-  const projects = raw["projects"]
-    .map((candidate) => {
-      if (!candidate || typeof candidate !== "object") return null;
-      const project = candidate as Record<string, unknown>;
-      const normalized = {
-        ...project,
-        billable:
-          typeof project["billable"] === "boolean"
-            ? project["billable"]
-            : legacySettings["defaultBillable"],
-      };
-      return isValidProject(normalized, clients) ? (normalized as Project) : null;
-    })
-    .filter((project): project is Project => project !== null);
-  if (projects.length !== raw["projects"].length) return null;
-  const entries = raw["entries"].filter((entry) => isValidEntry(entry, projects)) as TimeEntry[];
-  if (entries.length !== raw["entries"].length) return null;
-  const legacyMembers = raw["members"];
-  const members =
-    Array.isArray(legacyMembers) && legacyMembers.every(isValidMember)
-      ? (legacyMembers as Member[])
-      : seedMembers;
-  const workspaceId = "w1";
-  const owner = members.find((member) => member.role === "Owner") ?? members[0];
-  const workspaceName =
-    typeof legacySettings["workspaceName"] === "string" && legacySettings["workspaceName"].trim()
-      ? legacySettings["workspaceName"].trim()
-      : "Studio Co.";
-  const identities = members.map(createIdentity);
-  const preferencesByUserId: Record<string, UserPreferences> = {};
-  const billingByUserId: Record<string, BillingPreference> = {};
-  const legacyPreferences = raw["preferencesByMemberId"];
-  for (const member of members) {
-    const candidate =
-      legacyPreferences && typeof legacyPreferences === "object"
-        ? (legacyPreferences as Record<string, unknown>)[member.id]
-        : null;
-    const legacy = candidate as (Partial<UserPreferences> & Partial<BillingPreference>) | null;
-    const language = legacy && isLocale(legacy.language) ? legacy.language : defaultLocale;
-    billingByUserId[member.id] = {
-      hourlyRate:
-        legacy && isFiniteNumber(legacy.hourlyRate) && legacy.hourlyRate >= 0
-          ? legacy.hourlyRate
-          : 0,
-      currency:
-        legacy && isCurrencyCode(legacy.currency)
-          ? legacy.currency
-          : defaultCurrencyForLocale(language),
-    };
-    preferencesByUserId[member.id] =
-      legacy &&
-      typeof legacy.idleDetection === "boolean" &&
-      isLocale(legacy.language) &&
-      isThemeMode(legacy.theme) &&
-      isValidAvatarUrl(legacy.avatarUrl)
-        ? {
-            idleDetection: legacy.idleDetection,
-            language: legacy.language,
-            theme: legacy.theme,
-            avatarUrl: legacy.avatarUrl,
-            timezone: isValidTimeZone(legacy.timezone) ? legacy.timezone : getInitialTimeZone(),
-            activeWorkspaceId: null,
-            reportFilters: {},
-          }
-        : { ...initialPreferences };
-  }
-  return {
-    version: 12,
-    identities,
-    workspaces: [
-      {
-        workspace: {
-          id: workspaceId,
-          name: workspaceName,
-          ownerId: owner?.id ?? defaultCurrentUserId,
-          logoDataUrl: null,
-          status: "active",
-          createdAt: new Date().toISOString(),
-        },
-        memberships: membersToMemberships(workspaceId, members, [], billingByUserId),
-        entries,
-        projects,
-        clients,
-        settings: {
-          defaultBillable: legacySettings["defaultBillable"],
-          weekStart: legacySettings["weekStart"],
-        },
-        trello: initialTrello,
-      },
-    ],
-    preferencesByUserId,
-  };
-}
-
 export function migrateAccountSnapshot(value: unknown): PersistedAccount | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as {
@@ -525,7 +340,7 @@ export function migrateAccountSnapshot(value: unknown): PersistedAccount | null 
     preferencesByUserId?: Record<string, unknown>;
   };
   if (
-    (raw.version !== 9 && raw.version !== 10 && raw.version !== 11) ||
+    (raw.version !== 9 && raw.version !== 10 && raw.version !== 11 && raw.version !== 12) ||
     !Array.isArray(raw.identities) ||
     !Array.isArray(raw.workspaces) ||
     !raw.workspaces.every((workspace) => Array.isArray(workspace?.memberships)) ||
@@ -579,10 +394,13 @@ export function migrateAccountSnapshot(value: unknown): PersistedAccount | null 
   }
 
   const migrated: PersistedAccount = {
-    version: 12,
+    version: 13,
     identities: raw.identities,
     workspaces: raw.workspaces.map((data) => ({
       ...data,
+      settings: {
+        weekStart: data.settings.weekStart === "sunday" ? "sunday" : "monday",
+      },
       memberships: data.memberships.map((membership) => {
         const current = membership as Partial<WorkspaceMembership> &
           Pick<WorkspaceMembership, "userId">;
@@ -614,7 +432,10 @@ export function migrateAccountSnapshot(value: unknown): PersistedAccount | null 
 export function repairDuplicateEntryIds(value: unknown): unknown {
   if (
     !isRecord(value) ||
-    (value["version"] !== 10 && value["version"] !== 11 && value["version"] !== 12) ||
+    (value["version"] !== 10 &&
+      value["version"] !== 11 &&
+      value["version"] !== 12 &&
+      value["version"] !== 13) ||
     !Array.isArray(value["workspaces"])
   ) {
     return value;
@@ -708,7 +529,7 @@ export function makeSeedAccount(): PersistedAccount {
     trello: initialTrello,
   };
   return {
-    version: 12,
+    version: 13,
     identities,
     workspaces: [defaultWorkspace, sharedWorkspace],
     preferencesByUserId: Object.fromEntries(
@@ -721,7 +542,7 @@ export function isValidAccount(value: unknown): value is PersistedAccount {
   if (!value || typeof value !== "object") return false;
   const account = value as Partial<PersistedAccount>;
   if (
-    account.version !== 12 ||
+    account.version !== 13 ||
     !Array.isArray(account.identities) ||
     !Array.isArray(account.workspaces) ||
     !account.preferencesByUserId ||
@@ -859,15 +680,6 @@ export function pauseTimerAt(timer: TimerState, effectiveAt = Date.now()): Timer
 
 function cloneTrello(trello: TrelloState): TrelloState {
   return { ...trello, lists: [...trello.lists], cards: [...trello.cards] };
-}
-
-function displayNameFromInviteEmail(email: string): string {
-  const localPart = email
-    .split("@")[0]
-    ?.replace(/[._-]+/g, " ")
-    .trim();
-  if (!localPart) return email;
-  return localPart.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function initialsFromName(name: string): string {
@@ -1024,7 +836,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const dataSource = useMemo(() => createApiDataSource(), []);
   const [account, setAccount] = useState<PersistedAccount>({
-    version: 12,
+    version: 13,
     identities: [],
     workspaces: [],
     preferencesByUserId: {},
@@ -1196,7 +1008,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setHydrated(false);
       setTimerHydrated(false);
       setSessionStatus("signed-out");
-      setAccount({ version: 12, identities: [], workspaces: [], preferencesByUserId: {} });
+      setAccount({ version: 13, identities: [], workspaces: [], preferencesByUserId: {} });
       setActiveMemberId("");
       setActiveWorkspaceId("");
       setEntries([]);
@@ -1292,6 +1104,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
     });
     for (const query of reportQueries) {
+      if (query.state.dataUpdatedAt === 0) continue;
       const parameters = query.queryKey[1] as {
         startDate: string;
         endDate: string;
@@ -1512,9 +1325,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!projectValidation.success) return projectValidation;
       const projectDefault =
         projectId === null
-          ? settings.defaultBillable
-          : (projects.find((project) => project.id === projectId)?.billable ??
-            settings.defaultBillable);
+          ? false
+          : (projects.find((project) => project.id === projectId)?.billable ?? false);
       const now = Date.now();
       const next = createRunningTimer(
         { task, projectId, billable: billable ?? projectDefault },
@@ -2087,8 +1899,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           error: "Only Admins and the Owner can change workspace settings.",
         };
       const next = { ...settings, ...patch };
-      if (typeof next.defaultBillable !== "boolean")
-        return { success: false, error: "Choose a valid default billability setting." };
       if (next.weekStart !== "monday" && next.weekStart !== "sunday")
         return { success: false, error: "Choose a valid week start." };
       setSettingsState(next);

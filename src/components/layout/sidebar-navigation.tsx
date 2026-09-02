@@ -1,4 +1,8 @@
-import { Button, Popover, ScrollShadow, Separator, Typography } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Popover } from "@heroui/react/popover";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
+import { Separator } from "@heroui/react/separator";
+import { Typography } from "@heroui/react/typography";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
   ChartColumn,

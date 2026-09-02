@@ -16,7 +16,7 @@ import {
   shiftDate,
   type DateRange,
 } from "./format";
-import type { Client, Project, TimeEntry } from "./mock-data";
+import type { Client, Project, TimeEntry } from "./domain";
 
 export type TemporalGranularity = "day" | "week" | "month";
 export type ShiftId = "overnight" | "morning" | "afternoon" | "night";

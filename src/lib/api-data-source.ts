@@ -1,9 +1,13 @@
 import type { Session } from "@supabase/supabase-js";
-import { authClient } from "./auth-client";
-import type { AccountDataSource } from "./account-data-source";
-import type { DataSourceResult, ReportEntriesQuery } from "./data-source";
-import type { Member, TimeEntry } from "./mock-data";
-import type { PersistedAccount, TimerState } from "./store";
+import { getAuthClient } from "./auth-client";
+import type {
+  AccountDataSource,
+  DataSourceResult,
+  ReportEntriesQuery,
+} from "./account-data-source";
+import type { Member, TimeEntry } from "./domain";
+import type { PersistedAccount } from "./account-types";
+import type { TimerState } from "./store";
 
 const apiBaseUrl = (import.meta.env["VITE_API_BASE_URL"] ?? "").replace(/\/$/, "");
 const endpoint = `${apiBaseUrl}/api/data`;
@@ -17,8 +21,9 @@ function ok<T>(data: T): DataSourceResult<T> {
 }
 
 async function session(): Promise<DataSourceResult<Session>> {
-  if (!authClient) return fail("Authentication is currently unavailable.");
   try {
+    const authClient = await getAuthClient();
+    if (!authClient) return fail("Authentication is currently unavailable.");
     const response = await authClient.getSession();
     if (response.error) return fail(response.error.message);
     if (!response.data.session) return fail("Authentication is required.");
@@ -29,10 +34,11 @@ async function session(): Promise<DataSourceResult<Session>> {
 }
 
 async function token(currentSession: Session): Promise<string> {
-  if (currentSession.access_token) return currentSession.access_token;
+  const authClient = await getAuthClient();
   const sessionToken = (await authClient?.getJWTToken?.()) ?? "";
-  if (!sessionToken) throw new Error("Your authentication session is unavailable.");
-  return sessionToken;
+  if (sessionToken) return sessionToken;
+  if (currentSession.access_token) return currentSession.access_token;
+  throw new Error("Your authentication session is unavailable.");
 }
 
 async function request<T>(
@@ -44,7 +50,7 @@ async function request<T>(
 
   try {
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 15_000);
+    const timeout = window.setTimeout(() => controller.abort(), 25_000);
     const response = await fetch(endpoint, {
       method: "POST",
       credentials: "include",
@@ -89,5 +95,10 @@ export function createApiDataSource(): AccountDataSource {
       request<Member>("resendInvitation", { workspaceId, invitationId }),
     cancelInvitation: (workspaceId, invitationId) =>
       request<null>("cancelInvitation", { workspaceId, invitationId }),
+    updateProfileName: (name) => request<null>("updateProfileName", { name }),
+    uploadAvatar: (avatarDataUrl) => request<string>("uploadAvatar", { avatarDataUrl }),
+    removeAvatar: () => request<null>("removeAvatar"),
+    acceptInvitation: (invitationId) =>
+      request<{ workspaceId: string }>("acceptInvitation", { invitationId }),
   };
 }

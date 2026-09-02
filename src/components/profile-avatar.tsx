@@ -1,5 +1,5 @@
-import { Avatar } from "@heroui/react";
-import type { Member } from "@/lib/mock-data";
+import { Avatar } from "@heroui/react/avatar";
+import type { Member } from "@/lib/domain";
 import { getSessionDefaultAvatarUrl } from "@/lib/default-avatar";
 
 export function ProfileAvatar({

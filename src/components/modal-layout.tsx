@@ -1,4 +1,4 @@
-import { Modal } from "@heroui/react";
+import { Modal } from "@heroui/react/modal";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 

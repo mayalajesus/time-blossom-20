@@ -1,17 +1,15 @@
-import {
-  Button,
-  FieldError,
-  Input,
-  Label,
-  Modal,
-  Surface,
-  Table,
-  TextField,
-  TimeField,
-  Tooltip,
-  Typography,
-  toast,
-} from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Modal } from "@heroui/react/modal";
+import { Surface } from "@heroui/react/surface";
+import { Table } from "@heroui/react/table";
+import { TextField } from "@heroui/react/textfield";
+import { TimeField } from "@heroui/react/time-field";
+import { Tooltip } from "@heroui/react/tooltip";
+import { Typography } from "@heroui/react/typography";
+import { toast } from "@heroui/react/toast";
 import { Time } from "@internationalized/date";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { ChevronDown, ChevronUp, CircleExclamation, Copy, Play, TrashBin } from "@gravity-ui/icons";
@@ -41,7 +39,7 @@ import {
   shiftDate,
 } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
-import type { TimeEntry } from "@/lib/mock-data";
+import type { TimeEntry } from "@/lib/domain";
 
 export interface TrackerDay {
   date: string;
@@ -319,7 +317,7 @@ function trackerEntryRowKey(_group: TrackerGroup, entry: TimeEntry, _index: numb
 
 export function TrackerEntries({ days }: { days: TrackerDay[] }) {
   const { deleteEntry, restoreEntry } = useStore();
-  const { locale, t, error } = useI18n();
+  const { t, error } = useI18n();
   const [activeCell, setActiveCell] = useState<ActiveCell>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const [pendingDelete, setPendingDelete] = useState<TimeEntry | null>(null);

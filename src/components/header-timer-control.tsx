@@ -1,4 +1,4 @@
-import { toast } from "@heroui/react";
+import { toast } from "@heroui/react/toast";
 import { useI18n } from "@/lib/i18n";
 import { useStore, useTimerTicker } from "@/lib/store";
 import { TimerActionButton } from "@/components/timer-action-button";

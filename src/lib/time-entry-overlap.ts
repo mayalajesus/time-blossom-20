@@ -1,5 +1,5 @@
 import { dateTimeToTimestamp, getEndDateForEntry } from "./format";
-import type { TimeEntry } from "./mock-data";
+import type { TimeEntry } from "./domain";
 
 export type ScopedTimeIntervalEntry = Pick<
   TimeEntry,

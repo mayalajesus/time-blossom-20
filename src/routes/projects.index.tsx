@@ -1,30 +1,27 @@
-import {
-  AlertDialog,
-  Avatar,
-  Button,
-  Chip,
-  ColorSwatchPicker,
-  EmptyState,
-  FieldError,
-  Form,
-  Input,
-  Label,
-  Modal,
-  SearchField,
-  Switch,
-  Tag,
-  TagGroup,
-  ButtonGroup,
-  Dropdown,
-  Table,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-  useFilter,
-  toast,
-  parseColor,
-} from "@heroui/react";
+import { AlertDialog } from "@heroui/react/alert-dialog";
+import { Avatar } from "@heroui/react/avatar";
+import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
+import { ColorSwatchPicker } from "@heroui/react/color-swatch-picker";
+import { EmptyState } from "@heroui/react/empty-state";
+import { FieldError } from "@heroui/react/field-error";
+import { Form } from "@heroui/react/form";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Modal } from "@heroui/react/modal";
+import { SearchField } from "@heroui/react/search-field";
+import { Switch } from "@heroui/react/switch";
+import { Tag } from "@heroui/react/tag";
+import { TagGroup } from "@heroui/react/tag-group";
+import { ButtonGroup } from "@heroui/react/button-group";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Table } from "@heroui/react/table";
+import { TextField } from "@heroui/react/textfield";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
+import { Typography } from "@heroui/react/typography";
+import { useFilter, parseColor } from "@heroui/react/rac";
+import { toast } from "@heroui/react/toast";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Archive,
@@ -53,7 +50,7 @@ import { EmptyBlock } from "@/components/states";
 import { formatDate, formatDuration } from "@/lib/format";
 import { getSessionDefaultAvatarUrl } from "@/lib/default-avatar";
 import { useI18n } from "@/lib/i18n";
-import type { Project } from "@/lib/mock-data";
+import type { Project } from "@/lib/domain";
 import { defaultProjectColor, projectColorOptions, projectColorValue } from "@/lib/project-colors";
 import { useStore } from "@/lib/store";
 
@@ -81,7 +78,6 @@ function ProjectsPage() {
     clients,
     entries,
     members,
-    settings,
     preferencesByUserId,
     today,
     currentUserId,
@@ -97,7 +93,7 @@ function ProjectsPage() {
   const [name, setName] = useState("");
   const [clientId, setClientId] = useState("");
   const [projectColor, setProjectColor] = useState(defaultProjectColor);
-  const [projectBillable, setProjectBillable] = useState(settings.defaultBillable);
+  const [projectBillable, setProjectBillable] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [pendingArchive, setPendingArchive] = useState<Project | null>(null);
@@ -127,7 +123,7 @@ function ProjectsPage() {
     setName(project?.name ?? "");
     setClientId(project?.clientId ?? "");
     setProjectColor(projectColorValue(project?.color));
-    setProjectBillable(project?.billable ?? settings.defaultBillable);
+    setProjectBillable(project?.billable ?? false);
     setAssignedMemberIds(project?.memberIds ?? [currentUserId]);
     setMemberQuery("");
     setNewOpen(true);

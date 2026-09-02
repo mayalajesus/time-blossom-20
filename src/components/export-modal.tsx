@@ -1,4 +1,11 @@
-import { Button, Description, Form, Label, Modal, Radio, RadioGroup, toast } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Description } from "@heroui/react/description";
+import { Form } from "@heroui/react/form";
+import { Label } from "@heroui/react/label";
+import { Modal } from "@heroui/react/modal";
+import { Radio } from "@heroui/react/radio";
+import { RadioGroup } from "@heroui/react/radio-group";
+import { toast } from "@heroui/react/toast";
 import { ArrowDownToLine } from "@gravity-ui/icons";
 import { useState } from "react";
 import { FormAlert } from "@/components/form-feedback";

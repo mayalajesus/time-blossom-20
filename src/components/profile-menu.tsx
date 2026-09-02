@@ -1,4 +1,9 @@
-import { Dropdown, Label, Separator, Tabs, toast, Typography } from "@heroui/react";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
+import { Separator } from "@heroui/react/separator";
+import { Tabs } from "@heroui/react/tabs";
+import { toast } from "@heroui/react/toast";
+import { Typography } from "@heroui/react/typography";
 import { useNavigate } from "@tanstack/react-router";
 import { ArrowRightFromSquare, Display, Gear, Moon, Sun } from "@gravity-ui/icons";
 import { useState } from "react";

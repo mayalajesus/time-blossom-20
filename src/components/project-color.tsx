@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Project } from "@/lib/mock-data";
+import type { Project } from "@/lib/domain";
 import { projectColorTextValue } from "@/lib/project-colors";
 
 const projectLabelSizeClasses = {

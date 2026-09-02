@@ -1,11 +1,11 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
 import { createClient } from "@supabase/supabase-js";
 import pg from "pg";
-import { avatarDataValue as profileAvatarDataValue, extractAuthIdentity } from "./auth-profile.mjs";
+import { avatarDataValue as profileAvatarDataValue } from "./auth-profile.mjs";
+import { authenticateDataRequest } from "./authentication.mjs";
+import { DataApiError } from "./data-api-error.mjs";
 
 const { Pool } = pg;
 const pools = new Map();
-const jwks = new Map();
 const supabaseAdmins = new Map();
 const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
 const MAX_INTEGER_SECONDS = 2_147_483_647;
@@ -18,21 +18,23 @@ const defaultAvatarUrls = [
   "https://heroui-assets.nyc3.cdn.digitaloceanspaces.com/avatars/purple.jpg",
 ];
 
-class DataApiError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.name = "DataApiError";
-    this.status = status;
-  }
-}
-
 function envValue(env, key) {
   return env?.[key] ?? process.env[key] ?? "";
+}
+
+function authOrigin(authUrl) {
+  if (!authUrl) return "";
+  try {
+    return new URL(authUrl).origin;
+  } catch {
+    return "";
+  }
 }
 
 function providerEnv(env) {
   const databaseProvider = envValue(env, "DATABASE_PROVIDER");
   const vercelUrl = envValue(env, "VERCEL_URL");
+  const neonAuthUrl = envValue(env, "VITE_NEON_AUTH_URL").replace(/\/$/, "");
   return {
     databaseProvider,
     databaseUrl:
@@ -42,7 +44,8 @@ function providerEnv(env) {
       envValue(env, "APP_URL") ||
       envValue(env, "VITE_APP_URL") ||
       (vercelUrl ? `https://${vercelUrl}` : ""),
-    neonAuthUrl: envValue(env, "VITE_NEON_AUTH_URL").replace(/\/$/, ""),
+    neonAuthUrl,
+    neonAuthIssuer: authOrigin(neonAuthUrl),
     supabaseUrl: (envValue(env, "SUPABASE_URL") || envValue(env, "VITE_SUPABASE_URL")).replace(
       /\/$/,
       "",
@@ -290,72 +293,6 @@ async function hasColumn(client, tableName, columnName) {
   return Boolean(result.rows[0]?.present);
 }
 
-async function authenticate(request, config) {
-  const authorization = request.headers?.authorization ?? request.headers?.Authorization ?? "";
-  const token = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
-  if (!token) throw new DataApiError(401, "Authentication is required.");
-
-  if (config.databaseProvider === "supabase") {
-    if (!config.supabaseUrl || !config.supabasePublishableKey) {
-      throw new DataApiError(500, "Supabase authentication is not configured.");
-    }
-    const response = await fetch(`${config.supabaseUrl}/auth/v1/user`, {
-      headers: { apikey: config.supabasePublishableKey, authorization: `Bearer ${token}` },
-    });
-    if (!response.ok)
-      throw new DataApiError(401, "The authentication token is invalid or expired.");
-    const user = await response.json();
-    return extractAuthIdentity({
-      id: user.id,
-      email: user.email,
-      name: user.user_metadata?.displayName ?? user.user_metadata?.name,
-      metadata: user.user_metadata,
-    });
-  }
-
-  if (config.databaseProvider !== "neon" || !config.neonAuthUrl) {
-    throw new DataApiError(500, "Neon authentication is not configured.");
-  }
-  const sessionResult = await getPool(config).query(
-    `select u.id::text, u.email, u.name, u.image
-       from neon_auth.session s
-       join neon_auth."user" u on u.id = s."userId"
-      where s.token = $1 and s."expiresAt" > now()
-      limit 1`,
-    [token],
-  );
-  if (sessionResult.rows[0]) {
-    return extractAuthIdentity({
-      id: sessionResult.rows[0].id,
-      email: sessionResult.rows[0].email,
-      name: sessionResult.rows[0].name,
-      metadata: { image: sessionResult.rows[0].image },
-    });
-  }
-  let keySet = jwks.get(config.neonAuthUrl);
-  if (!keySet) {
-    keySet = createRemoteJWKSet(new URL(`${config.neonAuthUrl}/.well-known/jwks.json`));
-    jwks.set(config.neonAuthUrl, keySet);
-  }
-  let verified;
-  try {
-    verified = await jwtVerify(token, keySet, {
-      issuer: config.neonAuthUrl,
-      audience: config.neonAuthUrl,
-    });
-  } catch {
-    throw new DataApiError(401, "The authentication token is invalid or expired.");
-  }
-  if (!verified.payload.sub)
-    throw new DataApiError(401, "The authentication token has no user subject.");
-  return extractAuthIdentity({
-    id: verified.payload.sub,
-    email: verified.payload.email,
-    name: verified.payload.name,
-    metadata: verified.payload,
-  });
-}
-
 async function workspaceAccess(client, userId, workspaceId) {
   const result = await client.query(
     `select w.status, w.owner_id, wm.role, wm.status as membership_status
@@ -541,7 +478,7 @@ async function loadAccount(client, user, config) {
     [workspaceIds],
   );
   const settings = await client.query(
-    `select workspace_id::text, default_billable, week_start from public.workspace_settings where workspace_id = any($1::uuid[])`,
+    `select workspace_id::text, week_start from public.workspace_settings where workspace_id = any($1::uuid[])`,
     [workspaceIds],
   );
   const clients = await client.query(
@@ -697,7 +634,7 @@ async function loadAccount(client, user, config) {
     }),
   );
   return {
-    version: 12,
+    version: 13,
     identities,
     workspaces: workspaces.rows.map((row) => ({
       workspace: {
@@ -714,7 +651,6 @@ async function loadAccount(client, user, config) {
       projects: projectsByWorkspace.get(row.id) ?? [],
       clients: clientsByWorkspace.get(row.id) ?? [],
       settings: {
-        defaultBillable: settingsByWorkspace.get(row.id)?.default_billable ?? true,
         weekStart: settingsByWorkspace.get(row.id)?.week_start === "sunday" ? "sunday" : "monday",
       },
       trello: emptyTrello(),
@@ -978,14 +914,10 @@ async function syncAccount(client, user, config, account) {
         );
       }
       await client.query(
-        `insert into public.workspace_settings (workspace_id, default_billable, week_start)
-         values ($1, $2, $3)
-         on conflict (workspace_id) do update set default_billable = excluded.default_billable, week_start = excluded.week_start, updated_at = now()`,
-        [
-          workspaceId,
-          data.settings?.defaultBillable ?? true,
-          data.settings?.weekStart === "sunday" ? "sunday" : "monday",
-        ],
+        `insert into public.workspace_settings (workspace_id, week_start)
+         values ($1, $2)
+         on conflict (workspace_id) do update set week_start = excluded.week_start, updated_at = now()`,
+        [workspaceId, data.settings?.weekStart === "sunday" ? "sunday" : "monday"],
       );
     }
     const memberships = Array.isArray(data.memberships)
@@ -1400,6 +1332,163 @@ async function cancelInvitation(client, user, body) {
   return null;
 }
 
+async function updateProfileName(client, user, config, body) {
+  const name = requiredText(body.name, "Profile name", 120);
+  await ensureProfile(client, user, config);
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+  await client.query(
+    `update public.profiles
+        set name = $2, initials = $3, updated_at = now()
+      where id = $1`,
+    [user.id, name, initials],
+  );
+  return null;
+}
+
+async function uploadAvatar(client, user, config, body) {
+  const image = parseImageDataUrl(body.avatarDataUrl);
+  if (!image || image.bytes.byteLength === 0) {
+    throw new DataApiError(400, "Choose a valid profile photo.");
+  }
+  await ensureProfile(client, user, config);
+
+  if (config.databaseProvider !== "supabase") {
+    await updatePreferences(client, user, config, {
+      patch: { avatarUrl: body.avatarDataUrl },
+    });
+    return body.avatarDataUrl;
+  }
+
+  const current = await client.query(`select avatar_path from public.profiles where id = $1`, [
+    user.id,
+  ]);
+  const previousPath = current.rows[0]?.avatar_path ?? null;
+  const extension =
+    image.contentType === "image/png" ? "png" : image.contentType === "image/webp" ? "webp" : "jpg";
+  const path = `${user.id}/avatar-${Date.now()}.${extension}`;
+  const storage = getSupabaseAdmin(config).storage.from("avatars");
+  const uploaded = await storage.upload(path, image.bytes, {
+    contentType: image.contentType,
+    upsert: false,
+  });
+  if (uploaded.error) throw new DataApiError(500, "Could not save the profile photo.");
+
+  let signedUrl;
+  try {
+    signedUrl = await signedStorageUrl(config, "avatars", path);
+    await client.query(
+      `update public.profiles set avatar_path = $2, updated_at = now() where id = $1`,
+      [user.id, path],
+    );
+    await client.query(
+      `update public.user_preferences set avatar_data_url = null, updated_at = now() where user_id = $1`,
+      [user.id],
+    );
+  } catch (error) {
+    await storage.remove([path]);
+    throw error;
+  }
+
+  if (previousPath && previousPath !== path) {
+    const removed = await storage.remove([previousPath]);
+    if (removed.error) console.error("Could not remove the previous profile photo.");
+  }
+  return signedUrl;
+}
+
+async function removeAvatar(client, user, config) {
+  await ensureProfile(client, user, config);
+  if (config.databaseProvider !== "supabase") {
+    await updatePreferences(client, user, config, { patch: { avatarUrl: null } });
+    return null;
+  }
+
+  const current = await client.query(`select avatar_path from public.profiles where id = $1`, [
+    user.id,
+  ]);
+  const path = current.rows[0]?.avatar_path ?? null;
+  await client.query(
+    `update public.profiles set avatar_path = null, updated_at = now() where id = $1`,
+    [user.id],
+  );
+  await client.query(
+    `update public.user_preferences set avatar_data_url = null, updated_at = now() where user_id = $1`,
+    [user.id],
+  );
+  if (!path) return null;
+
+  const removed = await getSupabaseAdmin(config).storage.from("avatars").remove([path]);
+  if (!removed.error) return null;
+  await client.query(
+    `update public.profiles set avatar_path = $2, updated_at = now() where id = $1`,
+    [user.id, path],
+  );
+  throw new DataApiError(500, "Could not remove the profile photo.");
+}
+
+async function acceptInvitation(client, user, config, body) {
+  const invitationId = uuid(body.invitationId);
+  await ensureProfile(client, user, config);
+  const result = await client.query(
+    `select invitation.id::text, invitation.workspace_id::text, invitation.email,
+            invitation.role, invitation.status, invitation.invited_at, invitation.expires_at,
+            workspace.status as workspace_status
+       from public.workspace_invitations invitation
+       join public.workspaces workspace on workspace.id = invitation.workspace_id
+      where invitation.id = $1
+      for update of invitation`,
+    [invitationId],
+  );
+  const invitation = result.rows[0];
+  if (!invitation) throw new DataApiError(404, "This invitation no longer exists.");
+  if (invitation.status !== "pending" || new Date(invitation.expires_at).getTime() <= Date.now()) {
+    throw new DataApiError(409, "This invitation is no longer valid.");
+  }
+  if (invitation.workspace_status === "archived") {
+    throw new DataApiError(409, "This workspace is archived.");
+  }
+  if (String(invitation.email).trim().toLowerCase() !== user.email.trim().toLowerCase()) {
+    throw new DataApiError(403, "This invitation belongs to a different email address.");
+  }
+  const existing = await client.query(
+    `select 1 from public.workspace_members
+      where workspace_id = $1 and user_id = $2 and status = 'active'`,
+    [invitation.workspace_id, user.id],
+  );
+  if (existing.rowCount) throw new DataApiError(409, "You already have access to this workspace.");
+
+  await client.query(
+    `insert into public.workspace_members (
+       workspace_id, user_id, role, status, invited_at, joined_at
+     ) values ($1, $2, $3, 'active', $4, now())
+     on conflict (workspace_id, user_id) do update set
+       role = excluded.role,
+       status = 'active',
+       invited_at = excluded.invited_at,
+       joined_at = excluded.joined_at`,
+    [invitation.workspace_id, user.id, invitation.role, invitation.invited_at],
+  );
+  await client.query(
+    `update public.workspace_invitations
+        set status = 'accepted', auth_user_id = $2, accepted_at = now()
+      where id = $1`,
+    [invitationId, user.id],
+  );
+  if (await hasColumn(client, "user_preferences", "active_workspace_id")) {
+    await client.query(
+      `update public.user_preferences set active_workspace_id = $2, updated_at = now() where user_id = $1`,
+      [user.id, invitation.workspace_id],
+    );
+  }
+  return { workspaceId: invitation.workspace_id };
+}
+
 async function updatePreferences(client, user, config, body) {
   const patch = body.patch;
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
@@ -1503,6 +1592,21 @@ async function operation(request, user, config, body) {
     if (body.operation === "resendInvitation")
       return await resendInvitation(client, user, config, body);
     if (body.operation === "cancelInvitation") return await cancelInvitation(client, user, body);
+    if (body.operation === "updateProfileName")
+      return await updateProfileName(client, user, config, body);
+    if (body.operation === "uploadAvatar") return await uploadAvatar(client, user, config, body);
+    if (body.operation === "removeAvatar") return await removeAvatar(client, user, config);
+    if (body.operation === "acceptInvitation") {
+      await client.query("begin");
+      try {
+        const accepted = await acceptInvitation(client, user, config, body);
+        await client.query("commit");
+        return accepted;
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    }
     if (body.operation === "syncAccount") {
       await client.query("begin");
       try {
@@ -1665,7 +1769,7 @@ export async function handleDataRequest(request, response, env = {}) {
       throw new DataApiError(415, "The request content type must be application/json.");
     }
     const config = providerEnv(env);
-    const user = await authenticate(request, config);
+    const user = await authenticateDataRequest(request, config, getPool);
     const body = await readBody(request);
     const data = await operation(request, user, config, body);
     sendJson(response, 200, { data });

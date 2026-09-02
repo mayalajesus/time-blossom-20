@@ -1,4 +1,8 @@
-import { Button, Chip, Switch, Table, Typography } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Chip } from "@heroui/react/chip";
+import { Switch } from "@heroui/react/switch";
+import { Table } from "@heroui/react/table";
+import { Typography } from "@heroui/react/typography";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRotateLeft } from "@gravity-ui/icons";
 import { DataTable } from "@/components/data-table";
