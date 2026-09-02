@@ -6,7 +6,7 @@ by project and client, and inspect lightweight reports.
 
 ## What is included
 
-- Tracker dashboard with a live mock timer and manual time entry.
+- Tracker dashboard with a persisted timer and manual time entry.
 - Tracker, projects, clients, team and reports views.
 - Mock Trello connection and sync states.
 - Search and command menu interactions.
@@ -37,11 +37,19 @@ npm install
 npm run dev
 ```
 
-The production checks are:
+Use Node 22.12 or newer within the supported Node 22-24 range. The complete
+production gate is:
 
 ```bash
-npm run lint
-npm run build
+npm run check
+```
+
+Authenticated browser checks require the QA Neon variables described in
+[`docs/deployment.md`](docs/deployment.md):
+
+```bash
+npm run test:smoke
+npm run test:a11y
 ```
 
 ## Visual system
@@ -66,11 +74,19 @@ chart helper backed by Recharts, used for reports.
 
 - `src/routes` contains file-based routes.
 - `src/components` contains reusable product UI.
-- `src/lib/mock-data.ts` contains prototype records.
-- `src/lib/store.tsx` contains the local state model and shared store contract.
+- `src/lib/domain.ts` contains the provider-independent product entities.
+- `src/lib/account-types.ts` contains persisted account and workspace contracts.
+- `src/lib/store.tsx` coordinates client state and persistence operations.
+- `src/lib/api-data-source.ts` is the browser boundary for `/api/data`.
+- `server/data-api.mjs` implements the authenticated data API; authentication is
+  isolated in `server/authentication.mjs`.
+- `src/lib/report-groups.ts` contains pure report grouping rules.
+- `src/lib/mock-data.ts` contains development-only seed records.
 - `src/lib/permissions.ts` contains pure permission rules used by the store and
   domain tests.
 - `design.md` documents the visual and interaction direction.
+- `docs/architecture.md` and `docs/deployment.md` document system boundaries and
+  production operations.
 
 ## Permission model
 
@@ -129,14 +145,15 @@ there is no action menu, and personal preferences are managed in Settings.
   current workspace moves the user to the first available active workspace;
   the last active workspace cannot be archived. Members of another owner's
   workspace can leave it; an Owner must archive their workspace instead.
-- Workspace name, default billability and week start are edited together in the
-  workspace edit modal; personal preferences remain in Settings.
+- Workspace name, member hourly rate, currency and week start are edited in the
+  workspace modal; personal preferences remain in Settings. Entry billability
+  comes from the selected project and is never a workspace-wide default.
 - A running timer belongs to its source workspace. Switching workspace asks the
   user to `Pause and switch`; paused timers remain in their original workspace
   and are not stopped or converted into entries automatically.
-- Workspace logos are stored locally, limited to PNG, JPG or WebP files of
-  approximately 500 KB, and are used exclusively as PDF report branding. CSV
-  and XLSX exports remain text-only.
+- Workspace logos are persisted through the configured data provider, limited
+  to PNG, JPG or WebP files of approximately 500 KB, and are used exclusively
+  as PDF report branding. CSV and XLSX exports remain text-only.
 - Application data is persisted in the configured database and is available
   across authenticated sessions and devices.
 
