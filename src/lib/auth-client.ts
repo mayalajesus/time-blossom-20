@@ -19,11 +19,15 @@ export type AuthClient = {
   getJWTToken?: () => Promise<string | null>;
   getSession: () => Promise<SessionResponse>;
   onAuthStateChange: (callback: AuthStateCallback) => AuthSubscription;
-  signInWithPassword: (credentials: { email: string; password: string }) => Promise<AuthResponse>;
+  signInWithPassword: (credentials: {
+    email: string;
+    password: string;
+    options?: { captchaToken?: string };
+  }) => Promise<AuthResponse>;
   signUp: (credentials: {
     email: string;
     password: string;
-    options?: { emailRedirectTo?: string; data?: Record<string, string> };
+    options?: { emailRedirectTo?: string; data?: Record<string, string>; captchaToken?: string };
   }) => Promise<AuthResponse>;
   signInWithOAuth: (options: {
     provider: "google";
@@ -32,7 +36,7 @@ export type AuthClient = {
   signOut: () => Promise<{ error: ErrorLike }>;
   resetPasswordForEmail: (
     email: string,
-    options: { redirectTo?: string },
+    options: { redirectTo?: string; captchaToken?: string },
   ) => Promise<{ error: ErrorLike }>;
   updateUser: (attributes: { password?: string; email?: string }) => Promise<{ error: ErrorLike }>;
 };

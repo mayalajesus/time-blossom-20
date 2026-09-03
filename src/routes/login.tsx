@@ -15,6 +15,7 @@ import { signInWithGoogle, signInWithPassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
 import { getAuthReturnPath } from "@/lib/auth-redirect";
+import { isTurnstileConfigured, TurnstileChallenge } from "@/components/turnstile";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -25,6 +26,8 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
 
   useEffect(() => {
     if (session) window.location.replace(getAuthReturnPath());
@@ -34,10 +37,12 @@ function LoginPage() {
     event.preventDefault();
     setError(null);
     setBusy(true);
-    const result = await signInWithPassword(email.trim(), password);
+    const result = await signInWithPassword(email.trim(), password, captchaToken ?? undefined);
     setBusy(false);
     if (!result.success) {
       setError(result.error);
+      setCaptchaToken(null);
+      setCaptchaResetKey((value) => value + 1);
       return;
     }
     window.location.replace(getAuthReturnPath());
@@ -93,7 +98,12 @@ function LoginPage() {
         <div className="flex justify-end">
           <Link href="/forgot-password">{t("Forgot password?")}</Link>
         </div>
-        <Button className="w-full" type="submit" isDisabled={busy}>
+        <TurnstileChallenge onToken={setCaptchaToken} resetKey={captchaResetKey} />
+        <Button
+          className="w-full"
+          type="submit"
+          isDisabled={busy || (isTurnstileConfigured && !captchaToken)}
+        >
           {busy ? t("Signing in…") : t("Sign in")}
         </Button>
       </Form>

@@ -10,6 +10,7 @@ import { Switch } from "@heroui/react/switch";
 import { Tabs } from "@heroui/react/tabs";
 import { TextField } from "@heroui/react/textfield";
 import { Tooltip } from "@heroui/react/tooltip";
+import { Modal } from "@heroui/react/modal";
 import { Typography } from "@heroui/react/typography";
 import { toast } from "@heroui/react/toast";
 import { createFileRoute } from "@tanstack/react-router";
@@ -28,14 +29,18 @@ import { useStore, type ThemeMode } from "@/lib/store";
 import { updateEmail, updatePassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { createApiDataSource } from "@/lib/api-data-source";
+import { useAccountLifecycle } from "@/lib/account-lifecycle-context";
+import { RouterLink } from "@/components/router-link";
+import { ModalLayout } from "@/components/modal-layout";
+import { ModalTriggerRegistration } from "@/components/overlay-trigger-registration";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — Watchtag" },
+      { title: "Settings — Time Tracker" },
       { name: "description", content: "Account and personal preferences." },
-      { property: "og:title", content: "Settings — Watchtag" },
-      { property: "og:description", content: "Configure your Watchtag workspace." },
+      { property: "og:title", content: "Settings — Time Tracker" },
+      { property: "og:description", content: "Configure your Time Tracker workspace." },
     ],
   }),
   component: SettingsPage,
@@ -71,9 +76,12 @@ function SettingsPage() {
     saveUserPreferences,
     updateCurrentMemberName,
     updateCurrentMemberEmail,
+    members,
+    currentWorkspace,
   } = useStore();
   const { configured, session } = useAuth();
   const dataSource = useMemo(() => createApiDataSource(), []);
+  const lifecycle = useAccountLifecycle();
   const { t, error } = useI18n();
   const [preferenceError, setPreferenceError] = useState<string | null>(null);
   const [accountFirstName, setAccountFirstName] = useState(
@@ -98,6 +106,11 @@ function SettingsPage() {
   const [photoAction, setPhotoAction] = useState<"uploading" | "removing" | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const photoActionRef = useRef<"uploading" | "removing" | null>(null);
+  const [privacyAction, setPrivacyAction] = useState<"export" | "delete" | "transfer" | null>(null);
+  const [privacyError, setPrivacyError] = useState<string | null>(null);
+  const [deletionOpen, setDeletionOpen] = useState(false);
+  const [deletionConfirmation, setDeletionConfirmation] = useState("");
+  const [newOwnerId, setNewOwnerId] = useState("");
 
   useEffect(() => {
     const name = splitAccountName(currentMember?.name ?? "");
@@ -296,6 +309,52 @@ function SettingsPage() {
     setPassword("");
     setPasswordConfirmation("");
     toast.success(t("Your account is up to date"));
+  };
+
+  const exportData = async () => {
+    setPrivacyAction("export");
+    setPrivacyError(null);
+    const result = await dataSource.exportAccountData();
+    setPrivacyAction(null);
+    if (!result.success) {
+      setPrivacyError(result.error);
+      return;
+    }
+    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `time-tracker-account-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    toast.success("Seus dados foram exportados");
+  };
+
+  const transferOwnership = async () => {
+    if (!currentWorkspace || !newOwnerId) return;
+    setPrivacyAction("transfer");
+    setPrivacyError(null);
+    const result = await dataSource.transferWorkspaceOwnership(currentWorkspace.id, newOwnerId);
+    setPrivacyAction(null);
+    if (!result.success) {
+      setPrivacyError(result.error);
+      return;
+    }
+    toast.success("Propriedade transferida");
+    window.location.reload();
+  };
+
+  const requestDeletion = async () => {
+    setPrivacyAction("delete");
+    setPrivacyError(null);
+    const result = await dataSource.requestAccountDeletion(deletionConfirmation);
+    setPrivacyAction(null);
+    if (!result.success) {
+      setPrivacyError(result.error);
+      return;
+    }
+    await lifecycle.refresh();
+    window.location.assign("/account-deletion");
   };
 
   if (!currentMember) {
@@ -584,6 +643,154 @@ function SettingsPage() {
           ))}
         </div>
       </Card>
+
+      <Card id="privacy" className="scroll-mt-24 space-y-4 p-4">
+        <div className="space-y-1">
+          <Typography type="h2" weight="semibold">
+            Privacidade e dados
+          </Typography>
+          <Typography type="body-sm" color="muted">
+            Consulte os documentos vigentes, exporte seus dados ou encerre sua conta.
+          </Typography>
+        </div>
+
+        {privacyError ? (
+          <FormAlert title="Não foi possível concluir a ação" description={error(privacyError)} />
+        ) : null}
+
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+          <RouterLink to="/terms">Termos de Uso</RouterLink>
+          <RouterLink to="/privacy">Aviso de Privacidade</RouterLink>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            isPending={privacyAction === "export"}
+            onPress={() => void exportData()}
+          >
+            Exportar meus dados em JSON
+          </Button>
+          <Button
+            variant="danger"
+            isDisabled={Boolean(lifecycle.status?.ownershipBlockers.length)}
+            onPress={() => {
+              setPrivacyError(null);
+              setDeletionConfirmation("");
+              setDeletionOpen(true);
+            }}
+          >
+            Excluir minha conta
+          </Button>
+        </div>
+
+        {lifecycle.status?.ownershipBlockers.length ? (
+          <div className="space-y-3 rounded-lg border border-border p-3">
+            <Typography type="body-sm" weight="semibold">
+              Transfira os workspaces compartilhados antes de excluir sua conta
+            </Typography>
+            <Typography type="body-xs" color="muted">
+              Pendentes:{" "}
+              {lifecycle.status.ownershipBlockers.map((item) => item.workspaceName).join(", ")}.
+              Abra cada workspace e escolha um membro ativo como novo proprietário.
+            </Typography>
+            {currentWorkspace &&
+            lifecycle.status.ownershipBlockers.some(
+              (item) => item.workspaceId === currentWorkspace.id,
+            ) ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <Select
+                  fullWidth
+                  variant="secondary"
+                  selectedKey={newOwnerId || null}
+                  onSelectionChange={(key) => setNewOwnerId(String(key))}
+                >
+                  <Label>Novo proprietário</Label>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator>
+                      <ChevronDown aria-hidden="true" className="size-4" />
+                    </Select.Indicator>
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox aria-label="Novo proprietário">
+                      {members
+                        .filter(
+                          (member) => member.status === "active" && member.id !== currentMember.id,
+                        )
+                        .map((member) => (
+                          <ListBox.Item key={member.id} id={member.id} textValue={member.name}>
+                            <Label>{member.name}</Label>
+                            <ListBox.ItemIndicator />
+                          </ListBox.Item>
+                        ))}
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+                <Button
+                  className="sm:mb-px"
+                  isDisabled={!newOwnerId}
+                  isPending={privacyAction === "transfer"}
+                  onPress={() => void transferOwnership()}
+                >
+                  Transferir propriedade
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </Card>
+
+      <Modal isOpen={deletionOpen} onOpenChange={setDeletionOpen}>
+        <ModalTriggerRegistration />
+        <Modal.Backdrop>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.CloseTrigger />
+              <ModalLayout.Header>Excluir conta?</ModalLayout.Header>
+              <ModalLayout.Body>
+                {privacyError ? (
+                  <FormAlert
+                    title="Não foi possível agendar a exclusão"
+                    description={error(privacyError)}
+                  />
+                ) : null}
+                <Typography type="body-sm" color="muted">
+                  O acesso será restrito imediatamente. Você terá 30 dias para cancelar; depois, a
+                  exclusão será definitiva. Para confirmar, digite seu e-mail.
+                </Typography>
+                <TextField
+                  fullWidth
+                  name="deletion-confirmation"
+                  value={deletionConfirmation}
+                  onChange={(value) => {
+                    setDeletionConfirmation(value);
+                    setPrivacyError(null);
+                  }}
+                >
+                  <Label>{accountEmail}</Label>
+                  <Input variant="secondary" autoComplete="off" />
+                </TextField>
+              </ModalLayout.Body>
+              <ModalLayout.Footer>
+                <Button slot="close" variant="secondary">
+                  Cancelar
+                </Button>
+                <Button
+                  variant="danger"
+                  isDisabled={
+                    deletionConfirmation.trim().toLowerCase() !== accountEmail.trim().toLowerCase()
+                  }
+                  isPending={privacyAction === "delete"}
+                  onPress={() => void requestDeletion()}
+                >
+                  Agendar exclusão
+                </Button>
+              </ModalLayout.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
     </div>
   );
 }

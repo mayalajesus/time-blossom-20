@@ -35,6 +35,11 @@ export function AuthPage({
           </Typography>
         </div>
         <div className="space-y-5">{children}</div>
+        <Typography type="body-xs" color="muted" align="center" className="mt-6">
+          <RouterLink to="/terms">Termos de Uso</RouterLink>
+          {" · "}
+          <RouterLink to="/privacy">Aviso de Privacidade</RouterLink>
+        </Typography>
       </section>
     </main>
   );

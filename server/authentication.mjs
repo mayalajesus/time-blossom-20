@@ -1,8 +1,17 @@
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
 import { extractAuthIdentity } from "./auth-profile.mjs";
 import { DataApiError } from "./data-api-error.mjs";
 
 const jwksByAuthUrl = new Map();
+
+function tokenIssuedAt(token) {
+  try {
+    const issuedAt = decodeJwt(token).iat;
+    return typeof issuedAt === "number" ? issuedAt * 1_000 : 0;
+  } catch {
+    return 0;
+  }
+}
 
 export async function authenticateDataRequest(request, config, getPool) {
   const authorization = request.headers?.authorization ?? request.headers?.Authorization ?? "";
@@ -20,12 +29,15 @@ export async function authenticateDataRequest(request, config, getPool) {
       throw new DataApiError(401, "The authentication token is invalid or expired.");
     }
     const user = await response.json();
-    return extractAuthIdentity({
-      id: user.id,
-      email: user.email,
-      name: user.user_metadata?.displayName ?? user.user_metadata?.name,
-      metadata: user.user_metadata,
-    });
+    return {
+      ...extractAuthIdentity({
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.displayName ?? user.user_metadata?.name,
+        metadata: user.user_metadata,
+      }),
+      authenticatedAt: Date.parse(user.last_sign_in_at ?? "") || tokenIssuedAt(token),
+    };
   }
 
   if (config.databaseProvider !== "neon" || !config.neonAuthUrl || !config.neonAuthIssuer) {
@@ -40,12 +52,15 @@ export async function authenticateDataRequest(request, config, getPool) {
     [token],
   );
   if (sessionResult.rows[0]) {
-    return extractAuthIdentity({
-      id: sessionResult.rows[0].id,
-      email: sessionResult.rows[0].email,
-      name: sessionResult.rows[0].name,
-      metadata: { image: sessionResult.rows[0].image },
-    });
+    return {
+      ...extractAuthIdentity({
+        id: sessionResult.rows[0].id,
+        email: sessionResult.rows[0].email,
+        name: sessionResult.rows[0].name,
+        metadata: { image: sessionResult.rows[0].image },
+      }),
+      authenticatedAt: tokenIssuedAt(token),
+    };
   }
 
   let keySet = jwksByAuthUrl.get(config.neonAuthUrl);
@@ -65,10 +80,13 @@ export async function authenticateDataRequest(request, config, getPool) {
   if (!verified.payload.sub) {
     throw new DataApiError(401, "The authentication token has no user subject.");
   }
-  return extractAuthIdentity({
-    id: verified.payload.sub,
-    email: verified.payload.email,
-    name: verified.payload.name,
-    metadata: verified.payload,
-  });
+  return {
+    ...extractAuthIdentity({
+      id: verified.payload.sub,
+      email: verified.payload.email,
+      name: verified.payload.name,
+      metadata: verified.payload,
+    }),
+    authenticatedAt: typeof verified.payload.iat === "number" ? verified.payload.iat * 1_000 : 0,
+  };
 }

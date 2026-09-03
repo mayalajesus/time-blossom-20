@@ -14,7 +14,7 @@ import { toast } from "@heroui/react/toast";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   ChevronDown,
-  Envelope,
+  Copy,
   PaperPlane,
   PersonPencil,
   PersonPlus,
@@ -38,9 +38,9 @@ type InviteRole = Exclude<Role, "Owner">;
 export const Route = createFileRoute("/team")({
   head: () => ({
     meta: [
-      { title: "Team — Watchtag" },
+      { title: "Team — Time Tracker" },
       { name: "description", content: "Invite teammates, manage roles and track team hours." },
-      { property: "og:title", content: "Team — Watchtag" },
+      { property: "og:title", content: "Team — Time Tracker" },
       { property: "og:description", content: "Invite teammates and see tracked hours by member." },
     ],
   }),
@@ -67,6 +67,7 @@ function TeamPage() {
   const [role, setRole] = useState<InviteRole>("Member");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [createdLink, setCreatedLink] = useState("");
   const [invitationActionId, setInvitationActionId] = useState<string | null>(null);
   const [pendingCancel, setPendingCancel] = useState<Member | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
@@ -87,6 +88,7 @@ function TeamPage() {
     setEmail("");
     setRole("Member");
     setInviteError(null);
+    setCreatedLink("");
   };
 
   const openInvite = () => {
@@ -103,11 +105,19 @@ function TeamPage() {
       return;
     }
     const normalizedEmail = email.trim().toLowerCase();
-    toast.success(t("Invitation sent"), {
+    setCreatedLink(result.invitationUrl ?? "");
+    toast.success(t("Invitation link created"), {
       description: `${normalizedEmail} · ${role}`,
     });
-    resetInviteForm();
-    setInviteOpen(false);
+  };
+
+  const copyInvitationLink = async (invitationUrl: string) => {
+    try {
+      await navigator.clipboard.writeText(invitationUrl);
+      toast.success(t("Invitation link copied"));
+    } catch {
+      setInviteError(t("Copy the invitation link manually."));
+    }
   };
 
   const handleResend = async (member: Member) => {
@@ -118,7 +128,12 @@ function TeamPage() {
       toast.danger(t("We couldn't refresh this invitation"), { description: error(result.error) });
       return;
     }
-    toast.success(t("Invitation refreshed"), { description: member.email });
+    try {
+      await navigator.clipboard.writeText(result.invitationUrl ?? "");
+      toast.success(t("Invitation link copied"), { description: member.email });
+    } catch {
+      toast.success(t("Invitation refreshed"), { description: member.email });
+    }
   };
 
   const confirmCancel = async () => {
@@ -260,8 +275,8 @@ function TeamPage() {
                             : []),
                           {
                             id: "resend",
-                            label: t("Resend invite"),
-                            icon: <Envelope className="size-4" />,
+                            label: t("Copy invitation link"),
+                            icon: <Copy className="size-4" />,
                           },
                           {
                             id: "cancel",
@@ -366,74 +381,103 @@ function TeamPage() {
                     />
                   ) : null}
 
-                  <TextField
-                    isRequired
-                    fullWidth
-                    name="invite-email"
-                    type="email"
-                    value={email}
-                    validate={(value) => {
-                      const normalized = value.trim().toLowerCase();
-                      if (!normalized) return t("Email is required");
-                      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
-                        return t("Enter a valid email address");
-                      }
-                      if (members.some((member) => member.email.toLowerCase() === normalized)) {
-                        return t("This email is already part of the team");
-                      }
-                      return null;
-                    }}
-                    onChange={(value) => {
-                      setEmail(value);
-                      setInviteError(null);
-                    }}
-                  >
-                    <Label>{t("Email")}</Label>
-                    <Input variant="secondary" placeholder={t("name@company.com")} />
-                    <Description className="text-xs">
-                      {t("An invitation email will be sent immediately.")}
-                    </Description>
-                    <FieldError />
-                  </TextField>
-
-                  <div className="flex flex-col gap-2">
-                    <Label>{t("Role")}</Label>
-                    <Dropdown>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        aria-label={t("Choose invitation role")}
-                        className="h-9 w-full justify-between gap-2 px-3"
+                  {createdLink ? (
+                    <div className="space-y-3">
+                      <Typography type="body-sm" color="muted">
+                        {t(
+                          "Share this private link with the invited person. It expires in 7 days.",
+                        )}
+                      </Typography>
+                      <TextField fullWidth name="invitation-link" value={createdLink} isReadOnly>
+                        <Label>{t("Invitation link")}</Label>
+                        <Input variant="secondary" />
+                      </TextField>
+                    </div>
+                  ) : (
+                    <>
+                      <TextField
+                        isRequired
+                        fullWidth
+                        name="invite-email"
+                        type="email"
+                        value={email}
+                        validate={(value) => {
+                          const normalized = value.trim().toLowerCase();
+                          if (!normalized) return t("Email is required");
+                          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+                            return t("Enter a valid email address");
+                          }
+                          if (members.some((member) => member.email.toLowerCase() === normalized)) {
+                            return t("This email is already part of the team");
+                          }
+                          return null;
+                        }}
+                        onChange={(value) => {
+                          setEmail(value);
+                          setInviteError(null);
+                        }}
                       >
-                        <span className="truncate text-sm">{t(role)}</span>
-                        <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
-                      </Button>
-                      <Dropdown.Popover>
-                        <Dropdown.Menu
-                          aria-label={t("Invitation role")}
-                          className="max-h-60 overflow-y-auto"
-                          selectionMode="single"
-                          selectedKeys={new Set([role])}
-                          onAction={(key) => setRole(String(key) as InviteRole)}
-                        >
-                          {inviteRoles.map((option) => (
-                            <Dropdown.Item key={option} id={option} textValue={option}>
-                              <Label>{t(option)}</Label>
-                              <Dropdown.ItemIndicator />
-                            </Dropdown.Item>
-                          ))}
-                        </Dropdown.Menu>
-                      </Dropdown.Popover>
-                    </Dropdown>
-                  </div>
+                        <Label>{t("Email")}</Label>
+                        <Input variant="secondary" placeholder={t("name@company.com")} />
+                        <Description className="text-xs">
+                          {t("A private invitation link will be created for you to share.")}
+                        </Description>
+                        <FieldError />
+                      </TextField>
+
+                      <div className="flex flex-col gap-2">
+                        <Label>{t("Role")}</Label>
+                        <Dropdown>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            aria-label={t("Choose invitation role")}
+                            className="h-9 w-full justify-between gap-2 px-3"
+                          >
+                            <span className="truncate text-sm">{t(role)}</span>
+                            <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
+                          </Button>
+                          <Dropdown.Popover>
+                            <Dropdown.Menu
+                              aria-label={t("Invitation role")}
+                              className="max-h-60 overflow-y-auto"
+                              selectionMode="single"
+                              selectedKeys={new Set([role])}
+                              onAction={(key) => setRole(String(key) as InviteRole)}
+                            >
+                              {inviteRoles.map((option) => (
+                                <Dropdown.Item key={option} id={option} textValue={option}>
+                                  <Label>{t(option)}</Label>
+                                  <Dropdown.ItemIndicator />
+                                </Dropdown.Item>
+                              ))}
+                            </Dropdown.Menu>
+                          </Dropdown.Popover>
+                        </Dropdown>
+                      </div>
+                    </>
+                  )}
                 </ModalLayout.Body>
                 <ModalLayout.Footer>
-                  <Button slot="close" type="button" variant="secondary">
-                    {t("Cancel")}
-                  </Button>
-                  <Button type="submit" isDisabled={!email.trim()} isPending={inviteBusy}>
-                    {t("Send invite")}
-                  </Button>
+                  {createdLink ? (
+                    <>
+                      <Button slot="close" type="button" variant="secondary">
+                        {t("Done")}
+                      </Button>
+                      <Button type="button" onPress={() => void copyInvitationLink(createdLink)}>
+                        {t("Copy link")}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button slot="close" type="button" variant="secondary">
+                        {t("Cancel")}
+                      </Button>
+                      <Button type="submit" isDisabled={!email.trim()} isPending={inviteBusy}>
+                        {t("Create invitation link")}
+                      </Button>
+                    </>
+                  )}
                 </ModalLayout.Footer>
               </Form>
             </Modal.Dialog>

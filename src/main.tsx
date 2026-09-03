@@ -12,14 +12,14 @@ type BootCopy = {
 
 const bootCopy: Record<BootLocale, BootCopy> = {
   "en-US": {
-    loading: "Loading Watchtag…",
-    errorTitle: "We couldn't open Watchtag",
+    loading: "Loading Time Tracker…",
+    errorTitle: "We couldn't open Time Tracker",
     errorDescription: "Try reloading the page. If the problem continues, check your connection.",
     retry: "Reload page",
   },
   "pt-BR": {
-    loading: "Carregando o Watchtag…",
-    errorTitle: "Não conseguimos abrir o Watchtag",
+    loading: "Carregando o Time Tracker…",
+    errorTitle: "Não conseguimos abrir o Time Tracker",
     errorDescription: "Tente recarregar a página. Se o problema continuar, confira sua conexão.",
     retry: "Recarregar página",
   },
@@ -67,7 +67,7 @@ function showBootError(rootElement: HTMLElement, copy: BootCopy) {
 const rootElement = document.getElementById("root");
 
 if (!rootElement) {
-  throw new Error("Watchtag could not find the application root.");
+  throw new Error("Time Tracker could not find the application root.");
 }
 
 const configuredAppUrl = import.meta.env["VITE_APP_URL"];
@@ -93,9 +93,11 @@ Promise.all([
   import("@heroui/react"),
   import("@tanstack/react-router"),
   import("./router"),
+  import("./lib/observability"),
 ])
-  .then(async ([react, reactDom, heroui, routerLib, appRouter]) => {
+  .then(async ([react, reactDom, heroui, routerLib, appRouter, observability]) => {
     const router = appRouter.getRouter();
+    observability.initializeClientObservability(router);
     const appRoot = reactDom.createRoot(rootElement);
 
     appRoot.render(

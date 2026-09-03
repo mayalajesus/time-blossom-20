@@ -97,7 +97,13 @@ export interface TimerState {
 export type { Permission } from "./permissions";
 
 export type StoreResult =
-  | { success: true; id?: string; warning?: string; conflict?: TimeEntry }
+  | {
+      success: true;
+      id?: string;
+      invitationUrl?: string;
+      warning?: string;
+      conflict?: TimeEntry;
+    }
   | { success: false; error: string };
 
 type AddEntryOptions = {
@@ -1122,7 +1128,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTimerHydrated(false);
     void dataSource.getActiveTimer(session.user.id, activeWorkspaceId).then((result) => {
       if (cancelled) return;
-      setTimer(result.success && result.data ? result.data : initialTimer);
+      // Do not let a slow hydration response overwrite a timer the user started
+      // while the request was in flight. Once hydrated, the persistence effect
+      // below saves that newer local timer normally.
+      if (timerRef.current.status === "idle") {
+        const hydratedTimer = result.success && result.data ? result.data : initialTimer;
+        timerRef.current = hydratedTimer;
+        setTimer(hydratedTimer);
+      }
       setTimerHydrated(true);
     });
     return () => {
@@ -1764,7 +1777,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         };
       const response = await dataSource.inviteMember(activeWorkspaceId, normalizedEmail, role);
       if (!response.success) return response;
-      const invitation = response.data;
+      const { member: invitation, invitationUrl } = response.data;
       setMembers((list) => [invitation, ...list]);
       setAccount((current) => ({
         ...current,
@@ -1772,7 +1785,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? current.identities
           : [...current.identities, createIdentity(invitation)],
       }));
-      return { success: true, id: invitation.id };
+      return { success: true, id: invitation.id, invitationUrl };
     };
 
     const resendInvite = async (memberId: string): Promise<StoreResult> => {
@@ -1786,9 +1799,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const response = await dataSource.resendInvitation(activeWorkspaceId, memberId);
       if (!response.success) return response;
       setMembers((list) =>
-        list.map((candidate) => (candidate.id === memberId ? response.data : candidate)),
+        list.map((candidate) => (candidate.id === memberId ? response.data.member : candidate)),
       );
-      return { success: true };
+      return { success: true, invitationUrl: response.data.invitationUrl };
     };
 
     const cancelInvite = async (memberId: string): Promise<StoreResult> => {

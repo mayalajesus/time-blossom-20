@@ -6,6 +6,7 @@ import { useState } from "react";
 import { AuthError, AuthField, AuthFooter, AuthPage } from "@/components/auth-page";
 import { requestPasswordReset } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import { isTurnstileConfigured, TurnstileChallenge } from "@/components/turnstile";
 
 export const Route = createFileRoute("/forgot-password")({ component: ForgotPasswordPage });
 
@@ -16,15 +17,19 @@ function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setBusy(true);
-    const result = await requestPasswordReset(email.trim());
+    const result = await requestPasswordReset(email.trim(), captchaToken ?? undefined);
     setBusy(false);
     if (!result.success) {
       setError(result.error);
+      setCaptchaToken(null);
+      setCaptchaResetKey((value) => value + 1);
       return;
     }
     setSent(true);
@@ -65,7 +70,12 @@ function ForgotPasswordPage() {
                 : t("Enter a valid email address");
             }}
           />
-          <Button className="w-full" type="submit" isDisabled={busy}>
+          <TurnstileChallenge onToken={setCaptchaToken} resetKey={captchaResetKey} />
+          <Button
+            className="w-full"
+            type="submit"
+            isDisabled={busy || (isTurnstileConfigured && !captchaToken)}
+          >
             {busy ? t("Sending…") : t("Send reset link")}
           </Button>
           <AuthFooter prompt={t("Remember your password?")} to="/login" action={t("Sign in")} />

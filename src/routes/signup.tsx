@@ -15,6 +15,7 @@ import { signInWithGoogle, signUpWithPassword } from "@/lib/auth";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
 import { getAuthReturnPath } from "@/lib/auth-redirect";
+import { isTurnstileConfigured, TurnstileChallenge } from "@/components/turnstile";
 
 export const Route = createFileRoute("/signup")({ component: SignupPage });
 
@@ -29,6 +30,8 @@ function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
 
   useEffect(() => {
     if (session) window.location.replace(getAuthReturnPath());
@@ -78,10 +81,13 @@ function SignupPage() {
       password,
       normalizedFirstName,
       normalizedLastName,
+      captchaToken ?? undefined,
     );
     setBusy(false);
     if (!result.success) {
       setError(result.error);
+      setCaptchaToken(null);
+      setCaptchaResetKey((value) => value + 1);
       return;
     }
     setCreated(true);
@@ -200,7 +206,12 @@ function SignupPage() {
               placeholder={t("Confirm your password")}
               validate={(value) => (value === password ? null : t("Passwords do not match."))}
             />
-            <Button className="w-full" type="submit" isDisabled={busy}>
+            <TurnstileChallenge onToken={setCaptchaToken} resetKey={captchaResetKey} />
+            <Button
+              className="w-full"
+              type="submit"
+              isDisabled={busy || (isTurnstileConfigured && !captchaToken)}
+            >
               {busy ? t("Creating account…") : t("Create account")}
             </Button>
           </Form>

@@ -30,6 +30,7 @@ import { DrawerTriggerRegistration } from "@/components/overlay-trigger-registra
 import { AppI18nProvider, useI18n } from "@/lib/i18n";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import { useAccountLifecycle } from "@/lib/account-lifecycle-context";
 
 const publicAuthPaths = new Set([
   "/login",
@@ -37,14 +38,19 @@ const publicAuthPaths = new Set([
   "/forgot-password",
   "/auth/callback",
   "/invite/accept",
+  "/terms",
+  "/privacy",
 ]);
+const accountFlowPaths = new Set(["/legal-consent", "/account-deletion"]);
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { preferences } = useStore();
   const { configured, loading: authLoading, session } = useAuth();
+  const lifecycle = useAccountLifecycle();
   const currentLocation = useLocation();
   const navigate = useNavigate();
   const isPublicAuthPath = publicAuthPaths.has(currentLocation.pathname);
+  const isAccountFlowPath = accountFlowPaths.has(currentLocation.pathname);
   const [systemDark, setSystemDark] = useState(
     () =>
       typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches,
@@ -70,6 +76,32 @@ export function AppShell({ children }: { children: ReactNode }) {
     void navigate({ to: "/login", replace: true });
   }, [authLoading, configured, isPublicAuthPath, navigate, session]);
 
+  useEffect(() => {
+    if (!configured || authLoading || !session || lifecycle.loading || !lifecycle.status) return;
+    if (lifecycle.status.accountStatus === "deletion_pending") {
+      if (currentLocation.pathname !== "/account-deletion") {
+        void navigate({ to: "/account-deletion", replace: true });
+      }
+      return;
+    }
+    if (!lifecycle.status.legal.accepted) {
+      if (currentLocation.pathname !== "/legal-consent") {
+        void navigate({ to: "/legal-consent", replace: true });
+      }
+      return;
+    }
+    if (isAccountFlowPath) void navigate({ to: "/tracker", replace: true });
+  }, [
+    authLoading,
+    configured,
+    currentLocation.pathname,
+    isAccountFlowPath,
+    lifecycle.loading,
+    lifecycle.status,
+    navigate,
+    session,
+  ]);
+
   if (configured && (authLoading || (!session && !isPublicAuthPath))) {
     const loadingLabel = document.documentElement.lang === "pt-BR" ? "Carregando" : "Loading";
     return (
@@ -82,11 +114,40 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
+  if (configured && session && !isPublicAuthPath && lifecycle.loading) {
+    return (
+      <Surface
+        variant="transparent"
+        className="flex min-h-screen items-center justify-center bg-background p-4"
+      >
+        <Spinner role="status" aria-label="Carregando dados da conta" />
+      </Surface>
+    );
+  }
+
+  if (configured && session && !isPublicAuthPath && lifecycle.error) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-4 py-10">
+        <Card className="w-full max-w-md p-6 text-center">
+          <Typography type="h1" weight="semibold">
+            Não foi possível verificar sua conta
+          </Typography>
+          <Typography type="body-sm" color="muted" className="mt-2">
+            {lifecycle.error}
+          </Typography>
+          <Button className="mt-5" onPress={() => void lifecycle.refresh()}>
+            Tentar novamente
+          </Button>
+        </Card>
+      </main>
+    );
+  }
+
   return (
     <Surface variant="transparent" className="min-h-screen bg-background">
       <AppI18nProvider locale={preferences.language}>
         <HeroI18nProvider locale={preferences.language}>
-          {isPublicAuthPath ? children : <AppDataGate>{children}</AppDataGate>}
+          {isPublicAuthPath || isAccountFlowPath ? children : <AppDataGate>{children}</AppDataGate>}
         </HeroI18nProvider>
       </AppI18nProvider>
     </Surface>
@@ -264,7 +325,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
                   <div className="sr-only">
                     <Drawer.Heading>{t("Navigation")}</Drawer.Heading>
                     <Typography type="body-xs" color="muted" className="mt-0.5">
-                      {t("Watchtag")}
+                      {t("Time Tracker")}
                     </Typography>
                   </div>
                   <Drawer.CloseTrigger aria-label={t("Close navigation")} />

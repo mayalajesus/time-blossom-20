@@ -209,6 +209,30 @@ const ptBR: Record<string, string> = {
   Invite: "Convidar",
   "Invite sent": "Convite enviado",
   "Resend invite": "Reenviar convite",
+  "Copy invitation link": "Copiar link do convite",
+  "Invitation link created": "Link de convite criado",
+  "Invitation link copied": "Link de convite copiado",
+  "Invitation link": "Link do convite",
+  "Copy link": "Copiar link",
+  "Copy the invitation link manually.": "Copie o link de convite manualmente.",
+  "Create invitation link": "Criar link de convite",
+  "A private invitation link will be created for you to share.":
+    "Um link privado de convite será criado para você compartilhar.",
+  "Share this private link with the invited person. It expires in 7 days.":
+    "Compartilhe este link privado com a pessoa convidada. Ele expira em 7 dias.",
+  "Email delivery is temporarily limited. Try again later or continue with Google.":
+    "O envio de e-mail está temporariamente limitado. Tente novamente mais tarde ou continue com o Google.",
+  "Security verification failed. Try again.": "A verificação de segurança falhou. Tente novamente.",
+  "Too many requests. Please try again shortly.":
+    "Muitas solicitações em pouco tempo. Tente novamente em instantes.",
+  "This request origin is not allowed.": "A origem desta solicitação não é permitida.",
+  "Accept the current Terms and Privacy Notice to continue.":
+    "Aceite os Termos e o Aviso de Privacidade vigentes para continuar.",
+  "Your account is scheduled for deletion.": "Sua conta está agendada para exclusão.",
+  "Sign in again before requesting account deletion.":
+    "Entre novamente antes de solicitar a exclusão da conta.",
+  "Transfer ownership of every shared workspace before deleting your account.":
+    "Transfira a propriedade de todos os workspaces compartilhados antes de excluir sua conta.",
   "Cancel invite": "Cancelar convite",
   "Remove member": "Remover membro",
   "Restore member": "Restaurar membro",
@@ -520,10 +544,10 @@ const ptBR: Record<string, string> = {
   "Page not found": "Página não encontrada",
   "The page you're looking for doesn't exist or has been moved.":
     "A página que você procura não existe ou foi movida.",
-  "Loading Watchtag…": "Carregando o Watchtag…",
+  "Loading Time Tracker…": "Carregando o Time Tracker…",
   "Loading data": "Carregando dados",
   "Preparing your workspace…": "Preparando seu workspace…",
-  "Watchtag could not load: {error}": "Não conseguimos carregar o Watchtag: {error}",
+  "Time Tracker could not load: {error}": "Não conseguimos carregar o Time Tracker: {error}",
   "Only Admins and the Owner can change workspace settings.":
     "Somente Administradores e o Proprietário podem alterar as configurações do workspace.",
   "Choose a valid default billability setting.":
@@ -647,8 +671,8 @@ const ptBR: Record<string, string> = {
   "Follow your device theme.": "Seguir o tema do seu dispositivo.",
   "Always use the light theme.": "Usar sempre o tema claro.",
   "Always use the dark theme.": "Usar sempre o tema escuro.",
-  "Choose how Watchtag should look for your account.":
-    "Escolha a aparência do Watchtag para sua conta.",
+  "Choose how Time Tracker should look for your account.":
+    "Escolha a aparência do Time Tracker para sua conta.",
   "Open account menu for {name}": "Abrir o menu da conta de {name}",
   "Change profile photo": "Alterar foto de perfil",
   "Remove profile photo": "Remover foto de perfil",
@@ -865,23 +889,23 @@ const ptBR: Record<string, string> = {
     "Não conseguimos preparar a exportação CSV. Tente novamente.",
   "The Excel export could not be prepared.":
     "Não conseguimos preparar a exportação Excel. Tente novamente.",
-  "Watchtag · filtered report": "Watchtag · relatório filtrado",
+  "Time Tracker · filtered report": "Time Tracker · relatório filtrado",
   Generated: "Gerado em",
-  "Watchtag · report export": "Watchtag · exportação do relatório",
+  "Time Tracker · report export": "Time Tracker · exportação do relatório",
   "No records match the selected report.": "Nenhum registro corresponde ao relatório selecionado.",
   "The PDF print preview could not be prepared.":
     "Não conseguimos preparar a visualização de impressão do PDF. Tente novamente.",
   "The PDF print preview could not be opened.":
     "Não conseguimos abrir a visualização de impressão do PDF. Tente novamente.",
   "Export {scope}": "Exportar {scope}",
-  "Project details — Watchtag": "Detalhes do projeto — Watchtag",
+  "Project details — Time Tracker": "Detalhes do projeto — Time Tracker",
   "Could not create client": "Não conseguimos adicionar este cliente",
   "Choose valid personal preferences.": "Escolha preferências pessoais válidas.",
-  "Watchtag — Simple time tracking": "Watchtag — Rastreador de tempo simples",
-  "Watchtag — Time tracking for small teams":
-    "Watchtag — Rastreador de tempo para pequenas equipes",
-  "Watchtag is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.":
-    "Watchtag é um rastreador de tempo simples para freelancers e pequenas equipes: cronômetro, registros, relatórios e faturamento de clientes.",
+  "Time Tracker — Simple time tracking": "Time Tracker — Rastreador de tempo simples",
+  "Time Tracker — Time tracking for small teams":
+    "Time Tracker — Rastreador de tempo para pequenas equipes",
+  "Time Tracker is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.":
+    "Time Tracker é um rastreador de tempo simples para freelancers e pequenas equipes: cronômetro, registros, relatórios e faturamento de clientes.",
   "Track hours, manage projects and bill clients with a calm, focused workspace.":
     "Acompanhe horas, gerencie projetos e fature clientes em um workspace calmo e focado.",
   "Start the live timer, log time and manage your entries in one focused workspace.":
@@ -903,12 +927,12 @@ const ptBR: Record<string, string> = {
   "Detailed, summary, weekly and team time reports.":
     "Relatórios detalhados, resumidos, semanais e da equipe.",
   "Filter and understand tracked time.": "Filtre e entenda as horas registradas.",
-  "Connect Watchtag to Trello and sync cards into tracked tasks.":
-    "Conecte o Watchtag ao Trello e sincronize cartões como tarefas registradas.",
+  "Connect Time Tracker to Trello and sync cards into tracked tasks.":
+    "Conecte o Time Tracker ao Trello e sincronize cartões como tarefas registradas.",
   "Trello sync for your time tracking.": "Sincronização do Trello para seu rastreador de tempo.",
   "Workspace settings and personal preferences.":
     "Configurações do workspace e preferências pessoais.",
-  "Configure your Watchtag workspace.": "Configure seu workspace do Watchtag.",
+  "Configure your Time Tracker workspace.": "Configure seu workspace do Time Tracker.",
   "Search projects, clients, teammates and time entries.":
     "Busque projetos, clientes, colegas e registros de horas.",
   "Find anything in your workspace.": "Encontre qualquer coisa no seu workspace.",
@@ -980,7 +1004,7 @@ const ptBR: Record<string, string> = {
   "Main navigation": "Navegação principal",
   "Open navigation": "Abrir navegação",
   "Close navigation": "Fechar navegação",
-  Watchtag: "Watchtag",
+  "Time Tracker": "Time Tracker",
   "Actions for {name}": "Ações de {name}",
   "Unknown member": "Membro desconhecido",
   "Unknown project": "Projeto desconhecido",
@@ -1171,7 +1195,7 @@ const enUS: Record<string, string> = {
   "This page didn't load": "We couldn't load this page",
   "Something went wrong on our end. You can try refreshing or head back home.":
     "We couldn't load this page. Try again or go back to the home page.",
-  "Watchtag could not load: {error}": "We couldn't load Watchtag: {error}",
+  "Time Tracker could not load: {error}": "We couldn't load Time Tracker: {error}",
   "Your account cannot track time.": "This account can't track time yet.",
   "Your account cannot update the active timer.": "This account can't update the active timer.",
   "There is no active timer to update.": "There's no active timer to update yet.",

@@ -1,14 +1,17 @@
-project_id = "watchtag"
+project_id = "time-tracker"
 
 [auth]
 enable_signup = true
 enable_email_confirmations = true
 
+# Keep local development usable without external credentials. Enable Turnstile
+# in the hosted project dashboard before opening the public beta.
+[auth.captcha]
+enabled = false
+provider = "turnstile"
+
 [auth.external.google]
 enabled = true
-
-[functions.invite-member]
-verify_jwt = true
 
 [functions.accept-invitation]
 verify_jwt = true

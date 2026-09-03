@@ -6,6 +6,8 @@ import { AppShell } from "../components/layout/app-shell";
 import { defaultLocale, translate, type Locale, useI18n } from "../lib/i18n";
 import { StoreProvider } from "../lib/store";
 import { AuthProvider } from "../lib/auth-context";
+import { AccountLifecycleProvider } from "../lib/account-lifecycle-context";
+import { captureClientError } from "../lib/observability";
 import {
   Outlet,
   createRootRouteWithContext,
@@ -51,6 +53,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const locale = getRootFallbackLocale();
   const t = (key: string) => translate(key, locale);
 
+  useEffect(() => {
+    captureClientError(error);
+  }, [error]);
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="max-w-md text-center">
@@ -83,30 +89,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Watchtag — Simple time tracking" },
+      { title: "Time Tracker — Simple time tracking" },
       {
         name: "description",
         content: "Start a timer, organize your work and understand where your hours go.",
       },
-      { name: "author", content: "Watchtag" },
-      { property: "og:title", content: "Watchtag — Simple time tracking" },
+      { name: "author", content: "Time Tracker" },
+      { property: "og:title", content: "Time Tracker — Simple time tracking" },
       {
         property: "og:description",
         content: "A calm, focused workspace for tracking time across projects and clients.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-    ],
-    links: [
-      { rel: "icon", href: "/favicon.ico?v=orbit-3", sizes: "any" },
-      { rel: "icon", href: "/icons/icon-32.png?v=orbit-3", sizes: "32x32", type: "image/png" },
-      { rel: "icon", href: "/favicon.svg?v=orbit-3", type: "image/svg+xml" },
-      {
-        rel: "apple-touch-icon",
-        href: "/icons/apple-touch-icon.png?v=orbit-3",
-        sizes: "180x180",
-      },
-      { rel: "manifest", href: "/site.webmanifest?v=orbit-3" },
     ],
   }),
   component: RootComponent,
@@ -120,11 +115,13 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <StoreProvider>
-          <AppShell>
-            <RootOutlet />
-          </AppShell>
-        </StoreProvider>
+        <AccountLifecycleProvider>
+          <StoreProvider>
+            <AppShell>
+              <RootOutlet />
+            </AppShell>
+          </StoreProvider>
+        </AccountLifecycleProvider>
       </AuthProvider>
       <Toast.Provider placement="top end" width={360} gap={8} maxVisibleToasts={3} />
     </QueryClientProvider>
@@ -139,62 +136,62 @@ function RootOutlet() {
     const metadata: Record<string, { title: string; description: string; ogDescription: string }> =
       {
         "/": {
-          title: t("Watchtag — Time tracking for small teams"),
+          title: t("Time Tracker — Time tracking for small teams"),
           description: t(
-            "Watchtag is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.",
+            "Time Tracker is a minimal time tracker for freelancers and small teams: live timer, time entries, reports and client billing.",
           ),
           ogDescription: t(
             "Track hours, manage projects and bill clients with a calm, focused workspace.",
           ),
         },
         "/tracker": {
-          title: `${t("Tracker")} — Watchtag`,
+          title: `${t("Tracker")} — Time Tracker`,
           description: t(
             "Start the live timer, log time and manage your entries in one focused workspace.",
           ),
           ogDescription: t("Live timer and daily time entries in one focused view."),
         },
         "/today": {
-          title: `${t("Tracker")} — Watchtag`,
+          title: `${t("Tracker")} — Time Tracker`,
           description: t(
             "Start the live timer, log time and manage your entries in one focused workspace.",
           ),
           ogDescription: t("Live timer and daily time entries in one focused view."),
         },
         "/projects": {
-          title: `${t("Projects")} — Watchtag`,
+          title: `${t("Projects")} — Time Tracker`,
           description: t(
             "Track hours per project, monitor status and open detailed project breakdowns.",
           ),
           ogDescription: t("All client and internal projects with tracked time at a glance."),
         },
         "/clients": {
-          title: `${t("Clients")} — Watchtag`,
+          title: `${t("Clients")} — Time Tracker`,
           description: t("Manage clients, contacts and the projects connected to each client."),
           ogDescription: t("Client list with contacts and tracked time."),
         },
         "/team": {
-          title: `${t("Team")} — Watchtag`,
+          title: `${t("Team")} — Time Tracker`,
           description: t("Invite teammates, manage roles and track team hours."),
           ogDescription: t("Invite teammates and see tracked hours by member."),
         },
         "/reports": {
-          title: `${t("Reports")} — Watchtag`,
+          title: `${t("Reports")} — Time Tracker`,
           description: t("Detailed, summary, weekly and team time reports."),
           ogDescription: t("Filter and understand tracked time."),
         },
         "/integrations": {
-          title: `${t("Integrations")} — Watchtag`,
-          description: t("Connect Watchtag to Trello and sync cards into tracked tasks."),
+          title: `${t("Integrations")} — Time Tracker`,
+          description: t("Connect Time Tracker to Trello and sync cards into tracked tasks."),
           ogDescription: t("Trello sync for your time tracking."),
         },
         "/settings": {
-          title: `${t("Settings")} — Watchtag`,
+          title: `${t("Settings")} — Time Tracker`,
           description: t("Workspace settings and personal preferences."),
-          ogDescription: t("Configure your Watchtag workspace."),
+          ogDescription: t("Configure your Time Tracker workspace."),
         },
         "/search": {
-          title: `${t("Search")} — Watchtag`,
+          title: `${t("Search")} — Time Tracker`,
           description: t("Search projects, clients, teammates and time entries."),
           ogDescription: t("Find anything in your workspace."),
         },

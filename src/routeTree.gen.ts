@@ -10,15 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountDeletionRouteImport } from './routes/account-deletion'
 import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
+import { Route as LegalConsentRouteImport } from './routes/legal-consent'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TeamRouteImport } from './routes/team'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TodayRouteImport } from './routes/today'
 import { Route as TrackerRouteImport } from './routes/tracker'
 import { Route as WorkspacesRouteImport } from './routes/workspaces'
@@ -30,6 +34,11 @@ import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projec
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountDeletionRoute = AccountDeletionRouteImport.update({
+  id: '/account-deletion',
+  path: '/account-deletion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClientsRoute = ClientsRouteImport.update({
@@ -47,9 +56,19 @@ const IntegrationsRoute = IntegrationsRouteImport.update({
   path: '/integrations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalConsentRoute = LegalConsentRouteImport.update({
+  id: '/legal-consent',
+  path: '/legal-consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoute = ReportsRouteImport.update({
@@ -75,6 +94,11 @@ const SignupRoute = SignupRouteImport.update({
 const TeamRoute = TeamRouteImport.update({
   id: '/team',
   path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TodayRoute = TodayRouteImport.update({
@@ -115,15 +139,19 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account-deletion': typeof AccountDeletionRoute
   '/clients': typeof ClientsRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/integrations': typeof IntegrationsRoute
+  '/legal-consent': typeof LegalConsentRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/reports': typeof ReportsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/team': typeof TeamRoute
+  '/terms': typeof TermsRoute
   '/today': typeof TodayRoute
   '/tracker': typeof TrackerRoute
   '/workspaces': typeof WorkspacesRoute
@@ -134,15 +162,19 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account-deletion': typeof AccountDeletionRoute
   '/clients': typeof ClientsRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/integrations': typeof IntegrationsRoute
+  '/legal-consent': typeof LegalConsentRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/reports': typeof ReportsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/team': typeof TeamRoute
+  '/terms': typeof TermsRoute
   '/today': typeof TodayRoute
   '/tracker': typeof TrackerRoute
   '/workspaces': typeof WorkspacesRoute
@@ -154,15 +186,19 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account-deletion': typeof AccountDeletionRoute
   '/clients': typeof ClientsRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/integrations': typeof IntegrationsRoute
+  '/legal-consent': typeof LegalConsentRoute
   '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
   '/reports': typeof ReportsRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/signup': typeof SignupRoute
   '/team': typeof TeamRoute
+  '/terms': typeof TermsRoute
   '/today': typeof TodayRoute
   '/tracker': typeof TrackerRoute
   '/workspaces': typeof WorkspacesRoute
@@ -175,15 +211,19 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account-deletion'
     | '/clients'
     | '/forgot-password'
     | '/integrations'
+    | '/legal-consent'
     | '/login'
+    | '/privacy'
     | '/reports'
     | '/search'
     | '/settings'
     | '/signup'
     | '/team'
+    | '/terms'
     | '/today'
     | '/tracker'
     | '/workspaces'
@@ -194,15 +234,19 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/account-deletion'
     | '/clients'
     | '/forgot-password'
     | '/integrations'
+    | '/legal-consent'
     | '/login'
+    | '/privacy'
     | '/reports'
     | '/search'
     | '/settings'
     | '/signup'
     | '/team'
+    | '/terms'
     | '/today'
     | '/tracker'
     | '/workspaces'
@@ -213,15 +257,19 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/account-deletion'
     | '/clients'
     | '/forgot-password'
     | '/integrations'
+    | '/legal-consent'
     | '/login'
+    | '/privacy'
     | '/reports'
     | '/search'
     | '/settings'
     | '/signup'
     | '/team'
+    | '/terms'
     | '/today'
     | '/tracker'
     | '/workspaces'
@@ -233,15 +281,19 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountDeletionRoute: typeof AccountDeletionRoute
   ClientsRoute: typeof ClientsRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   IntegrationsRoute: typeof IntegrationsRoute
+  LegalConsentRoute: typeof LegalConsentRoute
   LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
   ReportsRoute: typeof ReportsRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   SignupRoute: typeof SignupRoute
   TeamRoute: typeof TeamRoute
+  TermsRoute: typeof TermsRoute
   TodayRoute: typeof TodayRoute
   TrackerRoute: typeof TrackerRoute
   WorkspacesRoute: typeof WorkspacesRoute
@@ -258,6 +310,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-deletion': {
+      id: '/account-deletion'
+      path: '/account-deletion'
+      fullPath: '/account-deletion'
+      preLoaderRoute: typeof AccountDeletionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clients': {
@@ -281,11 +340,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal-consent': {
+      id: '/legal-consent'
+      path: '/legal-consent'
+      fullPath: '/legal-consent'
+      preLoaderRoute: typeof LegalConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -321,6 +394,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/team'
       preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/today': {
@@ -377,15 +457,19 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountDeletionRoute: AccountDeletionRoute,
   ClientsRoute: ClientsRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   IntegrationsRoute: IntegrationsRoute,
+  LegalConsentRoute: LegalConsentRoute,
   LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
   ReportsRoute: ReportsRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   SignupRoute: SignupRoute,
   TeamRoute: TeamRoute,
+  TermsRoute: TermsRoute,
   TodayRoute: TodayRoute,
   TrackerRoute: TrackerRoute,
   WorkspacesRoute: WorkspacesRoute,

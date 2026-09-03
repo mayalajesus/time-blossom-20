@@ -1,13 +1,33 @@
 import { createClient } from "@supabase/supabase-js";
+import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { avatarDataValue as profileAvatarDataValue } from "./auth-profile.mjs";
 import { authenticateDataRequest } from "./authentication.mjs";
+import {
+  acceptLegalTerms,
+  cancelAccountDeletion,
+  enforceAccountLifecycle,
+  exportAccountData,
+  getAccountDeletionStatus,
+  requestAccountDeletion,
+  transferWorkspaceOwnership,
+} from "./account-lifecycle.mjs";
 import { DataApiError } from "./data-api-error.mjs";
+import { enforceIpBurstLimit, enforceUserRateLimits } from "./rate-limit.mjs";
+import {
+  captureServerError,
+  initializeServerObservability,
+  sanitizeTelemetry,
+} from "./observability.mjs";
 
 const { Pool } = pg;
 const pools = new Map();
 const supabaseAdmins = new Map();
 const MAX_REQUEST_BODY_BYTES = 4 * 1024 * 1024;
+
+// Initialize before the first request so server-side tracing can instrument the
+// whole invocation. The helper is a no-op when SENTRY_DSN is not configured.
+initializeServerObservability();
 const MAX_INTEGER_SECONDS = 2_147_483_647;
 const allowedCurrencies = new Set(["BRL", "USD", "EUR", "GBP"]);
 const defaultAvatarUrls = [
@@ -31,7 +51,7 @@ function authOrigin(authUrl) {
   }
 }
 
-function providerEnv(env) {
+export function providerEnv(env) {
   const databaseProvider = envValue(env, "DATABASE_PROVIDER");
   const vercelUrl = envValue(env, "VERCEL_URL");
   const neonAuthUrl = envValue(env, "VITE_NEON_AUTH_URL").replace(/\/$/, "");
@@ -56,7 +76,7 @@ function providerEnv(env) {
   };
 }
 
-function getSupabaseAdmin(config) {
+export function getSupabaseAdmin(config) {
   if (
     config.databaseProvider !== "supabase" ||
     !config.supabaseUrl ||
@@ -75,14 +95,17 @@ function getSupabaseAdmin(config) {
   return admin;
 }
 
-function getPool(config) {
+export function getPool(config) {
   if (!config.databaseUrl) throw new Error("DATABASE_URL is required by the data API.");
   let pool = pools.get(config.databaseUrl);
   if (!pool) {
     pool = new Pool({
       connectionString: config.databaseUrl,
       max: 5,
-      application_name: "watchtag-api",
+      connectionTimeoutMillis: 10_000,
+      idleTimeoutMillis: 30_000,
+      keepAlive: true,
+      application_name: "time-tracker-api",
     });
     pools.set(config.databaseUrl, pool);
   }
@@ -1184,7 +1207,8 @@ async function requireInvitationManager(client, userId, workspaceId, targetRole)
 }
 
 function invitationRedirect(config, invitationId) {
-  if (!config.appUrl) throw new DataApiError(500, "APP_URL is required to send invitations.");
+  if (!config.appUrl)
+    throw new DataApiError(500, "APP_URL is required to create invitation links.");
   let redirect;
   try {
     redirect = new URL("/invite/accept", config.appUrl);
@@ -1195,33 +1219,7 @@ function invitationRedirect(config, invitationId) {
   return redirect.toString();
 }
 
-async function sendInvitation(config, invitation) {
-  const admin = getSupabaseAdmin(config);
-  const options = {
-    redirectTo: invitationRedirect(config, invitation.id),
-    data: { invitation_id: invitation.id },
-  };
-  const { error } = await admin.auth.admin.inviteUserByEmail(invitation.email, options);
-  if (!error) return;
-  const existingUser =
-    error.code === "email_exists" ||
-    /already (?:been )?registered|already exists/i.test(error.message);
-  if (!existingUser) throw new DataApiError(400, error.message);
-  const { error: magicLinkError } = await admin.auth.signInWithOtp({
-    email: invitation.email,
-    options: {
-      emailRedirectTo: options.redirectTo,
-      data: options.data,
-      shouldCreateUser: false,
-    },
-  });
-  if (magicLinkError) throw new DataApiError(400, magicLinkError.message);
-}
-
 async function inviteMember(client, user, config, body) {
-  if (config.databaseProvider !== "supabase") {
-    throw new DataApiError(400, "Invitations require the Supabase production provider.");
-  }
   await ensureProfile(client, user, config);
   const workspaceId = uuid(body.workspaceId);
   const email = String(body.email ?? "")
@@ -1279,16 +1277,10 @@ async function inviteMember(client, user, config, body) {
     throw error;
   }
   const invitation = inserted.rows[0];
-  try {
-    await sendInvitation(config, invitation);
-  } catch (error) {
-    await client.query(
-      `update public.workspace_invitations set status = 'cancelled' where id = $1`,
-      [invitation.id],
-    );
-    throw error;
-  }
-  return invitationMember(invitation);
+  return {
+    member: invitationMember(invitation),
+    invitationUrl: invitationRedirect(config, invitation.id),
+  };
 }
 
 async function resendInvitation(client, user, config, body) {
@@ -1303,7 +1295,6 @@ async function resendInvitation(client, user, config, body) {
   const invitation = result.rows[0];
   if (!invitation) throw new DataApiError(404, "This invitation is no longer pending.");
   await requireInvitationManager(client, user.id, workspaceId, invitation.role);
-  await sendInvitation(config, invitation);
   const updated = await client.query(
     `update public.workspace_invitations
         set invited_at = now(), expires_at = now() + interval '7 days'
@@ -1311,7 +1302,10 @@ async function resendInvitation(client, user, config, body) {
       returning id::text, workspace_id::text, email, role, invited_at, expires_at`,
     [invitationId],
   );
-  return invitationMember(updated.rows[0]);
+  return {
+    member: invitationMember(updated.rows[0]),
+    invitationUrl: invitationRedirect(config, invitationId),
+  };
 }
 
 async function cancelInvitation(client, user, body) {
@@ -1582,13 +1576,69 @@ async function updatePreferences(client, user, config, body) {
 async function operation(request, user, config, body) {
   const pool = getPool(config);
   const client = await pool.connect();
+  let discardClient = false;
   try {
     requirePayloadUser(user, body ?? {});
+    await ensureProfile(client, user, config);
+    const operationName = String(body.operation ?? "");
+    const includesUpload =
+      operationName === "syncAccount" &&
+      Array.isArray(body.account?.workspaces) &&
+      body.account.workspaces.some(
+        (item) =>
+          typeof item?.workspace?.logoDataUrl === "string" &&
+          item.workspace.logoDataUrl.startsWith("data:image/"),
+      );
+    await enforceUserRateLimits(client, user.id, operationName, new Date(), { includesUpload });
+    await enforceAccountLifecycle(client, user.id, operationName);
+    if (body.operation === "getAccountDeletionStatus") {
+      return await getAccountDeletionStatus(client, user.id);
+    }
+    if (body.operation === "acceptLegalTerms") {
+      return await acceptLegalTerms(client, user.id, body.locale);
+    }
+    if (body.operation === "exportAccountData") {
+      return await exportAccountData(client, user);
+    }
+    if (body.operation === "requestAccountDeletion") {
+      await client.query("begin");
+      try {
+        const requested = await requestAccountDeletion(client, user, body);
+        await client.query("commit");
+        return requested;
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    }
+    if (body.operation === "cancelAccountDeletion") {
+      await client.query("begin");
+      try {
+        const cancelled = await cancelAccountDeletion(client, user.id);
+        await client.query("commit");
+        return cancelled;
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    }
+    if (body.operation === "transferWorkspaceOwnership") {
+      await client.query("begin");
+      try {
+        const transferred = await transferWorkspaceOwnership(client, user.id, body);
+        await client.query("commit");
+        return transferred;
+      } catch (error) {
+        await client.query("rollback");
+        throw error;
+      }
+    }
     if (body.operation === "loadAccount") return await loadAccount(client, user, config);
     if (body.operation === "loadReportEntries") return await loadReportEntries(client, user, body);
     if (body.operation === "updatePreferences")
       return await updatePreferences(client, user, config, body);
-    if (body.operation === "inviteMember") return await inviteMember(client, user, config, body);
+    if (body.operation === "inviteMember" || body.operation === "createInvitationLink")
+      return await inviteMember(client, user, config, body);
     if (body.operation === "resendInvitation")
       return await resendInvitation(client, user, config, body);
     if (body.operation === "cancelInvitation") return await cancelInvitation(client, user, body);
@@ -1707,9 +1757,23 @@ async function operation(request, user, config, body) {
       return null;
     }
     throw new DataApiError(400, "Unsupported data operation.");
+  } catch (error) {
+    discardClient = isDatabaseConnectionFailure(error);
+    throw error;
   } finally {
-    client.release();
+    // A severed Neon connection must not return to the pool and poison the
+    // next request. Validation and application errors keep the client reusable.
+    client.release(discardClient);
   }
+}
+
+function isDatabaseConnectionFailure(error) {
+  if (!(error instanceof Error)) return false;
+  const code = typeof error.code === "string" ? error.code.toUpperCase() : "";
+  return (
+    ["ECONNRESET", "EPIPE", "ETIMEDOUT", "ENOTFOUND", "57P01", "57P02", "57P03"].includes(code) ||
+    /connection terminated|connection closed|socket hang up|\baborted\b/i.test(error.message)
+  );
 }
 
 export async function readBody(request) {
@@ -1743,36 +1807,60 @@ export async function readBody(request) {
   }
 }
 
-function sendJson(response, status, payload) {
+function sendJson(response, status, payload, requestId, retryAfter) {
   response.statusCode = status;
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.setHeader("cache-control", "no-store, private");
+  response.setHeader("x-request-id", requestId);
+  if (retryAfter) response.setHeader("retry-after", String(retryAfter));
   response.end(JSON.stringify(payload));
 }
 
-export async function handleDataRequest(request, response, env = {}) {
-  const method = String(request.method ?? "").toUpperCase();
-  if (method === "OPTIONS") {
-    response.statusCode = 204;
-    response.setHeader("cache-control", "no-store, private");
-    response.end();
-    return;
-  }
-  if (method !== "POST") {
-    response.setHeader("allow", "POST, OPTIONS");
-    sendJson(response, 405, { error: "Method not allowed." });
-    return;
-  }
+function validateRequestOrigin(request, config) {
+  const origin = String(request.headers?.origin ?? "").trim();
+  if (!origin) return;
+  let expectedOrigin = "";
   try {
+    expectedOrigin = new URL(config.appUrl).origin;
+  } catch {
+    throw new DataApiError(500, "APP_URL is not configured correctly.");
+  }
+  if (origin !== expectedOrigin) {
+    throw new DataApiError(403, "This request origin is not allowed.", {
+      code: "invalid_origin",
+    });
+  }
+}
+
+export async function handleDataRequest(request, response, env = {}) {
+  const requestId = randomUUID();
+  let operationName = "unknown";
+  response.setHeader("x-request-id", requestId);
+  const method = String(request.method ?? "").toUpperCase();
+  try {
+    enforceIpBurstLimit(request);
+    const config = providerEnv(env);
+    validateRequestOrigin(request, config);
+    if (method === "OPTIONS") {
+      response.statusCode = 204;
+      response.setHeader("cache-control", "no-store, private");
+      response.end();
+      return;
+    }
+    if (method !== "POST") {
+      response.setHeader("allow", "POST, OPTIONS");
+      sendJson(response, 405, { error: "Method not allowed.", requestId }, requestId);
+      return;
+    }
     const contentType = String(request.headers?.["content-type"] ?? "").toLowerCase();
     if (contentType && !contentType.startsWith("application/json")) {
       throw new DataApiError(415, "The request content type must be application/json.");
     }
-    const config = providerEnv(env);
     const user = await authenticateDataRequest(request, config, getPool);
     const body = await readBody(request);
+    operationName = String(body.operation ?? "unknown");
     const data = await operation(request, user, config, body);
-    sendJson(response, 200, { data });
+    sendJson(response, 200, { data, requestId }, requestId);
   } catch (error) {
     const isProjectNameConflict =
       error?.code === "23505" && error?.constraint === "projects_workspace_client_name_idx";
@@ -1786,12 +1874,26 @@ export async function handleDataRequest(request, response, env = {}) {
       status < 500
         ? internalMessage
         : "The data service is temporarily unavailable. Please try again.";
-    console.error("[watchtag data api]", {
+    console.error("[time-tracker data api]", {
+      requestId,
       name: error instanceof Error ? error.name : typeof error,
-      message: internalMessage,
+      message: sanitizeTelemetry(internalMessage),
       code: error?.code,
     });
-    sendJson(response, status, { error: publicMessage });
+    if (status >= 500) {
+      captureServerError(
+        error,
+        { requestId, operation: operationName, status },
+        { ...process.env, ...env },
+      );
+    }
+    sendJson(
+      response,
+      status,
+      { error: publicMessage, code: error?.code, requestId },
+      requestId,
+      error instanceof DataApiError ? error.retryAfter : undefined,
+    );
   }
 }
 

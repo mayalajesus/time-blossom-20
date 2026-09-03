@@ -337,12 +337,12 @@ export const Route = createFileRoute("/reports")({
   }),
   head: () => ({
     meta: [
-      { title: "Reports — Watchtag" },
+      { title: "Reports — Time Tracker" },
       {
         name: "description",
         content: "Overview and detailed time reports.",
       },
-      { property: "og:title", content: "Reports — Watchtag" },
+      { property: "og:title", content: "Reports — Time Tracker" },
       { property: "og:description", content: "Filter and understand tracked time." },
     ],
   }),
@@ -654,6 +654,9 @@ function ReportsPage() {
     gcTime: 5 * 60_000,
     refetchInterval: 15_000,
     refetchIntervalInBackground: false,
+    // Returning to a range already present in the cache should be instant. The
+    // interval still refreshes an open report without duplicating navigation calls.
+    refetchOnMount: false,
     refetchOnWindowFocus: true,
     retry: 1,
   });
@@ -813,7 +816,7 @@ function ReportsPage() {
           }
         : {}),
       displayTitle: t("Detailed report"),
-      subtitle: `Watchtag · ${formatDateRange(range.startDate, range.endDate, locale)}`,
+      subtitle: `Time Tracker · ${formatDateRange(range.startDate, range.endDate, locale)}`,
       meta: [
         { label: t("Period"), value: formatDateRange(range.startDate, range.endDate, locale) },
         { label: t("Scope"), value: reportScope },
@@ -888,7 +891,7 @@ function ReportsPage() {
       const weekdayRows = overviewWeekdayRows(reportAnalytics, locale);
       return {
         ...exportContext,
-        title: `watchtag-${exportView}`,
+        title: `time-tracker-${exportView}`,
         columns: [t("Metric"), t("Value")],
         rows: [
           {
@@ -1103,7 +1106,7 @@ function ReportsPage() {
       ];
       return {
         ...exportContext,
-        title: `watchtag-${exportView}`,
+        title: `time-tracker-${exportView}`,
         pdf: {
           kind: "detailed",
           startDate: range.startDate,
@@ -1200,7 +1203,7 @@ function ReportsPage() {
         : groups.map((group) => ({ primaryLabel: group.label, secondaryLabel: "", group }));
       return {
         ...exportContext,
-        title: `watchtag-${exportView}`,
+        title: `time-tracker-${exportView}`,
         columns: [
           t("Group"),
           ...(hasSubgroup ? [t("Subgroup")] : []),
