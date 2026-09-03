@@ -1,6 +1,8 @@
+import { ChevronRight, FileText, ShieldCheck } from "@gravity-ui/icons";
 import { Button } from "@heroui/react/button";
 import { Card } from "@heroui/react/card";
 import { Checkbox } from "@heroui/react/checkbox";
+import { Label } from "@heroui/react/label";
 import { Typography } from "@heroui/react/typography";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -32,29 +34,107 @@ function LegalConsentPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-10">
-      <Card className="w-full max-w-lg space-y-5 p-6">
-        <div className="space-y-2">
-          <Typography type="h1" weight="semibold">
-            Antes de continuar
+    <main
+      data-page="legal-consent"
+      className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-10"
+    >
+      <section aria-labelledby="legal-consent-title" className="mx-auto w-full max-w-md">
+        <div className="mb-7 text-center">
+          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-surface text-accent shadow-sm">
+            <ShieldCheck aria-hidden="true" className="size-6" />
+          </div>
+          <Typography id="legal-consent-title" type="h1" weight="semibold">
+            Revise os termos para continuar
           </Typography>
-          <Typography type="body-sm" color="muted">
-            Leia e aceite os documentos vigentes para usar a beta pública no Brasil.
+          <Typography type="body-sm" color="muted" className="mx-auto mt-2 max-w-sm">
+            Confirme que você leu os documentos vigentes para continuar no Time Tracker.
           </Typography>
         </div>
+
         {error ? (
-          <FormAlert title="Não foi possível registrar o aceite" description={error} />
+          <div className="mb-4">
+            <FormAlert title="Não foi possível registrar o aceite" description={error} />
+          </div>
         ) : null}
-        <Checkbox isSelected={accepted} onChange={setAccepted}>
-          Li e aceito os <RouterLink to="/terms">Termos de Uso</RouterLink> (versão{" "}
-          {status?.legal.termsVersion}) e o{" "}
-          <RouterLink to="/privacy">Aviso de Privacidade</RouterLink> (versão{" "}
-          {status?.legal.privacyVersion}).
-        </Checkbox>
-        <Button isDisabled={!accepted} isPending={busy} onPress={() => void submit()}>
-          Aceitar e continuar
-        </Button>
-      </Card>
+
+        <Card className="space-y-5 p-5 sm:p-6">
+          <div>
+            <Typography type="body-sm" weight="semibold">
+              Documentos vigentes
+            </Typography>
+            <Typography type="body-xs" color="muted" className="mt-1">
+              Abra cada documento para consultar o conteúdo completo.
+            </Typography>
+          </div>
+
+          <div className="space-y-2">
+            <LegalDocumentLink
+              to="/terms"
+              title="Termos de Uso"
+              version={status?.legal.termsVersion}
+            />
+            <LegalDocumentLink
+              to="/privacy"
+              title="Aviso de Privacidade"
+              version={status?.legal.privacyVersion}
+            />
+          </div>
+
+          <Checkbox isSelected={accepted} onChange={setAccepted} className="w-full">
+            <Checkbox.Content className="w-full items-start gap-3 rounded-xl border border-default bg-surface-secondary p-4">
+              <Checkbox.Control className="mt-0.5 shrink-0">
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              <Label className="cursor-pointer text-sm leading-5 text-foreground">
+                Li e concordo com os Termos de Uso e o Aviso de Privacidade.
+              </Label>
+            </Checkbox.Content>
+          </Checkbox>
+
+          <div className="space-y-3">
+            <Button
+              className="w-full"
+              isDisabled={!accepted}
+              isPending={busy}
+              onPress={() => void submit()}
+            >
+              Aceitar e continuar
+            </Button>
+            <Typography type="body-xs" color="muted" align="center">
+              Seu aceite será registrado com as versões exibidas acima.
+            </Typography>
+          </div>
+        </Card>
+      </section>
     </main>
+  );
+}
+
+function LegalDocumentLink({
+  to,
+  title,
+  version,
+}: {
+  to: "/terms" | "/privacy";
+  title: string;
+  version: string | undefined;
+}) {
+  return (
+    <RouterLink
+      to={to}
+      className="group flex w-full items-center gap-3 rounded-xl bg-surface-secondary px-3.5 py-3 no-underline transition-colors hover:bg-surface-tertiary"
+    >
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface text-muted">
+        <FileText aria-hidden="true" className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-foreground">{title}</span>
+        <span className="block text-xs text-muted">Versão {version ?? "—"}</span>
+      </span>
+      <ChevronRight
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5"
+      />
+    </RouterLink>
   );
 }

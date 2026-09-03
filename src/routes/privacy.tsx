@@ -55,7 +55,7 @@ function PrivacyPage() {
         <p>
           Aplicamos controles de acesso por workspace, limites contra abuso, validação de origem,
           criptografia em trânsito, backups cifrados e monitoramento de erros com redução de dados.
-          Não usamos Replay, publicidade comportamental ou cookies não essenciais nesta beta.
+          Não usamos Replay, publicidade comportamental ou cookies não essenciais no serviço.
         </p>
       </LegalSection>
       <LegalSection title="7. Seus direitos">
@@ -69,8 +69,7 @@ function PrivacyPage() {
       <LegalSection title="8. Alterações e reclamações">
         <p>
           Mudanças relevantes gerarão uma nova versão para aceite. Você também pode apresentar uma
-          petição à Autoridade Nacional de Proteção de Dados (ANPD). Este documento deve passar por
-          validação final da responsável antes da publicação da beta.
+          petição à Autoridade Nacional de Proteção de Dados (ANPD).
         </p>
       </LegalSection>
     </LegalPage>
