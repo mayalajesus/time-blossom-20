@@ -2,7 +2,7 @@ import { isCurrencyCode, type CurrencyCode } from "./billing";
 import { isValidDateOnly, type ReportPeriodPreset } from "./format";
 
 const reportFilterStorageVersion = 1;
-const reportFilterStoragePrefix = "watchtag:report-filters";
+const reportFilterStoragePrefix = "time-tracker:report-filters";
 
 const reportPeriodPresets: ReportPeriodPreset[] = [
   "today",

@@ -57,12 +57,12 @@ import { useStore } from "@/lib/store";
 export const Route = createFileRoute("/projects/")({
   head: () => ({
     meta: [
-      { title: "Projects — Watchtag" },
+      { title: "Projects — Time Tracker" },
       {
         name: "description",
         content: "Track hours per project, monitor status and open detailed project breakdowns.",
       },
-      { property: "og:title", content: "Projects — Watchtag" },
+      { property: "og:title", content: "Projects — Time Tracker" },
       {
         property: "og:description",
         content: "All client and internal projects with tracked time at a glance.",

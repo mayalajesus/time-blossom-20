@@ -23,12 +23,12 @@ import { useStore } from "@/lib/store";
 export const Route = createFileRoute("/tracker")({
   head: () => ({
     meta: [
-      { title: "Tracker — Watchtag time tracking" },
+      { title: "Tracker — Time Tracker time tracking" },
       {
         name: "description",
         content: "Start the live timer, log time and manage your entries in one focused workspace.",
       },
-      { property: "og:title", content: "Tracker — Watchtag time tracking" },
+      { property: "og:title", content: "Tracker — Time Tracker time tracking" },
       {
         property: "og:description",
         content: "Live timer and daily time entries in one focused view.",

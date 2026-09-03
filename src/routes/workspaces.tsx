@@ -44,9 +44,9 @@ import {
 export const Route = createFileRoute("/workspaces")({
   head: () => ({
     meta: [
-      { title: "Workspaces — Watchtag" },
-      { name: "description", content: "Create and manage your Watchtag workspaces." },
-      { property: "og:title", content: "Workspaces — Watchtag" },
+      { title: "Workspaces — Time Tracker" },
+      { name: "description", content: "Create and manage your Time Tracker workspaces." },
+      { property: "og:title", content: "Workspaces — Time Tracker" },
       {
         property: "og:description",
         content: "Switch between focused workspaces and shared teams.",

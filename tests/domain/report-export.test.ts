@@ -9,12 +9,12 @@ import {
 
 function payload(entries: NonNullable<ReportExportPayload["pdf"]>["entries"]): ReportExportPayload {
   return {
-    title: "watchtag-detailed",
+    title: "time-tracker-detailed",
     displayTitle: "Detailed report",
     columns: ["Project", "Client", "Task", "User"],
     rows: [],
     locale: "en-US",
-    branding: { workspaceName: "QA Watchtag", logoDataUrl: null },
+    branding: { workspaceName: "QA Time Tracker", logoDataUrl: null },
     pdf: {
       kind: "detailed",
       startDate: "2026-07-01",

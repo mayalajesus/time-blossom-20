@@ -1,6 +1,6 @@
-# Watchtag
+# Time Tracker
 
-Watchtag is a minimal time tracking workspace for freelancers and small
+Time Tracker is a minimal time tracking workspace for freelancers and small
 teams. It helps people start a timer quickly, review their day, organize work
 by project and client, and inspect lightweight reports.
 
