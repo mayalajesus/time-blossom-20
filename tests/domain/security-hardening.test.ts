@@ -108,9 +108,44 @@ describe("production security hardening", () => {
     log.mockRestore();
 
     expect(response.statusCode).toBe(500);
-    expect(JSON.parse(payload)).toEqual({
+    expect(JSON.parse(payload)).toMatchObject({
       error: "The data service is temporarily unavailable. Please try again.",
     });
+    expect(JSON.parse(payload).requestId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(headers.get("x-request-id")).toBe(JSON.parse(payload).requestId);
+  });
+
+  it("rejects browser requests from an origin different from APP_URL", async () => {
+    const headers = new Map<string, string>();
+    let payload = "";
+    const response = {
+      statusCode: 0,
+      setHeader: (key: string, value: string) => headers.set(key, value),
+      end: (value = "") => {
+        payload = value;
+      },
+    };
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await handleDataRequest(
+      {
+        method: "POST",
+        headers: {
+          origin: "https://malicious.example",
+          "content-type": "application/json",
+        },
+        body: { operation: "loadAccount" },
+      },
+      response,
+      { APP_URL: "https://app.example" },
+    );
+    log.mockRestore();
+
+    expect(response.statusCode).toBe(403);
+    expect(JSON.parse(payload)).toMatchObject({
+      code: "invalid_origin",
+      error: "This request origin is not allowed.",
+    });
+    expect(headers.get("x-request-id")).toBeTruthy();
   });
 
   it("sets browser isolation and anti-injection headers", () => {

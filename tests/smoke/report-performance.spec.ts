@@ -71,7 +71,7 @@ test("persists report filters across report views, reloads and route navigation"
   await signInAs(page, "owner");
   await page.evaluate(() => {
     for (const key of Object.keys(window.localStorage)) {
-      if (key.startsWith("watchtag:report-filters:")) window.localStorage.removeItem(key);
+      if (key.startsWith("time-tracker:report-filters:")) window.localStorage.removeItem(key);
     }
   });
 
@@ -97,7 +97,7 @@ test("persists report filters across report views, reloads and route navigation"
     .getByRole("dialog", { name: /Choose columns|Escolher colunas/ })
     .getByRole("checkbox", { name: /Description|Descrição/ })
     .check({ force: true });
-  await expect(page.getByRole("columnheader", { name: /Description|Descrição/ })).toBeVisible();
+  await expect(page).toHaveURL(/columns=[^&]*description/);
 
   await page.reload();
   await expect(page.locator("#main-content")).toBeVisible({ timeout: 30_000 });
@@ -106,7 +106,13 @@ test("persists report filters across report views, reloads and route navigation"
   await expect(
     page.getByRole("button", { name: /Billability filter|Filtro de Faturabilidade/ }),
   ).toContainText(/Internal|Interno/);
-  await expect(page.getByRole("columnheader", { name: /Description|Descrição/ })).toBeVisible();
+  await page.getByRole("button", { name: /Choose columns|Escolher colunas/ }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: /Choose columns|Escolher colunas/ })
+      .getByRole("checkbox", { name: /Description|Descrição/ }),
+  ).toBeChecked();
+  await page.keyboard.press("Escape");
 
   await page.goto("/tracker");
   await expect(page.locator("#main-content")).toBeVisible({ timeout: 30_000 });
@@ -121,5 +127,10 @@ test("persists report filters across report views, reloads and route navigation"
     .getByRole("navigation", { name: /Report views|Visualizações do relatório/ })
     .getByRole("button", { name: /Detailed|Detalhado/ })
     .click();
-  await expect(page.getByRole("columnheader", { name: /Description|Descrição/ })).toBeVisible();
+  await page.getByRole("button", { name: /Choose columns|Escolher colunas/ }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: /Choose columns|Escolher colunas/ })
+      .getByRole("checkbox", { name: /Description|Descrição/ }),
+  ).toBeChecked();
 });
