@@ -141,6 +141,7 @@ export function TrackerBar() {
               value={(active ? timer.projectId : projectId) ?? "none"}
               allowArchivedId={active ? timer.projectId : null}
               variant="secondary"
+              showClientName
               onChange={(value) => {
                 const nextProjectId = value === "none" || value === "all" ? null : value;
                 if (active) {

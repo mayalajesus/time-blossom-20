@@ -18,6 +18,7 @@ export interface ProjectSelectProps {
   ariaLabel: string;
   variant?: "primary" | "secondary";
   listClassName?: string;
+  showClientName?: boolean;
 }
 
 export function ProjectSelect({
@@ -28,6 +29,7 @@ export function ProjectSelect({
   ariaLabel,
   variant = "secondary",
   listClassName = "max-h-72 overflow-y-auto",
+  showClientName = false,
 }: ProjectSelectProps) {
   const { projects, clients, canTrackProject } = useStore();
   const { t } = useI18n();
@@ -104,7 +106,14 @@ export function ProjectSelect({
                   id={project.id}
                   textValue={`${project.name} ${clientNameFor(project.clientId)}`}
                 >
-                  <ProjectLabel project={project} label={project.name} />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <ProjectLabel project={project} label={project.name} />
+                    {showClientName ? (
+                      <span className="truncate text-xs leading-4 text-muted">
+                        {clientNameFor(project.clientId)}
+                      </span>
+                    ) : null}
+                  </span>
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
               ))}
