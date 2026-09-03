@@ -1,0 +1,98 @@
+name: Production backup
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: restore-test
+          POSTGRES_DB: restore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Validate backup secrets
+        shell: bash
+        run: |
+          : "${SUPABASE_DB_URL:?Missing SUPABASE_DB_URL}"
+          : "${SUPABASE_URL:?Missing SUPABASE_URL}"
+          : "${SUPABASE_SERVICE_ROLE_KEY:?Missing SUPABASE_SERVICE_ROLE_KEY}"
+          : "${BACKUP_ENCRYPTION_PASSPHRASE:?Missing BACKUP_ENCRYPTION_PASSPHRASE}"
+
+      - name: Dump database and private Storage
+        shell: bash
+        run: |
+          mkdir -p backup/database backup/storage
+          supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f backup/database/roles.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/database/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy -f backup/database/data.sql
+          node scripts/backup-storage.mjs backup/storage
+          find backup -type f -print0 | sort -z | xargs -0 sha256sum > backup/SHA256SUMS
+
+      - name: Monthly restore verification
+        shell: bash
+        env:
+          PGPASSWORD: restore-test
+        run: |
+          if [[ "${{ github.event_name }}" != "workflow_dispatch" && "$(date -u +%d)" != "01" ]]; then
+            echo "Monthly restore verification is not due."
+            exit 0
+          fi
+          psql -h 127.0.0.1 -U postgres -d restore_test -v ON_ERROR_STOP=1 -f backup/database/roles.sql
+          psql -h 127.0.0.1 -U postgres -d restore_test -v ON_ERROR_STOP=1 -f backup/database/schema.sql
+          psql -h 127.0.0.1 -U postgres -d restore_test -v ON_ERROR_STOP=1 -f backup/database/data.sql
+          psql -h 127.0.0.1 -U postgres -d restore_test -v ON_ERROR_STOP=1 -c "select count(*) from public.profiles;"
+
+      - name: Encrypt archive
+        shell: bash
+        run: |
+          tar -C backup -czf backup.tar.gz .
+          openssl enc -aes-256-cbc -pbkdf2 -salt \
+            -in backup.tar.gz \
+            -out "production-backup-$(date -u +%Y-%m-%d).tar.gz.enc" \
+            -pass env:BACKUP_ENCRYPTION_PASSPHRASE
+          rm -rf backup backup.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-backup-${{ github.run_id }}
+          path: production-backup-*.tar.gz.enc
+          retention-days: 7
+          if-no-files-found: error

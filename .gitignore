@@ -9,6 +9,8 @@ lerna-debug.log*
 
 node_modules
 dist
+backup/
+*.tar.gz.enc
 test-results
 playwright-report
 coverage
