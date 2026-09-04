@@ -48,6 +48,7 @@ export function ProjectSelect({
 
   const clientNameFor = (clientId: string) =>
     clients.find((client) => client.id === clientId)?.name ?? t("Unknown client");
+  const selectedProject = availableProjects.find((project) => project.id === value);
 
   return (
     <Autocomplete
@@ -63,7 +64,27 @@ export function ProjectSelect({
       }}
     >
       <Autocomplete.Trigger className="h-9 w-full min-w-0 items-center gap-2">
-        <Autocomplete.Value />
+        <Autocomplete.Value className="min-w-0 flex-1">
+          {({ defaultChildren }) =>
+            showClientName && selectedProject ? (
+              <span
+                className="flex min-w-0 items-center gap-2"
+                title={`${selectedProject.name} — ${clientNameFor(selectedProject.clientId)}`}
+              >
+                <ProjectLabel
+                  className="max-w-[60%] shrink-0"
+                  project={selectedProject}
+                  label={selectedProject.name}
+                />
+                <span className="min-w-0 truncate text-xs text-muted">
+                  {clientNameFor(selectedProject.clientId)}
+                </span>
+              </span>
+            ) : (
+              defaultChildren
+            )
+          }
+        </Autocomplete.Value>
         <Autocomplete.Indicator />
       </Autocomplete.Trigger>
       <Autocomplete.Popover
