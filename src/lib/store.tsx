@@ -182,6 +182,17 @@ export function getInitialTimeZone(): string {
   }
 }
 
+export function getDevicePreferences(
+  storedPreferences: UserPreferences,
+  deviceTimeZone = getInitialTimeZone(),
+): UserPreferences {
+  // The device clock is authoritative; API defaults or another device's saved zone
+  // must not shift the local dates and clock values used for tracking time.
+  return storedPreferences.timezone === deviceTimeZone
+    ? storedPreferences
+    : { ...storedPreferences, timezone: deviceTimeZone };
+}
+
 function isValidAvatarUrl(value: unknown): value is string | null {
   return (
     value === null ||
@@ -903,7 +914,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const accountForSyncRef = useRef(accountForSync);
   accountForSyncRef.current = accountForSync;
   const [elapsed, setElapsed] = useState(() => elapsedForTimer(timer));
-  const preferences = account.preferencesByUserId[activeMemberId] ?? initialPreferences;
+  const storedPreferences = account.preferencesByUserId[activeMemberId] ?? initialPreferences;
+  const deviceTimeZone = getInitialTimeZone();
+  const preferences = useMemo(
+    () => getDevicePreferences(storedPreferences, deviceTimeZone),
+    [deviceTimeZone, storedPreferences],
+  );
   const currentWorkspace = activeData?.workspace ?? null;
   const currentWorkspaceMembership =
     activeData?.memberships.find((membership) => membership.userId === activeMemberId) ?? null;
@@ -1347,7 +1363,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           workspaceId: activeWorkspaceId,
           now,
           startedDate: getLocalToday(new Date(now), preferences.timezone),
-          startClock: nowTime(preferences.timezone),
+          startClock: nowTime(preferences.timezone, new Date(now)),
           hourlyRate: workspaceBilling.hourlyRate,
           currency: workspaceBilling.currency,
         },
